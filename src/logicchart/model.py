@@ -84,6 +84,7 @@ class Finding:
     location: SourceLocation
     node_id: str | None = None
     detail: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -101,6 +102,7 @@ class FileAnalysis:
     sha256: str
     flows: list[Flow] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
+    enums: dict[str, list[str]] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -113,6 +115,7 @@ class FileAnalysis:
             sha256=data["sha256"],
             flows=[_flow_from_dict(item) for item in data.get("flows", [])],
             findings=[_finding_from_dict(item) for item in data.get("findings", [])],
+            enums=data.get("enums", {}),
         )
 
 
@@ -129,7 +132,7 @@ class ProjectModel:
     @classmethod
     def empty(cls, root: Path) -> ProjectModel:
         return cls(
-            schema_version="1.0",
+            schema_version="1.1",
             generated_at=datetime.now(timezone.utc).isoformat(),
             root=str(root.resolve()),
         )
@@ -209,4 +212,5 @@ def _finding_from_dict(data: dict[str, Any]) -> Finding:
         location=_location_from_dict(data["location"]),
         node_id=data.get("node_id"),
         detail=data.get("detail", ""),
+        metadata=data.get("metadata", {}),
     )

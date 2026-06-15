@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -333,3 +334,63 @@ def _reach(seeds: list[str], adjacency: dict[str, list[str]]) -> set[str]:
 def call_is_boundary(name: str) -> bool:
     lowered = name.lower()
     return any(term in lowered for term in BOUNDARY_CALL_TERMS)
+
+
+# Side-effect categories inferred from a call's leaf name. Detectors (logging
+# asymmetry, auth divergence, default-semantic inconsistency) read these tags.
+EFFECT_LEXICON: dict[str, tuple[str, ...]] = {
+    "auth_check": (
+        "require_role",
+        "require_admin",
+        "require_permission",
+        "check_permission",
+        "ensure_authenticated",
+        "ensure_admin",
+        "get_current_user",
+        "authorize",
+        "authenticate",
+        "verify_token",
+        "has_permission",
+        "is_authorized",
+    ),
+    "db_write": ("save", "insert", "update", "delete", "create", "commit", "persist", "upsert"),
+    "db_read": ("fetch", "find", "load", "query", "select", "lookup"),
+    "network": ("send", "publish", "dispatch", "notify", "emit", "request"),
+    "log": ("log", "warn", "warning", "capture_exception", "alert"),
+}
+
+
+# Receiver names that mark a call as logging regardless of the level method
+# (so `logger.info` / `log.error` / `self.logging.warning` all count as a log).
+_LOGGER_RECEIVERS = {"log", "logger", "logging"}
+
+
+def _to_snake(name: str) -> str:
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
+
+def effect_tags(call_names: Iterable[str]) -> list[str]:
+    """The side-effect categories a set of call names implies (word-boundary match)."""
+    effects: set[str] = set()
+    for name in call_names:
+        parts = str(name).split(".")
+        padded = f"_{_to_snake(parts[-1])}_"
+        for effect, terms in EFFECT_LEXICON.items():
+            if any(f"_{term}_" in padded for term in terms):
+                effects.add(effect)
+        if any(part.lower() in _LOGGER_RECEIVERS for part in parts[:-1]):
+            effects.add("log")
+    return sorted(effects)
+
+
+def tag_call_effects(flow: Flow) -> None:
+    """Tag call nodes with `effects` and set the flow's `performs_auth_check`."""
+    performs_auth = False
+    for node in flow.nodes:
+        if node.kind is not NodeKind.CALL:
+            continue
+        effects = effect_tags(str(item) for item in node.metadata.get("calls", []))
+        if effects:
+            node.metadata["effects"] = effects
+        performs_auth = performs_auth or "auth_check" in effects
+    flow.metadata["performs_auth_check"] = performs_auth

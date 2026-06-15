@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.0",
-  "generated_at": "2026-06-15T18:09:03.499002+00:00",
+  "schema_version": "1.1",
+  "generated_at": "2026-06-15T18:38:21.245747+00:00",
   "root": ".",
   "flows": [
     {
@@ -53,6 +53,9 @@
             "reaches_terminal": true,
             "qualified_calls": [
               "backend.users:load_user"
+            ],
+            "effects": [
+              "db_read"
             ],
             "link_confidence": "high",
             "call_candidates": [
@@ -239,7 +242,8 @@
         "test": false,
         "decorators": [
           "app.get('/users/{user_id}')"
-        ]
+        ],
+        "performs_auth_check": false
       }
     },
     {
@@ -293,6 +297,9 @@
             "qualified_calls": [
               "backend.users:repository.fetch"
             ],
+            "effects": [
+              "db_read"
+            ],
             "link_confidence": "medium",
             "call_candidates": [
               "flow-eef1d33de2175dfc"
@@ -344,7 +351,8 @@
       "metadata": {
         "async": true,
         "test": false,
-        "decorators": []
+        "decorators": [],
+        "performs_auth_check": false
       }
     },
     {
@@ -397,6 +405,9 @@
             "reaches_terminal": true,
             "qualified_calls": [
               "frontend.app.api.users.route:loadUser"
+            ],
+            "effects": [
+              "db_read"
             ],
             "link_confidence": "high",
             "call_candidates": [
@@ -572,7 +583,8 @@
       "metadata": {
         "exported": true,
         "default_export": false,
-        "test": false
+        "test": false,
+        "performs_auth_check": false
       }
     },
     {
@@ -703,7 +715,8 @@
       "metadata": {
         "exported": true,
         "default_export": true,
-        "test": false
+        "test": false,
+        "performs_auth_check": false
       }
     },
     {
@@ -771,7 +784,8 @@
       "metadata": {
         "async": true,
         "test": false,
-        "decorators": []
+        "decorators": [],
+        "performs_auth_check": false
       }
     },
     {
@@ -824,6 +838,9 @@
             "reaches_terminal": true,
             "qualified_calls": [
               "frontend.app.api.users.route:database.users.find"
+            ],
+            "effects": [
+              "db_read"
             ]
           }
         },
@@ -868,7 +885,8 @@
       "metadata": {
         "exported": false,
         "default_export": false,
-        "test": false
+        "test": false,
+        "performs_auth_check": false
       }
     }
   ],
@@ -886,7 +904,8 @@
         "end_line": 9
       },
       "node_id": "flow-3de3eacd67f96e64:n3",
-      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases."
+      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
+      "metadata": {}
     }
   ],
   "files": [
@@ -925,6 +944,16 @@
     ],
     "entrypoint_count": 4,
     "flow_count": 6,
-    "finding_count": 1
+    "finding_count": 1,
+    "enums": {
+      "python": {
+        "UserStatus": [
+          "UserStatus.ACTIVE",
+          "UserStatus.SUSPENDED",
+          "UserStatus.DELETED"
+        ]
+      },
+      "typescript": {}
+    }
   }
 }

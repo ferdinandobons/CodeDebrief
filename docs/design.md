@@ -71,6 +71,18 @@ Decision metadata (carried in the open `node.metadata`):
 - `reachable_from_entry` / `reaches_terminal`: deterministic graph-reachability flags on
   every node.
 
+Cross-flow foundation (schema `1.1`):
+
+- Call nodes carry `qualified_calls` (import-resolved `module:symbol` references),
+  `link_confidence` (high/medium/low), `call_candidates` (kept even when ambiguous), and
+  `effects` (a subset of `auth_check`/`db_read`/`db_write`/`network`/`log`); each flow gets
+  a `performs_auth_check` flag.
+- The project metadata holds an `enums` value-universe table, keyed by language, harvested
+  from Python `Enum` classes and TypeScript enums / string-literal unions.
+- Findings carry an open `metadata` sub-object (`category`, `value_namespace`, `missing`,
+  `quorum`, …); their ids derive from structural anchors (flow symbol + node ordinal), so a
+  finding's id is stable across edits to its mutable details.
+
 Evidence levels:
 
 - `VERIFIED`: extracted directly from syntax or framework conventions.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,7 +29,7 @@ from logicchart.model import (
 )
 from logicchart.util import file_sha256, read_json, relpath, stable_id, write_json
 
-CACHE_VERSION = "1"
+CACHE_VERSION = "2"
 
 
 @dataclass(slots=True)
@@ -129,8 +130,16 @@ class ProjectAnalyzer:
             )
             for analysis in analyses
         ]
+        # Keyed by language so a Python enum and a same-named TS union stay distinct
+        # value universes (they are different closed sets).
+        enums: dict[str, dict[str, list[str]]] = {}
+        for analysis in analyses:
+            language_enums = enums.setdefault(analysis.language, {})
+            for name, members in analysis.enums.items():
+                known = language_enums.setdefault(name, [])
+                known.extend(member for member in members if member not in known)
         return ProjectModel(
-            schema_version="1.0",
+            schema_version="1.1",
             generated_at=datetime.now(timezone.utc).isoformat(),
             root=".",
             flows=sorted(flows, key=lambda item: (not item.is_entrypoint, item.symbol)),
@@ -141,6 +150,7 @@ class ProjectAnalyzer:
                 "entrypoint_count": sum(flow.is_entrypoint for flow in flows),
                 "flow_count": len(flows),
                 "finding_count": len(findings),
+                "enums": enums,
             },
         )
 
@@ -214,51 +224,105 @@ class ProjectAnalyzer:
                     target.tests.append(flow.symbol)
 
     def _find_inconsistent_decisions(self, flows: list[Flow]) -> list[Finding]:
-        # Bucket comparable decisions by (language, domain). Language scoping keeps
-        # cross-language closed sets apart (e.g. a Python `status` enum is never
-        # compared against a TS `status` union), which removes the cross-language
-        # false positive without changing same-language behavior.
-        buckets: dict[tuple[str, str], list[tuple[Flow, FlowNode, set[str]]]] = {}
+        # Quorum-aware cross-flow value coverage. Comparison is per flow (not per
+        # decision node) and bucketed by (language, subject, value_namespace) so
+        # only flows branching on the *same* subject and enum/union are compared —
+        # keeping the same enum reused on different subjects apart, and scoping the
+        # explicit-default suppression to the relevant subject. A flow is flagged
+        # for a value a strict majority of its siblings handle but it omits.
+        buckets: dict[tuple[str, str, str], dict[str, _Coverage]] = {}
         for flow in flows:
             if flow.metadata.get("test"):
                 continue
             for node in flow.nodes:
                 if node.kind is not NodeKind.DECISION:
                     continue
-                domain = str(node.metadata.get("domain", ""))
+                subject = str(node.metadata.get("subject", ""))
+                namespace = str(node.metadata.get("value_namespace", ""))
                 values = {str(item) for item in node.metadata.get("values", []) if str(item)}
-                if domain and values:
-                    buckets.setdefault((flow.language, domain), []).append((flow, node, values))
+                if not subject or not namespace or not values:
+                    continue
+                has_default = any(
+                    not entry.get("implicit") and entry.get("label") in _FALLBACK_LABELS
+                    for entry in node.metadata.get("branches", [])
+                )
+                coverages = buckets.setdefault((flow.language, subject, namespace), {})
+                existing = coverages.get(flow.id)
+                if existing is None:
+                    coverages[flow.id] = _Coverage(flow, node, set(values), has_default)
+                else:
+                    existing.handled |= values
+                    existing.has_default = existing.has_default or has_default
 
         findings: list[Finding] = []
-        for (_language, domain), decisions in buckets.items():
-            all_values = set().union(*(values for _, _, values in decisions))
-            if len(all_values) < 2:
+        for (_language, subject, namespace), coverages in buckets.items():
+            siblings = len(coverages)
+            if siblings < _MIN_QUORUM_SIBLINGS:
                 continue
-            for flow, node, values in decisions:
-                missing = sorted(all_values - values)
-                if not missing:
+            counts: Counter[str] = Counter()
+            for coverage in coverages.values():
+                counts.update(coverage.handled)
+            quorum = siblings // 2 + 1  # strict majority, so a single outlier can't set quorum
+            expected = {value for value, count in counts.items() if count >= quorum}
+            for coverage in coverages.values():
+                if coverage.has_default:
                     continue
-                findings.append(
-                    Finding(
-                        id=stable_id(flow.id, node.id, domain, ",".join(missing)),
-                        kind="inconsistent_case_handling",
-                        severity=Severity.WARNING,
-                        message=(
-                            f"Related flows explicitly mention additional {domain} cases; "
-                            f"review fallback handling for: {', '.join(missing)}"
-                        ),
-                        evidence=Evidence.POTENTIAL_GAP,
-                        flow_id=flow.id,
-                        node_id=node.id,
-                        location=node.location,
-                        detail=(
-                            "The comparison is heuristic and based on values used by other "
-                            f"{domain} decisions in this project."
-                        ),
+                missing = sorted(expected - coverage.handled)
+                if missing:
+                    findings.append(
+                        _inconsistent_finding(
+                            coverage, subject, namespace, missing, quorum, siblings
+                        )
                     )
-                )
         return findings
+
+
+# Cross-flow quorum needs a real majority context: with fewer siblings, a single
+# differing flow could not form a meaningful majority.
+_MIN_QUORUM_SIBLINGS = 3
+_FALLBACK_LABELS = {"No", "default", "_"}
+
+
+@dataclass(slots=True)
+class _Coverage:
+    """One flow's coverage of a (subject, value namespace), for cross-flow comparison."""
+
+    flow: Flow
+    node: FlowNode
+    handled: set[str]
+    has_default: bool
+
+
+def _inconsistent_finding(
+    coverage: _Coverage,
+    subject: str,
+    namespace: str,
+    missing: list[str],
+    quorum: int,
+    siblings: int,
+) -> Finding:
+    return Finding(
+        id=stable_id(coverage.flow.id, coverage.node.id, "inconsistent-case"),
+        kind="inconsistent_case_handling",
+        severity=Severity.WARNING,
+        message=(f"Most sibling flows handle {subject} values omitted here: {', '.join(missing)}"),
+        evidence=Evidence.POTENTIAL_GAP,
+        flow_id=coverage.flow.id,
+        node_id=coverage.node.id,
+        location=coverage.node.location,
+        detail=(
+            "Heuristic cross-flow comparison: a value handled by a majority of sibling "
+            "flows branching on this subject is absent here, with no explicit default."
+        ),
+        metadata={
+            "category": "cross_flow",
+            "subject": subject,
+            "value_namespace": namespace,
+            "missing": missing,
+            "confidence": round(quorum / siblings, 2),
+            "quorum": {"required": quorum, "siblings": siblings},
+        },
+    )
 
 
 def _deduplicate_findings(findings: list[Finding]) -> list[Finding]:

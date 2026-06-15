@@ -23,6 +23,7 @@ from logicchart.analysis.common import (
     decision_metadata,
     domain_from_subject,
     is_functional_condition,
+    tag_call_effects,
     value_namespace,
 )
 from logicchart.analysis.detectors import dead_code_finding, single_flow_findings
@@ -72,10 +73,12 @@ class TypeScriptAnalyzer:
         module_name = _module_name(relative)
         for flow in flows:
             attach_qualified_calls(flow, import_map, module_name)
+            tag_call_effects(flow)
         return FileAnalysis(
             path=relative,
             language="typescript",
             sha256=file_sha256(path),
+            enums=_harvest_enums(tree.root_node, source_bytes),
             flows=flows,
             findings=findings,
         )
@@ -689,6 +692,45 @@ def _resolve_module(specifier: str, relative: str) -> str | None:
     target = posixpath.normpath(posixpath.join(posixpath.dirname(relative), specifier))
     target = re.sub(r"\.(tsx?|jsx?)$", "", target)
     return target.replace("/", ".")
+
+
+def _harvest_enums(root: Any, source: bytes) -> dict[str, list[str]]:
+    """Map each TS enum / string-literal union to its members — the value universe."""
+    enums: dict[str, list[str]] = {}
+    for top in root.children:
+        nodes = list(_named_children(top)) if top.type == "export_statement" else [top]
+        for node in nodes:
+            if node.type == "enum_declaration":
+                name = _text(node.child_by_field_name("name"), source)
+                members = [
+                    f"{name}.{_text(child.child_by_field_name('name') or child, source)}"
+                    for child in _named_children(node.child_by_field_name("body"))
+                    if child.type in {"enum_assignment", "property_identifier"}
+                ]
+                if name and members:
+                    enums[name] = members
+            elif node.type == "type_alias_declaration":
+                name = _text(node.child_by_field_name("name"), source)
+                members = _union_string_members(node.child_by_field_name("value"), source)
+                if name and members:
+                    enums[name] = members
+    return enums
+
+
+def _union_string_members(value: Any, source: bytes) -> list[str]:
+    """String members of a union type, flattening nested and parenthesized unions."""
+    if value is None:
+        return []
+    if value.type in {"union_type", "parenthesized_type"}:
+        members: list[str] = []
+        for child in _named_children(value):
+            members.extend(_union_string_members(child, source))
+        return members
+    if value.type == "literal_type":
+        inner = next(iter(_named_children(value)), None)
+        if inner is not None and inner.type == "string":
+            return [_text(inner, source).strip("'\"`")]
+    return []
 
 
 def _is_test(relative: str, name: str) -> bool:

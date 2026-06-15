@@ -162,7 +162,7 @@ Single-flow (reason about one flow):
 
 Cross-flow (compare sibling flows):
 
-- `inconsistent_case_handling`: a value handled by related same-language flows but missing here.
+- `inconsistent_case_handling`: a value a strict majority of sibling flows branching on the same subject and enum/union handle, but which this flow omits with no explicit default.
 
 ## Configuration
 

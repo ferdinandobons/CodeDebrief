@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:logicchart:schema:logic-flow:1.0",
+  "$id": "urn:logicchart:schema:logic-flow:1.1",
   "title": "LogicChart Logical Model",
   "description": "Canonical decision-flow artifact generated from source code.",
   "type": "object",
@@ -15,7 +15,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0"
+      "const": "1.1"
     },
     "generated_at": {
       "type": "string",
@@ -212,7 +212,8 @@
         "evidence",
         "flow_id",
         "location",
-        "detail"
+        "detail",
+        "metadata"
       ],
       "properties": {
         "id": {
@@ -241,6 +242,9 @@
         },
         "detail": {
           "type": "string"
+        },
+        "metadata": {
+          "type": "object"
         }
       },
       "additionalProperties": false

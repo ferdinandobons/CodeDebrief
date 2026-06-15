@@ -44,34 +44,43 @@ def test_demo_precision_sla(tmp_path: Path) -> None:
     assert len(gaps) <= 1
 
 
-def test_same_language_cross_flow_still_fires(tmp_path: Path) -> None:
-    (tmp_path / "service.py").write_text(
-        """
-def handle_full(account):
+def test_quorum_cross_flow_flags_the_minority_omission(tmp_path: Path) -> None:
+    # Three sibling flows handle Status.DELETED; the fourth omits it. A strict
+    # majority handling a value it lacks makes the minority flow a review candidate.
+    full = """
+def handle_{n}(account):
     if account.status == Status.ACTIVE:
         return ok()
     if account.status == Status.SUSPENDED:
         return blocked()
     if account.status == Status.DELETED:
         return gone()
-
+"""
+    body = full.format(n="a") + full.format(n="b") + full.format(n="c")
+    body += """
 def handle_partial(account):
     if account.status == Status.ACTIVE:
         return ok()
     if account.status == Status.SUSPENDED:
         return blocked()
-""",
-        encoding="utf-8",
-    )
+"""
+    (tmp_path / "service.py").write_text(body, encoding="utf-8")
 
     model = ProjectAnalyzer(tmp_path).analyze(full=True).model
     partial = next(f for f in model.flows if f.name == "handle_partial")
-    on_partial = [
+    flagged = [
         f
         for f in model.findings
         if f.kind == "inconsistent_case_handling" and f.flow_id == partial.id
     ]
 
-    # Same-language siblings on the same domain are still compared: handle_partial
-    # never mentions Status.DELETED that its sibling handles, so it is flagged for it.
-    assert any("DELETED" in f.message for f in on_partial)
+    assert any("DELETED" in f.message for f in flagged)
+    # The mutable detail lives in metadata; the id is structural and stable.
+    finding = next(f for f in flagged if "DELETED" in f.message)
+    assert finding.metadata["value_namespace"] == "Status"
+    assert "Status.DELETED" in finding.metadata["missing"]
+    assert finding.metadata["quorum"]["siblings"] == 4
+    # The three complete siblings are not flagged.
+    assert not any(
+        f.kind == "inconsistent_case_handling" and f.flow_id != partial.id for f in model.findings
+    )

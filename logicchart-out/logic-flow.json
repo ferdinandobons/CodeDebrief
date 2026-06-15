@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.0",
-  "generated_at": "2026-06-15T18:09:03.562733+00:00",
+  "schema_version": "1.1",
+  "generated_at": "2026-06-15T18:38:21.321809+00:00",
   "root": ".",
   "flows": [
     {
@@ -53,6 +53,9 @@
             "reaches_terminal": true,
             "qualified_calls": [
               "examples.demo.backend.users:load_user"
+            ],
+            "effects": [
+              "db_read"
             ],
             "link_confidence": "high",
             "call_candidates": [
@@ -239,7 +242,8 @@
         "test": false,
         "decorators": [
           "app.get('/users/{user_id}')"
-        ]
+        ],
+        "performs_auth_check": false
       }
     },
     {
@@ -293,6 +297,9 @@
             "qualified_calls": [
               "examples.demo.backend.users:repository.fetch"
             ],
+            "effects": [
+              "db_read"
+            ],
             "link_confidence": "medium",
             "call_candidates": [
               "flow-6306314dcc318fc3"
@@ -344,7 +351,8 @@
       "metadata": {
         "async": true,
         "test": false,
-        "decorators": []
+        "decorators": [],
+        "performs_auth_check": false
       }
     },
     {
@@ -397,6 +405,9 @@
             "reaches_terminal": true,
             "qualified_calls": [
               "examples.demo.frontend.app.api.users.route:loadUser"
+            ],
+            "effects": [
+              "db_read"
             ],
             "link_confidence": "high",
             "call_candidates": [
@@ -572,7 +583,8 @@
       "metadata": {
         "exported": true,
         "default_export": false,
-        "test": false
+        "test": false,
+        "performs_auth_check": false
       }
     },
     {
@@ -703,7 +715,8 @@
       "metadata": {
         "exported": true,
         "default_export": true,
-        "test": false
+        "test": false,
+        "performs_auth_check": false
       }
     },
     {
@@ -854,12 +867,15 @@
         }
       ],
       "calls": [],
-      "called_by": [],
+      "called_by": [
+        "flow-c00fda52066729a3"
+      ],
       "tests": [],
       "metadata": {
         "async": false,
         "test": false,
-        "decorators": []
+        "decorators": [],
+        "performs_auth_check": false
       }
     },
     {
@@ -1015,7 +1031,1938 @@
       "metadata": {
         "async": false,
         "test": false,
-        "decorators": []
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-cfef4e8dba6238fd",
+      "name": "summarize",
+      "symbol": "examples.shop.backend.orders_service:summarize",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/orders_service.py",
+        "start_line": 19,
+        "end_line": 26
+      },
+      "nodes": [
+        {
+          "id": "flow-cfef4e8dba6238fd:n1",
+          "kind": "entry",
+          "label": "summarize",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 19,
+            "end_line": 26
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.orders_service:summarize",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-cfef4e8dba6238fd:n2",
+          "kind": "action",
+          "label": "'Planted #10: a no-op branch (the refunded case does nothing).'",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 20,
+            "end_line": 20
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Planted #10: a no-op branch (the refunded case does nothing).\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-cfef4e8dba6238fd:n3",
+          "kind": "action",
+          "label": "Set summary",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 21,
+            "end_line": 21
+          },
+          "evidence": "VERIFIED",
+          "detail": "summary: dict[str, object] = {\"id\": order.id, \"total\": order.total_cents}",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-cfef4e8dba6238fd:n4",
+          "kind": "decision",
+          "label": "order.status == OrderStatus.REFUNDED",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 22,
+            "end_line": 22
+          },
+          "evidence": "VERIFIED",
+          "detail": "order.status == OrderStatus.REFUNDED",
+          "metadata": {
+            "condition": "order.status == OrderStatus.REFUNDED",
+            "domain": "status",
+            "values": [
+              "OrderStatus.REFUNDED"
+            ],
+            "subject": "order.status",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "OrderStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "empty",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-cfef4e8dba6238fd:n5",
+          "kind": "action",
+          "label": "pass",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 23,
+            "end_line": 23
+          },
+          "evidence": "VERIFIED",
+          "detail": "pass",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-cfef4e8dba6238fd:n6",
+          "kind": "action",
+          "label": "Set summary['status']",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 25,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "summary[\"status\"] = order.status.value",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-cfef4e8dba6238fd:n7",
+          "kind": "terminal",
+          "label": "Return summary",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 26,
+            "end_line": 26
+          },
+          "evidence": "VERIFIED",
+          "detail": "return summary",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-cfef4e8dba6238fd:e1",
+          "source": "flow-cfef4e8dba6238fd:n1",
+          "target": "flow-cfef4e8dba6238fd:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-cfef4e8dba6238fd:e2",
+          "source": "flow-cfef4e8dba6238fd:n2",
+          "target": "flow-cfef4e8dba6238fd:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-cfef4e8dba6238fd:e3",
+          "source": "flow-cfef4e8dba6238fd:n3",
+          "target": "flow-cfef4e8dba6238fd:n4",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-cfef4e8dba6238fd:e4",
+          "source": "flow-cfef4e8dba6238fd:n4",
+          "target": "flow-cfef4e8dba6238fd:n5",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-cfef4e8dba6238fd:e5",
+          "source": "flow-cfef4e8dba6238fd:n4",
+          "target": "flow-cfef4e8dba6238fd:n6",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-cfef4e8dba6238fd:e6",
+          "source": "flow-cfef4e8dba6238fd:n5",
+          "target": "flow-cfef4e8dba6238fd:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-cfef4e8dba6238fd:e7",
+          "source": "flow-cfef4e8dba6238fd:n6",
+          "target": "flow-cfef4e8dba6238fd:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-4e833d53a700855c",
+      "name": "transition",
+      "symbol": "examples.shop.backend.orders_service:transition",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/orders_service.py",
+        "start_line": 6,
+        "end_line": 16
+      },
+      "nodes": [
+        {
+          "id": "flow-4e833d53a700855c:n1",
+          "kind": "entry",
+          "label": "transition",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 6,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.orders_service:transition",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-4e833d53a700855c:n2",
+          "kind": "action",
+          "label": "'Planted #4: match on order.status with no `case _` default.'",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 7,
+            "end_line": 7
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Planted #4: match on order.status with no `case _` default.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-4e833d53a700855c:n3",
+          "kind": "decision",
+          "label": "Match order.status",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 8,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "order.status",
+            "domain": "status",
+            "values": [
+              "OrderStatus.CART",
+              "OrderStatus.PAID",
+              "OrderStatus.PLACED",
+              "OrderStatus.SHIPPED"
+            ],
+            "subject": "order.status",
+            "operator": "match",
+            "negation": false,
+            "value_namespace": "OrderStatus",
+            "branches": [
+              {
+                "label": "OrderStatus.CART",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "OrderStatus.PLACED",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "OrderStatus.PAID",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "OrderStatus.SHIPPED",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "_",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-4e833d53a700855c:n4",
+          "kind": "action",
+          "label": "Set order.status",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "order.status = OrderStatus.PLACED",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-4e833d53a700855c:n5",
+          "kind": "action",
+          "label": "Set order.status",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 12,
+            "end_line": 12
+          },
+          "evidence": "VERIFIED",
+          "detail": "order.status = OrderStatus.PAID",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-4e833d53a700855c:n6",
+          "kind": "action",
+          "label": "Set order.status",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 14,
+            "end_line": 14
+          },
+          "evidence": "VERIFIED",
+          "detail": "order.status = OrderStatus.SHIPPED",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-4e833d53a700855c:n7",
+          "kind": "action",
+          "label": "Set order.status",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 16,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "order.status = OrderStatus.DELIVERED",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-4e833d53a700855c:n8",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "examples/shop/backend/orders_service.py",
+            "start_line": 6,
+            "end_line": 16
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-4e833d53a700855c:e1",
+          "source": "flow-4e833d53a700855c:n1",
+          "target": "flow-4e833d53a700855c:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-4e833d53a700855c:e2",
+          "source": "flow-4e833d53a700855c:n2",
+          "target": "flow-4e833d53a700855c:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-4e833d53a700855c:e3",
+          "source": "flow-4e833d53a700855c:n3",
+          "target": "flow-4e833d53a700855c:n4",
+          "label": "OrderStatus.CART",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-4e833d53a700855c:e4",
+          "source": "flow-4e833d53a700855c:n3",
+          "target": "flow-4e833d53a700855c:n5",
+          "label": "OrderStatus.PLACED",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-4e833d53a700855c:e5",
+          "source": "flow-4e833d53a700855c:n3",
+          "target": "flow-4e833d53a700855c:n6",
+          "label": "OrderStatus.PAID",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-4e833d53a700855c:e6",
+          "source": "flow-4e833d53a700855c:n3",
+          "target": "flow-4e833d53a700855c:n7",
+          "label": "OrderStatus.SHIPPED",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-4e833d53a700855c:e7",
+          "source": "flow-4e833d53a700855c:n4",
+          "target": "flow-4e833d53a700855c:n8",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-4e833d53a700855c:e8",
+          "source": "flow-4e833d53a700855c:n5",
+          "target": "flow-4e833d53a700855c:n8",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-4e833d53a700855c:e9",
+          "source": "flow-4e833d53a700855c:n6",
+          "target": "flow-4e833d53a700855c:n8",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-4e833d53a700855c:e10",
+          "source": "flow-4e833d53a700855c:n7",
+          "target": "flow-4e833d53a700855c:n8",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-4e833d53a700855c:e11",
+          "source": "flow-4e833d53a700855c:n3",
+          "target": "flow-4e833d53a700855c:n8",
+          "label": "_",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-3b15514408bbb3ee",
+      "name": "capture_payment",
+      "symbol": "examples.shop.backend.payments_service:capture_payment",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/payments_service.py",
+        "start_line": 39,
+        "end_line": 43
+      },
+      "nodes": [
+        {
+          "id": "flow-3b15514408bbb3ee:n1",
+          "kind": "entry",
+          "label": "capture_payment",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 39,
+            "end_line": 43
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.payments_service:capture_payment",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-3b15514408bbb3ee:n2",
+          "kind": "action",
+          "label": "'Planted #14 (sibling B): silently returns on the same invalid-amount path.'",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 40,
+            "end_line": 40
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Planted #14 (sibling B): silently returns on the same invalid-amount path.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-3b15514408bbb3ee:n3",
+          "kind": "action",
+          "label": "Handle internal condition: order.total_cents <= 0",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 41,
+            "end_line": 42
+          },
+          "evidence": "INFERRED",
+          "detail": "if order.total_cents <= 0: return",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-3b15514408bbb3ee:n4",
+          "kind": "call",
+          "label": "Call gateway_capture()",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 43,
+            "end_line": 43
+          },
+          "evidence": "VERIFIED",
+          "detail": "gateway_capture(order)",
+          "metadata": {
+            "calls": [
+              "gateway_capture"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.payments_service:gateway_capture"
+            ]
+          }
+        },
+        {
+          "id": "flow-3b15514408bbb3ee:n5",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 39,
+            "end_line": 43
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-3b15514408bbb3ee:e1",
+          "source": "flow-3b15514408bbb3ee:n1",
+          "target": "flow-3b15514408bbb3ee:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3b15514408bbb3ee:e2",
+          "source": "flow-3b15514408bbb3ee:n2",
+          "target": "flow-3b15514408bbb3ee:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3b15514408bbb3ee:e3",
+          "source": "flow-3b15514408bbb3ee:n3",
+          "target": "flow-3b15514408bbb3ee:n4",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3b15514408bbb3ee:e4",
+          "source": "flow-3b15514408bbb3ee:n4",
+          "target": "flow-3b15514408bbb3ee:n5",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-3fb7f77aa3ec9fd5",
+      "name": "charge",
+      "symbol": "examples.shop.backend.payments_service:charge",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/payments_service.py",
+        "start_line": 19,
+        "end_line": 27
+      },
+      "nodes": [
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:n1",
+          "kind": "entry",
+          "label": "charge",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 19,
+            "end_line": 27
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.payments_service:charge",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:n2",
+          "kind": "action",
+          "label": "'Planted #6: broad-except that swallows the failure (and the dead guard #11).'",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 20,
+            "end_line": 20
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Planted #6: broad-except that swallows the failure (and the dead guard #11).\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:n3",
+          "kind": "decision",
+          "label": "ENABLE_DOUBLE_CHARGE_GUARD",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 21,
+            "end_line": 21
+          },
+          "evidence": "VERIFIED",
+          "detail": "ENABLE_DOUBLE_CHARGE_GUARD",
+          "metadata": {
+            "condition": "ENABLE_DOUBLE_CHARGE_GUARD",
+            "domain": "",
+            "values": [],
+            "subject": "ENABLE_DOUBLE_CHARGE_GUARD",
+            "operator": "",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:n4",
+          "kind": "error",
+          "label": "Raise ApiError(409, 'double charge blocked')",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 22,
+            "end_line": 22
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(409, \"double charge blocked\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:n5",
+          "kind": "decision",
+          "label": "Operation succeeds?",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 23,
+            "end_line": 26
+          },
+          "evidence": "INFERRED",
+          "detail": "try: result = gateway_charge(account, order) except Exception: pass",
+          "metadata": {
+            "condition": "exception boundary",
+            "domain": "error",
+            "values": [],
+            "subject": "exception",
+            "operator": "",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Success",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "Exception",
+                "outcome": "empty",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:n6",
+          "kind": "call",
+          "label": "Call gateway_charge()",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 24,
+            "end_line": 24
+          },
+          "evidence": "VERIFIED",
+          "detail": "result = gateway_charge(account, order)",
+          "metadata": {
+            "calls": [
+              "gateway_charge"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.payments_service:gateway_charge"
+            ]
+          }
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:n7",
+          "kind": "action",
+          "label": "pass",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 26,
+            "end_line": 26
+          },
+          "evidence": "VERIFIED",
+          "detail": "pass",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:n8",
+          "kind": "terminal",
+          "label": "Return result",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 27,
+            "end_line": 27
+          },
+          "evidence": "VERIFIED",
+          "detail": "return result",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:e1",
+          "source": "flow-3fb7f77aa3ec9fd5:n1",
+          "target": "flow-3fb7f77aa3ec9fd5:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:e2",
+          "source": "flow-3fb7f77aa3ec9fd5:n2",
+          "target": "flow-3fb7f77aa3ec9fd5:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:e3",
+          "source": "flow-3fb7f77aa3ec9fd5:n3",
+          "target": "flow-3fb7f77aa3ec9fd5:n4",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:e4",
+          "source": "flow-3fb7f77aa3ec9fd5:n3",
+          "target": "flow-3fb7f77aa3ec9fd5:n5",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:e5",
+          "source": "flow-3fb7f77aa3ec9fd5:n5",
+          "target": "flow-3fb7f77aa3ec9fd5:n6",
+          "label": "Success",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:e6",
+          "source": "flow-3fb7f77aa3ec9fd5:n5",
+          "target": "flow-3fb7f77aa3ec9fd5:n7",
+          "label": "Exception",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:e7",
+          "source": "flow-3fb7f77aa3ec9fd5:n6",
+          "target": "flow-3fb7f77aa3ec9fd5:n8",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3fb7f77aa3ec9fd5:e8",
+          "source": "flow-3fb7f77aa3ec9fd5:n7",
+          "target": "flow-3fb7f77aa3ec9fd5:n8",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-d8c77f3ddc158387",
+      "name": "handle_result",
+      "symbol": "examples.shop.backend.payments_service:handle_result",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "event_handler",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/payments_service.py",
+        "start_line": 9,
+        "end_line": 16
+      },
+      "nodes": [
+        {
+          "id": "flow-d8c77f3ddc158387:n1",
+          "kind": "entry",
+          "label": "handle_result",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 9,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.payments_service:handle_result",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:n2",
+          "kind": "action",
+          "label": "'Planted #5: if/elif chain on PaymentResult missing FRAUD_REVIEW and no else.'",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Planted #5: if/elif chain on PaymentResult missing FRAUD_REVIEW and no else.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:n3",
+          "kind": "decision",
+          "label": "result == PaymentResult.APPROVED",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 11,
+            "end_line": 11
+          },
+          "evidence": "VERIFIED",
+          "detail": "result == PaymentResult.APPROVED",
+          "metadata": {
+            "condition": "result == PaymentResult.APPROVED",
+            "domain": "",
+            "values": [
+              "PaymentResult.APPROVED"
+            ],
+            "subject": "result",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "PaymentResult",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:n4",
+          "kind": "terminal",
+          "label": "Return 'paid'",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 12,
+            "end_line": 12
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"paid\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:n5",
+          "kind": "decision",
+          "label": "result == PaymentResult.DECLINED",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 13,
+            "end_line": 13
+          },
+          "evidence": "VERIFIED",
+          "detail": "result == PaymentResult.DECLINED",
+          "metadata": {
+            "condition": "result == PaymentResult.DECLINED",
+            "domain": "",
+            "values": [
+              "PaymentResult.DECLINED"
+            ],
+            "subject": "result",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "PaymentResult",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:n6",
+          "kind": "terminal",
+          "label": "Return 'declined'",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 14,
+            "end_line": 14
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"declined\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:n7",
+          "kind": "decision",
+          "label": "result == PaymentResult.PENDING",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 15,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "result == PaymentResult.PENDING",
+          "metadata": {
+            "condition": "result == PaymentResult.PENDING",
+            "domain": "",
+            "values": [
+              "PaymentResult.PENDING"
+            ],
+            "subject": "result",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "PaymentResult",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:n8",
+          "kind": "terminal",
+          "label": "Return 'pending'",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 16,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"pending\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:n9",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 9,
+            "end_line": 16
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-d8c77f3ddc158387:e1",
+          "source": "flow-d8c77f3ddc158387:n1",
+          "target": "flow-d8c77f3ddc158387:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:e2",
+          "source": "flow-d8c77f3ddc158387:n2",
+          "target": "flow-d8c77f3ddc158387:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:e3",
+          "source": "flow-d8c77f3ddc158387:n3",
+          "target": "flow-d8c77f3ddc158387:n4",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:e4",
+          "source": "flow-d8c77f3ddc158387:n3",
+          "target": "flow-d8c77f3ddc158387:n5",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:e5",
+          "source": "flow-d8c77f3ddc158387:n5",
+          "target": "flow-d8c77f3ddc158387:n6",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:e6",
+          "source": "flow-d8c77f3ddc158387:n5",
+          "target": "flow-d8c77f3ddc158387:n7",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:e7",
+          "source": "flow-d8c77f3ddc158387:n7",
+          "target": "flow-d8c77f3ddc158387:n8",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-d8c77f3ddc158387:e8",
+          "source": "flow-d8c77f3ddc158387:n7",
+          "target": "flow-d8c77f3ddc158387:n9",
+          "label": "No",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-7dfa5d0eac72e588",
+      "name": "refund_payment",
+      "symbol": "examples.shop.backend.payments_service:refund_payment",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/payments_service.py",
+        "start_line": 30,
+        "end_line": 36
+      },
+      "nodes": [
+        {
+          "id": "flow-7dfa5d0eac72e588:n1",
+          "kind": "entry",
+          "label": "refund_payment",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 30,
+            "end_line": 36
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.payments_service:refund_payment",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:n2",
+          "kind": "action",
+          "label": "'Planted #14 (sibling A): logs and alerts on the invalid-amount path.'",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 31,
+            "end_line": 31
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Planted #14 (sibling A): logs and alerts on the invalid-amount path.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:n3",
+          "kind": "decision",
+          "label": "order.total_cents <= 0",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 32,
+            "end_line": 32
+          },
+          "evidence": "VERIFIED",
+          "detail": "order.total_cents <= 0",
+          "metadata": {
+            "condition": "order.total_cents <= 0",
+            "domain": "",
+            "values": [],
+            "subject": "order.total_cents <= 0",
+            "operator": "",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:n4",
+          "kind": "call",
+          "label": "Call log_warning()",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 33,
+            "end_line": 33
+          },
+          "evidence": "VERIFIED",
+          "detail": "log_warning(\"refund requested for non-positive amount\")",
+          "metadata": {
+            "calls": [
+              "log_warning"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.payments_service:log_warning"
+            ],
+            "effects": [
+              "log"
+            ]
+          }
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:n5",
+          "kind": "call",
+          "label": "Call alert_ops()",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 34,
+            "end_line": 34
+          },
+          "evidence": "VERIFIED",
+          "detail": "alert_ops(\"suspicious refund\")",
+          "metadata": {
+            "calls": [
+              "alert_ops"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.payments_service:alert_ops"
+            ],
+            "effects": [
+              "log"
+            ]
+          }
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:n6",
+          "kind": "error",
+          "label": "Raise ApiError(422, 'invalid refund amount')",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 35,
+            "end_line": 35
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(422, \"invalid refund amount\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:n7",
+          "kind": "call",
+          "label": "Call gateway_refund()",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 36,
+            "end_line": 36
+          },
+          "evidence": "VERIFIED",
+          "detail": "gateway_refund(order)",
+          "metadata": {
+            "calls": [
+              "gateway_refund"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.payments_service:gateway_refund"
+            ]
+          }
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:n8",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "examples/shop/backend/payments_service.py",
+            "start_line": 30,
+            "end_line": 36
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-7dfa5d0eac72e588:e1",
+          "source": "flow-7dfa5d0eac72e588:n1",
+          "target": "flow-7dfa5d0eac72e588:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:e2",
+          "source": "flow-7dfa5d0eac72e588:n2",
+          "target": "flow-7dfa5d0eac72e588:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:e3",
+          "source": "flow-7dfa5d0eac72e588:n3",
+          "target": "flow-7dfa5d0eac72e588:n4",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:e4",
+          "source": "flow-7dfa5d0eac72e588:n4",
+          "target": "flow-7dfa5d0eac72e588:n5",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:e5",
+          "source": "flow-7dfa5d0eac72e588:n5",
+          "target": "flow-7dfa5d0eac72e588:n6",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:e6",
+          "source": "flow-7dfa5d0eac72e588:n3",
+          "target": "flow-7dfa5d0eac72e588:n7",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7dfa5d0eac72e588:e7",
+          "source": "flow-7dfa5d0eac72e588:n7",
+          "target": "flow-7dfa5d0eac72e588:n8",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-c00fda52066729a3",
+      "name": "authenticate",
+      "symbol": "examples.shop.backend.users_service:authenticate",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/users_service.py",
+        "start_line": 7,
+        "end_line": 23
+      },
+      "nodes": [
+        {
+          "id": "flow-c00fda52066729a3:n1",
+          "kind": "entry",
+          "label": "authenticate",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 7,
+            "end_line": 23
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.users_service:authenticate",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-c00fda52066729a3:n2",
+          "kind": "action",
+          "label": "'Reference handler: every AccountStatus is handled explicitly, with an else.\\n\\n This is...",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 8,
+            "end_line": 12
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Reference handler: every AccountStatus is handled explicitly, with an else. This is the complete-coverage sibling the cross-flow detector compares the route handlers against. It must NOT be flagged. \"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-c00fda52066729a3:n3",
+          "kind": "call",
+          "label": "Call ensure_authenticated()",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 13,
+            "end_line": 13
+          },
+          "evidence": "VERIFIED",
+          "detail": "account = ensure_authenticated(account)",
+          "metadata": {
+            "calls": [
+              "ensure_authenticated"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.auth:ensure_authenticated"
+            ],
+            "effects": [
+              "auth_check"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-92971030a65d1410"
+            ],
+            "target_flow": "flow-92971030a65d1410",
+            "target_symbol": "examples.shop.backend.auth:ensure_authenticated"
+          }
+        },
+        {
+          "id": "flow-c00fda52066729a3:n4",
+          "kind": "decision",
+          "label": "account.status == AccountStatus.SUSPENDED",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 14,
+            "end_line": 14
+          },
+          "evidence": "VERIFIED",
+          "detail": "account.status == AccountStatus.SUSPENDED",
+          "metadata": {
+            "condition": "account.status == AccountStatus.SUSPENDED",
+            "domain": "status",
+            "values": [
+              "AccountStatus.SUSPENDED"
+            ],
+            "subject": "account.status",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "AccountStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "returns",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-c00fda52066729a3:n5",
+          "kind": "error",
+          "label": "Raise ApiError(403, 'account suspended')",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 15,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(403, \"account suspended\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-c00fda52066729a3:n6",
+          "kind": "decision",
+          "label": "account.status == AccountStatus.DELETED",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 16,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "account.status == AccountStatus.DELETED",
+          "metadata": {
+            "condition": "account.status == AccountStatus.DELETED",
+            "domain": "status",
+            "values": [
+              "AccountStatus.DELETED"
+            ],
+            "subject": "account.status",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "AccountStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "returns",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-c00fda52066729a3:n7",
+          "kind": "error",
+          "label": "Raise ApiError(410, 'account deleted')",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 17,
+            "end_line": 17
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(410, \"account deleted\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-c00fda52066729a3:n8",
+          "kind": "decision",
+          "label": "account.status == AccountStatus.PENDING_VERIFICATION",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 18,
+            "end_line": 18
+          },
+          "evidence": "VERIFIED",
+          "detail": "account.status == AccountStatus.PENDING_VERIFICATION",
+          "metadata": {
+            "condition": "account.status == AccountStatus.PENDING_VERIFICATION",
+            "domain": "status",
+            "values": [
+              "AccountStatus.PENDING_VERIFICATION"
+            ],
+            "subject": "account.status",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "AccountStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "returns",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-c00fda52066729a3:n9",
+          "kind": "error",
+          "label": "Raise ApiError(403, 'verify your email first')",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 19,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(403, \"verify your email first\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-c00fda52066729a3:n10",
+          "kind": "decision",
+          "label": "account.status == AccountStatus.ACTIVE",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 20,
+            "end_line": 20
+          },
+          "evidence": "VERIFIED",
+          "detail": "account.status == AccountStatus.ACTIVE",
+          "metadata": {
+            "condition": "account.status == AccountStatus.ACTIVE",
+            "domain": "status",
+            "values": [
+              "AccountStatus.ACTIVE"
+            ],
+            "subject": "account.status",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "AccountStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "raises",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-c00fda52066729a3:n11",
+          "kind": "terminal",
+          "label": "Return account",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 21,
+            "end_line": 21
+          },
+          "evidence": "VERIFIED",
+          "detail": "return account",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-c00fda52066729a3:n12",
+          "kind": "error",
+          "label": "Raise ApiError(500, 'unknown account status')",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 23,
+            "end_line": 23
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(500, \"unknown account status\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-c00fda52066729a3:e1",
+          "source": "flow-c00fda52066729a3:n1",
+          "target": "flow-c00fda52066729a3:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-c00fda52066729a3:e2",
+          "source": "flow-c00fda52066729a3:n2",
+          "target": "flow-c00fda52066729a3:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-c00fda52066729a3:e3",
+          "source": "flow-c00fda52066729a3:n3",
+          "target": "flow-c00fda52066729a3:n4",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-c00fda52066729a3:e4",
+          "source": "flow-c00fda52066729a3:n4",
+          "target": "flow-c00fda52066729a3:n5",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-c00fda52066729a3:e5",
+          "source": "flow-c00fda52066729a3:n4",
+          "target": "flow-c00fda52066729a3:n6",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-c00fda52066729a3:e6",
+          "source": "flow-c00fda52066729a3:n6",
+          "target": "flow-c00fda52066729a3:n7",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-c00fda52066729a3:e7",
+          "source": "flow-c00fda52066729a3:n6",
+          "target": "flow-c00fda52066729a3:n8",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-c00fda52066729a3:e8",
+          "source": "flow-c00fda52066729a3:n8",
+          "target": "flow-c00fda52066729a3:n9",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-c00fda52066729a3:e9",
+          "source": "flow-c00fda52066729a3:n8",
+          "target": "flow-c00fda52066729a3:n10",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-c00fda52066729a3:e10",
+          "source": "flow-c00fda52066729a3:n10",
+          "target": "flow-c00fda52066729a3:n11",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-c00fda52066729a3:e11",
+          "source": "flow-c00fda52066729a3:n10",
+          "target": "flow-c00fda52066729a3:n12",
+          "label": "No",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-92971030a65d1410"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": true
+      }
+    },
+    {
+      "id": "flow-68e9ed308389b179",
+      "name": "load_profile",
+      "symbol": "examples.shop.backend.users_service:load_profile",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/users_service.py",
+        "start_line": 26,
+        "end_line": 31
+      },
+      "nodes": [
+        {
+          "id": "flow-68e9ed308389b179:n1",
+          "kind": "entry",
+          "label": "load_profile",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 26,
+            "end_line": 31
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.users_service:load_profile",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-68e9ed308389b179:n2",
+          "kind": "action",
+          "label": "'Planted #9: dead code after an unconditional return.'",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 27,
+            "end_line": 27
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Planted #9: dead code after an unconditional return.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-68e9ed308389b179:n3",
+          "kind": "action",
+          "label": "Set profile",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 28,
+            "end_line": 28
+          },
+          "evidence": "VERIFIED",
+          "detail": "profile = {\"id\": account.id, \"role\": account.role.value}",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-68e9ed308389b179:n4",
+          "kind": "terminal",
+          "label": "Return profile",
+          "location": {
+            "path": "examples/shop/backend/users_service.py",
+            "start_line": 29,
+            "end_line": 29
+          },
+          "evidence": "VERIFIED",
+          "detail": "return profile",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-68e9ed308389b179:e1",
+          "source": "flow-68e9ed308389b179:n1",
+          "target": "flow-68e9ed308389b179:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-68e9ed308389b179:e2",
+          "source": "flow-68e9ed308389b179:n2",
+          "target": "flow-68e9ed308389b179:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-68e9ed308389b179:e3",
+          "source": "flow-68e9ed308389b179:n3",
+          "target": "flow-68e9ed308389b179:n4",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
       }
     },
     {
@@ -1083,7 +3030,8 @@
       "metadata": {
         "async": true,
         "test": false,
-        "decorators": []
+        "decorators": [],
+        "performs_auth_check": false
       }
     },
     {
@@ -1136,6 +3084,9 @@
             "reaches_terminal": true,
             "qualified_calls": [
               "examples.demo.frontend.app.api.users.route:database.users.find"
+            ],
+            "effects": [
+              "db_read"
             ]
           }
         },
@@ -1180,7 +3131,8 @@
       "metadata": {
         "exported": false,
         "default_export": false,
-        "test": false
+        "test": false,
+        "performs_auth_check": false
       }
     },
     {
@@ -1323,11 +3275,60 @@
       "metadata": {
         "async": false,
         "test": false,
-        "decorators": []
+        "decorators": [],
+        "performs_auth_check": false
       }
     }
   ],
   "findings": [
+    {
+      "id": "2150419da3741ab0",
+      "kind": "no_op_branch",
+      "severity": "info",
+      "message": "Branch 'Yes' has an empty body",
+      "evidence": "INFERRED",
+      "flow_id": "flow-cfef4e8dba6238fd",
+      "location": {
+        "path": "examples/shop/backend/orders_service.py",
+        "start_line": 22,
+        "end_line": 22
+      },
+      "node_id": "flow-cfef4e8dba6238fd:n4",
+      "detail": "The branch is taken but performs no work — likely unfinished.",
+      "metadata": {}
+    },
+    {
+      "id": "e6515291108c88c5",
+      "kind": "missing_branch",
+      "severity": "warning",
+      "message": "Decision has no explicit fallback: if/elif on result",
+      "evidence": "POTENTIAL_GAP",
+      "flow_id": "flow-d8c77f3ddc158387",
+      "location": {
+        "path": "examples/shop/backend/payments_service.py",
+        "start_line": 11,
+        "end_line": 11
+      },
+      "node_id": "flow-d8c77f3ddc158387:n3",
+      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
+      "metadata": {}
+    },
+    {
+      "id": "82a4ebee50c1d218",
+      "kind": "missing_branch",
+      "severity": "warning",
+      "message": "Decision has no explicit fallback: match order.status",
+      "evidence": "POTENTIAL_GAP",
+      "flow_id": "flow-4e833d53a700855c",
+      "location": {
+        "path": "examples/shop/backend/orders_service.py",
+        "start_line": 8,
+        "end_line": 16
+      },
+      "node_id": "flow-4e833d53a700855c:n3",
+      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
+      "metadata": {}
+    },
     {
       "id": "2f85bea2b1d5a941",
       "kind": "missing_branch",
@@ -1341,7 +3342,40 @@
         "end_line": 9
       },
       "node_id": "flow-f74e7243a59c82e6:n3",
-      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases."
+      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
+      "metadata": {}
+    },
+    {
+      "id": "59fd4827af2add96",
+      "kind": "broad_except_swallow",
+      "severity": "warning",
+      "message": "Exception handler 'Exception' swallows the error",
+      "evidence": "INFERRED",
+      "flow_id": "flow-3fb7f77aa3ec9fd5",
+      "location": {
+        "path": "examples/shop/backend/payments_service.py",
+        "start_line": 23,
+        "end_line": 26
+      },
+      "node_id": "flow-3fb7f77aa3ec9fd5:n5",
+      "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
+      "metadata": {}
+    },
+    {
+      "id": "9c21bdd1fbd3f70c",
+      "kind": "dead_code",
+      "severity": "warning",
+      "message": "Unreachable code after all paths return or raise (line 30)",
+      "evidence": "INFERRED",
+      "flow_id": "flow-68e9ed308389b179",
+      "location": {
+        "path": "examples/shop/backend/users_service.py",
+        "start_line": 30,
+        "end_line": 30
+      },
+      "node_id": null,
+      "detail": "profile[\"leaked\"] = \"true\"",
+      "metadata": {}
     }
   ],
   "files": [
@@ -1390,6 +3424,35 @@
       ]
     },
     {
+      "path": "examples/shop/backend/orders_service.py",
+      "language": "python",
+      "sha256": "b842481aa9220e603df12b1ba1793592e1d41f51f6ad904600ea1521657558fa",
+      "flow_ids": [
+        "flow-4e833d53a700855c",
+        "flow-cfef4e8dba6238fd"
+      ]
+    },
+    {
+      "path": "examples/shop/backend/payments_service.py",
+      "language": "python",
+      "sha256": "e024eef185342acdf279a8872a8147cd02d6e8cc610858c802bf43b15f688f50",
+      "flow_ids": [
+        "flow-d8c77f3ddc158387",
+        "flow-3fb7f77aa3ec9fd5",
+        "flow-7dfa5d0eac72e588",
+        "flow-3b15514408bbb3ee"
+      ]
+    },
+    {
+      "path": "examples/shop/backend/users_service.py",
+      "language": "python",
+      "sha256": "cbd1c4ad5b4507001ea5979c49ce80ab938e676a17de40d89300be36f6a46292",
+      "flow_ids": [
+        "flow-c00fda52066729a3",
+        "flow-68e9ed308389b179"
+      ]
+    },
+    {
       "path": "examples/shop/frontend/lib/status.ts",
       "language": "typescript",
       "sha256": "0ec995a85d3d438bc000ef84556f7f8a97be698b13ca704b138aa90c5da294f8",
@@ -1401,8 +3464,66 @@
       "python",
       "typescript"
     ],
-    "entrypoint_count": 6,
-    "flow_count": 9,
-    "finding_count": 1
+    "entrypoint_count": 14,
+    "flow_count": 17,
+    "finding_count": 6,
+    "enums": {
+      "python": {
+        "UserStatus": [
+          "UserStatus.ACTIVE",
+          "UserStatus.SUSPENDED",
+          "UserStatus.DELETED"
+        ],
+        "AccountStatus": [
+          "AccountStatus.ACTIVE",
+          "AccountStatus.SUSPENDED",
+          "AccountStatus.DELETED",
+          "AccountStatus.PENDING_VERIFICATION"
+        ],
+        "OrderStatus": [
+          "OrderStatus.CART",
+          "OrderStatus.PLACED",
+          "OrderStatus.PAID",
+          "OrderStatus.SHIPPED",
+          "OrderStatus.DELIVERED",
+          "OrderStatus.CANCELLED",
+          "OrderStatus.REFUNDED"
+        ],
+        "Role": [
+          "Role.ADMIN",
+          "Role.STAFF",
+          "Role.MEMBER",
+          "Role.GUEST"
+        ],
+        "PaymentResult": [
+          "PaymentResult.APPROVED",
+          "PaymentResult.DECLINED",
+          "PaymentResult.PENDING",
+          "PaymentResult.FRAUD_REVIEW"
+        ]
+      },
+      "typescript": {
+        "AccountStatus": [
+          "active",
+          "suspended",
+          "deleted"
+        ],
+        "OrderStatus": [
+          "cart",
+          "placed",
+          "paid",
+          "shipped",
+          "delivered",
+          "cancelled",
+          "refunded"
+        ],
+        "PaymentResult": [
+          "approved",
+          "declined",
+          "pending",
+          "fraud_review"
+        ]
+      }
+    }
   }
 }

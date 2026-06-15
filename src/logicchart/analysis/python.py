@@ -17,6 +17,7 @@ from logicchart.analysis.common import (
     decision_metadata,
     domain_from_subject,
     is_functional_condition,
+    tag_call_effects,
     value_namespace,
 )
 from logicchart.analysis.detectors import dead_code_finding, single_flow_findings
@@ -64,11 +65,13 @@ class PythonAnalyzer:
         import_map = _import_map(tree, module_name, is_package)
         for flow in flows:
             attach_qualified_calls(flow, import_map, module_name)
+            tag_call_effects(flow)
 
         return FileAnalysis(
             path=relative,
             language="python",
             sha256=file_sha256(path),
+            enums=_harvest_enums(tree),
             flows=flows,
             findings=findings,
         )
@@ -503,6 +506,47 @@ def _loop_label(statement: ast.For | ast.AsyncFor | ast.While) -> str:
     if isinstance(statement, ast.While):
         return f"Repeat while {_safe_unparse(statement.test)}"
     return f"Process each {_safe_unparse(statement.target)}"
+
+
+_ENUM_BASES = {"Enum", "IntEnum", "StrEnum", "IntFlag", "Flag", "ReprEnum"}
+
+
+def _harvest_enums(tree: ast.Module) -> dict[str, list[str]]:
+    """Map each Enum class to its members (``X.MEMBER``) — the value universe."""
+    enums: dict[str, list[str]] = {}
+    for node in tree.body:
+        if not isinstance(node, ast.ClassDef) or not _is_enum_class(node):
+            continue
+        members: list[str] = []
+        for statement in node.body:
+            if isinstance(statement, ast.Assign):
+                members.extend(
+                    f"{node.name}.{target.id}"
+                    for target in statement.targets
+                    if isinstance(target, ast.Name) and _is_enum_member(target.id)
+                )
+            elif (
+                isinstance(statement, ast.AnnAssign)
+                and isinstance(statement.target, ast.Name)
+                and _is_enum_member(statement.target.id)
+            ):
+                members.append(f"{node.name}.{statement.target.id}")
+        if members:
+            enums[node.name] = members
+    return enums
+
+
+def _is_enum_class(node: ast.ClassDef) -> bool:
+    for base in node.bases:
+        name = base.id if isinstance(base, ast.Name) else getattr(base, "attr", "")
+        if name in _ENUM_BASES or name.endswith("Enum"):
+            return True
+    return False
+
+
+def _is_enum_member(name: str) -> bool:
+    # Skip Enum directives and private attributes (e.g. _ignore_, __dunder__).
+    return not name.startswith("_")
 
 
 def _module_name(relative: str) -> str:
