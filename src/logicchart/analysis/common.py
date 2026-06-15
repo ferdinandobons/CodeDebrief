@@ -248,6 +248,53 @@ def value_namespace(values: list[str]) -> str:
     return next(iter(prefixes)) if len(prefixes) == 1 else ""
 
 
+# Marker for a module's default export, used so a default import can be resolved
+# to whichever flow carries `default_export` rather than guessing its name. The
+# `#` cannot appear in an identifier, so it never collides with a real symbol.
+DEFAULT_EXPORT_MARKER = "#default"
+
+# Confidence tiers recorded on a resolved call's `link_confidence`.
+CONFIDENCE_HIGH = "high"
+CONFIDENCE_MEDIUM = "medium"
+CONFIDENCE_LOW = "low"
+CONFIDENCE_NONE = "none"
+LINK_CONFIDENCES = frozenset({CONFIDENCE_HIGH, CONFIDENCE_MEDIUM, CONFIDENCE_LOW, CONFIDENCE_NONE})
+
+
+def resolve_qualified(raw: str, import_map: dict[str, str], current_module: str) -> str:
+    """Resolve a call name to a ``module:symbol`` reference via the import map.
+
+    Import-map values already carry the boundary: ``module:symbol`` binds a
+    symbol (``from m import f``), ``module:`` binds a module (a namespace/module
+    import, so the next attribute is the symbol). An unmapped head is assumed
+    local to the current module. Preserving the ``:`` keeps a module path from
+    ever being confused with attribute access on a value.
+    """
+    head, _, rest = raw.partition(".")
+    base = import_map.get(head)
+    if base is None:
+        return f"{current_module}:{raw}"
+    if not rest:
+        return base
+    return f"{base}{rest}" if base.endswith(":") else f"{base}.{rest}"
+
+
+def attach_qualified_calls(flow: Flow, import_map: dict[str, str], current_module: str) -> None:
+    """Record `qualified_calls` (``module:symbol`` references) on every call node.
+
+    Each raw call name is resolved through the import map; unmapped heads fall
+    back to a current-module reference, which is expected to miss for external
+    calls and resolve for local ones.
+    """
+    for node in flow.nodes:
+        if node.kind is not NodeKind.CALL:
+            continue
+        raw_calls = [str(item) for item in node.metadata.get("calls", [])]
+        node.metadata["qualified_calls"] = [
+            resolve_qualified(raw, import_map, current_module) for raw in raw_calls
+        ]
+
+
 def annotate_reachability(flow: Flow) -> None:
     """Record `reachable_from_entry` / `reaches_terminal` on every node.
 

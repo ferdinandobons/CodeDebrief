@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import posixpath
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -10,10 +11,12 @@ import tree_sitter_typescript
 from tree_sitter import Language, Parser
 
 from logicchart.analysis.common import (
+    DEFAULT_EXPORT_MARKER,
     SWITCH,
     FlowBuilder,
     PendingEdge,
     annotate_reachability,
+    attach_qualified_calls,
     branch,
     call_is_boundary,
     decision_identity,
@@ -65,6 +68,10 @@ class TypeScriptAnalyzer:
             self._analyze_definition(item, source_bytes, source, relative, findings)
             for item in _definitions(tree.root_node, source_bytes, relative)
         ]
+        import_map = _import_map(tree.root_node, source_bytes, relative)
+        module_name = _module_name(relative)
+        for flow in flows:
+            attach_qualified_calls(flow, import_map, module_name)
         return FileAnalysis(
             path=relative,
             language="typescript",
@@ -636,6 +643,52 @@ def _module_name(relative: str) -> str:
 def _default_export_name(relative: str) -> str:
     stem = Path(relative).stem
     return stem[:1].upper() + stem[1:] if stem else "DefaultExport"
+
+
+def _import_map(root: Any, source: bytes, relative: str) -> dict[str, str]:
+    """Map each imported binding to a fully-qualified target module symbol.
+
+    Resolves relative module specifiers against the importing file; bare/external
+    specifiers (e.g. ``react``) are skipped so only first-party calls resolve.
+    """
+    mapping: dict[str, str] = {}
+    for node in root.children:
+        if node.type != "import_statement":
+            continue
+        source_node = node.child_by_field_name("source")
+        if source_node is None:
+            continue
+        module = _resolve_module(_text(source_node, source).strip("'\"`"), relative)
+        if module is None:
+            continue
+        clause = next((child for child in node.children if child.type == "import_clause"), None)
+        if clause is None:
+            continue
+        for child in clause.children:
+            if child.type == "identifier":  # default import -> resolve via marker
+                mapping[_text(child, source)] = f"{module}:{DEFAULT_EXPORT_MARKER}"
+            elif child.type == "namespace_import":  # import * as ns -> binds the module
+                alias = next((c for c in child.children if c.type == "identifier"), None)
+                if alias is not None:
+                    mapping[_text(alias, source)] = f"{module}:"
+            elif child.type == "named_imports":
+                for spec in child.children:
+                    if spec.type != "import_specifier":
+                        continue
+                    name = _text(spec.child_by_field_name("name"), source)
+                    alias_node = spec.child_by_field_name("alias")
+                    bound = _text(alias_node, source) if alias_node is not None else name
+                    if name:
+                        mapping[bound] = f"{module}:{name}"
+    return mapping
+
+
+def _resolve_module(specifier: str, relative: str) -> str | None:
+    if not specifier.startswith("."):
+        return None
+    target = posixpath.normpath(posixpath.join(posixpath.dirname(relative), specifier))
+    target = re.sub(r"\.(tsx?|jsx?)$", "", target)
+    return target.replace("/", ".")
 
 
 def _is_test(relative: str, name: str) -> bool:

@@ -10,6 +10,7 @@ from logicchart.analysis.common import (
     FlowBuilder,
     PendingEdge,
     annotate_reachability,
+    attach_qualified_calls,
     branch,
     call_is_boundary,
     decision_identity,
@@ -58,6 +59,11 @@ class PythonAnalyzer:
                 findings=findings,
             )
             flows.append(flow)
+
+        is_package = Path(relative).name == "__init__.py"
+        import_map = _import_map(tree, module_name, is_package)
+        for flow in flows:
+            attach_qualified_calls(flow, import_map, module_name)
 
         return FileAnalysis(
             path=relative,
@@ -502,6 +508,42 @@ def _loop_label(statement: ast.For | ast.AsyncFor | ast.While) -> str:
 def _module_name(relative: str) -> str:
     path = relative.removesuffix(".py").replace("/", ".")
     return path.removesuffix(".__init__")
+
+
+def _import_map(tree: ast.Module, module_name: str, is_package: bool) -> dict[str, str]:
+    """Map each imported alias to a ``module:symbol`` (or ``module:``) binding.
+
+    ``from m import f`` -> ``f`` => ``m:f`` (binds a symbol); ``import m as a`` ->
+    ``a`` => ``m:`` (binds a module). Relative imports resolve against the current
+    module's package, accounting for ``__init__.py`` being its own package.
+    """
+    mapping: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.asname:
+                    mapping[alias.asname] = f"{alias.name}:"
+                elif "." not in alias.name:
+                    mapping[alias.name] = f"{alias.name}:"
+        elif isinstance(node, ast.ImportFrom):
+            base = _relative_base(node.module, node.level, module_name, is_package)
+            for alias in node.names:
+                bound = alias.asname or alias.name
+                mapping[bound] = f"{base}:{alias.name}" if base else alias.name
+    return mapping
+
+
+def _relative_base(module: str | None, level: int, current_module: str, is_package: bool) -> str:
+    if level == 0:
+        return module or ""
+    # An __init__ module *is* its own package, so a level-1 import stays put.
+    drop = level - 1 if is_package else level
+    parts = current_module.split(".")
+    base_parts = parts[: len(parts) - drop] if drop <= len(parts) else []
+    base = ".".join(base_parts)
+    if module:
+        return f"{base}.{module}" if base else module
+    return base
 
 
 def _is_test(relative: str, name: str) -> bool:

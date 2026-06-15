@@ -4,6 +4,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from logicchart.analysis.common import (
+    CONFIDENCE_HIGH,
+    CONFIDENCE_LOW,
+    CONFIDENCE_MEDIUM,
+    CONFIDENCE_NONE,
+    DEFAULT_EXPORT_MARKER,
+)
 from logicchart.analysis.discovery import discover_source_files, language_for
 from logicchart.analysis.python import PythonAnalyzer
 from logicchart.analysis.typescript import TypeScriptAnalyzer
@@ -138,8 +145,19 @@ class ProjectAnalyzer:
         )
 
     def _link_calls(self, flows: list[Flow]) -> None:
+        # Import-aware first (`qualified_calls` from the analyzers), short name as a
+        # fallback. Ambiguous candidates are recorded, not dropped, and every link
+        # carries a `link_confidence` so interprocedural detectors can weigh it.
+        # Key on the flow symbol as-is (``module:qualified``) so a module-path
+        # boundary can never collide with an attribute boundary. A default-export
+        # flow also answers to the module's default marker.
+        by_qualified: dict[str, list[Flow]] = {}
         by_name: dict[str, list[Flow]] = {}
         for flow in flows:
+            by_qualified.setdefault(flow.symbol, []).append(flow)
+            if flow.metadata.get("default_export"):
+                module = flow.symbol.split(":", 1)[0]
+                by_qualified.setdefault(f"{module}:{DEFAULT_EXPORT_MARKER}", []).append(flow)
             short = flow.symbol.split(":", 1)[-1].split(".")[-1]
             by_name.setdefault(short, []).append(flow)
 
@@ -147,20 +165,43 @@ class ProjectAnalyzer:
             for node in flow.nodes:
                 if node.kind is not NodeKind.CALL:
                     continue
-                candidates: list[Flow] = []
-                for raw_call in node.metadata.get("calls", []):
-                    short = str(raw_call).split(".")[-1]
-                    candidates.extend(by_name.get(short, []))
-                unique = {item.id: item for item in candidates if item.id != flow.id}
-                if len(unique) != 1:
+                candidates, confidence = self._resolve_call(flow, node, by_qualified, by_name)
+                if not candidates:
                     continue
-                target = next(iter(unique.values()))
-                node.metadata["target_flow"] = target.id
-                node.metadata["target_symbol"] = target.symbol
-                if target.id not in flow.calls:
-                    flow.calls.append(target.id)
-                if flow.id not in target.called_by:
-                    target.called_by.append(flow.id)
+                node.metadata["link_confidence"] = confidence
+                node.metadata["call_candidates"] = sorted(candidates)
+                if len(candidates) == 1:
+                    target = next(iter(candidates.values()))
+                    node.metadata["target_flow"] = target.id
+                    node.metadata["target_symbol"] = target.symbol
+                    if target.id not in flow.calls:
+                        flow.calls.append(target.id)
+                    if flow.id not in target.called_by:
+                        target.called_by.append(flow.id)
+
+    @staticmethod
+    def _resolve_call(
+        flow: Flow,
+        node: FlowNode,
+        by_qualified: dict[str, list[Flow]],
+        by_name: dict[str, list[Flow]],
+    ) -> tuple[dict[str, Flow], str]:
+        qualified: dict[str, Flow] = {}
+        for name in node.metadata.get("qualified_calls", []):
+            for candidate in by_qualified.get(str(name), []):
+                if candidate.id != flow.id:
+                    qualified[candidate.id] = candidate
+        if qualified:
+            return qualified, (CONFIDENCE_HIGH if len(qualified) == 1 else CONFIDENCE_LOW)
+
+        short_name: dict[str, Flow] = {}
+        for raw in node.metadata.get("calls", []):
+            for candidate in by_name.get(str(raw).split(".")[-1], []):
+                if candidate.id != flow.id:
+                    short_name[candidate.id] = candidate
+        if short_name:
+            return short_name, (CONFIDENCE_MEDIUM if len(short_name) == 1 else CONFIDENCE_LOW)
+        return {}, CONFIDENCE_NONE
 
     def _link_tests(self, flows: list[Flow]) -> None:
         by_id = {flow.id: flow for flow in flows}

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-06-15T17:29:45.525177+00:00",
+  "generated_at": "2026-06-15T18:09:03.562733+00:00",
   "root": ".",
   "flows": [
     {
@@ -51,6 +51,13 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.demo.backend.users:load_user"
+            ],
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-f35a3698106b0817"
+            ],
             "target_flow": "flow-f35a3698106b0817",
             "target_symbol": "examples.demo.backend.users:load_user"
           }
@@ -283,6 +290,13 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.demo.backend.users:repository.fetch"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-6306314dcc318fc3"
+            ],
             "target_flow": "flow-6306314dcc318fc3",
             "target_symbol": "examples.demo.backend.users:Repository.fetch"
           }
@@ -381,6 +395,13 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.demo.frontend.app.api.users.route:loadUser"
+            ],
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-5c518b0f2169bf38"
+            ],
             "target_flow": "flow-5c518b0f2169bf38",
             "target_symbol": "examples.demo.frontend.app.api.users.route:loadUser"
           }
@@ -444,7 +465,10 @@
               "Response.json"
             ],
             "reachable_from_entry": true,
-            "reaches_terminal": true
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.demo.frontend.app.api.users.route:Response.json"
+            ]
           }
         },
         {
@@ -1109,7 +1133,10 @@
               "database.users.find"
             ],
             "reachable_from_entry": true,
-            "reaches_terminal": true
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.demo.frontend.app.api.users.route:database.users.find"
+            ]
           }
         },
         {
@@ -1204,7 +1231,11 @@
               "super"
             ],
             "reachable_from_entry": true,
-            "reaches_terminal": true
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.domain:__init__",
+              "examples.shop.backend.domain:super"
+            ]
           }
         },
         {

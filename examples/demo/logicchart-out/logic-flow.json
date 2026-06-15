@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-06-15T17:29:45.456400+00:00",
+  "generated_at": "2026-06-15T18:09:03.499002+00:00",
   "root": ".",
   "flows": [
     {
@@ -51,6 +51,13 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.users:load_user"
+            ],
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-c1c375870125b695"
+            ],
             "target_flow": "flow-c1c375870125b695",
             "target_symbol": "backend.users:load_user"
           }
@@ -283,6 +290,13 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.users:repository.fetch"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-eef1d33de2175dfc"
+            ],
             "target_flow": "flow-eef1d33de2175dfc",
             "target_symbol": "backend.users:Repository.fetch"
           }
@@ -381,6 +395,13 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
+            "qualified_calls": [
+              "frontend.app.api.users.route:loadUser"
+            ],
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-b79df7006d56acea"
+            ],
             "target_flow": "flow-b79df7006d56acea",
             "target_symbol": "frontend.app.api.users.route:loadUser"
           }
@@ -444,7 +465,10 @@
               "Response.json"
             ],
             "reachable_from_entry": true,
-            "reaches_terminal": true
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "frontend.app.api.users.route:Response.json"
+            ]
           }
         },
         {
@@ -797,7 +821,10 @@
               "database.users.find"
             ],
             "reachable_from_entry": true,
-            "reaches_terminal": true
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "frontend.app.api.users.route:database.users.find"
+            ]
           }
         },
         {
