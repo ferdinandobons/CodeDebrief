@@ -20,10 +20,13 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
         f"- **Flows:** {len(model.flows)}",
         f"- **Entry points:** {len(entrypoints)}",
         f"- **Findings:** {len(confirmed)} verified/inferred · {len(gaps)} review-only",
-        "",
-        "## Project Map",
-        "",
     ]
+    scopes = model.metadata.get("scopes", {})
+    if scopes:
+        lines.append(
+            "- **Scopes:** " + " · ".join(f"{name} ({count})" for name, count in scopes.items())
+        )
+    lines.extend(["", "## Project Map", ""])
     lines.extend(_project_map(model, entrypoints))
     lines.extend(["", "## Findings", ""])
     # Signal/noise split (§5.2/§7): verified/inferred facts in the main section,

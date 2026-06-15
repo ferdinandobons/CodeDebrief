@@ -31,7 +31,9 @@ class ImpactResult:
         return list(seen.values())
 
 
-def query_model(model: ProjectModel, question: str, limit: int = 10) -> list[QueryMatch]:
+def query_model(
+    model: ProjectModel, question: str, limit: int = 10, scope: str | None = None
+) -> list[QueryMatch]:
     terms = _terms(question)
     matches: list[QueryMatch] = []
     findings_by_flow: dict[str, list[Finding]] = {}
@@ -39,6 +41,8 @@ def query_model(model: ProjectModel, question: str, limit: int = 10) -> list[Que
         findings_by_flow.setdefault(finding.flow_id, []).append(finding)
 
     for flow in model.flows:
+        if not flow_in_scope(flow, scope):
+            continue
         score = 0
         reasons: list[str] = []
         name_text = f"{flow.name} {flow.symbol} {flow.entry_kind} {flow.framework}".lower()
@@ -63,9 +67,12 @@ def query_model(model: ProjectModel, question: str, limit: int = 10) -> list[Que
     return sorted(matches, key=lambda item: (-item.score, item.flow.name))[:limit]
 
 
-def impact_model(model: ProjectModel, changed_files: list[str]) -> ImpactResult:
+def impact_model(
+    model: ProjectModel, changed_files: list[str], scope: str | None = None
+) -> ImpactResult:
     normalized = {_normalize_path(item) for item in changed_files}
-    direct = [flow for flow in model.flows if _normalize_path(flow.location.path) in normalized]
+    flows = [flow for flow in model.flows if flow_in_scope(flow, scope)]
+    direct = [flow for flow in flows if _normalize_path(flow.location.path) in normalized]
     by_id = {flow.id: flow for flow in model.flows}
     impacted_ids = {flow.id for flow in direct}
     queue = list(impacted_ids)
@@ -83,6 +90,8 @@ def impact_model(model: ProjectModel, changed_files: list[str]) -> ImpactResult:
             if caller:
                 transitive.append(caller)
 
+    transitive = [flow for flow in transitive if flow_in_scope(flow, scope)]
+    impacted_ids = {flow.id for flow in direct} | {flow.id for flow in transitive}
     findings = [item for item in model.findings if item.flow_id in impacted_ids]
     return ImpactResult(
         changed_files=sorted(normalized),
@@ -147,7 +156,13 @@ def model_summary(model: ProjectModel) -> dict[str, Any]:
             language: sorted(members)
             for language, members in model.metadata.get("enums", {}).items()
         },
+        "scopes": model.metadata.get("scopes", {}),
     }
+
+
+def flow_in_scope(flow: Flow, scope: str | None) -> bool:
+    """Whether a flow belongs to the requested macro-part (None = no filter)."""
+    return scope is None or scope in flow.metadata.get("scope", [])
 
 
 def explain_finding(model: ProjectModel, finding_id: str) -> dict[str, Any] | None:

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T21:35:04.553159+00:00",
+  "generated_at": "2026-06-15T22:51:03.722434+00:00",
   "root": ".",
   "flows": [
     {
@@ -243,7 +243,10 @@
         "decorators": [
           "app.get('/users/{user_id}')"
         ],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -352,7 +355,10 @@
         "async": true,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -584,7 +590,10 @@
         "exported": true,
         "default_export": false,
         "test": false,
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "frontend"
+        ]
       }
     },
     {
@@ -716,7 +725,10 @@
         "exported": true,
         "default_export": true,
         "test": false,
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "frontend"
+        ]
       }
     },
     {
@@ -785,7 +797,10 @@
         "async": true,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -886,7 +901,10 @@
         "exported": false,
         "default_export": false,
         "test": false,
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "frontend"
+        ]
       }
     }
   ],
@@ -956,6 +974,10 @@
         ]
       },
       "typescript": {}
+    },
+    "scopes": {
+      "backend": 3,
+      "frontend": 3
     }
   }
 }

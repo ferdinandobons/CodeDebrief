@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T21:35:04.676481+00:00",
+  "generated_at": "2026-06-15T22:51:03.841401+00:00",
   "root": ".",
   "flows": [
     {
@@ -162,7 +162,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": true
+        "performs_auth_check": true,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -281,7 +284,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -468,7 +474,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -652,7 +661,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -771,7 +783,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -959,7 +974,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -1215,7 +1233,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -1372,7 +1393,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -1558,7 +1582,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -1717,7 +1744,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -1876,7 +1906,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -2086,7 +2119,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -2358,7 +2394,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -2542,7 +2581,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -2800,7 +2842,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -3091,7 +3136,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -3339,7 +3387,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -3741,7 +3792,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": true
+        "performs_auth_check": true,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -3854,7 +3908,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -4017,7 +4074,10 @@
         "exported": true,
         "default_export": true,
         "test": false,
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "frontend"
+        ]
       }
     },
     {
@@ -4209,7 +4269,10 @@
         "exported": true,
         "default_export": false,
         "test": false,
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "frontend"
+        ]
       }
     },
     {
@@ -4520,7 +4583,10 @@
         "exported": true,
         "default_export": false,
         "test": false,
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "frontend"
+        ]
       }
     },
     {
@@ -4773,7 +4839,10 @@
         "exported": true,
         "default_export": false,
         "test": false,
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "frontend"
+        ]
       }
     },
     {
@@ -4974,7 +5043,10 @@
         "exported": true,
         "default_export": true,
         "test": false,
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "frontend"
+        ]
       }
     },
     {
@@ -5164,7 +5236,10 @@
         "exported": true,
         "default_export": false,
         "test": false,
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "frontend"
+        ]
       }
     },
     {
@@ -5308,7 +5383,10 @@
         "async": false,
         "test": false,
         "decorators": [],
-        "performs_auth_check": false
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
       }
     },
     {
@@ -5415,7 +5493,10 @@
         "async": false,
         "test": true,
         "decorators": [],
-        "performs_auth_check": true
+        "performs_auth_check": true,
+        "scope": [
+          "tests"
+        ]
       }
     }
   ],
@@ -5899,6 +5980,11 @@
           "fraud_review"
         ]
       }
+    },
+    "scopes": {
+      "backend": 20,
+      "frontend": 6,
+      "tests": 1
     }
   }
 }

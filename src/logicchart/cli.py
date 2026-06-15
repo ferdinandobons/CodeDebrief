@@ -50,12 +50,14 @@ def build_parser() -> argparse.ArgumentParser:
     impact = subparsers.add_parser("impact", help="Show flows affected by changed files.")
     impact.add_argument("files", nargs="*")
     impact.add_argument("--path", default=".")
+    impact.add_argument("--scope", default=None, help="Restrict to a named macro-part.")
     impact.add_argument("--json", action="store_true", dest="json_output")
 
     query = subparsers.add_parser("query", help="Search the logical model.")
     query.add_argument("question")
     query.add_argument("--path", default=".")
     query.add_argument("--limit", type=int, default=10)
+    query.add_argument("--scope", default=None, help="Restrict to a named macro-part.")
     query.add_argument("--json", action="store_true", dest="json_output")
 
     view = subparsers.add_parser("view", help="Generate and serve the interactive flowchart.")
@@ -116,9 +118,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 include_gaps=args.include_gaps,
             )
         if args.command == "impact":
-            return _impact(Path(args.path), args.files, args.json_output)
+            return _impact(Path(args.path), args.files, args.json_output, args.scope)
         if args.command == "query":
-            return _query(Path(args.path), args.question, args.limit, args.json_output)
+            return _query(Path(args.path), args.question, args.limit, args.json_output, args.scope)
         if args.command == "view":
             return _view(Path(args.path), args.port, not args.no_open, args.render_only)
         if args.command == "install":
@@ -165,10 +167,10 @@ def _analyze(root: Path, *, full: bool, include_html: bool, include_gaps: bool =
     return 0
 
 
-def _impact(root: Path, files: list[str], json_output: bool) -> int:
+def _impact(root: Path, files: list[str], json_output: bool, scope: str | None = None) -> int:
     root = root.resolve()
     changed = files or git_changed_files(root)
-    result = impact_model(load_model(root), changed)
+    result = impact_model(load_model(root), changed, scope)
     if json_output:
         print(
             json.dumps(
@@ -186,8 +188,10 @@ def _impact(root: Path, files: list[str], json_output: bool) -> int:
     return 0
 
 
-def _query(root: Path, question: str, limit: int, json_output: bool) -> int:
-    matches = query_model(load_model(root.resolve()), question, limit)
+def _query(
+    root: Path, question: str, limit: int, json_output: bool, scope: str | None = None
+) -> int:
+    matches = query_model(load_model(root.resolve()), question, limit, scope)
     if json_output:
         print(
             json.dumps(
@@ -263,6 +267,12 @@ gated_detectors = false
 [logicchart.entrypoints]
 include = []
 exclude = []
+
+# Named macro-parts of the codebase (otherwise the top-level directory is the scope):
+# [logicchart.scopes]
+# backend = ["backend/**", "services/**"]
+# frontend = ["frontend/**", "web/**"]
+# infra = ["infra/**", "**/*.tf"]
 """,
         encoding="utf-8",
     )

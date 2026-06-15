@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -186,6 +187,13 @@ class ProjectAnalyzer:
         )
         findings = _suppress_redundant_missing_branch(findings)
         findings = _deduplicate_findings(findings)
+        # Tag every flow with the macro-part(s) it belongs to (backend/frontend/infra),
+        # so the model can be viewed whole or restricted to a scope.
+        scope_counts: Counter[str] = Counter()
+        for flow in flows:
+            scope = self.config.scopes_for(flow.location.path)
+            flow.metadata["scope"] = scope
+            scope_counts.update(scope)
         files = [
             FileRecord(
                 path=analysis.path,
@@ -208,6 +216,7 @@ class ProjectAnalyzer:
                 "flow_count": len(flows),
                 "finding_count": len(findings),
                 "enums": enums,
+                "scopes": dict(sorted(scope_counts.items())),
             },
         )
 

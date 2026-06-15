@@ -38,6 +38,8 @@ class LogicChartConfig:
     gated_detectors: bool = False
     entrypoint_include: list[str] = field(default_factory=list)
     entrypoint_exclude: list[str] = field(default_factory=list)
+    # Named macro-parts of the codebase, e.g. {"backend": ["backend/**"], "infra": ["**/*.tf"]}.
+    scopes: dict[str, list[str]] = field(default_factory=dict)
 
     @classmethod
     def load(cls, root: Path) -> LogicChartConfig:
@@ -58,6 +60,10 @@ class LogicChartConfig:
             entrypoints = section.get("entrypoints", {})
             config.entrypoint_include = list(entrypoints.get("include", []))
             config.entrypoint_exclude = list(entrypoints.get("exclude", []))
+            config.scopes = {
+                str(name): [str(pattern) for pattern in patterns]
+                for name, patterns in section.get("scopes", {}).items()
+            }
 
         ignore_path = root / ".logicchartignore"
         if ignore_path.exists():
@@ -83,6 +89,23 @@ class LogicChartConfig:
             return True
         return None
 
+    def scopes_for(self, relative_path: str) -> list[str]:
+        """The macro-part(s) a file belongs to.
+
+        When scopes are declared, returns every named scope whose globs match. With no
+        configuration, the top-level directory is the inferred scope, so a codebase is
+        split into backend/frontend/infra-style parts out of the box.
+        """
+        normalized = relative_path.replace("\\", "/")
+        if self.scopes:
+            return sorted(
+                name
+                for name, patterns in self.scopes.items()
+                if any(_scope_match(normalized, pattern) for pattern in patterns)
+            )
+        head, sep, _ = normalized.partition("/")
+        return [head] if sep else []
+
 
 def _normalize_pattern(pattern: str) -> str:
     normalized = pattern.replace("\\", "/").lstrip("/")
@@ -96,3 +119,12 @@ def _directory_pattern_matches(path: str, pattern: str) -> bool:
         directory = pattern[:-3].rstrip("/")
         return path == directory or path.startswith(directory + "/")
     return False
+
+
+def _scope_match(path: str, pattern: str) -> bool:
+    normalized = pattern.replace("\\", "/")
+    return (
+        fnmatch.fnmatch(path, normalized)
+        or fnmatch.fnmatch(path, normalized.rstrip("/") + "/**")
+        or _directory_pattern_matches(path, normalized)
+    )
