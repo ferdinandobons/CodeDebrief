@@ -1,0 +1,10 @@
+[logicchart]
+source_roots = ["backend", "frontend", "tests"]
+exclude = []
+include_public_functions = true
+max_call_depth = 4
+output_dir = "logicchart-out"
+
+[logicchart.entrypoints]
+include = []
+exclude = []
