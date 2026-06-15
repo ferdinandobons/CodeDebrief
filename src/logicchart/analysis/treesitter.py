@@ -93,6 +93,10 @@ class LanguageProfile:
     case_types: frozenset[str] = frozenset()
     case_value_field: str = "value"
     default_types: frozenset[str] = frozenset()
+    # A case with no value is the default (C: `default:` is a valueless case_statement).
+    default_when_no_value: bool = False
+    # Case values that mean "match anything" (a match `_` arm acts as the default).
+    wildcard_values: frozenset[str] = frozenset()
     loop_types: frozenset[str] = frozenset()
     return_type: str = "return_statement"
     return_keyword: str = "return"
@@ -115,6 +119,9 @@ class LanguageProfile:
     assignment_target_field: str = "left"
     nested_def_types: frozenset[str] = field(default_factory=frozenset)
     inert_types: frozenset[str] = frozenset({"comment"})
+    # Wrapper statements to unwrap to their inner expression before dispatch (e.g. Rust
+    # wraps an if/match used as a statement in an expression_statement).
+    unwrap_types: frozenset[str] = frozenset()
 
 
 @dataclass(slots=True)
@@ -222,14 +229,17 @@ class TreeSitterAnalyzer:
     ) -> list[PendingEdge]:
         profile = self.profile
         endpoints = incoming
-        for statement in statements:
+        for raw in statements:
             if not endpoints:
                 findings.append(
-                    dead_code_finding(
-                        builder.flow, _location(relative, statement), _text(statement, source)
-                    )
+                    dead_code_finding(builder.flow, _location(relative, raw), _text(raw, source))
                 )
                 break
+            statement = raw
+            if statement.type in profile.unwrap_types:
+                inner = next((c for c in statement.children if c.is_named), None)
+                if inner is not None:
+                    statement = inner
             node_type = statement.type
             if node_type == profile.if_type:
                 endpoints = self._walk_if(statement, endpoints, builder, findings, source, relative)
@@ -440,11 +450,16 @@ class TreeSitterAnalyzer:
         for case in _named_children(container):
             case_value = case.child_by_field_name(profile.case_value_field)
             body = self._case_body(case, case_value)
-            if case.type in profile.default_types:
+            label = _text(case_value, source)
+            is_default = (
+                case.type in profile.default_types
+                or (profile.default_when_no_value and case_value is None)
+                or label in profile.wildcard_values
+            )
+            if is_default:
                 cases.append(CaseInfo(DEFAULT_LABEL, True, [], body))
             elif case.type in profile.case_types:
-                label = _text(case_value, source) or "case"
-                cases.append(CaseInfo(label, False, [label], body))
+                cases.append(CaseInfo(label or "case", False, [label] if label else [], body))
         return cases
 
     def _case_body(self, case: Any, case_value: Any) -> list[Any]:
