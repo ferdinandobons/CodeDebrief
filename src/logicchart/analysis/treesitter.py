@@ -597,6 +597,10 @@ class TreeSitterAnalyzer:
             return []
         if node.type in self.profile.block_types:
             return list(_named_children(node))
+        # A wrapper clause (else clause, then clause): descend into the block it holds.
+        blocks = [c for c in _named_children(node) if c.type in self.profile.block_types]
+        if blocks:
+            return list(_named_children(blocks[-1]))
         return [node]
 
 
