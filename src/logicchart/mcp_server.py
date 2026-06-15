@@ -61,31 +61,41 @@ def run_mcp(root: Path) -> None:
         )
 
     @server.tool()
-    def get_flow(flow_id: str) -> dict[str, Any]:
+    def get_flow(flow_id: str, token_budget: int = 0) -> dict[str, Any]:
         """Return one complete flow, including nodes, edges, callers, and findings."""
         model = load_model(project_root)
         flow = next((item for item in model.flows if item.id == flow_id), None)
         if flow is None:
             return {"error": f"Unknown flow: {flow_id}"}
+        flow_dict = _flow_dict(flow)
+        # Honor the budget by trimming the largest list-shaped fields of the graph.
+        flow_dict["nodes"] = _cap(flow_dict.get("nodes", []), token_budget)
+        flow_dict["edges"] = _cap(flow_dict.get("edges", []), token_budget)
         return {
-            "flow": _flow_dict(flow),
-            "findings": [_finding_dict(item) for item in model.findings if item.flow_id == flow.id],
+            "flow": flow_dict,
+            "findings": _cap(
+                [_finding_dict(item) for item in model.findings if item.flow_id == flow.id],
+                token_budget,
+            ),
         }
 
     @server.tool()
-    def query_logic(question: str, limit: int = 10) -> list[dict[str, Any]]:
+    def query_logic(question: str, limit: int = 10, token_budget: int = 0) -> list[dict[str, Any]]:
         """Find flows relevant to a behavior, decision, state, or codebase question."""
         model = load_model(project_root)
-        return [
-            {
-                "flow_id": match.flow.id,
-                "name": match.flow.name,
-                "score": match.score,
-                "reasons": match.reasons,
-                "source": (f"{match.flow.location.path}:{match.flow.location.start_line}"),
-            }
-            for match in query_model(model, question, limit)
-        ]
+        return _cap(
+            [
+                {
+                    "flow_id": match.flow.id,
+                    "name": match.flow.name,
+                    "score": match.score,
+                    "reasons": match.reasons,
+                    "source": (f"{match.flow.location.path}:{match.flow.location.start_line}"),
+                }
+                for match in query_model(model, question, limit)
+            ],
+            token_budget,
+        )
 
     @server.tool()
     def get_findings(flow_id: str | None = None, token_budget: int = 0) -> list[dict[str, Any]]:
@@ -106,8 +116,12 @@ def run_mcp(root: Path) -> None:
         return model_summary(load_model(project_root))
 
     @server.tool()
-    def explain_finding_chain(finding_id: str) -> dict[str, Any]:
-        """The deterministic evidence chain behind one finding (decision, condition, branches)."""
+    def explain_finding_chain(finding_id: str, token_budget: int = 0) -> dict[str, Any]:
+        """The deterministic evidence chain behind one finding (decision, condition, branches).
+
+        Returns a single finding record (naturally small); token_budget is accepted
+        for a uniform query/list contract.
+        """
         result = explain_finding(load_model(project_root), finding_id)
         return result if result is not None else {"error": f"Unknown finding: {finding_id}"}
 
@@ -135,25 +149,27 @@ def run_mcp(root: Path) -> None:
         return _cap(decisions, token_budget)
 
     @server.tool()
-    def diff_findings(base_path: str) -> dict[str, Any]:
+    def diff_findings(base_path: str, token_budget: int = 0) -> dict[str, Any]:
         """Compare the current model against a baseline logic-flow.json (the CI primitive)."""
         base = ProjectModel.from_dict(read_json(Path(base_path)))
         diff = diff_models(base, load_model(project_root))
         return {
-            "introduced": [_finding_dict(item) for item in diff.introduced],
-            "resolved": [_finding_dict(item) for item in diff.resolved],
+            "introduced": _cap([_finding_dict(item) for item in diff.introduced], token_budget),
+            "resolved": _cap([_finding_dict(item) for item in diff.resolved], token_budget),
             "persisting": len(diff.persisting),
         }
 
     @server.tool()
-    def analyze_impact(changed_files: list[str]) -> dict[str, Any]:
+    def analyze_impact(changed_files: list[str], token_budget: int = 0) -> dict[str, Any]:
         """Find direct and transitive decision flows affected by changed source files."""
         result = impact_model(load_model(project_root), changed_files)
+        direct = [_flow_summary(item) for item in result.directly_impacted]
+        transitive = [_flow_summary(item) for item in result.transitively_impacted]
         return {
             "changed_files": result.changed_files,
-            "direct": [_flow_summary(item) for item in result.directly_impacted],
-            "transitive": [_flow_summary(item) for item in result.transitively_impacted],
-            "findings": [_finding_dict(item) for item in result.findings],
+            "direct": _cap(direct, token_budget),
+            "transitive": _cap(transitive, token_budget),
+            "findings": _cap([_finding_dict(item) for item in result.findings], token_budget),
         }
 
     @server.tool()

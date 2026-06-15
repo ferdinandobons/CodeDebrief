@@ -53,6 +53,31 @@ def test_uninstall_removes_only_the_managed_block(tmp_path: Path) -> None:
     assert hooks_status(tmp_path) == {"post-commit": False, "post-checkout": False}
 
 
+def test_uninstall_is_symmetric_with_gitattributes(tmp_path: Path) -> None:
+    _git_repo(tmp_path)
+    install_hooks(tmp_path)
+    attributes = tmp_path / ".gitattributes"
+    assert "logic-flow.json merge=union" in attributes.read_text(encoding="utf-8")
+
+    removed = uninstall_hooks(tmp_path)
+
+    assert any(path.name == ".gitattributes" for path in removed)
+    assert not attributes.exists() or "logic-flow.json merge=union" not in attributes.read_text(
+        encoding="utf-8"
+    )
+
+
+def test_uninstall_preserves_other_gitattributes(tmp_path: Path) -> None:
+    _git_repo(tmp_path)
+    (tmp_path / ".gitattributes").write_text("*.py text\n", encoding="utf-8")
+    install_hooks(tmp_path)
+    uninstall_hooks(tmp_path)
+
+    text = (tmp_path / ".gitattributes").read_text(encoding="utf-8")
+    assert "*.py text" in text
+    assert "logic-flow.json merge=union" not in text
+
+
 def test_hook_requires_a_git_repository(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError):
         install_hooks(tmp_path)

@@ -80,7 +80,8 @@ def render_sarif(diff: ModelDiff) -> dict[str, object]:
                 {
                     "physicalLocation": {
                         "artifactLocation": {"uri": finding.location.path},
-                        "region": {"startLine": finding.location.start_line},
+                        # SARIF 2.1.0 requires startLine >= 1.
+                        "region": {"startLine": max(1, finding.location.start_line)},
                     }
                 }
             ],

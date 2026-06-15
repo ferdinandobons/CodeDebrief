@@ -53,6 +53,10 @@ def uninstall_hooks(root: Path) -> list[Path]:
         else:
             path.unlink()
         removed.append(path)
+    # Symmetric with install: also drop the managed merge-driver attribute line.
+    attributes = root / ".gitattributes"
+    if _remove_line(attributes, _ATTR_LINE):
+        removed.append(attributes)
     return removed
 
 
@@ -78,4 +82,18 @@ def _ensure_line(path: Path, line: str) -> bool:
         return False
     prefix = existing if not existing or existing.endswith("\n") else existing + "\n"
     path.write_text(prefix + line + "\n", encoding="utf-8")
+    return True
+
+
+def _remove_line(path: Path, line: str) -> bool:
+    if not path.exists():
+        return False
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if line not in lines:
+        return False
+    remaining = [item for item in lines if item != line]
+    if remaining:
+        path.write_text("\n".join(remaining) + "\n", encoding="utf-8")
+    else:
+        path.unlink()
     return True

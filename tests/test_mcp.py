@@ -43,6 +43,18 @@ def authorize(user):
                     "diff_findings",
                 } <= names
 
+                # Spec §5.2: every query/list tool exposes a token_budget cap.
+                schema_by_name = {tool.name: tool.inputSchema for tool in tools.tools}
+                for budget_tool in (
+                    "get_flow",
+                    "query_logic",
+                    "explain_finding_chain",
+                    "analyze_impact",
+                    "diff_findings",
+                ):
+                    properties = schema_by_name[budget_tool].get("properties", {})
+                    assert "token_budget" in properties, budget_tool
+
                 response = await session.call_tool(
                     "query_logic",
                     {"question": "admin authorization", "limit": 5},
