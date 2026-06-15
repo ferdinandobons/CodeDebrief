@@ -132,6 +132,9 @@ class ProjectAnalyzer:
         findings.extend(self._enum_exhaustiveness(flows, enums))
         findings.extend(self._outcome_inconsistency(flows))
         findings.extend(self._logging_asymmetry(flows))
+        if self.config.gated_detectors:
+            findings.extend(self._auth_divergence(flows))
+        findings = _suppress_redundant_missing_branch(findings)
         findings = _deduplicate_findings(findings)
         files = [
             FileRecord(
@@ -353,9 +356,11 @@ class ProjectAnalyzer:
         return findings
 
     def _logging_asymmetry(self, flows: list[Flow]) -> list[Finding]:
-        # Flows sharing the exact same guard condition where some branches log the
-        # rejection and a sibling silently proceeds — an observability gap.
-        by_condition: dict[tuple[str, str], list[tuple[Flow, FlowNode, bool]]] = {}
+        # Scoped to error paths: flows sharing the exact same guard where a sibling
+        # logs/alerts AND rejects (raises) while this one handles it silently. The
+        # raise requirement keeps ubiquitous trivial guards from conflating unrelated
+        # flows, matching the spec's "observability asymmetry on error paths".
+        by_condition: dict[tuple[str, str], list[tuple[Flow, FlowNode, bool, bool]]] = {}
         for flow in flows:
             if flow.metadata.get("test"):
                 continue
@@ -363,19 +368,43 @@ class ProjectAnalyzer:
                 if node.kind is not NodeKind.DECISION:
                     continue
                 condition = str(node.metadata.get("condition", ""))
-                if condition and node.metadata.get("domain") != "error":
-                    by_condition.setdefault((flow.language, condition), []).append(
-                        (flow, node, _branch_logs(flow, node))
-                    )
+                if not condition or node.metadata.get("domain") == "error":
+                    continue
+                logs = _branch_logs(flow, node)
+                raises = _outcome_signature(flow, node).startswith("raise")
+                by_condition.setdefault((flow.language, condition), []).append(
+                    (flow, node, logs, raises)
+                )
 
         findings: list[Finding] = []
         for (_language, condition), entries in by_condition.items():
             if len(entries) < 2:
                 continue
-            if any(logs for *_, logs in entries) and any(not logs for *_, logs in entries):
-                for flow, node, logs in entries:
+            has_error_logger = any(logs and raises for *_, logs, raises in entries)
+            has_silent = any(not logs for *_, logs, _ in entries)
+            if has_error_logger and has_silent:
+                for flow, node, logs, _ in entries:
                     if not logs:
                         findings.append(_logging_finding(flow, node, condition))
+        return findings
+
+    def _auth_divergence(self, flows: list[Flow]) -> list[Finding]:
+        # GATED (opt-in via gated_detectors). Entry points in the same file where
+        # some perform an authorization check and a sibling does not. Middleware or
+        # DI can authorize invisibly, so this is a review candidate, not a bug.
+        by_file: dict[str, list[Flow]] = {}
+        for flow in flows:
+            if flow.is_entrypoint and not flow.metadata.get("test"):
+                by_file.setdefault(flow.location.path, []).append(flow)
+        findings: list[Finding] = []
+        for group in by_file.values():
+            if len(group) < 2 or not any(f.metadata.get("performs_auth_check") for f in group):
+                continue
+            findings.extend(
+                _auth_finding(flow)
+                for flow in group
+                if not flow.metadata.get("performs_auth_check")
+            )
         return findings
 
 
@@ -401,22 +430,47 @@ def _edges_by_source(flow: Flow) -> dict[str, list[tuple[str, str]]]:
     return out
 
 
+# Exception classes whose first positional argument is conventionally an HTTP status.
+_HTTP_ERROR_CLASSES = {"httpexception", "apierror", "httperror", "responseerror", "apiexception"}
+
+
 def _outcome_signature(flow: Flow, node: FlowNode) -> str:
-    """How the positive ("Yes") branch of a decision ends: raise:<code>/raise/return."""
+    """How the positive ("Yes") branch of a decision terminates.
+
+    Walks through intervening calls/actions (e.g. a log before the raise) to the
+    first error or terminal node, so an effect-before-raise reads as the raise it
+    leads to. A raise is keyed on its exception type plus a status code only when
+    the code is unambiguous — never a bare integer argument.
+    """
     nodes = {item.id: item for item in flow.nodes}
-    target_id = next(
-        (target for label, target in _edges_by_source(flow).get(node.id, []) if label == "Yes"),
-        None,
-    )
-    target = nodes.get(target_id) if target_id else None
-    if target is None:
-        return ""
-    if target.kind is NodeKind.ERROR:
-        match = re.search(r"\b([1-5]\d\d)\b", target.label)
-        return f"raise:{match.group(1)}" if match else "raise"
-    if target.kind is NodeKind.TERMINAL:
-        return "return"
-    return str(target.kind.value)
+    out = _edges_by_source(flow)
+    cursor = next((target for label, target in out.get(node.id, []) if label == "Yes"), None)
+    seen: set[str] = set()
+    while cursor is not None and cursor not in seen:
+        seen.add(cursor)
+        current = nodes.get(cursor)
+        if current is None:
+            return ""
+        if current.kind is NodeKind.ERROR:
+            return _raise_signature(current.label)
+        if current.kind is NodeKind.TERMINAL:
+            return "return"
+        if current.kind is NodeKind.DECISION:
+            return ""  # a nested branch — no single outcome to summarize
+        successors = out.get(cursor, [])
+        cursor = successors[0][1] if len(successors) == 1 else None
+    return ""
+
+
+def _raise_signature(label: str) -> str:
+    match = re.search(r"\bRaise\s+([A-Za-z_][\w.]*)", label)
+    exception = (match.group(1) if match else "error").rsplit(".", 1)[-1]
+    keyword = re.search(r"(?:status_code|status|code)\s*=\s*(\d{3})", label)
+    code = keyword.group(1) if keyword else None
+    if code is None and exception.lower() in _HTTP_ERROR_CLASSES:
+        positional = re.search(r"\(\s*(\d{3})\b", label)
+        code = positional.group(1) if positional else None
+    return f"raise:{exception}" + (f":{code}" if code else "")
 
 
 def _branch_logs(flow: Flow, node: FlowNode) -> bool:
@@ -590,6 +644,41 @@ def _logging_finding(flow: Flow, node: FlowNode, condition: str) -> Finding:
         ),
         metadata={"category": "cross_flow", "condition": condition},
     )
+
+
+def _auth_finding(flow: Flow) -> Finding:
+    entry = flow.nodes[0] if flow.nodes else None
+    return Finding(
+        id=stable_id(flow.id, "auth-divergence"),
+        kind="auth_divergence",
+        severity=Severity.WARNING,
+        message=f"{flow.name} skips the authorization check its sibling entry points perform",
+        evidence=Evidence.POTENTIAL_GAP,
+        flow_id=flow.id,
+        node_id=entry.id if entry else None,
+        location=flow.location,
+        detail=(
+            "Gated heuristic: sibling entry points in this file perform an authorization "
+            "check while this one does not. Middleware or DI may authorize it invisibly — review."
+        ),
+        metadata={"category": "cross_flow", "rule": "auth_divergence"},
+    )
+
+
+def _suppress_redundant_missing_branch(findings: list[Finding]) -> list[Finding]:
+    """Drop missing_branch where enum_exhaustiveness already names the missing members.
+
+    Both fire on a state-like dispatch with no fallback; the declared-set finding is
+    strictly more actionable, so keep it and suppress the generic one on that node.
+    """
+    enum_nodes = {
+        (item.flow_id, item.node_id) for item in findings if item.kind == "enum_exhaustiveness"
+    }
+    return [
+        item
+        for item in findings
+        if not (item.kind == "missing_branch" and (item.flow_id, item.node_id) in enum_nodes)
+    ]
 
 
 def _deduplicate_findings(findings: list[Finding]) -> list[Finding]:

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T19:16:14.982365+00:00",
+  "generated_at": "2026-06-15T19:35:34.558305+00:00",
   "root": ".",
   "flows": [
     {
@@ -6342,22 +6342,6 @@
       }
     },
     {
-      "id": "e599b12588a4146e",
-      "kind": "missing_branch",
-      "severity": "warning",
-      "message": "Decision has no explicit fallback: if/elif on account.status",
-      "evidence": "POTENTIAL_GAP",
-      "flow_id": "flow-bf4bdbe9cee93085",
-      "location": {
-        "path": "examples/shop/backend/api/users_routes.py",
-        "start_line": 15,
-        "end_line": 15
-      },
-      "node_id": "flow-bf4bdbe9cee93085:n3",
-      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-      "metadata": {}
-    },
-    {
       "id": "c1271ffbcb35cd3c",
       "kind": "missing_branch",
       "severity": "warning",
@@ -6370,38 +6354,6 @@
         "end_line": 3
       },
       "node_id": "flow-a14422f6dd2875d3:n2",
-      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-      "metadata": {}
-    },
-    {
-      "id": "e6515291108c88c5",
-      "kind": "missing_branch",
-      "severity": "warning",
-      "message": "Decision has no explicit fallback: if/elif on result",
-      "evidence": "POTENTIAL_GAP",
-      "flow_id": "flow-d8c77f3ddc158387",
-      "location": {
-        "path": "examples/shop/backend/payments_service.py",
-        "start_line": 11,
-        "end_line": 11
-      },
-      "node_id": "flow-d8c77f3ddc158387:n3",
-      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-      "metadata": {}
-    },
-    {
-      "id": "82a4ebee50c1d218",
-      "kind": "missing_branch",
-      "severity": "warning",
-      "message": "Decision has no explicit fallback: match order.status",
-      "evidence": "POTENTIAL_GAP",
-      "flow_id": "flow-4e833d53a700855c",
-      "location": {
-        "path": "examples/shop/backend/orders_service.py",
-        "start_line": 8,
-        "end_line": 16
-      },
-      "node_id": "flow-4e833d53a700855c:n3",
       "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
       "metadata": {}
     },
@@ -6753,7 +6705,7 @@
     ],
     "entrypoint_count": 29,
     "flow_count": 33,
-    "finding_count": 14,
+    "finding_count": 11,
     "enums": {
       "python": {
         "UserStatus": [

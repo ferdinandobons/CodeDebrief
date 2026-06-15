@@ -103,12 +103,64 @@ def test_outcome_inconsistency_flags_the_minority_outcome(tmp_path: Path) -> Non
         f for f in model.findings if f.kind == "outcome_inconsistency" and f.flow_id == minority.id
     ]
     assert flagged
-    assert flagged[0].metadata["outcome"] == "raise:404"
-    assert flagged[0].metadata["expected"] == "raise:410"
+    assert flagged[0].metadata["outcome"] == "raise:ApiError:404"
+    assert flagged[0].metadata["expected"] == "raise:ApiError:410"
     # The agreeing majority is not flagged.
     assert not any(
         f.kind == "outcome_inconsistency" and f.flow_id != minority.id for f in model.findings
     )
+
+
+_AUTH_PAIR = (
+    "def delete_user(admin, target):\n"
+    "    require_role(admin, 'admin')\n    do_delete(target)\n\n\n"
+    "def purge_user(admin, target):\n    do_purge(target)\n"
+)
+
+
+def test_auth_divergence_is_gated_and_flags_the_unguarded_sibling(tmp_path: Path) -> None:
+    (tmp_path / "logicchart.toml").write_text(
+        '[logicchart]\nsource_roots = ["."]\ngated_detectors = true\n', encoding="utf-8"
+    )
+    (tmp_path / "routes.py").write_text(_AUTH_PAIR, encoding="utf-8")
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    purge = next(f for f in model.flows if f.name == "purge_user")
+    delete = next(f for f in model.flows if f.name == "delete_user")
+    assert any(f.kind == "auth_divergence" and f.flow_id == purge.id for f in model.findings)
+    assert not any(f.kind == "auth_divergence" and f.flow_id == delete.id for f in model.findings)
+
+
+def test_auth_divergence_is_off_by_default(tmp_path: Path) -> None:
+    (tmp_path / "routes.py").write_text(_AUTH_PAIR, encoding="utf-8")
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    assert not any(f.kind == "auth_divergence" for f in model.findings)
+
+
+def test_outcome_inconsistency_ignores_logging_before_raise(tmp_path: Path) -> None:
+    # Two flows log before raising the identical error; one raises directly. Same outcome.
+    guard = (
+        "def {n}(account):\n    if account.status == Status.DELETED:\n{body}    return ok()\n\n\n"
+    )
+    logged = "        log_event()\n        raise ApiError(410)\n"
+    direct = "        raise ApiError(410)\n"
+    body = guard.format(n="a", body=logged) + guard.format(n="b", body=logged)
+    body += guard.format(n="c", body=direct)
+    (tmp_path / "svc.py").write_text(body, encoding="utf-8")
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    assert not any(f.kind == "outcome_inconsistency" for f in model.findings)
+
+
+def test_outcome_inconsistency_ignores_non_status_integers(tmp_path: Path) -> None:
+    # A retry count, not an HTTP status: the same exception type must not diverge.
+    guard = (
+        "def {n}(job):\n"
+        "    if job.state == State.FAILED:\n        raise RetryError(retries={r})\n"
+        "    return ok()\n\n\n"
+    )
+    body = guard.format(n="a", r=100) + guard.format(n="b", r=100) + guard.format(n="c", r=500)
+    (tmp_path / "svc.py").write_text(body, encoding="utf-8")
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    assert not any(f.kind == "outcome_inconsistency" for f in model.findings)
 
 
 def test_logging_asymmetry_flags_the_silent_sibling(tmp_path: Path) -> None:

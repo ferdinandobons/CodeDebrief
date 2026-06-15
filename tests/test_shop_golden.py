@@ -41,20 +41,30 @@ def test_shop_planted_defects_fire(tmp_path: Path) -> None:
     assert "enum_exhaustiveness" in by_flow.get("transition", set())
     assert "logging_asymmetry" in by_flow.get("capture_payment", set())
     assert "missing_branch" in by_flow.get("OrdersPage", set())
+    assert "auth_divergence" in by_flow.get("purge_user", set())
+    # The generic missing_branch is suppressed where enum_exhaustiveness already names
+    # the missing members.
+    assert "missing_branch" not in by_flow.get("change_email", set())
 
 
 def test_shop_controls_stay_silent(tmp_path: Path) -> None:
-    by_flow = _by_flow(_analyze_shop_copy(tmp_path))
-    for control in (
-        "authenticate",
-        "GET",
-        "AccountPage",
-        "middleware",
-        "reset_password",
-        "get_profile",
-        "cancel",
-        "request_refund",
-    ):
-        assert control not in by_flow, (
-            f"{control} should be a silent control, got {by_flow[control]}"
-        )
+    # Keyed by (file, name) so verb-named handlers (GET/POST) never collide.
+    model = _analyze_shop_copy(tmp_path)
+    flow_by_id = {flow.id: flow for flow in model.flows}
+    flagged = {
+        (flow_by_id[f.flow_id].location.path, flow_by_id[f.flow_id].name)
+        for f in model.findings
+        if f.flow_id in flow_by_id
+    }
+    controls = [
+        ("backend/users_service.py", "authenticate"),
+        ("frontend/app/api/users/route.ts", "GET"),
+        ("frontend/app/account/page.tsx", "AccountPage"),
+        ("frontend/middleware.ts", "middleware"),
+        ("backend/api/users_routes.py", "reset_password"),
+        ("backend/api/users_routes.py", "get_profile"),
+        ("backend/api/orders_routes.py", "cancel"),
+        ("backend/api/orders_routes.py", "request_refund"),
+    ]
+    for control in controls:
+        assert control not in flagged, f"{control} should be a silent control"

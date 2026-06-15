@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T19:16:14.822385+00:00",
+  "generated_at": "2026-06-15T19:35:34.393221+00:00",
   "root": ".",
   "flows": [
     {
@@ -5456,22 +5456,6 @@
       }
     },
     {
-      "id": "2f726b6ae1af8b44",
-      "kind": "missing_branch",
-      "severity": "warning",
-      "message": "Decision has no explicit fallback: if/elif on account.status",
-      "evidence": "POTENTIAL_GAP",
-      "flow_id": "flow-3d1dd6694cc550e9",
-      "location": {
-        "path": "backend/api/users_routes.py",
-        "start_line": 15,
-        "end_line": 15
-      },
-      "node_id": "flow-3d1dd6694cc550e9:n3",
-      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-      "metadata": {}
-    },
-    {
       "id": "b623f825229813fe",
       "kind": "missing_branch",
       "severity": "warning",
@@ -5484,38 +5468,6 @@
         "end_line": 3
       },
       "node_id": "flow-a8e844538cf5c5b4:n2",
-      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-      "metadata": {}
-    },
-    {
-      "id": "c4b5df563b105d23",
-      "kind": "missing_branch",
-      "severity": "warning",
-      "message": "Decision has no explicit fallback: if/elif on result",
-      "evidence": "POTENTIAL_GAP",
-      "flow_id": "flow-bf8811dbdd106592",
-      "location": {
-        "path": "backend/payments_service.py",
-        "start_line": 11,
-        "end_line": 11
-      },
-      "node_id": "flow-bf8811dbdd106592:n3",
-      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-      "metadata": {}
-    },
-    {
-      "id": "d01c0b4d44c4db93",
-      "kind": "missing_branch",
-      "severity": "warning",
-      "message": "Decision has no explicit fallback: match order.status",
-      "evidence": "POTENTIAL_GAP",
-      "flow_id": "flow-9db0379ee88dd158",
-      "location": {
-        "path": "backend/orders_service.py",
-        "start_line": 8,
-        "end_line": 16
-      },
-      "node_id": "flow-9db0379ee88dd158:n3",
       "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
       "metadata": {}
     },
@@ -5675,6 +5627,44 @@
       "node_id": null,
       "detail": "profile[\"leaked\"] = \"true\"",
       "metadata": {}
+    },
+    {
+      "id": "c7170e6aac93f13b",
+      "kind": "auth_divergence",
+      "severity": "warning",
+      "message": "load_profile skips the authorization check its sibling entry points perform",
+      "evidence": "POTENTIAL_GAP",
+      "flow_id": "flow-4e86ebfbebb24a2c",
+      "location": {
+        "path": "backend/users_service.py",
+        "start_line": 26,
+        "end_line": 31
+      },
+      "node_id": "flow-4e86ebfbebb24a2c:n1",
+      "detail": "Gated heuristic: sibling entry points in this file perform an authorization check while this one does not. Middleware or DI may authorize it invisibly — review.",
+      "metadata": {
+        "category": "cross_flow",
+        "rule": "auth_divergence"
+      }
+    },
+    {
+      "id": "becfddfe62dde519",
+      "kind": "auth_divergence",
+      "severity": "warning",
+      "message": "purge_user skips the authorization check its sibling entry points perform",
+      "evidence": "POTENTIAL_GAP",
+      "flow_id": "flow-10ef2d061b27b88c",
+      "location": {
+        "path": "backend/api/admin_routes.py",
+        "start_line": 13,
+        "end_line": 15
+      },
+      "node_id": "flow-10ef2d061b27b88c:n1",
+      "detail": "Gated heuristic: sibling entry points in this file perform an authorization check while this one does not. Middleware or DI may authorize it invisibly — review.",
+      "metadata": {
+        "category": "cross_flow",
+        "rule": "auth_divergence"
+      }
     }
   ],
   "files": [
@@ -5824,7 +5814,7 @@
     ],
     "entrypoint_count": 25,
     "flow_count": 27,
-    "finding_count": 13,
+    "finding_count": 12,
     "enums": {
       "python": {
         "AccountStatus": [
