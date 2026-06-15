@@ -6,9 +6,10 @@ The project follows Semantic Versioning once public releases begin.
 
 ## Unreleased
 
-- Viewer UI refresh: a light/dark theme toggle (remembered across sessions), refined
-  palette, node hover and shadow states, and selecting a block now highlights it and its
-  connected edges while dimming the rest.
+- Viewer UI refresh: a new logo (an entry-node circle linked to a decision diamond, in the
+  chart's blue/amber) plus a matching favicon, a light/dark theme toggle (remembered across
+  sessions), refined palette, node hover and shadow states, and selecting a block now
+  highlights it and its connected edges while dimming the rest.
 
 ## 0.2.1
 

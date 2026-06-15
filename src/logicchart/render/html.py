@@ -20,6 +20,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LogicChart</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 40'%3E%3Cline x1='13' y1='14' x2='13' y2='23.5' stroke='%232f63ef' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='13' cy='8' r='5.5' fill='%232f63ef'/%3E%3Cpolygon points='13,24 19.5,30.5 13,37 6.5,30.5' fill='%23df9a12'/%3E%3C/svg%3E">
   <style>
     :root {
       --paper: #eef2fa;
@@ -124,22 +125,16 @@ _HTML_TEMPLATE = r"""<!doctype html>
       min-width: 270px;
     }
     .brand-mark {
-      width: 38px;
-      height: 38px;
-      border-radius: 11px;
+      flex: none;
       display: grid;
       place-items: center;
-      background: linear-gradient(150deg, var(--blue), var(--violet));
-      box-shadow: 0 8px 20px rgba(47, 99, 239, 0.32);
     }
-    .brand-mark span {
-      width: 15px;
-      height: 15px;
-      transform: rotate(45deg);
-      border-radius: 3px;
-      background: #fff;
-      box-shadow: inset 0 0 0 3px var(--blue);
-    }
+    /* The mark is a mini decision flow: an entry node (circle) linked to a decision
+       (diamond), in the same blue/amber the chart uses for those node kinds. */
+    .brand-mark svg { height: 34px; width: auto; display: block; overflow: visible; }
+    .logo-node { fill: var(--blue); }
+    .logo-link { stroke: var(--blue); stroke-width: 2.6; stroke-linecap: round; }
+    .logo-decision { fill: var(--amber); }
     .brand h1 {
       font-family: Georgia, "Times New Roman", serif;
       font-size: 23px;
@@ -462,7 +457,13 @@ _HTML_TEMPLATE = r"""<!doctype html>
   <div class="shell">
     <header>
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true"><span></span></div>
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 26 40" xmlns="http://www.w3.org/2000/svg">
+            <line class="logo-link" x1="13" y1="14" x2="13" y2="23.5"></line>
+            <circle class="logo-node" cx="13" cy="8" r="5.5"></circle>
+            <polygon class="logo-decision" points="13,24 19.5,30.5 13,37 6.5,30.5"></polygon>
+          </svg>
+        </div>
         <div><h1>LogicChart</h1><small>Decision flow index</small></div>
       </div>
       <div class="flow-heading">
