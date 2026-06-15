@@ -158,14 +158,57 @@ def is_functional_condition(condition: str, branch_text: str = "") -> bool:
     return any(term in lowered for term in BOUNDARY_CALL_TERMS)
 
 
+# Per-branch terminal behavior recorded on a decision node's `branches` metadata.
+BRANCH_OUTCOMES = frozenset({"returns", "raises", "falls_through", "empty", "continues"})
+
+DOMAIN_TERMS = ("status", "state", "role", "type", "kind", "mode", "permission")
+_IDENTITY_OPERATORS = r"==|!=|\bis not\b|\bnot in\b|\bis\b|\bin\b"
+
+
+def domain_from_subject(subject: str) -> str:
+    """The functional domain a decision subject touches (status/role/...), or ""."""
+    lowered = subject.lower()
+    return next((term for term in DOMAIN_TERMS if term in lowered), "")
+
+
+def branch(label: str, outcome: str, *, implicit: bool = False) -> dict[str, Any]:
+    """One decision-branch record for a node's `branches` metadata."""
+    assert outcome in BRANCH_OUTCOMES, f"unknown branch outcome: {outcome!r}"
+    return {"label": label, "outcome": outcome, "implicit": implicit}
+
+
+def decision_identity(
+    *,
+    condition: str,
+    subject: str,
+    operator: str,
+    domain: str = "",
+    values: list[str] | None = None,
+    negation: bool = False,
+    namespace: str | None = None,
+) -> dict[str, Any]:
+    """Assemble the canonical decision-node metadata key set.
+
+    Single constructor so every decision node — if/elif, match, switch, try —
+    carries the same shape (condition/domain/values plus the identity fields).
+    """
+    sorted_values = sorted(set(values or []))
+    resolved_namespace = namespace if namespace is not None else value_namespace(sorted_values)
+    return {
+        "condition": condition,
+        "domain": domain,
+        "values": sorted_values,
+        "subject": subject,
+        "operator": operator,
+        "negation": negation,
+        "value_namespace": resolved_namespace,
+    }
+
+
 def decision_metadata(condition: str) -> dict[str, Any]:
     compact = compact_text(condition, 240)
     lowered = compact.lower()
-    domain = ""
-    for candidate in ("status", "state", "role", "type", "kind", "mode", "permission"):
-        if re.search(rf"\b{candidate}\b", lowered):
-            domain = candidate
-            break
+    domain = next((term for term in DOMAIN_TERMS if re.search(rf"\b{term}\b", lowered)), "")
 
     values: list[str] = []
     for value in re.findall(
@@ -177,7 +220,80 @@ def decision_metadata(condition: str) -> dict[str, Any]:
             for token in re.split(r"[,|]", re.sub(r"^(==|!=|\bin\b|\bis\b)\s*", "", value))
             if token.strip(" '\"[]()")
         )
-    return {"condition": compact, "domain": domain, "values": sorted(set(values))}
+    subject, operator, negation = parse_subject_operator(compact)
+    return decision_identity(
+        condition=compact,
+        subject=subject,
+        operator=operator,
+        domain=domain,
+        values=values,
+        negation=negation,
+    )
+
+
+def parse_subject_operator(condition: str) -> tuple[str, str, bool]:
+    """Decompose a decision condition into (subject, operator, negation).
+
+    Comparison conditions yield the normalized dotted left-hand side and one of
+    ==/!=/is/is not/in/not in. Bare truthiness checks (``not user.active``,
+    ``!ctx.ok``) yield an empty operator with the negation flag set.
+    """
+    text = condition.strip()
+    match = re.match(
+        rf"^\s*(?P<neg>not\s+|!)?\s*(?P<lhs>.+?)\s*(?P<op>{_IDENTITY_OPERATORS})\s*(?P<rhs>.+)$",
+        text,
+    )
+    if match:
+        operator = re.sub(r"\s+", " ", match.group("op").strip())
+        return match.group("lhs").strip(), operator, bool(match.group("neg"))
+
+    negation = bool(re.match(r"\s*(not\s+|!)", text))
+    subject = re.sub(r"^\s*(not\s+|!)\s*", "", text)
+    return subject.strip(), "", negation
+
+
+def value_namespace(values: list[str]) -> str:
+    """The shared dotted enum prefix of compared values (``Foo.BAR`` -> ``Foo``).
+
+    Returns the single common namespace when every dotted value agrees, else "".
+    """
+    prefixes = {value.rsplit(".", 1)[0] for value in values if "." in value}
+    return next(iter(prefixes)) if len(prefixes) == 1 else ""
+
+
+def annotate_reachability(flow: Flow) -> None:
+    """Record `reachable_from_entry` / `reaches_terminal` on every node.
+
+    Deterministic graph reachability: a forward walk from entry nodes and a
+    reverse walk from terminal/error nodes. Used by single-flow detectors (dead
+    code, dead joins) and surfaced for navigation.
+    """
+    outgoing: dict[str, list[str]] = {node.id: [] for node in flow.nodes}
+    incoming: dict[str, list[str]] = {node.id: [] for node in flow.nodes}
+    for edge in flow.edges:
+        if edge.source in outgoing and edge.target in incoming:
+            outgoing[edge.source].append(edge.target)
+            incoming[edge.target].append(edge.source)
+
+    entries = [node.id for node in flow.nodes if node.kind is NodeKind.ENTRY]
+    exits = [node.id for node in flow.nodes if node.kind in (NodeKind.TERMINAL, NodeKind.ERROR)]
+    from_entry = _reach(entries, outgoing)
+    to_terminal = _reach(exits, incoming)
+    for node in flow.nodes:
+        node.metadata["reachable_from_entry"] = node.id in from_entry
+        node.metadata["reaches_terminal"] = node.id in to_terminal
+
+
+def _reach(seeds: list[str], adjacency: dict[str, list[str]]) -> set[str]:
+    seen: set[str] = set(seeds)
+    stack = list(seeds)
+    while stack:
+        current = stack.pop()
+        for neighbor in adjacency.get(current, ()):
+            if neighbor not in seen:
+                seen.add(neighbor)
+                stack.append(neighbor)
+    return seen
 
 
 def call_is_boundary(name: str) -> bool:

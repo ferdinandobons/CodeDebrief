@@ -3,13 +3,19 @@ from __future__ import annotations
 import ast
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 from logicchart.analysis.common import (
     FlowBuilder,
     PendingEdge,
+    annotate_reachability,
+    branch,
     call_is_boundary,
+    decision_identity,
     decision_metadata,
+    domain_from_subject,
     is_functional_condition,
+    value_namespace,
 )
 from logicchart.config import LogicChartConfig
 from logicchart.model import (
@@ -118,6 +124,7 @@ class PythonAnalyzer:
                 outgoing,
                 evidence=Evidence.INFERRED,
             )
+        annotate_reachability(flow)
         return flow
 
     def _walk_statements(
@@ -234,6 +241,14 @@ class PythonAnalyzer:
             detail=_source_segment(source, statement.test),
             metadata=decision_metadata(condition),
         )
+        node.metadata["branches"] = [
+            branch("Yes", _branch_outcome(statement.body)),
+            branch(
+                "No",
+                _branch_outcome(statement.orelse) if statement.orelse else "falls_through",
+                implicit=not statement.orelse,
+            ),
+        ]
         yes_endpoints = self._walk_statements(
             statement.body,
             [PendingEdge(node.id, "Yes")],
@@ -270,15 +285,25 @@ class PythonAnalyzer:
             f"Match {subject}",
             _location(relative, statement),
             incoming,
-            metadata={"condition": subject, "domain": _domain_from_subject(subject), "values": []},
+            metadata=decision_identity(
+                condition=subject,
+                subject=subject,
+                operator="match",
+                domain=domain_from_subject(subject),
+                namespace="",
+            ),
         )
         endpoints: list[PendingEdge] = []
         has_default = False
         values: list[str] = []
+        branches: list[dict[str, Any]] = []
         for case in statement.cases:
             pattern = _safe_unparse(case.pattern)
-            has_default = has_default or pattern == "_"
-            values.append(pattern)
+            is_default = pattern == "_"
+            has_default = has_default or is_default
+            if not is_default:
+                values.append(pattern)
+            branches.append(branch(pattern, _branch_outcome(case.body)))
             endpoints.extend(
                 self._walk_statements(
                     case.body,
@@ -290,8 +315,11 @@ class PythonAnalyzer:
                 )
             )
         node.metadata["values"] = sorted(set(values))
+        node.metadata["value_namespace"] = value_namespace(sorted(set(values)))
         if not has_default:
+            branches.append(branch("_", "falls_through", implicit=True))
             builder.add_missing_branch_finding(node, f"match {subject}", findings)
+        node.metadata["branches"] = branches
         return endpoints
 
     def _walk_try(
@@ -310,8 +338,15 @@ class PythonAnalyzer:
             incoming,
             evidence=Evidence.INFERRED,
             detail=_source_segment(source, statement),
-            metadata={"condition": "exception boundary", "domain": "error", "values": []},
+            metadata=decision_identity(
+                condition="exception boundary",
+                subject="exception",
+                operator="",
+                domain="error",
+                namespace="",
+            ),
         )
+        branches: list[dict[str, Any]] = [branch("Success", _branch_outcome(statement.body))]
         endpoints = self._walk_statements(
             statement.body,
             [PendingEdge(node.id, "Success")],
@@ -322,6 +357,7 @@ class PythonAnalyzer:
         )
         for handler in statement.handlers:
             error_name = _safe_unparse(handler.type) if handler.type else "Any error"
+            branches.append(branch(error_name, _branch_outcome(handler.body)))
             endpoints.extend(
                 self._walk_statements(
                     handler.body,
@@ -332,6 +368,7 @@ class PythonAnalyzer:
                     relative,
                 )
             )
+        node.metadata["branches"] = branches
         if statement.finalbody:
             endpoints = self._walk_statements(
                 statement.finalbody, endpoints, builder, findings, source, relative
@@ -453,9 +490,35 @@ def _is_test(relative: str, name: str) -> bool:
     return name.startswith("test_") or "tests" in parts or Path(relative).name.startswith("test_")
 
 
-def _domain_from_subject(subject: str) -> str:
-    lowered = subject.lower()
-    for candidate in ("status", "state", "role", "type", "kind", "mode", "permission"):
-        if candidate in lowered:
-            return candidate
-    return ""
+def _branch_outcome(stmts: list[ast.stmt]) -> str:
+    """Classify how control leaves a branch body: one of common.BRANCH_OUTCOMES."""
+    meaningful = [stmt for stmt in stmts if not _is_noop(stmt)]
+    if not meaningful:
+        return "empty"
+    for stmt in meaningful:
+        if isinstance(stmt, ast.Return):
+            return "returns"
+        if isinstance(stmt, ast.Raise):
+            return "raises"
+        if isinstance(stmt, ast.Continue):
+            return "continues"
+        if isinstance(stmt, ast.Break):
+            # break exits the enclosing loop/switch; control resumes after it.
+            return "falls_through"
+        if isinstance(stmt, ast.If) and stmt.orelse:
+            then_outcome = _branch_outcome(stmt.body)
+            else_outcome = _branch_outcome(stmt.orelse)
+            if _terminates(then_outcome) and _terminates(else_outcome):
+                return then_outcome if then_outcome == else_outcome else "returns"
+    return "falls_through"
+
+
+def _terminates(outcome: str) -> bool:
+    return outcome in {"returns", "raises", "continues"}
+
+
+def _is_noop(stmt: ast.stmt) -> bool:
+    if isinstance(stmt, ast.Pass):
+        return True
+    # Docstrings, bare string literals, and `...` placeholders carry no behavior.
+    return isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant)

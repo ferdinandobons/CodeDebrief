@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-06-15T16:25:15.828934+00:00",
+  "generated_at": "2026-06-15T16:56:12.663249+00:00",
   "root": ".",
   "flows": [
     {
@@ -29,7 +29,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "examples.demo.backend.users:get_user"
+            "symbol": "examples.demo.backend.users:get_user",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -47,6 +49,8 @@
             "calls": [
               "load_user"
             ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
             "target_flow": "flow-f35a3698106b0817",
             "target_symbol": "examples.demo.backend.users:load_user"
           }
@@ -67,7 +71,25 @@
             "domain": "",
             "values": [
               "None"
-            ]
+            ],
+            "subject": "user",
+            "operator": "is",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -81,7 +103,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "raise HTTPException(status_code=404)",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-f6e3d6b7fe12b83f:n5",
@@ -99,7 +124,25 @@
             "domain": "status",
             "values": [
               "UserStatus.SUSPENDED"
-            ]
+            ],
+            "subject": "user.status",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "UserStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -113,7 +156,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "raise HTTPException(status_code=403)",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-f6e3d6b7fe12b83f:n7",
@@ -126,7 +172,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return user",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -212,7 +261,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "examples.demo.backend.users:load_user"
+            "symbol": "examples.demo.backend.users:load_user",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -230,6 +281,8 @@
             "calls": [
               "repository.fetch"
             ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
             "target_flow": "flow-6306314dcc318fc3",
             "target_symbol": "examples.demo.backend.users:Repository.fetch"
           }
@@ -245,7 +298,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return await repository.fetch(user_id)",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -303,7 +359,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "examples.demo.frontend.app.api.users.route:POST"
+            "symbol": "examples.demo.frontend.app.api.users.route:POST",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -321,6 +379,8 @@
             "calls": [
               "loadUser"
             ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
             "target_flow": "flow-5c518b0f2169bf38",
             "target_symbol": "examples.demo.frontend.app.api.users.route:loadUser"
           }
@@ -342,7 +402,30 @@
             "values": [
               "UserStatus.ACTIVE",
               "UserStatus.SUSPENDED"
-            ]
+            ],
+            "subject": "user.status",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "UserStatus",
+            "branches": [
+              {
+                "label": "UserStatus.ACTIVE",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "UserStatus.SUSPENDED",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -359,7 +442,9 @@
           "metadata": {
             "calls": [
               "Response.json"
-            ]
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -373,7 +458,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return Response.json(user);",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-f74e7243a59c82e6:n6",
@@ -386,7 +474,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return new Response(\"Blocked\", { status: 403 });",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -463,7 +554,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "examples.demo.frontend.app.users.page:UsersPage"
+            "symbol": "examples.demo.frontend.app.users.page:UsersPage",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -480,7 +573,25 @@
           "metadata": {
             "condition": "!user.isAuthorized",
             "domain": "",
-            "values": []
+            "values": [],
+            "subject": "user.isAuthorized",
+            "operator": "",
+            "negation": true,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -494,7 +605,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return <LoginPrompt />;",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-75546b2685371cc9:n4",
@@ -507,7 +621,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return <UserDashboard user={user} />;",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -568,7 +685,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "examples.shop.backend.auth:ensure_authenticated"
+            "symbol": "examples.shop.backend.auth:ensure_authenticated",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -582,7 +701,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "\"\"\"Ensure a request is authenticated.\"\"\"",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-92971030a65d1410:n3",
@@ -600,7 +722,25 @@
             "domain": "",
             "values": [
               "None"
-            ]
+            ],
+            "subject": "account",
+            "operator": "is",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -614,7 +754,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "raise ApiError(401, \"authentication required\")",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-92971030a65d1410:n5",
@@ -627,7 +770,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return account",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -695,7 +841,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "examples.shop.backend.auth:require_role"
+            "symbol": "examples.shop.backend.auth:require_role",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -709,7 +857,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "\"\"\"Ensure the account holds the required role, else raise ApiError(403).\"\"\"",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-93e6edefb10af9c5:n3",
@@ -727,7 +878,25 @@
             "domain": "role",
             "values": [
               "required"
-            ]
+            ],
+            "subject": "account.role",
+            "operator": "!=",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -741,7 +910,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "raise ApiError(403, f\"requires {required.value}\")",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-93e6edefb10af9c5:n5",
@@ -754,7 +926,10 @@
           },
           "evidence": "INFERRED",
           "detail": "",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -822,7 +997,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "examples.demo.backend.users:Repository.fetch"
+            "symbol": "examples.demo.backend.users:Repository.fetch",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -836,7 +1013,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "raise NotImplementedError",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -885,7 +1065,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "examples.demo.frontend.app.api.users.route:loadUser"
+            "symbol": "examples.demo.frontend.app.api.users.route:loadUser",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -902,7 +1084,9 @@
           "metadata": {
             "calls": [
               "database.users.find"
-            ]
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -916,7 +1100,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return database.users.find(request);",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -972,7 +1159,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "examples.shop.backend.domain:ApiError.__init__"
+            "symbol": "examples.shop.backend.domain:ApiError.__init__",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -990,7 +1179,9 @@
             "calls": [
               "__init__",
               "super"
-            ]
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -1004,7 +1195,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "self.status_code = status_code",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-6b1a3c91e47c3ef8:n4",
@@ -1017,7 +1211,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "self.detail = detail",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-6b1a3c91e47c3ef8:n5",
@@ -1030,7 +1227,10 @@
           },
           "evidence": "INFERRED",
           "detail": "",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [

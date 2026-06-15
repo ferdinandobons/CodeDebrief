@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-06-15T16:25:15.902607+00:00",
+  "generated_at": "2026-06-15T16:56:12.724968+00:00",
   "root": ".",
   "flows": [
     {
@@ -29,7 +29,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "backend.users:get_user"
+            "symbol": "backend.users:get_user",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -47,6 +49,8 @@
             "calls": [
               "load_user"
             ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
             "target_flow": "flow-c1c375870125b695",
             "target_symbol": "backend.users:load_user"
           }
@@ -67,7 +71,25 @@
             "domain": "",
             "values": [
               "None"
-            ]
+            ],
+            "subject": "user",
+            "operator": "is",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -81,7 +103,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "raise HTTPException(status_code=404)",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-9006888be936bd6a:n5",
@@ -99,7 +124,25 @@
             "domain": "status",
             "values": [
               "UserStatus.SUSPENDED"
-            ]
+            ],
+            "subject": "user.status",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "UserStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -113,7 +156,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "raise HTTPException(status_code=403)",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-9006888be936bd6a:n7",
@@ -126,7 +172,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return user",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -212,7 +261,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "backend.users:load_user"
+            "symbol": "backend.users:load_user",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -230,6 +281,8 @@
             "calls": [
               "repository.fetch"
             ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
             "target_flow": "flow-eef1d33de2175dfc",
             "target_symbol": "backend.users:Repository.fetch"
           }
@@ -245,7 +298,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return await repository.fetch(user_id)",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -303,7 +359,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "frontend.app.api.users.route:POST"
+            "symbol": "frontend.app.api.users.route:POST",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -321,6 +379,8 @@
             "calls": [
               "loadUser"
             ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
             "target_flow": "flow-b79df7006d56acea",
             "target_symbol": "frontend.app.api.users.route:loadUser"
           }
@@ -342,7 +402,30 @@
             "values": [
               "UserStatus.ACTIVE",
               "UserStatus.SUSPENDED"
-            ]
+            ],
+            "subject": "user.status",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "UserStatus",
+            "branches": [
+              {
+                "label": "UserStatus.ACTIVE",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "UserStatus.SUSPENDED",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -359,7 +442,9 @@
           "metadata": {
             "calls": [
               "Response.json"
-            ]
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -373,7 +458,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return Response.json(user);",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-3de3eacd67f96e64:n6",
@@ -386,7 +474,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return new Response(\"Blocked\", { status: 403 });",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -463,7 +554,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "frontend.app.users.page:UsersPage"
+            "symbol": "frontend.app.users.page:UsersPage",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -480,7 +573,25 @@
           "metadata": {
             "condition": "!user.isAuthorized",
             "domain": "",
-            "values": []
+            "values": [],
+            "subject": "user.isAuthorized",
+            "operator": "",
+            "negation": true,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -494,7 +605,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return <LoginPrompt />;",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         },
         {
           "id": "flow-3d6bdb52c57fafa8:n4",
@@ -507,7 +621,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return <UserDashboard user={user} />;",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -568,7 +685,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "backend.users:Repository.fetch"
+            "symbol": "backend.users:Repository.fetch",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -582,7 +701,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "raise NotImplementedError",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -631,7 +753,9 @@
           "evidence": "VERIFIED",
           "detail": "",
           "metadata": {
-            "symbol": "frontend.app.api.users.route:loadUser"
+            "symbol": "frontend.app.api.users.route:loadUser",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -648,7 +772,9 @@
           "metadata": {
             "calls": [
               "database.users.find"
-            ]
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
           }
         },
         {
@@ -662,7 +788,10 @@
           },
           "evidence": "VERIFIED",
           "detail": "return database.users.find(request);",
-          "metadata": {}
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [

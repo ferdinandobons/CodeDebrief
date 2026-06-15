@@ -61,6 +61,16 @@ Node kinds:
 - `terminal`: return, response, or successful completion.
 - `error`: raised or returned failure.
 
+Decision metadata (carried in the open `node.metadata`):
+
+- Identity: `subject` (dotted left-hand side), `operator` (`==`/`!=`/`is`/`in`/…),
+  `negation`, and `value_namespace` (the shared dotted enum prefix of the compared values).
+- `branches`: one record per outgoing branch with its `outcome`
+  (`returns`/`raises`/`falls_through`/`empty`/`continues`) and an `implicit` flag for the
+  synthetic else/default branch.
+- `reachable_from_entry` / `reaches_terminal`: deterministic graph-reachability flags on
+  every node.
+
 Evidence levels:
 
 - `VERIFIED`: extracted directly from syntax or framework conventions.

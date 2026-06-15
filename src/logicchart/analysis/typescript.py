@@ -12,9 +12,14 @@ from tree_sitter import Language, Parser
 from logicchart.analysis.common import (
     FlowBuilder,
     PendingEdge,
+    annotate_reachability,
+    branch,
     call_is_boundary,
+    decision_identity,
     decision_metadata,
+    domain_from_subject,
     is_functional_condition,
+    value_namespace,
 )
 from logicchart.config import LogicChartConfig
 from logicchart.model import Evidence, FileAnalysis, Finding, Flow, NodeKind, SourceLocation
@@ -127,6 +132,7 @@ class TypeScriptAnalyzer:
                 outgoing,
                 evidence=Evidence.INFERRED,
             )
+        annotate_reachability(flow)
         return flow
 
     def _walk_statements(
@@ -248,6 +254,18 @@ class TypeScriptAnalyzer:
             detail=condition,
             metadata=decision_metadata(condition),
         )
+        node.metadata["branches"] = [
+            branch("Yes", _branch_outcome(_statement_children(consequence))),
+            branch(
+                "No",
+                (
+                    _branch_outcome(_statement_children(alternative))
+                    if alternative is not None
+                    else "falls_through"
+                ),
+                implicit=alternative is None,
+            ),
+        ]
         yes_endpoints = self._walk_statements(
             _statement_children(consequence),
             [PendingEdge(node.id, "Yes")],
@@ -285,12 +303,19 @@ class TypeScriptAnalyzer:
             f"Switch on {subject}",
             _location(relative, statement),
             incoming,
-            metadata={"condition": subject, "domain": _domain_from_subject(subject), "values": []},
+            metadata=decision_identity(
+                condition=subject,
+                subject=subject,
+                operator="switch",
+                domain=domain_from_subject(subject),
+                namespace="",
+            ),
         )
         body = statement.child_by_field_name("body")
         endpoints: list[PendingEdge] = []
         values: list[str] = []
         has_default = False
+        branches: list[dict[str, Any]] = []
         for case in _named_children(body):
             value_node = case.child_by_field_name("value")
             if case.type == "switch_default":
@@ -310,6 +335,7 @@ class TypeScriptAnalyzer:
                     or child.end_byte != value_node.end_byte
                 )
             ]
+            branches.append(branch(label, _branch_outcome(children)))
             endpoints.extend(
                 self._walk_statements(
                     children,
@@ -321,8 +347,11 @@ class TypeScriptAnalyzer:
                 )
             )
         node.metadata["values"] = sorted(set(values))
+        node.metadata["value_namespace"] = value_namespace(sorted(set(values)))
         if not has_default:
+            branches.append(branch("default", "falls_through", implicit=True))
             builder.add_missing_branch_finding(node, f"switch {subject}", findings)
+        node.metadata["branches"] = branches
         return endpoints
 
     def _walk_try(
@@ -344,8 +373,17 @@ class TypeScriptAnalyzer:
             incoming,
             evidence=Evidence.INFERRED,
             detail=_text(statement, source),
-            metadata={"condition": "exception boundary", "domain": "error", "values": []},
+            metadata=decision_identity(
+                condition="exception boundary",
+                subject="exception",
+                operator="",
+                domain="error",
+                namespace="",
+            ),
         )
+        branches: list[dict[str, Any]] = [
+            branch("Success", _branch_outcome(_statement_children(body)))
+        ]
         endpoints = self._walk_statements(
             _statement_children(body),
             [PendingEdge(node.id, "Success")],
@@ -355,6 +393,7 @@ class TypeScriptAnalyzer:
             relative,
         )
         if handler is not None:
+            branches.append(branch("Error", _branch_outcome(_statement_children(handler))))
             endpoints.extend(
                 self._walk_statements(
                     _statement_children(handler),
@@ -365,6 +404,7 @@ class TypeScriptAnalyzer:
                     relative,
                 )
             )
+        node.metadata["branches"] = branches
         if finalizer is not None:
             endpoints = self._walk_statements(
                 _statement_children(finalizer), endpoints, builder, findings, source, relative
@@ -584,12 +624,38 @@ def _is_test(relative: str, name: str) -> bool:
     )
 
 
-def _domain_from_subject(subject: str) -> str:
-    lowered = subject.lower()
-    for candidate in ("status", "state", "role", "type", "kind", "mode", "permission"):
-        if candidate in lowered:
-            return candidate
-    return ""
+_INERT_STATEMENTS = {"empty_statement", "comment"}
+
+
+def _branch_outcome(statements: list[Any]) -> str:
+    """Classify how control leaves a branch body: one of common.BRANCH_OUTCOMES."""
+    meaningful = [stmt for stmt in statements if stmt.type not in _INERT_STATEMENTS]
+    if not meaningful:
+        return "empty"
+    for stmt in meaningful:
+        if stmt.type == "return_statement":
+            return "returns"
+        if stmt.type == "throw_statement":
+            return "raises"
+        if stmt.type == "continue_statement":
+            return "continues"
+        if stmt.type == "break_statement":
+            # break exits the enclosing loop/switch; control resumes after it.
+            return "falls_through"
+        if stmt.type == "if_statement":
+            alternative = stmt.child_by_field_name("alternative")
+            if alternative is not None:
+                then_outcome = _branch_outcome(
+                    _statement_children(stmt.child_by_field_name("consequence"))
+                )
+                else_outcome = _branch_outcome(_statement_children(alternative))
+                if _terminates(then_outcome) and _terminates(else_outcome):
+                    return then_outcome if then_outcome == else_outcome else "returns"
+    return "falls_through"
+
+
+def _terminates(outcome: str) -> bool:
+    return outcome in {"returns", "raises", "continues"}
 
 
 def _strip_parentheses(value: str) -> str:
