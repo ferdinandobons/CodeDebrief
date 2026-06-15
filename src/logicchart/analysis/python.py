@@ -62,7 +62,7 @@ class PythonAnalyzer:
             flows.append(flow)
 
         is_package = Path(relative).name == "__init__.py"
-        import_map = _import_map(tree, module_name, is_package)
+        import_map = _import_map(tree, module_name, is_package, self.root)
         for flow in flows:
             attach_qualified_calls(flow, import_map, module_name)
             tag_call_effects(flow)
@@ -320,15 +320,21 @@ class PythonAnalyzer:
         branches: list[dict[str, Any]] = []
         for case in statement.cases:
             pattern = _safe_unparse(case.pattern)
-            is_default = pattern == "_"
+            # A guarded wildcard `case _ if cond:` only matches when the guard holds,
+            # so it is NOT an exhaustive default — the unmatched fall-through and any
+            # missing enum members must still be surfaced.
+            is_default = pattern == "_" and case.guard is None
             has_default = has_default or is_default
-            if not is_default:
-                values.append(pattern)
-            branches.append(branch(pattern, _branch_outcome(case.body)))
+            label = f"{pattern} if {_safe_unparse(case.guard)}" if case.guard else pattern
+            if not is_default and pattern != "_":
+                # Split OR-patterns (`case A | B:`) into their individual members so
+                # value_namespace and enum exhaustiveness see the real values.
+                values.extend(_match_values(case.pattern))
+            branches.append(branch(label, _branch_outcome(case.body)))
             endpoints.extend(
                 self._walk_statements(
                     case.body,
-                    [PendingEdge(node.id, pattern)],
+                    [PendingEdge(node.id, label)],
                     builder,
                     findings,
                     source,
@@ -403,6 +409,16 @@ class PythonAnalyzer:
                 # terminator resumes, so anything after the try is unreachable.
                 endpoints = []
         return endpoints
+
+
+def _match_values(pattern: ast.pattern) -> list[str]:
+    """The dispatched value(s) of a match case, flattening OR-patterns to members."""
+    if isinstance(pattern, ast.MatchOr):
+        members: list[str] = []
+        for alternative in pattern.patterns:
+            members.extend(_match_values(alternative))
+        return members
+    return [_safe_unparse(pattern)]
 
 
 def _definitions(
@@ -575,12 +591,15 @@ def _module_name(relative: str) -> str:
     return path.removesuffix(".__init__")
 
 
-def _import_map(tree: ast.Module, module_name: str, is_package: bool) -> dict[str, str]:
+def _import_map(tree: ast.Module, module_name: str, is_package: bool, root: Path) -> dict[str, str]:
     """Map each imported alias to a ``module:symbol`` (or ``module:``) binding.
 
     ``from m import f`` -> ``f`` => ``m:f`` (binds a symbol); ``import m as a`` ->
-    ``a`` => ``m:`` (binds a module). Relative imports resolve against the current
-    module's package, accounting for ``__init__.py`` being its own package.
+    ``a`` => ``m:`` (binds a module). A ``from pkg import sub`` where ``sub`` is a
+    *submodule* on disk binds the module (``pkg.sub:``), mirroring a TS namespace
+    import, so the next attribute is read as the symbol. Relative imports resolve
+    against the current module's package, accounting for ``__init__.py`` being its
+    own package.
     """
     mapping: dict[str, str] = {}
     for node in tree.body:
@@ -588,14 +607,27 @@ def _import_map(tree: ast.Module, module_name: str, is_package: bool) -> dict[st
             for alias in node.names:
                 if alias.asname:
                     mapping[alias.asname] = f"{alias.name}:"
-                elif "." not in alias.name:
+                else:
+                    # `import pkg` or dotted `import pkg.util` (no alias): the (dotted)
+                    # name is itself a module; resolve_qualified longest-prefix-matches it.
                     mapping[alias.name] = f"{alias.name}:"
         elif isinstance(node, ast.ImportFrom):
             base = _relative_base(node.module, node.level, module_name, is_package)
             for alias in node.names:
                 bound = alias.asname or alias.name
-                mapping[bound] = f"{base}:{alias.name}" if base else alias.name
+                if base and _is_submodule(root, base, alias.name):
+                    mapping[bound] = f"{base}.{alias.name}:"
+                elif base:
+                    mapping[bound] = f"{base}:{alias.name}"
+                else:
+                    mapping[bound] = alias.name
     return mapping
+
+
+def _is_submodule(root: Path, base: str, name: str) -> bool:
+    """Whether ``base.name`` is a submodule (a file or package) on disk under root."""
+    base_dir = root.joinpath(*base.split(".")) if base else root
+    return (base_dir / f"{name}.py").is_file() or (base_dir / name / "__init__.py").is_file()
 
 
 def _relative_base(module: str | None, level: int, current_module: str, is_package: bool) -> str:

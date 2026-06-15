@@ -110,10 +110,58 @@ def test_relative_import_in_package_init_makes_no_false_edge(tmp_path: Path) -> 
     model = ProjectAnalyzer(tmp_path).analyze(full=True).model
     run = next(f for f in model.flows if f.name == "run")
     decoy = next(f for f in model.flows if f.symbol == "pkg.helper:do_work")
+    target = next(f for f in model.flows if f.symbol == "pkg.sub.helper:do_work")
     call = _call_node(run)
 
+    # `from . import helper` binds the submodule, so `helper.do_work` resolves to the
+    # real same-package target at high confidence — not the wrong-package decoy.
+    assert call.metadata["link_confidence"] == "high"
+    assert call.metadata["target_flow"] == target.id
     assert call.metadata.get("target_flow") != decoy.id
     assert decoy.id not in run.calls
+
+
+def test_submodule_import_binds_module_not_symbol(tmp_path: Path) -> None:
+    # `from . import util` where util.py is a sibling submodule: a unique leaf name
+    # must resolve at HIGH confidence (was medium short-name fallback before the fix).
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "util.py").write_text("def persist_unique(x):\n    return x\n", encoding="utf-8")
+    (pkg / "core.py").write_text(
+        "from . import util\n\ndef run(req):\n    return util.persist_unique(req)\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    run = next(f for f in model.flows if f.name == "run")
+    target = next(f for f in model.flows if f.symbol == "pkg.util:persist_unique")
+    call = _call_node(run)
+
+    assert call.metadata["link_confidence"] == "high"
+    assert call.metadata["target_flow"] == target.id
+    assert target.id in run.calls
+
+
+def test_dotted_import_without_alias_resolves(tmp_path: Path) -> None:
+    # `import pkg.util` (dotted, no `as`): the longest-prefix resolver links
+    # `pkg.util.persist_unique` to the module symbol.
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "util.py").write_text("def persist_unique(x):\n    return x\n", encoding="utf-8")
+    (tmp_path / "app.py").write_text(
+        "import pkg.util\n\ndef run(req):\n    return pkg.util.persist_unique(req)\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    run = next(f for f in model.flows if f.name == "run")
+    target = next(f for f in model.flows if f.symbol == "pkg.util:persist_unique")
+    call = _call_node(run)
+
+    assert call.metadata["link_confidence"] == "high"
+    assert call.metadata["target_flow"] == target.id
 
 
 def test_relative_import_resolves_in_regular_module(tmp_path: Path) -> None:

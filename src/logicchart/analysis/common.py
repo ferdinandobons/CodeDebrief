@@ -271,14 +271,21 @@ def resolve_qualified(raw: str, import_map: dict[str, str], current_module: str)
     import, so the next attribute is the symbol). An unmapped head is assumed
     local to the current module. Preserving the ``:`` keeps a module path from
     ever being confused with attribute access on a value.
+
+    The longest dotted prefix wins, so a multi-segment module binding (``import
+    pkg.util`` -> ``pkg.util:``) resolves ``pkg.util.persist`` to ``pkg.util:persist``
+    rather than stopping at the first segment.
     """
-    head, _, rest = raw.partition(".")
-    base = import_map.get(head)
-    if base is None:
-        return f"{current_module}:{raw}"
-    if not rest:
-        return base
-    return f"{base}{rest}" if base.endswith(":") else f"{base}.{rest}"
+    parts = raw.split(".")
+    for size in range(len(parts), 0, -1):
+        base = import_map.get(".".join(parts[:size]))
+        if base is None:
+            continue
+        rest = ".".join(parts[size:])
+        if not rest:
+            return base
+        return f"{base}{rest}" if base.endswith(":") else f"{base}.{rest}"
+    return f"{current_module}:{raw}"
 
 
 def attach_qualified_calls(flow: Flow, import_map: dict[str, str], current_module: str) -> None:
