@@ -1,0 +1,13 @@
+.git/
+.venv/
+.logicchart/
+logicchart-out/
+node_modules/
+.next/
+dist/
+build/
+coverage/
+__pycache__/
+*.min.js
+*.generated.*
+*.d.ts

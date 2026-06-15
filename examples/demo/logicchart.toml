@@ -1,0 +1,8 @@
+[logicchart]
+source_roots = ["backend", "frontend"]
+include_public_functions = true
+output_dir = "logicchart-out"
+
+[logicchart.entrypoints]
+include = []
+exclude = []

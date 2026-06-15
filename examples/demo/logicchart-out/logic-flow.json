@@ -1,0 +1,766 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-06-15T14:00:49.668098+00:00",
+  "root": ".",
+  "flows": [
+    {
+      "id": "flow-9006888be936bd6a",
+      "name": "get_user",
+      "symbol": "backend.users:get_user",
+      "language": "python",
+      "framework": "fastapi",
+      "entry_kind": "route",
+      "is_entrypoint": true,
+      "location": {
+        "path": "backend/users.py",
+        "start_line": 23,
+        "end_line": 29
+      },
+      "nodes": [
+        {
+          "id": "flow-9006888be936bd6a:n1",
+          "kind": "entry",
+          "label": "Route: get_user",
+          "location": {
+            "path": "backend/users.py",
+            "start_line": 23,
+            "end_line": 29
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.users:get_user"
+          }
+        },
+        {
+          "id": "flow-9006888be936bd6a:n2",
+          "kind": "call",
+          "label": "Call load_user()",
+          "location": {
+            "path": "backend/users.py",
+            "start_line": 24,
+            "end_line": 24
+          },
+          "evidence": "VERIFIED",
+          "detail": "user = await load_user(user_id)",
+          "metadata": {
+            "calls": [
+              "load_user"
+            ],
+            "target_flow": "flow-c1c375870125b695",
+            "target_symbol": "backend.users:load_user"
+          }
+        },
+        {
+          "id": "flow-9006888be936bd6a:n3",
+          "kind": "decision",
+          "label": "user is None",
+          "location": {
+            "path": "backend/users.py",
+            "start_line": 25,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "user is None",
+          "metadata": {
+            "condition": "user is None",
+            "domain": "",
+            "values": [
+              "None"
+            ]
+          }
+        },
+        {
+          "id": "flow-9006888be936bd6a:n4",
+          "kind": "error",
+          "label": "Raise HTTPException(status_code=404)",
+          "location": {
+            "path": "backend/users.py",
+            "start_line": 26,
+            "end_line": 26
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise HTTPException(status_code=404)",
+          "metadata": {}
+        },
+        {
+          "id": "flow-9006888be936bd6a:n5",
+          "kind": "decision",
+          "label": "user.status == UserStatus.SUSPENDED",
+          "location": {
+            "path": "backend/users.py",
+            "start_line": 27,
+            "end_line": 27
+          },
+          "evidence": "VERIFIED",
+          "detail": "user.status == UserStatus.SUSPENDED",
+          "metadata": {
+            "condition": "user.status == UserStatus.SUSPENDED",
+            "domain": "status",
+            "values": [
+              "UserStatus.SUSPENDED"
+            ]
+          }
+        },
+        {
+          "id": "flow-9006888be936bd6a:n6",
+          "kind": "error",
+          "label": "Raise HTTPException(status_code=403)",
+          "location": {
+            "path": "backend/users.py",
+            "start_line": 28,
+            "end_line": 28
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise HTTPException(status_code=403)",
+          "metadata": {}
+        },
+        {
+          "id": "flow-9006888be936bd6a:n7",
+          "kind": "terminal",
+          "label": "Return user",
+          "location": {
+            "path": "backend/users.py",
+            "start_line": 29,
+            "end_line": 29
+          },
+          "evidence": "VERIFIED",
+          "detail": "return user",
+          "metadata": {}
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-9006888be936bd6a:e1",
+          "source": "flow-9006888be936bd6a:n1",
+          "target": "flow-9006888be936bd6a:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-9006888be936bd6a:e2",
+          "source": "flow-9006888be936bd6a:n2",
+          "target": "flow-9006888be936bd6a:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-9006888be936bd6a:e3",
+          "source": "flow-9006888be936bd6a:n3",
+          "target": "flow-9006888be936bd6a:n4",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-9006888be936bd6a:e4",
+          "source": "flow-9006888be936bd6a:n3",
+          "target": "flow-9006888be936bd6a:n5",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-9006888be936bd6a:e5",
+          "source": "flow-9006888be936bd6a:n5",
+          "target": "flow-9006888be936bd6a:n6",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-9006888be936bd6a:e6",
+          "source": "flow-9006888be936bd6a:n5",
+          "target": "flow-9006888be936bd6a:n7",
+          "label": "No",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-c1c375870125b695"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": true,
+        "test": false,
+        "decorators": [
+          "app.get('/users/{user_id}')"
+        ]
+      }
+    },
+    {
+      "id": "flow-c1c375870125b695",
+      "name": "load_user",
+      "symbol": "backend.users:load_user",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "backend/users.py",
+        "start_line": 32,
+        "end_line": 33
+      },
+      "nodes": [
+        {
+          "id": "flow-c1c375870125b695:n1",
+          "kind": "entry",
+          "label": "load_user",
+          "location": {
+            "path": "backend/users.py",
+            "start_line": 32,
+            "end_line": 33
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.users:load_user"
+          }
+        },
+        {
+          "id": "flow-c1c375870125b695:n2",
+          "kind": "call",
+          "label": "Call repository.fetch()",
+          "location": {
+            "path": "backend/users.py",
+            "start_line": 33,
+            "end_line": 33
+          },
+          "evidence": "VERIFIED",
+          "detail": "return await repository.fetch(user_id)",
+          "metadata": {
+            "calls": [
+              "repository.fetch"
+            ],
+            "target_flow": "flow-eef1d33de2175dfc",
+            "target_symbol": "backend.users:Repository.fetch"
+          }
+        },
+        {
+          "id": "flow-c1c375870125b695:n3",
+          "kind": "terminal",
+          "label": "Return await repository.fetch(user_id)",
+          "location": {
+            "path": "backend/users.py",
+            "start_line": 33,
+            "end_line": 33
+          },
+          "evidence": "VERIFIED",
+          "detail": "return await repository.fetch(user_id)",
+          "metadata": {}
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-c1c375870125b695:e1",
+          "source": "flow-c1c375870125b695:n1",
+          "target": "flow-c1c375870125b695:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-c1c375870125b695:e2",
+          "source": "flow-c1c375870125b695:n2",
+          "target": "flow-c1c375870125b695:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-eef1d33de2175dfc"
+      ],
+      "called_by": [
+        "flow-9006888be936bd6a"
+      ],
+      "tests": [],
+      "metadata": {
+        "async": true,
+        "test": false,
+        "decorators": []
+      }
+    },
+    {
+      "id": "flow-3de3eacd67f96e64",
+      "name": "POST",
+      "symbol": "frontend.app.api.users.route:POST",
+      "language": "typescript",
+      "framework": "nextjs",
+      "entry_kind": "route",
+      "is_entrypoint": true,
+      "location": {
+        "path": "frontend/app/api/users/route.ts",
+        "start_line": 1,
+        "end_line": 10
+      },
+      "nodes": [
+        {
+          "id": "flow-3de3eacd67f96e64:n1",
+          "kind": "entry",
+          "label": "Route: POST",
+          "location": {
+            "path": "frontend/app/api/users/route.ts",
+            "start_line": 1,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "frontend.app.api.users.route:POST"
+          }
+        },
+        {
+          "id": "flow-3de3eacd67f96e64:n2",
+          "kind": "call",
+          "label": "Call loadUser()",
+          "location": {
+            "path": "frontend/app/api/users/route.ts",
+            "start_line": 2,
+            "end_line": 2
+          },
+          "evidence": "VERIFIED",
+          "detail": "const user = await loadUser(request);",
+          "metadata": {
+            "calls": [
+              "loadUser"
+            ],
+            "target_flow": "flow-b79df7006d56acea",
+            "target_symbol": "frontend.app.api.users.route:loadUser"
+          }
+        },
+        {
+          "id": "flow-3de3eacd67f96e64:n3",
+          "kind": "decision",
+          "label": "Switch on user.status",
+          "location": {
+            "path": "frontend/app/api/users/route.ts",
+            "start_line": 4,
+            "end_line": 9
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "user.status",
+            "domain": "status",
+            "values": [
+              "UserStatus.ACTIVE",
+              "UserStatus.SUSPENDED"
+            ]
+          }
+        },
+        {
+          "id": "flow-3de3eacd67f96e64:n4",
+          "kind": "call",
+          "label": "Call Response.json()",
+          "location": {
+            "path": "frontend/app/api/users/route.ts",
+            "start_line": 6,
+            "end_line": 6
+          },
+          "evidence": "VERIFIED",
+          "detail": "return Response.json(user);",
+          "metadata": {
+            "calls": [
+              "Response.json"
+            ]
+          }
+        },
+        {
+          "id": "flow-3de3eacd67f96e64:n5",
+          "kind": "terminal",
+          "label": "Return Response.json(user)",
+          "location": {
+            "path": "frontend/app/api/users/route.ts",
+            "start_line": 6,
+            "end_line": 6
+          },
+          "evidence": "VERIFIED",
+          "detail": "return Response.json(user);",
+          "metadata": {}
+        },
+        {
+          "id": "flow-3de3eacd67f96e64:n6",
+          "kind": "terminal",
+          "label": "Return new Response(\"Blocked\", { status: 403 })",
+          "location": {
+            "path": "frontend/app/api/users/route.ts",
+            "start_line": 8,
+            "end_line": 8
+          },
+          "evidence": "VERIFIED",
+          "detail": "return new Response(\"Blocked\", { status: 403 });",
+          "metadata": {}
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-3de3eacd67f96e64:e1",
+          "source": "flow-3de3eacd67f96e64:n1",
+          "target": "flow-3de3eacd67f96e64:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3de3eacd67f96e64:e2",
+          "source": "flow-3de3eacd67f96e64:n2",
+          "target": "flow-3de3eacd67f96e64:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3de3eacd67f96e64:e3",
+          "source": "flow-3de3eacd67f96e64:n3",
+          "target": "flow-3de3eacd67f96e64:n4",
+          "label": "UserStatus.ACTIVE",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3de3eacd67f96e64:e4",
+          "source": "flow-3de3eacd67f96e64:n4",
+          "target": "flow-3de3eacd67f96e64:n5",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3de3eacd67f96e64:e5",
+          "source": "flow-3de3eacd67f96e64:n3",
+          "target": "flow-3de3eacd67f96e64:n6",
+          "label": "UserStatus.SUSPENDED",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-b79df7006d56acea"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "exported": true,
+        "default_export": false,
+        "test": false
+      }
+    },
+    {
+      "id": "flow-3d6bdb52c57fafa8",
+      "name": "UsersPage",
+      "symbol": "frontend.app.users.page:UsersPage",
+      "language": "typescript",
+      "framework": "nextjs",
+      "entry_kind": "component",
+      "is_entrypoint": true,
+      "location": {
+        "path": "frontend/app/users/page.tsx",
+        "start_line": 1,
+        "end_line": 7
+      },
+      "nodes": [
+        {
+          "id": "flow-3d6bdb52c57fafa8:n1",
+          "kind": "entry",
+          "label": "Component: UsersPage",
+          "location": {
+            "path": "frontend/app/users/page.tsx",
+            "start_line": 1,
+            "end_line": 7
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "frontend.app.users.page:UsersPage"
+          }
+        },
+        {
+          "id": "flow-3d6bdb52c57fafa8:n2",
+          "kind": "decision",
+          "label": "!user.isAuthorized",
+          "location": {
+            "path": "frontend/app/users/page.tsx",
+            "start_line": 2,
+            "end_line": 2
+          },
+          "evidence": "VERIFIED",
+          "detail": "!user.isAuthorized",
+          "metadata": {
+            "condition": "!user.isAuthorized",
+            "domain": "",
+            "values": []
+          }
+        },
+        {
+          "id": "flow-3d6bdb52c57fafa8:n3",
+          "kind": "terminal",
+          "label": "Return <LoginPrompt />",
+          "location": {
+            "path": "frontend/app/users/page.tsx",
+            "start_line": 3,
+            "end_line": 3
+          },
+          "evidence": "VERIFIED",
+          "detail": "return <LoginPrompt />;",
+          "metadata": {}
+        },
+        {
+          "id": "flow-3d6bdb52c57fafa8:n4",
+          "kind": "terminal",
+          "label": "Return <UserDashboard user={user} />",
+          "location": {
+            "path": "frontend/app/users/page.tsx",
+            "start_line": 6,
+            "end_line": 6
+          },
+          "evidence": "VERIFIED",
+          "detail": "return <UserDashboard user={user} />;",
+          "metadata": {}
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-3d6bdb52c57fafa8:e1",
+          "source": "flow-3d6bdb52c57fafa8:n1",
+          "target": "flow-3d6bdb52c57fafa8:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3d6bdb52c57fafa8:e2",
+          "source": "flow-3d6bdb52c57fafa8:n2",
+          "target": "flow-3d6bdb52c57fafa8:n3",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3d6bdb52c57fafa8:e3",
+          "source": "flow-3d6bdb52c57fafa8:n2",
+          "target": "flow-3d6bdb52c57fafa8:n4",
+          "label": "No",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "exported": true,
+        "default_export": true,
+        "test": false
+      }
+    },
+    {
+      "id": "flow-eef1d33de2175dfc",
+      "name": "Repository.fetch",
+      "symbol": "backend.users:Repository.fetch",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": false,
+      "location": {
+        "path": "backend/users.py",
+        "start_line": 9,
+        "end_line": 10
+      },
+      "nodes": [
+        {
+          "id": "flow-eef1d33de2175dfc:n1",
+          "kind": "entry",
+          "label": "Repository.fetch",
+          "location": {
+            "path": "backend/users.py",
+            "start_line": 9,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.users:Repository.fetch"
+          }
+        },
+        {
+          "id": "flow-eef1d33de2175dfc:n2",
+          "kind": "error",
+          "label": "Raise NotImplementedError",
+          "location": {
+            "path": "backend/users.py",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise NotImplementedError",
+          "metadata": {}
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-eef1d33de2175dfc:e1",
+          "source": "flow-eef1d33de2175dfc:n1",
+          "target": "flow-eef1d33de2175dfc:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "flow-c1c375870125b695"
+      ],
+      "tests": [],
+      "metadata": {
+        "async": true,
+        "test": false,
+        "decorators": []
+      }
+    },
+    {
+      "id": "flow-b79df7006d56acea",
+      "name": "loadUser",
+      "symbol": "frontend.app.api.users.route:loadUser",
+      "language": "typescript",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": false,
+      "location": {
+        "path": "frontend/app/api/users/route.ts",
+        "start_line": 12,
+        "end_line": 14
+      },
+      "nodes": [
+        {
+          "id": "flow-b79df7006d56acea:n1",
+          "kind": "entry",
+          "label": "loadUser",
+          "location": {
+            "path": "frontend/app/api/users/route.ts",
+            "start_line": 12,
+            "end_line": 14
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "frontend.app.api.users.route:loadUser"
+          }
+        },
+        {
+          "id": "flow-b79df7006d56acea:n2",
+          "kind": "call",
+          "label": "Call database.users.find()",
+          "location": {
+            "path": "frontend/app/api/users/route.ts",
+            "start_line": 13,
+            "end_line": 13
+          },
+          "evidence": "VERIFIED",
+          "detail": "return database.users.find(request);",
+          "metadata": {
+            "calls": [
+              "database.users.find"
+            ]
+          }
+        },
+        {
+          "id": "flow-b79df7006d56acea:n3",
+          "kind": "terminal",
+          "label": "Return database.users.find(request)",
+          "location": {
+            "path": "frontend/app/api/users/route.ts",
+            "start_line": 13,
+            "end_line": 13
+          },
+          "evidence": "VERIFIED",
+          "detail": "return database.users.find(request);",
+          "metadata": {}
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-b79df7006d56acea:e1",
+          "source": "flow-b79df7006d56acea:n1",
+          "target": "flow-b79df7006d56acea:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b79df7006d56acea:e2",
+          "source": "flow-b79df7006d56acea:n2",
+          "target": "flow-b79df7006d56acea:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "flow-3de3eacd67f96e64"
+      ],
+      "tests": [],
+      "metadata": {
+        "exported": false,
+        "default_export": false,
+        "test": false
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "3f4a828fef7e9e4f",
+      "kind": "missing_branch",
+      "severity": "warning",
+      "message": "Decision has no explicit fallback: switch user.status",
+      "evidence": "POTENTIAL_GAP",
+      "flow_id": "flow-3de3eacd67f96e64",
+      "location": {
+        "path": "frontend/app/api/users/route.ts",
+        "start_line": 4,
+        "end_line": 9
+      },
+      "node_id": "flow-3de3eacd67f96e64:n3",
+      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases."
+    },
+    {
+      "id": "e32db3299e300c6d",
+      "kind": "inconsistent_case_handling",
+      "severity": "warning",
+      "message": "Related flows explicitly mention additional status cases; review fallback handling for: UserStatus.ACTIVE",
+      "evidence": "POTENTIAL_GAP",
+      "flow_id": "flow-9006888be936bd6a",
+      "location": {
+        "path": "backend/users.py",
+        "start_line": 27,
+        "end_line": 27
+      },
+      "node_id": "flow-9006888be936bd6a:n5",
+      "detail": "The comparison is heuristic and based on values used by other status decisions in this project."
+    }
+  ],
+  "files": [
+    {
+      "path": "backend/users.py",
+      "language": "python",
+      "sha256": "0666833121c230b75ab6b8508232257ac461b9e806288af595a4f054422c4d20",
+      "flow_ids": [
+        "flow-eef1d33de2175dfc",
+        "flow-9006888be936bd6a",
+        "flow-c1c375870125b695"
+      ]
+    },
+    {
+      "path": "frontend/app/api/users/route.ts",
+      "language": "typescript",
+      "sha256": "aa1eb70726488d38801fabeda1e453802ef11b736b6cd45248cb22c15bbdc4f2",
+      "flow_ids": [
+        "flow-3de3eacd67f96e64",
+        "flow-b79df7006d56acea"
+      ]
+    },
+    {
+      "path": "frontend/app/users/page.tsx",
+      "language": "typescript",
+      "sha256": "7a806d0a8b66547bf27b9ec4abc0d622874083d7255564bb90741acd6d4e535c",
+      "flow_ids": [
+        "flow-3d6bdb52c57fafa8"
+      ]
+    }
+  ],
+  "metadata": {
+    "languages": [
+      "python",
+      "typescript"
+    ],
+    "entrypoint_count": 4,
+    "flow_count": 6,
+    "finding_count": 2
+  }
+}
