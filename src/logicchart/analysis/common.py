@@ -6,15 +6,13 @@ from typing import Any
 
 from logicchart.model import (
     Evidence,
-    Finding,
     Flow,
     FlowEdge,
     FlowNode,
     NodeKind,
-    Severity,
     SourceLocation,
 )
-from logicchart.util import compact_text, stable_id
+from logicchart.util import compact_text
 
 FUNCTIONAL_TERMS = {
     "active",
@@ -124,29 +122,6 @@ class FlowBuilder:
         self.flow.edges.append(edge)
         return edge
 
-    def add_missing_branch_finding(
-        self,
-        node: FlowNode,
-        condition: str,
-        findings: list[Finding],
-    ) -> None:
-        findings.append(
-            Finding(
-                id=stable_id(self.flow.id, node.id, "missing-branch"),
-                kind="missing_branch",
-                severity=Severity.WARNING,
-                message=f"Decision has no explicit fallback: {compact_text(condition, 80)}",
-                evidence=Evidence.POTENTIAL_GAP,
-                flow_id=self.flow.id,
-                node_id=node.id,
-                location=node.location,
-                detail=(
-                    "LogicChart found a state-like decision without an explicit else/default "
-                    "path. This may be intentional, but it should be reviewed when adding cases."
-                ),
-            )
-        )
-
 
 def is_functional_condition(condition: str, branch_text: str = "") -> bool:
     lowered = f"{condition} {branch_text}".lower()
@@ -158,8 +133,20 @@ def is_functional_condition(condition: str, branch_text: str = "") -> bool:
     return any(term in lowered for term in BOUNDARY_CALL_TERMS)
 
 
-# Per-branch terminal behavior recorded on a decision node's `branches` metadata.
-BRANCH_OUTCOMES = frozenset({"returns", "raises", "falls_through", "empty", "continues"})
+# Canonical per-branch terminal behavior, recorded on a decision node's
+# `branches` metadata and validated by branch(). Detectors compare against these
+# names, so they are single-sourced here to keep producers and consumers aligned.
+RETURNS = "returns"
+RAISES = "raises"
+FALLS_THROUGH = "falls_through"
+EMPTY = "empty"
+CONTINUES = "continues"
+BRANCH_OUTCOMES = frozenset({RETURNS, RAISES, FALLS_THROUGH, EMPTY, CONTINUES})
+
+# Value-dispatch decision constructs, stored in a decision node's `operator`.
+MATCH = "match"
+SWITCH = "switch"
+DISPATCH_OPERATORS = frozenset({MATCH, SWITCH})
 
 DOMAIN_TERMS = ("status", "state", "role", "type", "kind", "mode", "permission")
 _IDENTITY_OPERATORS = r"==|!=|\bis not\b|\bnot in\b|\bis\b|\bin\b"

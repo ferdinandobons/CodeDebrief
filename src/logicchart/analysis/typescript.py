@@ -10,6 +10,7 @@ import tree_sitter_typescript
 from tree_sitter import Language, Parser
 
 from logicchart.analysis.common import (
+    SWITCH,
     FlowBuilder,
     PendingEdge,
     annotate_reachability,
@@ -21,6 +22,7 @@ from logicchart.analysis.common import (
     is_functional_condition,
     value_namespace,
 )
+from logicchart.analysis.detectors import dead_code_finding, single_flow_findings
 from logicchart.config import LogicChartConfig
 from logicchart.model import Evidence, FileAnalysis, Finding, Flow, NodeKind, SourceLocation
 from logicchart.util import compact_text, file_sha256, relpath, stable_id
@@ -133,6 +135,7 @@ class TypeScriptAnalyzer:
                 evidence=Evidence.INFERRED,
             )
         annotate_reachability(flow)
+        findings.extend(single_flow_findings(flow))
         return flow
 
     def _walk_statements(
@@ -145,8 +148,16 @@ class TypeScriptAnalyzer:
         relative: str,
     ) -> list[PendingEdge]:
         endpoints = incoming
-        for statement in statements:
+        for index, statement in enumerate(statements):
             if not endpoints:
+                dead = statements[index]
+                findings.append(
+                    dead_code_finding(
+                        builder.flow,
+                        _location(relative, dead),
+                        _text(dead, source),
+                    )
+                )
                 break
             node_type = statement.type
             if node_type == "if_statement":
@@ -306,7 +317,7 @@ class TypeScriptAnalyzer:
             metadata=decision_identity(
                 condition=subject,
                 subject=subject,
-                operator="switch",
+                operator=SWITCH,
                 domain=domain_from_subject(subject),
                 namespace="",
             ),
@@ -350,7 +361,8 @@ class TypeScriptAnalyzer:
         node.metadata["value_namespace"] = value_namespace(sorted(set(values)))
         if not has_default:
             branches.append(branch("default", "falls_through", implicit=True))
-            builder.add_missing_branch_finding(node, f"switch {subject}", findings)
+            # An unmatched value falls through to whatever follows the switch.
+            endpoints.append(PendingEdge(node.id, "default"))
         node.metadata["branches"] = branches
         return endpoints
 
@@ -406,9 +418,21 @@ class TypeScriptAnalyzer:
             )
         node.metadata["branches"] = branches
         if finalizer is not None:
+            # A finally block always runs, even when the body/handler returned.
+            body_terminated = not endpoints
+            finally_incoming = endpoints or [PendingEdge(node.id, "finally")]
             endpoints = self._walk_statements(
-                _statement_children(finalizer), endpoints, builder, findings, source, relative
+                _statement_children(finalizer),
+                finally_incoming,
+                builder,
+                findings,
+                source,
+                relative,
             )
+            if body_terminated:
+                # The try/handler already returned/raised; once finally runs that
+                # terminator resumes, so anything after the try is unreachable.
+                endpoints = []
         return endpoints
 
 

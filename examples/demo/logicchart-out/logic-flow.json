@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-06-15T16:56:12.724968+00:00",
+  "generated_at": "2026-06-15T17:29:45.456400+00:00",
   "root": ".",
   "flows": [
     {
@@ -478,6 +478,22 @@
             "reachable_from_entry": true,
             "reaches_terminal": true
           }
+        },
+        {
+          "id": "flow-3de3eacd67f96e64:n7",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "frontend/app/api/users/route.ts",
+            "start_line": 1,
+            "end_line": 10
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
         }
       ],
       "edges": [
@@ -514,6 +530,13 @@
           "source": "flow-3de3eacd67f96e64:n3",
           "target": "flow-3de3eacd67f96e64:n6",
           "label": "UserStatus.SUSPENDED",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-3de3eacd67f96e64:e6",
+          "source": "flow-3de3eacd67f96e64:n3",
+          "target": "flow-3de3eacd67f96e64:n7",
+          "label": "default",
           "evidence": "VERIFIED"
         }
       ],

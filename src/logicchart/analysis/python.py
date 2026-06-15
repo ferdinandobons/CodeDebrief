@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from logicchart.analysis.common import (
+    MATCH,
     FlowBuilder,
     PendingEdge,
     annotate_reachability,
@@ -17,6 +18,7 @@ from logicchart.analysis.common import (
     is_functional_condition,
     value_namespace,
 )
+from logicchart.analysis.detectors import dead_code_finding, single_flow_findings
 from logicchart.config import LogicChartConfig
 from logicchart.model import (
     Evidence,
@@ -125,6 +127,7 @@ class PythonAnalyzer:
                 evidence=Evidence.INFERRED,
             )
         annotate_reachability(flow)
+        findings.extend(single_flow_findings(flow))
         return flow
 
     def _walk_statements(
@@ -137,8 +140,16 @@ class PythonAnalyzer:
         relative: str,
     ) -> list[PendingEdge]:
         endpoints = incoming
-        for statement in statements:
+        for index, statement in enumerate(statements):
             if not endpoints:
+                dead = statements[index]
+                findings.append(
+                    dead_code_finding(
+                        builder.flow,
+                        _location(relative, dead),
+                        _source_segment(source, dead),
+                    )
+                )
                 break
             if isinstance(statement, ast.If):
                 endpoints = self._walk_if(statement, endpoints, builder, findings, source, relative)
@@ -288,7 +299,7 @@ class PythonAnalyzer:
             metadata=decision_identity(
                 condition=subject,
                 subject=subject,
-                operator="match",
+                operator=MATCH,
                 domain=domain_from_subject(subject),
                 namespace="",
             ),
@@ -318,7 +329,8 @@ class PythonAnalyzer:
         node.metadata["value_namespace"] = value_namespace(sorted(set(values)))
         if not has_default:
             branches.append(branch("_", "falls_through", implicit=True))
-            builder.add_missing_branch_finding(node, f"match {subject}", findings)
+            # An unmatched value falls through to whatever follows the match.
+            endpoints.append(PendingEdge(node.id, "_"))
         node.metadata["branches"] = branches
         return endpoints
 
@@ -370,9 +382,16 @@ class PythonAnalyzer:
             )
         node.metadata["branches"] = branches
         if statement.finalbody:
+            # A finally block always runs, even when the body/handlers returned.
+            body_terminated = not endpoints
+            finally_incoming = endpoints or [PendingEdge(node.id, "finally")]
             endpoints = self._walk_statements(
-                statement.finalbody, endpoints, builder, findings, source, relative
+                statement.finalbody, finally_incoming, builder, findings, source, relative
             )
+            if body_terminated:
+                # The try/handlers already returned/raised; once finally runs that
+                # terminator resumes, so anything after the try is unreachable.
+                endpoints = []
         return endpoints
 
 

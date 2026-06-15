@@ -150,6 +150,20 @@ Available tools:
 - `INFERRED`: produced by an explainable deterministic heuristic
 - `POTENTIAL_GAP`: a review candidate, never automatically treated as a bug
 
+## Finding Kinds
+
+Single-flow (reason about one flow):
+
+- `missing_branch`: a `match`/`switch` or `if`/`elif` chain on a state-like subject with no explicit `else`/`default`.
+- `dead_code`: code after a point where every path already returned or raised.
+- `broad_except_swallow`: an exception handler whose body silently discards the error.
+- `no_op_branch`: an explicit `if` branch with an empty body.
+- `asymmetric_return`: a dispatch where most cases return/raise but one falls through (a likely missing return).
+
+Cross-flow (compare sibling flows):
+
+- `inconsistent_case_handling`: a value handled by related same-language flows but missing here.
+
 ## Configuration
 
 `logicchart init` creates:
