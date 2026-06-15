@@ -6,6 +6,12 @@ The project follows Semantic Versioning once public releases begin.
 
 ## Unreleased
 
+- Interactive viewer: drag any block to rearrange the flowchart by hand; connected edges
+  re-route live, hand-placed positions persist per flow, and reset restores the auto layout.
+- README rewritten for clarity: sharper scope, a runnable 30-second example, an outcome-
+  focused "Why", a per-command reference with real output, explicit limitations, and the
+  agent/MCP integrations moved to an "Advanced" section.
+
 ## 0.2.0
 
 First tagged release. A deterministic, local, no-API-key static analyzer that turns

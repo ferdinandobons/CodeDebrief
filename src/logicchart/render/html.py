@@ -294,8 +294,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
     .legend .decision::before { background: var(--amber); transform: rotate(45deg); }
     .legend .call::before { background: var(--violet); }
     .legend .gap::before { background: var(--coral); }
-    .node { cursor: pointer; }
-    .node .shape { fill: #fff; stroke: var(--blue); stroke-width: 2; filter: url(#nodeShadow); }
+    .node { cursor: grab; }
+    .node.dragging { cursor: grabbing; }
+    .node.dragging .shape { filter: url(#nodeLift); }
+    .node .shape { fill: #fff; stroke: var(--blue); stroke-width: 2; filter: url(#nodeShadow); transition: filter .12s ease; }
     .node.entry .shape { fill: #e9effe; stroke: var(--blue); }
     .node.decision .shape { fill: #fff7e2; stroke: var(--amber); }
     .node.call .shape { fill: #f1edff; stroke: var(--violet); }
@@ -401,7 +403,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
       <div class="canvas-toolbar" aria-label="Canvas controls">
         <button class="tool" id="menuButton" title="Toggle flow list">&#9776;</button>
         <button class="tool" id="zoomOut" title="Zoom out">&minus;</button>
-        <button class="tool" id="resetView" title="Reset view">0</button>
+        <button class="tool" id="resetView" title="Reset view &amp; layout">0</button>
         <button class="tool" id="zoomIn" title="Zoom in">+</button>
       </div>
       <svg id="canvas" role="img" aria-label="Decision flowchart"></svg>
@@ -413,6 +415,8 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <div class="rail-head"><h2 class="rail-title">Inspector</h2></div>
         <div class="detail-scroll" id="details">
           <p>Select a node to inspect its source, evidence, and related findings.</p>
+          <p>Tip: drag any block to rearrange the diagram by hand. Reset (0) restores the
+          automatic layout.</p>
         </div>
       </div>
     </aside>
@@ -441,6 +445,9 @@ _HTML_TEMPLATE = r"""<!doctype html>
     let activeFlow = null;
     let view = { x: 0, y: 0, width: 1000, height: 800 };
     let drag = null;
+    // Per-flow manual node positions: flowId -> Map(nodeId -> {x, y}). Lets the user
+    // hand-arrange blocks; survives navigating away and back within the session.
+    const manualPositions = new Map();
 
     document.getElementById("flowCount").textContent = flows.length;
     document.getElementById("entryCount").textContent = flows.filter(item => item.is_entrypoint).length;
@@ -510,11 +517,34 @@ _HTML_TEMPLATE = r"""<!doctype html>
         positions.set(node.id, { x, y: layer * 150, layer, order: index });
       });
 
+      // Apply any hand-placed overrides for this flow before measuring bounds.
+      const overrides = manualPositions.get(flow.id);
+      if (overrides) {
+        overrides.forEach((point, nodeId) => {
+          const position = positions.get(nodeId);
+          if (position) { position.x = point.x; position.y = point.y; position.moved = true; }
+        });
+      }
+
       const values = [...positions.values()];
       const minX = Math.min(...values.map(item => item.x), 0);
       const maxX = Math.max(...values.map(item => item.x), 0);
+      const minY = Math.min(...values.map(item => item.y), 0);
       const maxY = Math.max(...values.map(item => item.y), 0);
-      return { positions, bounds: { minX, maxX, maxY } };
+      return { positions, bounds: { minX, maxX, minY, maxY } };
+    }
+
+    // One source for an edge's curved path + label anchor, reused on first render and
+    // live while a node is dragged so connected edges follow.
+    function edgeGeometry(start, end) {
+      const startY = start.y + 43;
+      const endY = end.y - 43;
+      const middleY = (startY + endY) / 2;
+      return {
+        d: `M ${start.x} ${startY} C ${start.x} ${middleY}, ${end.x} ${middleY}, ${end.x} ${endY}`,
+        labelX: (start.x + end.x) / 2 + 7,
+        labelY: middleY - 6,
+      };
     }
 
     function renderFlow(flow) {
@@ -526,11 +556,12 @@ _HTML_TEMPLATE = r"""<!doctype html>
       document.getElementById("emptyState").style.display = "none";
       const { positions, bounds } = layoutFlow(flow);
       const padding = 170;
+      const top = Math.min(-90, bounds.minY - 70);
       view = {
         x: bounds.minX - padding,
-        y: -90,
+        y: top,
         width: Math.max(760, bounds.maxX - bounds.minX + padding * 2),
-        height: Math.max(600, bounds.maxY + 250)
+        height: Math.max(600, bounds.maxY - top + 250)
       };
       updateViewBox();
 
@@ -538,6 +569,9 @@ _HTML_TEMPLATE = r"""<!doctype html>
       defs.innerHTML = `
         <filter id="nodeShadow" x="-30%" y="-30%" width="160%" height="180%">
           <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#1e2e4e" flood-opacity=".10"/>
+        </filter>
+        <filter id="nodeLift" x="-45%" y="-45%" width="190%" height="210%">
+          <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#1e2e4e" flood-opacity=".24"/>
         </filter>
         <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path d="M0,0 L8,4 L0,8 z" fill="#9ba8bf"></path>
@@ -552,28 +586,46 @@ _HTML_TEMPLATE = r"""<!doctype html>
       spine.setAttribute("y2", String(bounds.maxY + 100));
       svg.appendChild(spine);
 
+      // Keep edge element references per node so dragging a block re-routes its edges live.
+      const nodeEdges = new Map(flow.nodes.map(node => [node.id, []]));
       const edgeLayer = svgEl("g");
       flow.edges.forEach(edge => {
         const start = positions.get(edge.source);
         const end = positions.get(edge.target);
         if (!start || !end) return;
+        const geometry = edgeGeometry(start, end);
         const path = svgEl("path");
-        const startY = start.y + 43;
-        const endY = end.y - 43;
-        const middleY = (startY + endY) / 2;
         path.setAttribute("class", "edge");
-        path.setAttribute("d", `M ${start.x} ${startY} C ${start.x} ${middleY}, ${end.x} ${middleY}, ${end.x} ${endY}`);
+        path.setAttribute("d", geometry.d);
         edgeLayer.appendChild(path);
+        let label = null;
         if (edge.label) {
-          const label = svgEl("text");
+          label = svgEl("text");
           label.setAttribute("class", "edge-label");
-          label.setAttribute("x", String((start.x + end.x) / 2 + 7));
-          label.setAttribute("y", String(middleY - 6));
+          label.setAttribute("x", String(geometry.labelX));
+          label.setAttribute("y", String(geometry.labelY));
           label.textContent = edge.label;
           edgeLayer.appendChild(label);
         }
+        const record = { edge, path, label };
+        nodeEdges.get(edge.source)?.push(record);
+        nodeEdges.get(edge.target)?.push(record);
       });
       svg.appendChild(edgeLayer);
+
+      function rerouteFrom(nodeId) {
+        (nodeEdges.get(nodeId) || []).forEach(({ edge, path, label }) => {
+          const start = positions.get(edge.source);
+          const end = positions.get(edge.target);
+          if (!start || !end) return;
+          const geometry = edgeGeometry(start, end);
+          path.setAttribute("d", geometry.d);
+          if (label) {
+            label.setAttribute("x", String(geometry.labelX));
+            label.setAttribute("y", String(geometry.labelY));
+          }
+        });
+      }
 
       const nodeLayer = svgEl("g");
       flow.nodes.forEach(node => {
@@ -584,9 +636,50 @@ _HTML_TEMPLATE = r"""<!doctype html>
         group.setAttribute("tabindex", "0");
         group.setAttribute("role", "button");
         group.setAttribute("aria-label", `${node.kind}: ${node.label}`);
-        group.addEventListener("click", () => inspectNode(flow, node));
+        // Drag to rearrange the block; a plain click (no real movement) opens the inspector.
+        let nodeDrag = null;
+        group.addEventListener("pointerdown", event => {
+          if (event.button !== 0) return;
+          event.stopPropagation();
+          nodeDrag = {
+            x: event.clientX,
+            y: event.clientY,
+            ox: position.x,
+            oy: position.y,
+            scaleX: view.width / svg.clientWidth,
+            scaleY: view.height / svg.clientHeight,
+            moved: 0
+          };
+          group.classList.add("dragging");
+          group.setPointerCapture(event.pointerId);
+        });
+        group.addEventListener("pointermove", event => {
+          if (!nodeDrag) return;
+          const dx = (event.clientX - nodeDrag.x) * nodeDrag.scaleX;
+          const dy = (event.clientY - nodeDrag.y) * nodeDrag.scaleY;
+          nodeDrag.moved = Math.max(nodeDrag.moved, Math.abs(dx) + Math.abs(dy));
+          position.x = nodeDrag.ox + dx;
+          position.y = nodeDrag.oy + dy;
+          group.setAttribute("transform", `translate(${position.x} ${position.y})`);
+          rerouteFrom(node.id);
+        });
+        const endNodeDrag = event => {
+          if (!nodeDrag) return;
+          group.classList.remove("dragging");
+          try { group.releasePointerCapture(event.pointerId); } catch (_) {}
+          if (nodeDrag.moved < 4) {
+            inspectNode(flow, node);
+          } else {
+            const store = manualPositions.get(flow.id) || new Map();
+            store.set(node.id, { x: position.x, y: position.y });
+            manualPositions.set(flow.id, store);
+          }
+          nodeDrag = null;
+        };
+        group.addEventListener("pointerup", endNodeDrag);
+        group.addEventListener("pointercancel", endNodeDrag);
         group.addEventListener("keydown", event => {
-          if (event.key === "Enter" || event.key === " ") inspectNode(flow, node);
+          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); inspectNode(flow, node); }
         });
         const shape = nodeShape(node.kind);
         shape.setAttribute("class", "shape");
@@ -722,7 +815,11 @@ _HTML_TEMPLATE = r"""<!doctype html>
     searchEl.addEventListener("input", event => renderList(event.target.value));
     document.getElementById("zoomIn").addEventListener("click", () => zoom(.82));
     document.getElementById("zoomOut").addEventListener("click", () => zoom(1.22));
-    document.getElementById("resetView").addEventListener("click", () => activeFlow && renderFlow(activeFlow));
+    document.getElementById("resetView").addEventListener("click", () => {
+      if (!activeFlow) return;
+      manualPositions.delete(activeFlow.id);  // discard hand-placed positions, re-layout
+      renderFlow(activeFlow);
+    });
     document.getElementById("menuButton").addEventListener("click", () => leftRail.classList.toggle("open"));
 
     svg.addEventListener("wheel", event => {
