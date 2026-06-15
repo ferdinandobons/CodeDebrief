@@ -1,10 +1,9 @@
 """Terraform / HCL analyzer.
 
-Terraform is declarative, not control flow: it describes resources, modules, data
-sources, variables, and outputs, wired by references (``aws_vpc.main.id``) and
-``depends_on``. This analyzer maps each block to a flow and each reference to a call
-edge, so the same IR carries a resource dependency graph - the model can then show the
-whole infrastructure, a scope of it, or one resource's dependencies.
+Terraform is declarative, not control flow: blocks (resources, modules, data sources,
+variables, outputs) wired by references (``aws_vpc.main.id``) and ``depends_on``. Each
+block maps to a flow and each reference to a call edge, so the IR carries a resource
+dependency graph - viewable whole, scoped, or per resource.
 """
 
 from __future__ import annotations

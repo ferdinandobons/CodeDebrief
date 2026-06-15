@@ -92,9 +92,9 @@ class LogicChartConfig:
     def scopes_for(self, relative_path: str) -> list[str]:
         """The macro-part(s) a file belongs to.
 
-        When scopes are declared, returns every named scope whose globs match. With no
-        configuration, the top-level directory is the inferred scope, so a codebase is
-        split into backend/frontend/infra-style parts out of the box.
+        With declared scopes, returns every named scope whose globs match. Otherwise the
+        top-level directory is the inferred scope, splitting a codebase into
+        backend/frontend/infra-style parts out of the box.
         """
         normalized = relative_path.replace("\\", "/")
         if self.scopes:

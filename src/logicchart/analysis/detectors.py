@@ -82,9 +82,9 @@ def _missing_else_in_chain(flow: Flow, decisions: dict[str, FlowNode]) -> list[F
     """An if/elif chain (>=2 comparisons of one state-like subject) with no else.
 
     Only true `elif` links are followed: a parent whose "No" branch is an explicit
-    else-clause. Two sequential same-subject `if` guards each leave an *implicit*
-    "No" that the walker happens to wire to the next decision - that is not an
-    elif chain and must not be fused into one.
+    else-clause. Two sequential same-subject `if` guards leave *implicit* "No"
+    branches wired to the next decision - that is not an elif chain and must not
+    be fused into one.
     """
 
     def links_via_else(node_id: str) -> bool:
@@ -160,8 +160,8 @@ def _broad_except_swallow(flow: Flow) -> list[Finding]:
             elif entry["outcome"] == FALLS_THROUGH and _branch_effects(flow, node, label) == {
                 "log"
             }:
-                # Logging the exception is not handling it: the only side effect is a
-                # log, and control neither re-raises nor returns an error path.
+                # Logging is not handling: the only effect is a log, and control
+                # neither re-raises nor returns an error path.
                 findings.append(_swallow_finding(flow, node, label, log_only=True))
     return findings
 
@@ -188,8 +188,8 @@ def _swallow_finding(flow: Flow, node: FlowNode, label: str, *, log_only: bool) 
 
 
 def _branch_effects(flow: Flow, node: FlowNode, label: str) -> set[str]:
-    """The union of call effects reachable along one branch, before any nested
-    decision or terminal - used to recognize a log-only handler body."""
+    """Union of call effects along one branch, before any nested decision or
+    terminal - used to recognize a log-only handler body."""
     nodes = {item.id: item for item in flow.nodes}
     out: dict[str, list[tuple[str, str]]] = {}
     for edge in flow.edges:

@@ -1,8 +1,8 @@
 """Shared helpers for the tree-sitter language profiles.
 
-Every profile needs the same byte-slice text, named-children, and directory-as-module
-helpers; the class/method profiles also share one definition walker. Keeping them here
-avoids copy-paste drift across the language modules.
+Centralizes the byte-slice text, named-children, and directory-as-module helpers every
+profile needs, plus the definition walker shared by class/method profiles, to avoid
+copy-paste drift across the language modules.
 """
 
 from __future__ import annotations
@@ -38,8 +38,8 @@ def container_definitions(
 ) -> Callable[[Any, bytes, str, LanguageProfile], Iterable[TSDefinition]]:
     """A `definitions()` for languages whose functions live inside class/module containers.
 
-    It recurses into each container, tagging the methods it finds with the container name
-    as their owner, and also yields top-level functions of a matching type.
+    Recurses into each container, tagging found methods with the container name as owner,
+    and also yields matching top-level functions.
     """
 
     def definitions(

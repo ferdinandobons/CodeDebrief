@@ -29,22 +29,21 @@ class Severity(str, Enum):
 
 
 class FindingKind(str, Enum):
-    """The single source for the finding-kind vocabulary.
+    """Single source for the finding-kind vocabulary.
 
-    Producers set ``kind`` to one of these and the suppression/query joins compare
-    against them, so a rename cannot silently desync a cross-module string contract.
-    Values are the wire form, so JSON and existing comparisons are unchanged.
+    Producers set ``kind`` and suppression/query joins compare against these, so this
+    central enum keeps the cross-module string contract from silently desyncing on a
+    rename. Values are the wire form, so JSON and existing comparisons are unchanged.
     """
 
-    # Single-flow, emitted by detectors.py (reason about one flow).
+    # Single-flow, emitted by detectors.py.
     MISSING_BRANCH = "missing_branch"
     DEAD_CODE = "dead_code"
     BROAD_EXCEPT_SWALLOW = "broad_except_swallow"
     NO_OP_BRANCH = "no_op_branch"
     ASYMMETRIC_RETURN = "asymmetric_return"
-    # Project-level, emitted by cross_flow.py. dead_guard still reasons about a single
-    # flow (category single_flow) but needs the project-level constant table; the rest
-    # compare sibling flows.
+    # Project-level, emitted by cross_flow.py. dead_guard is category single_flow but
+    # needs the project-level constant table; the rest compare sibling flows.
     DEAD_GUARD = "dead_guard"
     INCONSISTENT_CASE_HANDLING = "inconsistent_case_handling"
     ENUM_EXHAUSTIVENESS = "enum_exhaustiveness"
@@ -169,9 +168,9 @@ class ProjectModel:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProjectModel:
-        # `diff` / `diff_findings` deserialize attacker-/teammate-supplied JSON, so a
-        # malformed shape must surface as a clean ValueError, not a raw KeyError /
-        # TypeError traceback leaking to the CLI or the MCP transport.
+        # `diff` / `diff_findings` deserialize untrusted JSON, so a malformed shape must
+        # surface as a clean ValueError, not a raw KeyError / TypeError traceback leaking
+        # to the CLI or the MCP transport.
         if not isinstance(data, dict):
             raise ValueError("malformed logic-flow.json: expected a JSON object at the top level")
         try:

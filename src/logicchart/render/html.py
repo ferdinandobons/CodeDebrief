@@ -129,8 +129,8 @@ _HTML_TEMPLATE = r"""<!doctype html>
       display: grid;
       place-items: center;
     }
-    /* The mark is a mini decision flow: an entry node (circle) linked to a decision
-       (diamond), in the same blue/amber the chart uses for those node kinds. */
+    /* Mini decision flow: entry node (circle) linked to a decision (diamond), in the
+       same blue/amber the chart uses for those node kinds. */
     .brand-mark svg { height: 34px; width: auto; display: block; overflow: visible; }
     .logo-node { fill: var(--blue); }
     .logo-link { stroke: var(--violet); stroke-width: 3; stroke-linecap: round; }
@@ -561,8 +561,8 @@ _HTML_TEMPLATE = r"""<!doctype html>
     let activeFlow = null;
     let view = { x: 0, y: 0, width: 1000, height: 800 };
     let drag = null;
-    // Per-flow manual node positions: flowId -> Map(nodeId -> {x, y}). Lets the user
-    // hand-arrange blocks; survives navigating away and back within the session.
+    // Per-flow hand-placed node positions: flowId -> Map(nodeId -> {x, y}). Survives
+    // navigating away and back within the session.
     const manualPositions = new Map();
     // Element references for the currently rendered flow, for selection highlighting.
     let currentRender = null;
@@ -684,8 +684,8 @@ _HTML_TEMPLATE = r"""<!doctype html>
       return { positions, bounds: { minX, maxX, minY, maxY } };
     }
 
-    // One source for an edge's curved path + label anchor, reused on first render and
-    // live while a node is dragged so connected edges follow.
+    // Single source for an edge's curved path + label anchor, reused on first render and
+    // live during a node drag so connected edges follow.
     function edgeGeometry(start, end) {
       const startY = start.y + 43;
       const endY = end.y - 43;

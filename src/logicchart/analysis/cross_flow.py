@@ -53,13 +53,13 @@ def _find_inconsistent_decisions(
     flows: list[Flow], enums: dict[str, dict[str, list[str]]]
 ) -> list[Finding]:
     # Quorum-aware cross-flow value coverage. Comparison is per flow (not per
-    # decision node) and bucketed by (language, subject, value_namespace) so
-    # only flows branching on the *same* subject and enum/union are compared -
-    # keeping the same enum reused on different subjects apart, and scoping the
-    # explicit-default suppression to the relevant subject. A flow is flagged
-    # for a value a strict majority of its siblings handle but it omits.
-    # Namespaces with a declared enum are left to _enum_exhaustiveness (a
-    # stronger declared-set check), so the two never double-flag the same gap.
+    # decision node), bucketed by (language, subject, value_namespace) so only
+    # flows branching on the *same* subject and enum/union compare - keeping the
+    # same enum reused on different subjects apart, and scoping explicit-default
+    # suppression to the relevant subject. A flow is flagged for a value a strict
+    # majority of its siblings handle but it omits. Namespaces with a declared
+    # enum are left to _enum_exhaustiveness (a stronger declared-set check), so
+    # the two never double-flag the same gap.
     buckets: dict[tuple[str, str, str], dict[str, _Coverage]] = {}
     for flow in flows:
         if flow.metadata.get("test"):
@@ -105,10 +105,10 @@ def _find_inconsistent_decisions(
 def _enum_exhaustiveness(
     flows: list[Flow], enums: dict[str, dict[str, list[str]]]
 ) -> list[Finding]:
-    # A flow that dispatches on a declared enum - handling at least two of its
-    # members - but omits other declared members with no explicit default is
-    # likely non-exhaustive. This uses the declared closed set, so unlike the
-    # quorum check it needs no sibling flows.
+    # A flow that dispatches on a declared enum - handling at least two members -
+    # but omits other declared members with no explicit default is likely
+    # non-exhaustive. Uses the declared closed set, so unlike the quorum check it
+    # needs no sibling flows.
     findings: list[Finding] = []
     for flow in flows:
         if flow.metadata.get("test"):
@@ -321,9 +321,9 @@ def _outcomes_compatible(actual: str, expected: str) -> bool:
     """Whether two outcome signatures describe the same outcome.
 
     A coded raise (``raise:HTTPException:403``) is compatible with the same
-    exception carrying no code (``raise:HTTPException``): that is a literal-vs-
-    symbolic status spelling, not a real divergence. Two differing codes on the
-    same exception, or a different exception/terminal, remain a divergence.
+    exception carrying no code (``raise:HTTPException``) - a spelling difference,
+    not a divergence. Two differing codes on the same exception, or a different
+    exception/terminal, remain a divergence.
     """
     if actual == expected:
         return True

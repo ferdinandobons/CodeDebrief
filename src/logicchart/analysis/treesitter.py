@@ -6,9 +6,9 @@ runs that common walk once, parameterized by a :class:`LanguageProfile` that nam
 grammar node types and supplies small per-language extractors. A new control-flow
 language becomes a profile (see ``analysis/languages/``), not a bespoke analyzer.
 
-It produces exactly the same IR (flows, nodes, edges, ``branches``, decision identity,
-effects, qualified calls) as the dedicated Python/TypeScript analyzers, so detectors,
-linking, and rendering are unchanged.
+It produces the same IR (flows, nodes, edges, ``branches``, decision identity, effects,
+qualified calls) as the dedicated Python/TypeScript analyzers, so detectors, linking, and
+rendering are unchanged.
 """
 
 from __future__ import annotations
@@ -64,9 +64,9 @@ class TSDefinition:
 class LanguageProfile:
     """The grammar vocabulary + extractors that make a language analyzable.
 
-    The defaults describe a typical C-family grammar; a profile overrides only what
-    differs. Callables keep the genuinely per-language bits (which functions are entry
-    points, what a test file looks like, how imports resolve) out of the generic walk.
+    Defaults describe a typical C-family grammar; a profile overrides only what differs.
+    Callables keep the per-language bits (which functions are entry points, what a test
+    file looks like, how imports resolve) out of the generic walk.
     """
 
     language: str
@@ -112,14 +112,14 @@ class LanguageProfile:
     catch_types: frozenset[str] = frozenset()
     catch_body_field: str = "body"
     finally_types: frozenset[str] = frozenset()
-    # Override case extraction for switch/case grammars that don't fit the simple
-    # "case nodes with a value field" shape (e.g. Java's switch_block groups).
+    # Override case extraction for grammars that don't fit the simple "case nodes with a
+    # value field" shape (e.g. Java's switch_block groups).
     switch_cases: Callable[[Any, bytes, LanguageProfile], list[CaseInfo]] | None = None
     assignment_types: frozenset[str] = frozenset()
     assignment_target_field: str = "left"
     nested_def_types: frozenset[str] = field(default_factory=frozenset)
     inert_types: frozenset[str] = frozenset({"comment"})
-    # Wrapper statements to unwrap to their inner expression before dispatch (e.g. Rust
+    # Wrapper statements unwrapped to their inner expression before dispatch (e.g. Rust
     # wraps an if/match used as a statement in an expression_statement).
     unwrap_types: frozenset[str] = frozenset()
 
@@ -620,7 +620,7 @@ class TreeSitterAnalyzer:
             return list(_named_children(node))
         # A control-flow statement used directly as a branch body (an `else if`, where the
         # alternative IS the nested if) must be dispatched by the walker, not flattened to
-        # one of its blocks - otherwise the middle branch is silently dropped.
+        # one of its blocks - else the middle branch is silently dropped.
         dispatchable = (
             {profile.if_type, profile.return_type}
             | profile.switch_types

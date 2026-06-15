@@ -120,8 +120,8 @@ def run_mcp(root: Path) -> None:
     def explain_finding_chain(finding_id: str, token_budget: int = 0) -> dict[str, Any]:
         """The deterministic evidence chain behind one finding (decision, condition, branches).
 
-        Returns a single finding record (naturally small); token_budget is accepted
-        for a uniform query/list contract.
+        Returns one small record; token_budget is accepted only to match the uniform
+        query/list tool contract.
         """
         result = explain_finding(load_model(project_root), finding_id)
         return result if result is not None else {"error": f"Unknown finding: {finding_id}"}

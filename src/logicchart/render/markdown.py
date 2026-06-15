@@ -30,8 +30,7 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
     lines.extend(_project_map(model, entrypoints))
     lines.extend(["", "## Findings", ""])
     # Signal/noise split (§5.2/§7): verified/inferred facts in the main section,
-    # POTENTIAL_GAP review candidates grouped under a collapsible block so a reader
-    # always knows what was found vs guessed.
+    # POTENTIAL_GAP candidates in a collapsible block, so found vs guessed stays clear.
     if confirmed:
         lines.extend(_finding_line(finding) for finding in confirmed)
     else:
@@ -151,8 +150,8 @@ def _mermaid_id(value: str) -> str:
 
 
 def _escape(value: str) -> str:
-    # Mermaid quoted labels: neutralize the quote breakout and any HTML so a
-    # source-derived label can't malform the diagram or smuggle markup.
+    # Mermaid quoted labels: neutralize quote breakout and HTML so a source-derived
+    # label can't malform the diagram or smuggle markup.
     return (
         value.replace("\\", "\\\\")
         .replace('"', "&quot;")
@@ -162,8 +161,8 @@ def _escape(value: str) -> str:
     )
 
 
-# Markdown inline metacharacters that could turn a source-derived finding message
-# into a live link, emphasis, code span, table cell, or raw HTML in a committed report.
+# Inline metacharacters that could turn a source-derived finding message into a live
+# link, emphasis, code span, table cell, or raw HTML in a committed report.
 _MD_INLINE_SPECIAL = re.compile(r"([\\`*_\[\]()<>|#~])")
 
 

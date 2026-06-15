@@ -135,9 +135,9 @@ def is_functional_condition(condition: str, branch_text: str = "") -> bool:
     return any(term in lowered for term in BOUNDARY_CALL_TERMS)
 
 
-# Canonical per-branch terminal behavior, recorded on a decision node's
-# `branches` metadata and validated by branch(). Detectors compare against these
-# names, so they are single-sourced here to keep producers and consumers aligned.
+# Canonical per-branch terminal behavior, recorded on a decision node's `branches`
+# metadata and validated by branch(). Single-sourced here so the detectors that
+# compare against these names stay aligned with the producers.
 RETURNS = "returns"
 RAISES = "raises"
 FALLS_THROUGH = "falls_through"
@@ -145,9 +145,8 @@ EMPTY = "empty"
 CONTINUES = "continues"
 BRANCH_OUTCOMES = frozenset({RETURNS, RAISES, FALLS_THROUGH, EMPTY, CONTINUES})
 
-# Structural branch *labels* the walkers emit on decision edges. These travel on
-# the same edges the detectors read, so they are a producer/consumer contract and
-# are single-sourced here alongside the outcomes.
+# Structural branch *labels* the walkers emit on decision edges. A producer/consumer
+# contract: they travel on the same edges the detectors read, so single-sourced here.
 YES = "Yes"
 NO = "No"
 SUCCESS = "Success"
@@ -200,8 +199,8 @@ def decision_identity(
 ) -> dict[str, Any]:
     """Assemble the canonical decision-node metadata key set.
 
-    Single constructor so every decision node - if/elif, match, switch, try -
-    carries the same shape (condition/domain/values plus the identity fields).
+    Single constructor so every decision node - if/elif, match, switch, try - carries
+    the same shape (condition/domain/values plus the identity fields).
     """
     sorted_values = sorted(set(values or []))
     resolved_namespace = namespace if namespace is not None else value_namespace(sorted_values)
@@ -276,9 +275,9 @@ def value_namespace(values: list[str]) -> str:
     return next(iter(prefixes)) if len(prefixes) == 1 else ""
 
 
-# Marker for a module's default export, used so a default import can be resolved
-# to whichever flow carries `default_export` rather than guessing its name. The
-# `#` cannot appear in an identifier, so it never collides with a real symbol.
+# Marker for a module's default export, so a default import resolves to whichever
+# flow carries `default_export` rather than guessing its name. `#` cannot appear in
+# an identifier, so it never collides with a real symbol.
 DEFAULT_EXPORT_MARKER = "#default"
 
 # Confidence tiers recorded on a resolved call's `link_confidence`.
@@ -292,11 +291,10 @@ LINK_CONFIDENCES = frozenset({CONFIDENCE_HIGH, CONFIDENCE_MEDIUM, CONFIDENCE_LOW
 def resolve_qualified(raw: str, import_map: dict[str, str], current_module: str) -> str:
     """Resolve a call name to a ``module:symbol`` reference via the import map.
 
-    Import-map values already carry the boundary: ``module:symbol`` binds a
-    symbol (``from m import f``), ``module:`` binds a module (a namespace/module
-    import, so the next attribute is the symbol). An unmapped head is assumed
-    local to the current module. Preserving the ``:`` keeps a module path from
-    ever being confused with attribute access on a value.
+    Import-map values carry the boundary: ``module:symbol`` binds a symbol
+    (``from m import f``), ``module:`` binds a module (so the next attribute is the
+    symbol). An unmapped head is assumed local to the current module. Preserving the
+    ``:`` keeps a module path from being confused with attribute access on a value.
 
     The longest dotted prefix wins, so a multi-segment module binding (``import
     pkg.util`` -> ``pkg.util:``) resolves ``pkg.util.persist`` to ``pkg.util:persist``
@@ -317,9 +315,8 @@ def resolve_qualified(raw: str, import_map: dict[str, str], current_module: str)
 def attach_qualified_calls(flow: Flow, import_map: dict[str, str], current_module: str) -> None:
     """Record `qualified_calls` (``module:symbol`` references) on every call node.
 
-    Each raw call name is resolved through the import map; unmapped heads fall
-    back to a current-module reference, which is expected to miss for external
-    calls and resolve for local ones.
+    Each raw call name is resolved through the import map; unmapped heads fall back
+    to a current-module reference (expected to miss for external calls, hit for local).
     """
     for node in flow.nodes:
         if node.kind is not NodeKind.CALL:
@@ -370,8 +367,8 @@ def call_is_boundary(name: str) -> bool:
     return any(term in lowered for term in BOUNDARY_CALL_TERMS)
 
 
-# Side-effect categories inferred from a call's leaf name. Detectors (logging
-# asymmetry, auth divergence, default-semantic inconsistency) read these tags.
+# Side-effect categories inferred from a call's leaf name. Read by the logging-asymmetry,
+# auth-divergence, and default-semantic-inconsistency detectors.
 EFFECT_LEXICON: dict[str, tuple[str, ...]] = {
     "auth_check": (
         "require_role",

@@ -1,8 +1,8 @@
 """Git sync machinery (§5.4): keep the committed model from drifting.
 
 `hook install` writes managed post-commit / post-checkout hooks that run the
-deterministic `update`, and registers a union merge driver for `logic-flow.json`
-so teammates do not conflict on it. All deterministic - no LLM, no API key.
+deterministic `update`, plus a union merge driver for `logic-flow.json` so
+teammates do not conflict on it. All deterministic - no LLM, no API key.
 """
 
 from __future__ import annotations

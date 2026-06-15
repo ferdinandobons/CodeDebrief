@@ -202,8 +202,8 @@ def where_is_state_handled(
     """Every flow that branches on a domain/value-namespace, with the values it covers."""
     results: list[dict[str, Any]] = []
     if not domain:
-        # An empty domain is not a wildcard: matching it against empty metadata would
-        # flood the caller with every unrelated decision node.
+        # An empty domain is not a wildcard: it would match empty metadata and return
+        # every decision node.
         return results
     for flow in model.flows:
         for node in flow.nodes:
@@ -321,7 +321,7 @@ def _terms(question: str) -> list[str]:
 
 
 def _normalize_path(value: str) -> str:
-    # Strip only a leading "./" prefix - never a *set* of {'.', '/'} characters,
-    # which would corrupt dot-prefixed paths like ".github/workflows/ci.yml".
+    # Strip only a leading "./" prefix - not the {'.', '/'} char set, which would
+    # corrupt dot-prefixed paths like ".github/workflows/ci.yml".
     value = value.replace("\\", "/")
     return value[2:] if value.startswith("./") else value

@@ -70,8 +70,8 @@ class PythonAnalyzer:
                 module_name=module_name,
                 findings=findings,
             )
-            # A module constant rebound or shadowed locally is runtime-dependent, so
-            # dead_guard must not claim its guard is always true/false.
+            # A constant shadowed locally is runtime-dependent, so dead_guard must not
+            # claim its guard is always true/false.
             shadowed = _assigned_names(definition) & constant_names
             if shadowed:
                 flow.metadata["shadows_constants"] = sorted(shadowed)
@@ -338,9 +338,9 @@ class PythonAnalyzer:
         branches: list[dict[str, Any]] = []
         for case in statement.cases:
             pattern = _safe_unparse(case.pattern)
-            # A guarded wildcard `case _ if cond:` only matches when the guard holds,
-            # so it is NOT an exhaustive default - the unmatched fall-through and any
-            # missing enum members must still be surfaced.
+            # A guarded wildcard `case _ if cond:` only matches when the guard holds, so
+            # it is NOT an exhaustive default - fall-through and missing enum members must
+            # still be surfaced.
             is_default = pattern == WILDCARD and case.guard is None
             has_default = has_default or is_default
             label = f"{pattern} if {_safe_unparse(case.guard)}" if case.guard else pattern
@@ -423,8 +423,8 @@ class PythonAnalyzer:
                 statement.finalbody, finally_incoming, builder, findings, source, relative
             )
             if body_terminated:
-                # The try/handlers already returned/raised; once finally runs that
-                # terminator resumes, so anything after the try is unreachable.
+                # The try/handlers already returned/raised; the terminator resumes after
+                # finally, so anything past the try is unreachable.
                 endpoints = []
         return endpoints
 
@@ -432,8 +432,8 @@ class PythonAnalyzer:
 def _assigned_names(definition: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
     """Names bound inside a function: assignment targets, loop/with vars, and params.
 
-    A name in Store context (or a parameter) shadows any module-level constant of
-    the same name, making a guard on it runtime-dependent rather than statically dead.
+    A name in Store context (or a parameter) shadows a module-level constant of the same
+    name, making a guard on it runtime-dependent rather than statically dead.
     """
     names: set[str] = set()
     for node in ast.walk(definition):
@@ -600,8 +600,8 @@ def _is_enum_member(name: str) -> bool:
 
 
 def _harvest_constants(tree: ast.Module) -> dict[str, bool]:
-    """Module-level boolean constants (``FLAG = False``) - the smallest data-flow fact
-    a guard's always-true/false check needs."""
+    """Module-level boolean constants (``FLAG = False``) - the data-flow fact a guard's
+    always-true/false check needs."""
     constants: dict[str, bool] = {}
     for node in tree.body:
         target: ast.expr | None = None
@@ -627,12 +627,11 @@ def _module_name(relative: str) -> str:
 def _import_map(tree: ast.Module, module_name: str, is_package: bool, root: Path) -> dict[str, str]:
     """Map each imported alias to a ``module:symbol`` (or ``module:``) binding.
 
-    ``from m import f`` -> ``f`` => ``m:f`` (binds a symbol); ``import m as a`` ->
-    ``a`` => ``m:`` (binds a module). A ``from pkg import sub`` where ``sub`` is a
-    *submodule* on disk binds the module (``pkg.sub:``), mirroring a TS namespace
-    import, so the next attribute is read as the symbol. Relative imports resolve
-    against the current module's package, accounting for ``__init__.py`` being its
-    own package.
+    ``from m import f`` => ``f`` -> ``m:f`` (binds a symbol); ``import m as a`` => ``a`` ->
+    ``m:`` (binds a module). ``from pkg import sub`` where ``sub`` is a *submodule* on disk
+    binds the module (``pkg.sub:``), mirroring a TS namespace import, so the next attribute
+    is read as the symbol. Relative imports resolve against the current module's package,
+    accounting for ``__init__.py`` being its own package.
     """
     mapping: dict[str, str] = {}
     for node in tree.body:
@@ -641,8 +640,8 @@ def _import_map(tree: ast.Module, module_name: str, is_package: bool, root: Path
                 if alias.asname:
                     mapping[alias.asname] = f"{alias.name}:"
                 else:
-                    # `import pkg` or dotted `import pkg.util` (no alias): the (dotted)
-                    # name is itself a module; resolve_qualified longest-prefix-matches it.
+                    # `import pkg` / `import pkg.util` (no alias): the dotted name is itself
+                    # a module; resolve_qualified longest-prefix-matches it.
                     mapping[alias.name] = f"{alias.name}:"
         elif isinstance(node, ast.ImportFrom):
             base = _relative_base(node.module, node.level, module_name, is_package)

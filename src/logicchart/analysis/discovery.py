@@ -6,8 +6,8 @@ from logicchart.analysis.registry import supported_suffixes
 from logicchart.config import LogicChartConfig
 from logicchart.util import relpath
 
-# The running LogicChart package directory. discovery.py lives at
-# <pkg>/analysis/discovery.py, so two parents up is <pkg> (".../logicchart").
+# Running LogicChart package dir: discovery.py is <pkg>/analysis/discovery.py,
+# so two parents up is <pkg> (".../logicchart").
 _SELF_PACKAGE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -23,9 +23,9 @@ def discover_source_files(root: Path, config: LogicChartConfig) -> list[Path]:
         for candidate in candidates:
             if not candidate.is_file() or candidate.suffix.lower() not in suffixes:
                 continue
-            # Self-exclusion is a resolved-path prefix check, not a glob in
-            # `config.exclude`, because the running package may be installed
-            # outside the analyzed tree (a virtualenv has no project-relative path).
+            # Self-exclusion uses a resolved-path prefix check, not a `config.exclude`
+            # glob: the running package may live outside the analyzed tree (e.g. a
+            # virtualenv has no project-relative path).
             resolved = candidate.resolve()
             if any(resolved.is_relative_to(item) for item in excluded_roots):
                 continue
@@ -36,12 +36,12 @@ def discover_source_files(root: Path, config: LogicChartConfig) -> list[Path]:
 
 
 def _self_exclude_roots(root: Path) -> list[Path]:
-    """Return directories that belong to LogicChart itself, to keep the tool's own
-    parser internals out of the published artifact.
+    """Return LogicChart's own directories, to keep the tool's parser internals out
+    of the published artifact.
 
-    Always excludes the running LogicChart package directory. When the analyzed
-    root *is* the LogicChart source checkout (its ``src/logicchart`` resolves to the
-    package being run), also excludes the project's own ``tests/`` suite.
+    Always excludes the running package directory. When the analyzed root *is* the
+    LogicChart source checkout (its ``src/logicchart`` resolves to the running
+    package), also excludes the project's own ``tests/`` suite.
     """
     roots = [_SELF_PACKAGE_DIR]
     if (root / "src" / "logicchart").resolve() == _SELF_PACKAGE_DIR:

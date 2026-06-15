@@ -2,8 +2,8 @@
 
 Compare two `logic-flow.json` models by stable finding id to report findings
 introduced, resolved, and persisting, and render the result as GitHub Markdown
-and SARIF. Because finding ids derive from structural anchors, a finding pins
-across edits to its mutable details, so "introduced since base" is meaningful.
+and SARIF. Finding ids derive from structural anchors, so a finding pins across
+edits to its mutable details, making "introduced since base" meaningful.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def render_sarif(diff: ModelDiff) -> dict[str, object]:
 
     Each result carries the stable finding id as a partial fingerprint, so a code
     scanner re-keys alerts on the structural id (the diff premise) rather than on
-    location, and each rule declares its default severity level.
+    location. Each rule declares its default severity level.
     """
     rules = {
         finding.kind: {

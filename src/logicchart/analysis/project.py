@@ -133,9 +133,8 @@ class ProjectAnalyzer:
         """Analyze one file, degrading to an empty record instead of aborting the run.
 
         A single un-parseable or non-UTF-8 file (common while editing, on a merge
-        conflict, or in a mixed-language repo) is recorded as a skipped file and the
-        rest of the model is still built - the "always in sync" guarantee can't hinge
-        on every file parsing cleanly.
+        conflict, or in a mixed-language repo) is recorded as skipped and the rest of
+        the model is still built - "always in sync" can't hinge on every file parsing.
         """
         try:
             return self._analyze_file(path), None
@@ -222,11 +221,11 @@ class ProjectAnalyzer:
 
     def _link_calls(self, flows: list[Flow]) -> None:
         # Import-aware first (`qualified_calls` from the analyzers), short name as a
-        # fallback. Ambiguous candidates are recorded, not dropped, and every link
+        # fallback. Ambiguous candidates are recorded, not dropped, and each link
         # carries a `link_confidence` so interprocedural detectors can weigh it.
-        # Key on the flow symbol as-is (``module:qualified``) so a module-path
-        # boundary can never collide with an attribute boundary. A default-export
-        # flow also answers to the module's default marker.
+        # Key on the flow symbol as-is (``module:qualified``) so a module-path boundary
+        # never collides with an attribute boundary; a default-export flow also answers
+        # to the module's default marker.
         by_qualified: dict[str, list[Flow]] = {}
         by_name: dict[str, list[Flow]] = {}
         for flow in flows:
@@ -300,7 +299,7 @@ def _suppress_redundant_missing_branch(findings: list[Finding]) -> list[Finding]
     """Drop missing_branch where enum_exhaustiveness already names the missing members.
 
     Both fire on a state-like dispatch with no fallback; the declared-set finding is
-    strictly more actionable, so keep it and suppress the generic one on that node.
+    more actionable, so keep it and suppress the generic one on that node.
     """
     enum_nodes = {
         (item.flow_id, item.node_id)

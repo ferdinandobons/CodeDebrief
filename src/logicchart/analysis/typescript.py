@@ -77,9 +77,8 @@ class TypeScriptAnalyzer:
         source_bytes = path.read_bytes()
         source = source_bytes.decode("utf-8")
         relative = relpath(path, self.root)
-        # The TypeScript grammar is a superset of JavaScript, so the same analyzer
-        # handles .js/.jsx/.mjs/.cjs; only the grammar variant (JSX) and the IR
-        # language label differ.
+        # TypeScript grammar is a JS superset, so this analyzer also handles
+        # .js/.jsx/.mjs/.cjs; only the grammar variant (JSX) and IR label differ.
         jsx = path.suffix in {".tsx", ".jsx"}
         ir_language = "javascript" if path.suffix in _JS_SUFFIXES else "typescript"
         grammar = (
@@ -678,8 +677,8 @@ def _default_export_name(relative: str) -> str:
 def _import_map(root: Any, source: bytes, relative: str) -> dict[str, str]:
     """Map each imported binding to a fully-qualified target module symbol.
 
-    Resolves relative module specifiers against the importing file; bare/external
-    specifiers (e.g. ``react``) are skipped so only first-party calls resolve.
+    Relative specifiers resolve against the importing file; bare/external ones
+    (e.g. ``react``) are skipped so only first-party calls resolve.
     """
     mapping: dict[str, str] = {}
     for node in root.children:
