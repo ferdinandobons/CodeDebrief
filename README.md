@@ -91,6 +91,17 @@ logicchart query "what can reject a payment?"
 logicchart impact src/users/service.py app/api/users/route.ts
 ```
 
+Gate a change in CI by diffing the model against a committed baseline (stable
+finding ids make "introduced since base" meaningful):
+
+```bash
+logicchart diff base/logic-flow.json logicchart-out/logic-flow.json \
+  --sarif logicchart.sarif --fail-on-introduced
+```
+
+It prints a GitHub-Markdown summary of findings introduced/resolved/persisting,
+optionally writes SARIF, and exits non-zero when a finding is introduced.
+
 ## Agent Instructions
 
 Install persistent instructions that tell coding agents to consult and refresh LogicChart:
@@ -137,11 +148,16 @@ Example MCP configuration:
 
 Available tools:
 
+- `logicchart_summary` — flow/entrypoint counts and findings by kind/severity/evidence
 - `list_flows`
 - `get_flow`
 - `query_logic`
 - `get_findings`
+- `explain_finding_chain` — the deterministic evidence chain behind one finding
+- `where_state_handled` — every flow branching on a domain/value-namespace and the values it covers
+- `find_decision_nodes` — structured search over decision nodes (domain/subject/missing-fallback)
 - `analyze_impact`
+- `diff_findings` — compare the current model against a baseline (the CI primitive)
 - `update_logicchart`
 
 ## Evidence Levels

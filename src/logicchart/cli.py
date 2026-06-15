@@ -73,6 +73,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     mcp = subparsers.add_parser("mcp", help="Start the LogicChart MCP server over stdio.")
     mcp.add_argument("path", nargs="?", default=".")
+
+    diff = subparsers.add_parser("diff", help="Compare two logic-flow.json models (CI gate).")
+    diff.add_argument("base", help="Baseline logic-flow.json")
+    diff.add_argument("head", help="Current logic-flow.json")
+    diff.add_argument("--sarif", default=None, help="Write a SARIF report to this path.")
+    diff.add_argument(
+        "--fail-on-introduced",
+        action="store_true",
+        help="Exit non-zero when any finding is introduced.",
+    )
     return parser
 
 
@@ -98,6 +108,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
             run_mcp(Path(args.path))
             return 0
+        if args.command == "diff":
+            return _diff(Path(args.base), Path(args.head), args.sarif, args.fail_on_introduced)
     except (FileNotFoundError, RuntimeError, ValueError, SyntaxError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
@@ -227,6 +239,23 @@ exclude = []
     )
     print(f"Created {config_path}")
     return 0
+
+
+def _diff(
+    base_path: Path, head_path: Path, sarif_path: str | None, fail_on_introduced: bool
+) -> int:
+    from logicchart.diff import diff_models, render_diff_markdown, render_sarif
+    from logicchart.model import ProjectModel
+    from logicchart.util import read_json, write_json
+
+    base = ProjectModel.from_dict(read_json(base_path))
+    head = ProjectModel.from_dict(read_json(head_path))
+    diff = diff_models(base, head)
+    print(render_diff_markdown(diff))
+    if sarif_path:
+        write_json(Path(sarif_path), render_sarif(diff))
+        print(f"Wrote {sarif_path}")
+    return 1 if fail_on_introduced and diff.has_regressions else 0
 
 
 if __name__ == "__main__":

@@ -5,7 +5,14 @@ from typing import Any
 
 from logicchart.analysis import ProjectAnalyzer
 from logicchart.artifacts import load_model, write_artifacts
-from logicchart.query import impact_model, query_model
+from logicchart.query import (
+    explain_finding,
+    find_decisions,
+    impact_model,
+    model_summary,
+    query_model,
+    where_is_state_handled,
+)
 
 
 def run_mcp(root: Path) -> None:
@@ -77,6 +84,49 @@ def run_mcp(root: Path) -> None:
             for item in model.findings
             if flow_id is None or item.flow_id == flow_id
         ]
+
+    @server.tool()
+    def logicchart_summary() -> dict[str, Any]:
+        """An orientation snapshot: flow/entrypoint counts and findings by kind/severity."""
+        return model_summary(load_model(project_root))
+
+    @server.tool()
+    def explain_finding_chain(finding_id: str) -> dict[str, Any]:
+        """The deterministic evidence chain behind one finding (decision, condition, branches)."""
+        result = explain_finding(load_model(project_root), finding_id)
+        return result if result is not None else {"error": f"Unknown finding: {finding_id}"}
+
+    @server.tool()
+    def where_state_handled(domain: str, value: str | None = None) -> list[dict[str, Any]]:
+        """Every flow that branches on a domain/value-namespace, with the values it covers."""
+        return where_is_state_handled(load_model(project_root), domain, value)
+
+    @server.tool()
+    def find_decision_nodes(
+        domain: str | None = None, subject: str | None = None, missing_fallback: bool = False
+    ) -> list[dict[str, Any]]:
+        """Structured search over decision nodes (by domain/subject/missing-fallback)."""
+        return find_decisions(
+            load_model(project_root),
+            domain=domain,
+            subject=subject,
+            missing_fallback=missing_fallback,
+        )
+
+    @server.tool()
+    def diff_findings(base_path: str) -> dict[str, Any]:
+        """Compare the current model against a baseline logic-flow.json (the CI primitive)."""
+        from logicchart.diff import diff_models
+        from logicchart.model import ProjectModel
+        from logicchart.util import read_json
+
+        base = ProjectModel.from_dict(read_json(Path(base_path)))
+        diff = diff_models(base, load_model(project_root))
+        return {
+            "introduced": [_finding_dict(item) for item in diff.introduced],
+            "resolved": [_finding_dict(item) for item in diff.resolved],
+            "persisting": len(diff.persisting),
+        }
 
     @server.tool()
     def analyze_impact(changed_files: list[str]) -> dict[str, Any]:

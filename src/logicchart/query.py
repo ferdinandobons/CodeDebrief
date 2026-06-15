@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
-from logicchart.model import Finding, Flow, ProjectModel
+from logicchart.model import Finding, Flow, NodeKind, ProjectModel
 
 
 @dataclass(slots=True)
@@ -132,6 +134,123 @@ def render_impact(result: ImpactResult) -> str:
         lines.append("\nReview before changing:")
         lines.extend(f"- {finding.message}" for finding in result.findings)
     return "\n".join(lines)
+
+
+def model_summary(model: ProjectModel) -> dict[str, Any]:
+    """An orientation snapshot: counts of flows, findings by kind/severity/evidence."""
+    return {
+        "flows": len(model.flows),
+        "entrypoints": sum(flow.is_entrypoint for flow in model.flows),
+        "languages": model.metadata.get("languages", []),
+        "findings": {
+            "total": len(model.findings),
+            "by_kind": dict(Counter(item.kind for item in model.findings)),
+            "by_severity": dict(Counter(item.severity.value for item in model.findings)),
+            "by_evidence": dict(Counter(item.evidence.value for item in model.findings)),
+        },
+        "enums": {
+            language: sorted(members)
+            for language, members in model.metadata.get("enums", {}).items()
+        },
+    }
+
+
+def explain_finding(model: ProjectModel, finding_id: str) -> dict[str, Any] | None:
+    """The full deterministic evidence chain behind one finding."""
+    finding = next((item for item in model.findings if item.id == finding_id), None)
+    if finding is None:
+        return None
+    flow = next((item for item in model.flows if item.id == finding.flow_id), None)
+    node = None
+    if flow is not None and finding.node_id:
+        node = next((item for item in flow.nodes if item.id == finding.node_id), None)
+    decision = None
+    if node is not None:
+        decision = {
+            "label": node.label,
+            "condition": node.metadata.get("condition"),
+            "subject": node.metadata.get("subject"),
+            "branches": node.metadata.get("branches"),
+        }
+    return {
+        "id": finding.id,
+        "kind": finding.kind,
+        "severity": finding.severity.value,
+        "evidence": finding.evidence.value,
+        "message": finding.message,
+        "detail": finding.detail,
+        "location": f"{finding.location.path}:{finding.location.start_line}",
+        "flow": flow.name if flow else None,
+        "decision": decision,
+        "metadata": finding.metadata,
+    }
+
+
+def where_is_state_handled(
+    model: ProjectModel, domain: str, value: str | None = None
+) -> list[dict[str, Any]]:
+    """Every flow that branches on a domain/value-namespace, with the values it covers."""
+    results: list[dict[str, Any]] = []
+    for flow in model.flows:
+        for node in flow.nodes:
+            if node.kind is not NodeKind.DECISION:
+                continue
+            namespaces = {
+                str(node.metadata.get("domain", "")),
+                str(node.metadata.get("value_namespace", "")),
+            }
+            if domain not in namespaces:
+                continue
+            values = [str(item) for item in node.metadata.get("values", [])]
+            if value is not None and value not in values:
+                continue
+            results.append(
+                {
+                    "flow": flow.name,
+                    "subject": node.metadata.get("subject"),
+                    "values": values,
+                    "source": f"{node.location.path}:{node.location.start_line}",
+                }
+            )
+    return results
+
+
+def find_decisions(
+    model: ProjectModel,
+    *,
+    domain: str | None = None,
+    subject: str | None = None,
+    missing_fallback: bool = False,
+) -> list[dict[str, Any]]:
+    """Structured search over decision nodes (by domain/subject/missing-fallback)."""
+    gap_nodes = {
+        item.node_id
+        for item in model.findings
+        if item.kind in {"missing_branch", "enum_exhaustiveness", "inconsistent_case_handling"}
+    }
+    results: list[dict[str, Any]] = []
+    for flow in model.flows:
+        for node in flow.nodes:
+            if node.kind is not NodeKind.DECISION:
+                continue
+            if domain is not None and node.metadata.get("domain") != domain:
+                continue
+            if subject is not None and subject not in str(node.metadata.get("subject", "")):
+                continue
+            has_gap = node.id in gap_nodes
+            if missing_fallback and not has_gap:
+                continue
+            results.append(
+                {
+                    "flow": flow.name,
+                    "subject": node.metadata.get("subject"),
+                    "operator": node.metadata.get("operator"),
+                    "values": node.metadata.get("values"),
+                    "has_gap": has_gap,
+                    "source": f"{node.location.path}:{node.location.start_line}",
+                }
+            )
+    return results
 
 
 def git_changed_files(root: Path) -> list[str]:
