@@ -5,11 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from logicchart.analysis.common import decision_metadata
-from logicchart.analysis.project import (
-    ProjectAnalyzer,
-    _outcomes_compatible,
-    _raise_signature,
-)
+from logicchart.analysis.cross_flow import _outcomes_compatible, _raise_signature
+from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.model import ProjectModel
 
 _ENUM = (
