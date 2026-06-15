@@ -60,6 +60,19 @@ def test_enum_exhaustiveness_silent_on_single_guard(tmp_path: Path) -> None:
     assert "enum_exhaustiveness" not in _kinds_for(model, "handle")
 
 
+def test_enum_exhaustiveness_silent_on_negative_guard(tmp_path: Path) -> None:
+    # `not in {...}` allows the remaining members — a guard, not an exhaustive dispatch.
+    (tmp_path / "domain.py").write_text(_ENUM, encoding="utf-8")
+    (tmp_path / "svc.py").write_text(
+        "def handle(result):\n"
+        "    if result not in (Result.A, Result.B):\n        raise Error()\n"
+        "    return ok()\n",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    assert "enum_exhaustiveness" not in _kinds_for(model, "handle")
+
+
 def test_enum_exhaustiveness_silent_without_declared_enum(tmp_path: Path) -> None:
     # No declared enum for Result -> the declared-set detector does not apply.
     (tmp_path / "svc.py").write_text(

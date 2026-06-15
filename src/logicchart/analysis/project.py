@@ -245,7 +245,7 @@ class ProjectAnalyzer:
                 subject = str(node.metadata.get("subject", ""))
                 namespace = str(node.metadata.get("value_namespace", ""))
                 values = {str(item) for item in node.metadata.get("values", []) if str(item)}
-                if not subject or not namespace or not values:
+                if not subject or not namespace or not values or not _is_positive_dispatch(node):
                     continue
                 if enums.get(flow.language, {}).get(namespace):
                     continue
@@ -296,7 +296,9 @@ class ProjectAnalyzer:
                 subject = str(node.metadata.get("subject", ""))
                 namespace = str(node.metadata.get("value_namespace", ""))
                 values = {str(item) for item in node.metadata.get("values", []) if str(item)}
-                if not subject or not values or not enums.get(flow.language, {}).get(namespace):
+                if not subject or not values or not _is_positive_dispatch(node):
+                    continue
+                if not enums.get(flow.language, {}).get(namespace):
                     continue
                 existing = coverage.get((subject, namespace))
                 if existing is None:
@@ -321,6 +323,15 @@ class ProjectAnalyzer:
 # differing flow could not form a meaningful majority.
 _MIN_QUORUM_SIBLINGS = 3
 _FALLBACK_LABELS = {"No", "default", "_"}
+# A negative comparison (status not in {...}) is a guard that allows the rest, not
+# a positive value-dispatch, so it must not be read as "handling" those members.
+_NEGATIVE_OPERATORS = {"!=", "not in", "is not"}
+
+
+def _is_positive_dispatch(node: FlowNode) -> bool:
+    return not node.metadata.get("negation") and (
+        node.metadata.get("operator") not in _NEGATIVE_OPERATORS
+    )
 
 
 @dataclass(slots=True)

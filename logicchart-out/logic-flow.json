@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T18:46:59.671379+00:00",
+  "generated_at": "2026-06-15T18:58:48.650953+00:00",
   "root": ".",
   "flows": [
     {
@@ -720,6 +720,1564 @@
       }
     },
     {
+      "id": "flow-22d844fbd2f31cd3",
+      "name": "delete_user",
+      "symbol": "examples.shop.backend.api.admin_routes:delete_user",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/api/admin_routes.py",
+        "start_line": 7,
+        "end_line": 10
+      },
+      "nodes": [
+        {
+          "id": "flow-22d844fbd2f31cd3:n1",
+          "kind": "entry",
+          "label": "delete_user",
+          "location": {
+            "path": "examples/shop/backend/api/admin_routes.py",
+            "start_line": 7,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.api.admin_routes:delete_user",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-22d844fbd2f31cd3:n2",
+          "kind": "action",
+          "label": "'Control: gated on the ADMIN role before the destructive action.'",
+          "location": {
+            "path": "examples/shop/backend/api/admin_routes.py",
+            "start_line": 8,
+            "end_line": 8
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Control: gated on the ADMIN role before the destructive action.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-22d844fbd2f31cd3:n3",
+          "kind": "call",
+          "label": "Call require_role()",
+          "location": {
+            "path": "examples/shop/backend/api/admin_routes.py",
+            "start_line": 9,
+            "end_line": 9
+          },
+          "evidence": "VERIFIED",
+          "detail": "require_role(admin, Role.ADMIN)",
+          "metadata": {
+            "calls": [
+              "require_role"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.auth:require_role"
+            ],
+            "effects": [
+              "auth_check"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-93e6edefb10af9c5"
+            ],
+            "target_flow": "flow-93e6edefb10af9c5",
+            "target_symbol": "examples.shop.backend.auth:require_role"
+          }
+        },
+        {
+          "id": "flow-22d844fbd2f31cd3:n4",
+          "kind": "call",
+          "label": "Call do_delete()",
+          "location": {
+            "path": "examples/shop/backend/api/admin_routes.py",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "do_delete(target)",
+          "metadata": {
+            "calls": [
+              "do_delete"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.api.admin_routes:do_delete"
+            ],
+            "effects": [
+              "db_write"
+            ]
+          }
+        },
+        {
+          "id": "flow-22d844fbd2f31cd3:n5",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "examples/shop/backend/api/admin_routes.py",
+            "start_line": 7,
+            "end_line": 10
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-22d844fbd2f31cd3:e1",
+          "source": "flow-22d844fbd2f31cd3:n1",
+          "target": "flow-22d844fbd2f31cd3:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-22d844fbd2f31cd3:e2",
+          "source": "flow-22d844fbd2f31cd3:n2",
+          "target": "flow-22d844fbd2f31cd3:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-22d844fbd2f31cd3:e3",
+          "source": "flow-22d844fbd2f31cd3:n3",
+          "target": "flow-22d844fbd2f31cd3:n4",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-22d844fbd2f31cd3:e4",
+          "source": "flow-22d844fbd2f31cd3:n4",
+          "target": "flow-22d844fbd2f31cd3:n5",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-93e6edefb10af9c5"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": true
+      }
+    },
+    {
+      "id": "flow-83e56dcea5b74bf9",
+      "name": "purge_user",
+      "symbol": "examples.shop.backend.api.admin_routes:purge_user",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/api/admin_routes.py",
+        "start_line": 13,
+        "end_line": 15
+      },
+      "nodes": [
+        {
+          "id": "flow-83e56dcea5b74bf9:n1",
+          "kind": "entry",
+          "label": "purge_user",
+          "location": {
+            "path": "examples/shop/backend/api/admin_routes.py",
+            "start_line": 13,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.api.admin_routes:purge_user",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-83e56dcea5b74bf9:n2",
+          "kind": "action",
+          "label": "'Planted #12: the require_role gate its sibling delete_user has is missing.'",
+          "location": {
+            "path": "examples/shop/backend/api/admin_routes.py",
+            "start_line": 14,
+            "end_line": 14
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Planted #12: the require_role gate its sibling delete_user has is missing.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-83e56dcea5b74bf9:n3",
+          "kind": "call",
+          "label": "Call do_purge()",
+          "location": {
+            "path": "examples/shop/backend/api/admin_routes.py",
+            "start_line": 15,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "do_purge(target)",
+          "metadata": {
+            "calls": [
+              "do_purge"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.api.admin_routes:do_purge"
+            ]
+          }
+        },
+        {
+          "id": "flow-83e56dcea5b74bf9:n4",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "examples/shop/backend/api/admin_routes.py",
+            "start_line": 13,
+            "end_line": 15
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-83e56dcea5b74bf9:e1",
+          "source": "flow-83e56dcea5b74bf9:n1",
+          "target": "flow-83e56dcea5b74bf9:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-83e56dcea5b74bf9:e2",
+          "source": "flow-83e56dcea5b74bf9:n2",
+          "target": "flow-83e56dcea5b74bf9:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-83e56dcea5b74bf9:e3",
+          "source": "flow-83e56dcea5b74bf9:n3",
+          "target": "flow-83e56dcea5b74bf9:n4",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-1128bc0f809cd8d6",
+      "name": "cancel",
+      "symbol": "examples.shop.backend.api.orders_routes:cancel",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/api/orders_routes.py",
+        "start_line": 6,
+        "end_line": 10
+      },
+      "nodes": [
+        {
+          "id": "flow-1128bc0f809cd8d6:n1",
+          "kind": "entry",
+          "label": "cancel",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 6,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.api.orders_routes:cancel",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-1128bc0f809cd8d6:n2",
+          "kind": "action",
+          "label": "'Refundable set {PLACED, PAID}; rejects with 404 — sibling of request_refund.'",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 7,
+            "end_line": 7
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Refundable set {PLACED, PAID}; rejects with 404 — sibling of request_refund.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-1128bc0f809cd8d6:n3",
+          "kind": "decision",
+          "label": "order.status not in (OrderStatus.PLACED, OrderStatus.PAID)",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 8,
+            "end_line": 8
+          },
+          "evidence": "VERIFIED",
+          "detail": "order.status not in (OrderStatus.PLACED, OrderStatus.PAID)",
+          "metadata": {
+            "condition": "order.status not in (OrderStatus.PLACED, OrderStatus.PAID)",
+            "domain": "status",
+            "values": [
+              "OrderStatus.PAID",
+              "OrderStatus.PLACED"
+            ],
+            "subject": "order.status",
+            "operator": "not in",
+            "negation": false,
+            "value_namespace": "OrderStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-1128bc0f809cd8d6:n4",
+          "kind": "error",
+          "label": "Raise ApiError(404, 'order is not cancellable')",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 9,
+            "end_line": 9
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(404, \"order is not cancellable\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-1128bc0f809cd8d6:n5",
+          "kind": "call",
+          "label": "Call do_cancel()",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "do_cancel(order)",
+          "metadata": {
+            "calls": [
+              "do_cancel"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.api.orders_routes:do_cancel"
+            ]
+          }
+        },
+        {
+          "id": "flow-1128bc0f809cd8d6:n6",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 6,
+            "end_line": 10
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-1128bc0f809cd8d6:e1",
+          "source": "flow-1128bc0f809cd8d6:n1",
+          "target": "flow-1128bc0f809cd8d6:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-1128bc0f809cd8d6:e2",
+          "source": "flow-1128bc0f809cd8d6:n2",
+          "target": "flow-1128bc0f809cd8d6:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-1128bc0f809cd8d6:e3",
+          "source": "flow-1128bc0f809cd8d6:n3",
+          "target": "flow-1128bc0f809cd8d6:n4",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-1128bc0f809cd8d6:e4",
+          "source": "flow-1128bc0f809cd8d6:n3",
+          "target": "flow-1128bc0f809cd8d6:n5",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-1128bc0f809cd8d6:e5",
+          "source": "flow-1128bc0f809cd8d6:n5",
+          "target": "flow-1128bc0f809cd8d6:n6",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-f482b3026e3ea072",
+      "name": "create",
+      "symbol": "examples.shop.backend.api.orders_routes:create",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/api/orders_routes.py",
+        "start_line": 21,
+        "end_line": 25
+      },
+      "nodes": [
+        {
+          "id": "flow-f482b3026e3ea072:n1",
+          "kind": "entry",
+          "label": "create",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 21,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.api.orders_routes:create",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-f482b3026e3ea072:n2",
+          "kind": "action",
+          "label": "'Control: validates before writing.'",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 22,
+            "end_line": 22
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Control: validates before writing.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-f482b3026e3ea072:n3",
+          "kind": "decision",
+          "label": "not has_items(payload)",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 23,
+            "end_line": 23
+          },
+          "evidence": "VERIFIED",
+          "detail": "not has_items(payload)",
+          "metadata": {
+            "condition": "not has_items(payload)",
+            "domain": "",
+            "values": [],
+            "subject": "has_items(payload)",
+            "operator": "",
+            "negation": true,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-f482b3026e3ea072:n4",
+          "kind": "error",
+          "label": "Raise ApiError(422, 'an order needs at least one item')",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 24,
+            "end_line": 24
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(422, \"an order needs at least one item\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-f482b3026e3ea072:n5",
+          "kind": "call",
+          "label": "Call build_order()",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 25,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "return build_order(payload)",
+          "metadata": {
+            "calls": [
+              "build_order"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.api.orders_routes:build_order"
+            ]
+          }
+        },
+        {
+          "id": "flow-f482b3026e3ea072:n6",
+          "kind": "terminal",
+          "label": "Return build_order(payload)",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 25,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "return build_order(payload)",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-f482b3026e3ea072:e1",
+          "source": "flow-f482b3026e3ea072:n1",
+          "target": "flow-f482b3026e3ea072:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-f482b3026e3ea072:e2",
+          "source": "flow-f482b3026e3ea072:n2",
+          "target": "flow-f482b3026e3ea072:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-f482b3026e3ea072:e3",
+          "source": "flow-f482b3026e3ea072:n3",
+          "target": "flow-f482b3026e3ea072:n4",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-f482b3026e3ea072:e4",
+          "source": "flow-f482b3026e3ea072:n3",
+          "target": "flow-f482b3026e3ea072:n5",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-f482b3026e3ea072:e5",
+          "source": "flow-f482b3026e3ea072:n5",
+          "target": "flow-f482b3026e3ea072:n6",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-4143ee18aecc0353",
+      "name": "quick_order",
+      "symbol": "examples.shop.backend.api.orders_routes:quick_order",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/api/orders_routes.py",
+        "start_line": 28,
+        "end_line": 30
+      },
+      "nodes": [
+        {
+          "id": "flow-4143ee18aecc0353:n1",
+          "kind": "entry",
+          "label": "quick_order",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 28,
+            "end_line": 30
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.api.orders_routes:quick_order",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-4143ee18aecc0353:n2",
+          "kind": "action",
+          "label": "'Planted #13: the validation guard create() has is missing here.'",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 29,
+            "end_line": 29
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Planted #13: the validation guard create() has is missing here.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-4143ee18aecc0353:n3",
+          "kind": "call",
+          "label": "Call build_order()",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 30,
+            "end_line": 30
+          },
+          "evidence": "VERIFIED",
+          "detail": "return build_order(payload)",
+          "metadata": {
+            "calls": [
+              "build_order"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.api.orders_routes:build_order"
+            ]
+          }
+        },
+        {
+          "id": "flow-4143ee18aecc0353:n4",
+          "kind": "terminal",
+          "label": "Return build_order(payload)",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 30,
+            "end_line": 30
+          },
+          "evidence": "VERIFIED",
+          "detail": "return build_order(payload)",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-4143ee18aecc0353:e1",
+          "source": "flow-4143ee18aecc0353:n1",
+          "target": "flow-4143ee18aecc0353:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-4143ee18aecc0353:e2",
+          "source": "flow-4143ee18aecc0353:n2",
+          "target": "flow-4143ee18aecc0353:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-4143ee18aecc0353:e3",
+          "source": "flow-4143ee18aecc0353:n3",
+          "target": "flow-4143ee18aecc0353:n4",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-08a786dcbded8185",
+      "name": "request_refund",
+      "symbol": "examples.shop.backend.api.orders_routes:request_refund",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/api/orders_routes.py",
+        "start_line": 13,
+        "end_line": 18
+      },
+      "nodes": [
+        {
+          "id": "flow-08a786dcbded8185:n1",
+          "kind": "entry",
+          "label": "request_refund",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 13,
+            "end_line": 18
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.api.orders_routes:request_refund",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-08a786dcbded8185:n2",
+          "kind": "action",
+          "label": "'Planted #7/#8: a divergent refundable set {PAID, SHIPPED, DELIVERED} and a 409\\n where t...",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 14,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Planted #7/#8: a divergent refundable set {PAID, SHIPPED, DELIVERED} and a 409 where the sibling cancel() rejects the same kind of state with 404.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-08a786dcbded8185:n3",
+          "kind": "decision",
+          "label": "order.status not in (OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED)",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 16,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "order.status not in (OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED)",
+          "metadata": {
+            "condition": "order.status not in (OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED)",
+            "domain": "status",
+            "values": [
+              "OrderStatus.DELIVERED",
+              "OrderStatus.PAID",
+              "OrderStatus.SHIPPED"
+            ],
+            "subject": "order.status",
+            "operator": "not in",
+            "negation": false,
+            "value_namespace": "OrderStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-08a786dcbded8185:n4",
+          "kind": "error",
+          "label": "Raise ApiError(409, 'order is not refundable')",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 17,
+            "end_line": 17
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(409, \"order is not refundable\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-08a786dcbded8185:n5",
+          "kind": "call",
+          "label": "Call do_refund()",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 18,
+            "end_line": 18
+          },
+          "evidence": "VERIFIED",
+          "detail": "do_refund(order)",
+          "metadata": {
+            "calls": [
+              "do_refund"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.api.orders_routes:do_refund"
+            ]
+          }
+        },
+        {
+          "id": "flow-08a786dcbded8185:n6",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "examples/shop/backend/api/orders_routes.py",
+            "start_line": 13,
+            "end_line": 18
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-08a786dcbded8185:e1",
+          "source": "flow-08a786dcbded8185:n1",
+          "target": "flow-08a786dcbded8185:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-08a786dcbded8185:e2",
+          "source": "flow-08a786dcbded8185:n2",
+          "target": "flow-08a786dcbded8185:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-08a786dcbded8185:e3",
+          "source": "flow-08a786dcbded8185:n3",
+          "target": "flow-08a786dcbded8185:n4",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-08a786dcbded8185:e4",
+          "source": "flow-08a786dcbded8185:n3",
+          "target": "flow-08a786dcbded8185:n5",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-08a786dcbded8185:e5",
+          "source": "flow-08a786dcbded8185:n5",
+          "target": "flow-08a786dcbded8185:n6",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-bf4bdbe9cee93085",
+      "name": "change_email",
+      "symbol": "examples.shop.backend.api.users_routes:change_email",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/api/users_routes.py",
+        "start_line": 13,
+        "end_line": 19
+      },
+      "nodes": [
+        {
+          "id": "flow-bf4bdbe9cee93085:n1",
+          "kind": "entry",
+          "label": "change_email",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 13,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.api.users_routes:change_email",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:n2",
+          "kind": "action",
+          "label": "'Planted #3: dispatches on AccountStatus but omits ACTIVE and PENDING_VERIFICATION.'",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 14,
+            "end_line": 14
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Planted #3: dispatches on AccountStatus but omits ACTIVE and PENDING_VERIFICATION.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:n3",
+          "kind": "decision",
+          "label": "account.status == AccountStatus.SUSPENDED",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 15,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "account.status == AccountStatus.SUSPENDED",
+          "metadata": {
+            "condition": "account.status == AccountStatus.SUSPENDED",
+            "domain": "status",
+            "values": [
+              "AccountStatus.SUSPENDED"
+            ],
+            "subject": "account.status",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "AccountStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:n4",
+          "kind": "error",
+          "label": "Raise ApiError(403, 'account suspended')",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 16,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(403, \"account suspended\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:n5",
+          "kind": "decision",
+          "label": "account.status == AccountStatus.DELETED",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 17,
+            "end_line": 17
+          },
+          "evidence": "VERIFIED",
+          "detail": "account.status == AccountStatus.DELETED",
+          "metadata": {
+            "condition": "account.status == AccountStatus.DELETED",
+            "domain": "status",
+            "values": [
+              "AccountStatus.DELETED"
+            ],
+            "subject": "account.status",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "AccountStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:n6",
+          "kind": "error",
+          "label": "Raise ApiError(410, 'account deleted')",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 18,
+            "end_line": 18
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(410, \"account deleted\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:n7",
+          "kind": "call",
+          "label": "Call update_email()",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 19,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "update_email(account, email)",
+          "metadata": {
+            "calls": [
+              "update_email"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.api.users_routes:update_email"
+            ],
+            "effects": [
+              "db_write"
+            ]
+          }
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:n8",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 13,
+            "end_line": 19
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-bf4bdbe9cee93085:e1",
+          "source": "flow-bf4bdbe9cee93085:n1",
+          "target": "flow-bf4bdbe9cee93085:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:e2",
+          "source": "flow-bf4bdbe9cee93085:n2",
+          "target": "flow-bf4bdbe9cee93085:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:e3",
+          "source": "flow-bf4bdbe9cee93085:n3",
+          "target": "flow-bf4bdbe9cee93085:n4",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:e4",
+          "source": "flow-bf4bdbe9cee93085:n3",
+          "target": "flow-bf4bdbe9cee93085:n5",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:e5",
+          "source": "flow-bf4bdbe9cee93085:n5",
+          "target": "flow-bf4bdbe9cee93085:n6",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:e6",
+          "source": "flow-bf4bdbe9cee93085:n5",
+          "target": "flow-bf4bdbe9cee93085:n7",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-bf4bdbe9cee93085:e7",
+          "source": "flow-bf4bdbe9cee93085:n7",
+          "target": "flow-bf4bdbe9cee93085:n8",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-694730b8745d57de",
+      "name": "get_profile",
+      "symbol": "examples.shop.backend.api.users_routes:get_profile",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/api/users_routes.py",
+        "start_line": 22,
+        "end_line": 26
+      },
+      "nodes": [
+        {
+          "id": "flow-694730b8745d57de:n1",
+          "kind": "entry",
+          "label": "get_profile",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 22,
+            "end_line": 26
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.api.users_routes:get_profile",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-694730b8745d57de:n2",
+          "kind": "action",
+          "label": "'Control: a single-value guard, correctly not flagged.'",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 23,
+            "end_line": 23
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Control: a single-value guard, correctly not flagged.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-694730b8745d57de:n3",
+          "kind": "decision",
+          "label": "account.status == AccountStatus.DELETED",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 24,
+            "end_line": 24
+          },
+          "evidence": "VERIFIED",
+          "detail": "account.status == AccountStatus.DELETED",
+          "metadata": {
+            "condition": "account.status == AccountStatus.DELETED",
+            "domain": "status",
+            "values": [
+              "AccountStatus.DELETED"
+            ],
+            "subject": "account.status",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "AccountStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-694730b8745d57de:n4",
+          "kind": "error",
+          "label": "Raise ApiError(410, 'account deleted')",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 25,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(410, \"account deleted\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-694730b8745d57de:n5",
+          "kind": "terminal",
+          "label": "Return {'id': account.id, 'role': account.role.value}",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 26,
+            "end_line": 26
+          },
+          "evidence": "VERIFIED",
+          "detail": "return {\"id\": account.id, \"role\": account.role.value}",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-694730b8745d57de:e1",
+          "source": "flow-694730b8745d57de:n1",
+          "target": "flow-694730b8745d57de:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-694730b8745d57de:e2",
+          "source": "flow-694730b8745d57de:n2",
+          "target": "flow-694730b8745d57de:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-694730b8745d57de:e3",
+          "source": "flow-694730b8745d57de:n3",
+          "target": "flow-694730b8745d57de:n4",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-694730b8745d57de:e4",
+          "source": "flow-694730b8745d57de:n3",
+          "target": "flow-694730b8745d57de:n5",
+          "label": "No",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
+      "id": "flow-836bfa1aef528de0",
+      "name": "reset_password",
+      "symbol": "examples.shop.backend.api.users_routes:reset_password",
+      "language": "python",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "examples/shop/backend/api/users_routes.py",
+        "start_line": 6,
+        "end_line": 10
+      },
+      "nodes": [
+        {
+          "id": "flow-836bfa1aef528de0:n1",
+          "kind": "entry",
+          "label": "reset_password",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 6,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "examples.shop.backend.api.users_routes:reset_password",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-836bfa1aef528de0:n2",
+          "kind": "action",
+          "label": "'Control: a single-value guard (block suspended), not an exhaustive dispatch.'",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 7,
+            "end_line": 7
+          },
+          "evidence": "VERIFIED",
+          "detail": "\"\"\"Control: a single-value guard (block suspended), not an exhaustive dispatch.\"\"\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-836bfa1aef528de0:n3",
+          "kind": "decision",
+          "label": "account.status == AccountStatus.SUSPENDED",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 8,
+            "end_line": 8
+          },
+          "evidence": "VERIFIED",
+          "detail": "account.status == AccountStatus.SUSPENDED",
+          "metadata": {
+            "condition": "account.status == AccountStatus.SUSPENDED",
+            "domain": "status",
+            "values": [
+              "AccountStatus.SUSPENDED"
+            ],
+            "subject": "account.status",
+            "operator": "==",
+            "negation": false,
+            "value_namespace": "AccountStatus",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-836bfa1aef528de0:n4",
+          "kind": "error",
+          "label": "Raise ApiError(403, 'suspended accounts cannot reset their password')",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 9,
+            "end_line": 9
+          },
+          "evidence": "VERIFIED",
+          "detail": "raise ApiError(403, \"suspended accounts cannot reset their password\")",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-836bfa1aef528de0:n5",
+          "kind": "call",
+          "label": "Call issue_reset_token()",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "return issue_reset_token(account)",
+          "metadata": {
+            "calls": [
+              "issue_reset_token"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "examples.shop.backend.api.users_routes:issue_reset_token"
+            ]
+          }
+        },
+        {
+          "id": "flow-836bfa1aef528de0:n6",
+          "kind": "terminal",
+          "label": "Return issue_reset_token(account)",
+          "location": {
+            "path": "examples/shop/backend/api/users_routes.py",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "return issue_reset_token(account)",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-836bfa1aef528de0:e1",
+          "source": "flow-836bfa1aef528de0:n1",
+          "target": "flow-836bfa1aef528de0:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-836bfa1aef528de0:e2",
+          "source": "flow-836bfa1aef528de0:n2",
+          "target": "flow-836bfa1aef528de0:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-836bfa1aef528de0:e3",
+          "source": "flow-836bfa1aef528de0:n3",
+          "target": "flow-836bfa1aef528de0:n4",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-836bfa1aef528de0:e4",
+          "source": "flow-836bfa1aef528de0:n3",
+          "target": "flow-836bfa1aef528de0:n5",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-836bfa1aef528de0:e5",
+          "source": "flow-836bfa1aef528de0:n5",
+          "target": "flow-836bfa1aef528de0:n6",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "async": false,
+        "test": false,
+        "decorators": [],
+        "performs_auth_check": false
+      }
+    },
+    {
       "id": "flow-92971030a65d1410",
       "name": "ensure_authenticated",
       "symbol": "examples.shop.backend.auth:ensure_authenticated",
@@ -1026,7 +2584,9 @@
         }
       ],
       "calls": [],
-      "called_by": [],
+      "called_by": [
+        "flow-22d844fbd2f31cd3"
+      ],
       "tests": [],
       "metadata": {
         "async": false,
@@ -3298,6 +4858,22 @@
       "metadata": {}
     },
     {
+      "id": "e599b12588a4146e",
+      "kind": "missing_branch",
+      "severity": "warning",
+      "message": "Decision has no explicit fallback: if/elif on account.status",
+      "evidence": "POTENTIAL_GAP",
+      "flow_id": "flow-bf4bdbe9cee93085",
+      "location": {
+        "path": "examples/shop/backend/api/users_routes.py",
+        "start_line": 15,
+        "end_line": 15
+      },
+      "node_id": "flow-bf4bdbe9cee93085:n3",
+      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
+      "metadata": {}
+    },
+    {
       "id": "e6515291108c88c5",
       "kind": "missing_branch",
       "severity": "warning",
@@ -3344,6 +4920,36 @@
       "node_id": "flow-f74e7243a59c82e6:n3",
       "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
       "metadata": {}
+    },
+    {
+      "id": "52579c8f864156ca",
+      "kind": "enum_exhaustiveness",
+      "severity": "warning",
+      "message": "Declared AccountStatus members not handled for account.status: AccountStatus.ACTIVE, AccountStatus.PENDING_VERIFICATION",
+      "evidence": "INFERRED",
+      "flow_id": "flow-bf4bdbe9cee93085",
+      "location": {
+        "path": "examples/shop/backend/api/users_routes.py",
+        "start_line": 15,
+        "end_line": 15
+      },
+      "node_id": "flow-bf4bdbe9cee93085:n3",
+      "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
+      "metadata": {
+        "category": "cross_flow",
+        "subject": "account.status",
+        "value_namespace": "AccountStatus",
+        "missing": [
+          "AccountStatus.ACTIVE",
+          "AccountStatus.PENDING_VERIFICATION"
+        ],
+        "declared": [
+          "AccountStatus.ACTIVE",
+          "AccountStatus.SUSPENDED",
+          "AccountStatus.DELETED",
+          "AccountStatus.PENDING_VERIFICATION"
+        ]
+      }
     },
     {
       "id": "a461a64fc5c6ab34",
@@ -3470,6 +5076,36 @@
       ]
     },
     {
+      "path": "examples/shop/backend/api/admin_routes.py",
+      "language": "python",
+      "sha256": "cd136e785127bc74d0c4dbb6e88962e45ec982ab2595bf397e3a2afab6ff9def",
+      "flow_ids": [
+        "flow-22d844fbd2f31cd3",
+        "flow-83e56dcea5b74bf9"
+      ]
+    },
+    {
+      "path": "examples/shop/backend/api/orders_routes.py",
+      "language": "python",
+      "sha256": "b6e85f77e66433ecc477b08637343c1c23caa7e575a466b464f6edc5fb03ec19",
+      "flow_ids": [
+        "flow-1128bc0f809cd8d6",
+        "flow-08a786dcbded8185",
+        "flow-f482b3026e3ea072",
+        "flow-4143ee18aecc0353"
+      ]
+    },
+    {
+      "path": "examples/shop/backend/api/users_routes.py",
+      "language": "python",
+      "sha256": "220d00c53254dc51f74a01f6a965c9d0d698c2c4986b53591b5e6cb7c9419007",
+      "flow_ids": [
+        "flow-836bfa1aef528de0",
+        "flow-bf4bdbe9cee93085",
+        "flow-694730b8745d57de"
+      ]
+    },
+    {
       "path": "examples/shop/backend/auth.py",
       "language": "python",
       "sha256": "b22352f8eda6c8bff26819d19da98b8edac6804abe8613252c483679930f823d",
@@ -3527,9 +5163,9 @@
       "python",
       "typescript"
     ],
-    "entrypoint_count": 14,
-    "flow_count": 17,
-    "finding_count": 8,
+    "entrypoint_count": 23,
+    "flow_count": 26,
+    "finding_count": 10,
     "enums": {
       "python": {
         "UserStatus": [
