@@ -22,36 +22,88 @@ _HTML_TEMPLATE = r"""<!doctype html>
   <title>LogicChart</title>
   <style>
     :root {
-      --paper: #f5f7fb;
+      --paper: #eef2fa;
+      --grid: rgba(40, 86, 180, 0.05);
       --panel: #ffffff;
-      --ink: #18243a;
-      --muted: #65718a;
-      --line: #c8d1e2;
-      --blue: #2457d6;
-      --cyan: #04a6c2;
-      --amber: #e5a11a;
-      --coral: #d84f4f;
-      --violet: #7457d9;
-      --shadow: 0 18px 50px rgba(30, 46, 78, 0.12);
+      --panel-2: #f7f9fe;
+      --header: rgba(255, 255, 255, 0.82);
+      --ink: #16233a;
+      --muted: #67768f;
+      --line: #d6deec;
+      --line-strong: #c2cdde;
+      --blue: #2f63ef;
+      --cyan: #07a8c4;
+      --amber: #df9a12;
+      --coral: #e0524f;
+      --violet: #7458dc;
+      --hover: #e9eefb;
+      --active: #dfe8fb;
+      --chip: #e9effe;
+      --tool: rgba(255, 255, 255, 0.92);
+      --finding-bg: #fff7e6;
+      --finding-error-bg: #ffefef;
+      --node-fill: #ffffff;
+      --fill-entry: #e7eeff;
+      --fill-decision: #fdf2d6;
+      --fill-call: #efe9ff;
+      --fill-terminal: #e0f6f1;
+      --fill-error: #ffe9e9;
+      --edge: #9aa7be;
+      --radius: 12px;
+      --radius-sm: 9px;
+      --shadow: 0 20px 55px rgba(24, 40, 76, 0.16);
+      color-scheme: light;
+    }
+    [data-theme="dark"] {
+      --paper: #0c1320;
+      --grid: rgba(120, 160, 255, 0.05);
+      --panel: #141d30;
+      --panel-2: #111a2b;
+      --header: rgba(17, 26, 43, 0.82);
+      --ink: #e7eefb;
+      --muted: #8a9aba;
+      --line: #263347;
+      --line-strong: #34435c;
+      --blue: #5e8cff;
+      --cyan: #2bd3ee;
+      --amber: #f3b63f;
+      --coral: #ff6b6b;
+      --violet: #a98bf6;
+      --hover: #1b2740;
+      --active: #21305a;
+      --chip: #1d2b4d;
+      --tool: rgba(20, 29, 48, 0.92);
+      --finding-bg: #2a2412;
+      --finding-error-bg: #2e1a1d;
+      --node-fill: #18223a;
+      --fill-entry: #1a2748;
+      --fill-decision: #2c2614;
+      --fill-call: #221b3e;
+      --fill-terminal: #12302d;
+      --fill-error: #311a1e;
+      --edge: #58688a;
+      --shadow: 0 22px 60px rgba(0, 0, 0, 0.55);
+      color-scheme: dark;
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
     body {
       color: var(--ink);
       background:
-        linear-gradient(rgba(36, 87, 214, 0.045) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(36, 87, 214, 0.045) 1px, transparent 1px),
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px),
         var(--paper);
-      background-size: 24px 24px;
+      background-size: 26px 26px;
       font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       overflow: hidden;
+      transition: background-color .25s ease, color .25s ease;
     }
     button, input { font: inherit; }
     button { color: inherit; }
     .shell {
       display: grid;
-      grid-template-columns: 310px minmax(0, 1fr) 330px;
-      grid-template-rows: 76px minmax(0, 1fr);
+      grid-template-columns: 312px minmax(0, 1fr) 336px;
+      grid-template-rows: 78px minmax(0, 1fr);
       height: 100%;
     }
     header {
@@ -59,47 +111,39 @@ _HTML_TEMPLATE = r"""<!doctype html>
       display: flex;
       align-items: center;
       gap: 24px;
-      padding: 0 24px;
-      background: rgba(255, 255, 255, 0.9);
+      padding: 0 22px;
+      background: var(--header);
       border-bottom: 1px solid var(--line);
-      backdrop-filter: blur(14px);
+      backdrop-filter: blur(16px);
       z-index: 3;
     }
     .brand {
       display: flex;
       align-items: center;
       gap: 13px;
-      min-width: 286px;
+      min-width: 270px;
     }
     .brand-mark {
-      width: 34px;
-      height: 44px;
-      position: relative;
-    }
-    .brand-mark::before {
-      content: "";
-      position: absolute;
-      left: 15px;
-      top: 0;
-      bottom: 0;
-      width: 4px;
-      border-radius: 2px;
-      background: var(--cyan);
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(150deg, var(--blue), var(--violet));
+      box-shadow: 0 8px 20px rgba(47, 99, 239, 0.32);
     }
     .brand-mark span {
-      position: absolute;
-      left: 7px;
-      top: 15px;
-      width: 20px;
-      height: 20px;
+      width: 15px;
+      height: 15px;
       transform: rotate(45deg);
-      background: var(--panel);
-      border: 3px solid var(--blue);
+      border-radius: 3px;
+      background: #fff;
+      box-shadow: inset 0 0 0 3px var(--blue);
     }
     .brand h1 {
       font-family: Georgia, "Times New Roman", serif;
-      font-size: 24px;
-      letter-spacing: -0.5px;
+      font-size: 23px;
+      letter-spacing: -0.4px;
       margin: 0;
     }
     .brand small {
@@ -128,22 +172,38 @@ _HTML_TEMPLATE = r"""<!doctype html>
     }
     .metrics { display: flex; gap: 8px; }
     .metric {
-      padding: 8px 11px;
+      padding: 9px 13px;
       border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
       background: var(--panel);
-      min-width: 72px;
+      min-width: 74px;
+      box-shadow: 0 1px 2px rgba(24, 40, 76, 0.05);
     }
-    .metric strong { display: block; font-size: 16px; }
+    .metric strong { display: block; font-size: 17px; }
     .metric span {
       color: var(--muted);
       font-size: 10px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
+    .theme-toggle {
+      margin-left: auto;
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--panel);
+      cursor: pointer;
+      font-size: 17px;
+      line-height: 1;
+      display: grid;
+      place-items: center;
+      transition: border-color .15s ease, transform .15s ease;
+    }
+    .theme-toggle:hover { border-color: var(--blue); transform: translateY(-1px); }
     aside {
       min-height: 0;
-      background: rgba(255, 255, 255, 0.88);
-      backdrop-filter: blur(12px);
+      background: var(--panel-2);
     }
     .left-rail { border-right: 1px solid var(--line); }
     .right-rail { border-left: 1px solid var(--line); }
@@ -160,31 +220,37 @@ _HTML_TEMPLATE = r"""<!doctype html>
       font-size: 11px;
       letter-spacing: 0.1em;
       text-transform: uppercase;
+      color: var(--muted);
     }
     .search {
       width: 100%;
       border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
       background: var(--paper);
+      color: var(--ink);
       padding: 10px 12px;
       outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
     }
-    .search:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(36, 87, 214, .12); }
+    .search:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47, 99, 239, .16); }
     .flow-list, .detail-scroll { overflow: auto; min-height: 0; }
     .flow-list { padding: 10px; }
     .flow-item {
       width: 100%;
       display: grid;
-      grid-template-columns: 6px 1fr;
+      grid-template-columns: 5px 1fr;
       gap: 11px;
       text-align: left;
       border: 0;
+      border-radius: var(--radius-sm);
       background: transparent;
-      padding: 11px 10px;
+      padding: 11px 11px;
       cursor: pointer;
+      transition: background-color .12s ease;
     }
-    .flow-item:hover, .flow-item:focus-visible { background: #edf2fd; outline: none; }
-    .flow-item.active { background: #e7eefc; }
-    .flow-item .bar { background: var(--line); min-height: 42px; }
+    .flow-item:hover, .flow-item:focus-visible { background: var(--hover); outline: none; }
+    .flow-item.active { background: var(--active); }
+    .flow-item .bar { background: var(--line-strong); border-radius: 3px; min-height: 42px; }
     .flow-item.active .bar { background: var(--blue); }
     .flow-item strong { display: block; font-size: 13px; line-height: 1.25; }
     .flow-item span {
@@ -205,13 +271,17 @@ _HTML_TEMPLATE = r"""<!doctype html>
     }
     .tool {
       border: 1px solid var(--line);
-      background: rgba(255,255,255,.94);
-      min-width: 38px;
-      height: 38px;
+      border-radius: 10px;
+      background: var(--tool);
+      color: var(--ink);
+      min-width: 40px;
+      height: 40px;
       cursor: pointer;
-      box-shadow: 0 8px 18px rgba(30,46,78,.08);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 18px rgba(24, 40, 76, .12);
+      transition: border-color .15s ease, transform .15s ease;
     }
-    .tool:hover, .tool:focus-visible { border-color: var(--blue); outline: none; }
+    .tool:hover, .tool:focus-visible { border-color: var(--blue); outline: none; transform: translateY(-1px); }
     #canvas { width: 100%; height: 100%; cursor: grab; }
     #canvas.dragging { cursor: grabbing; }
     .empty {
@@ -225,9 +295,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
     .detail-scroll { padding: 20px; }
     .detail-kind {
       display: inline-block;
-      padding: 5px 7px;
+      padding: 5px 9px;
+      border-radius: 999px;
       color: var(--blue);
-      background: #e9effe;
+      background: var(--chip);
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 10px;
       font-weight: 700;
@@ -247,6 +318,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
       margin: 14px 0;
       padding: 11px 12px;
       border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
       background: var(--paper);
       color: var(--ink);
       text-decoration: none;
@@ -254,6 +326,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
       font-size: 11px;
       overflow-wrap: anywhere;
       cursor: pointer;
+      transition: border-color .15s ease;
     }
     .source-link:hover, .subflow-link:hover { border-color: var(--blue); }
     .section-label {
@@ -266,13 +339,14 @@ _HTML_TEMPLATE = r"""<!doctype html>
     }
     .finding {
       border-left: 4px solid var(--amber);
-      background: #fff8e8;
+      border-radius: 8px;
+      background: var(--finding-bg);
       padding: 11px 12px;
       margin-bottom: 9px;
       font-size: 12px;
       line-height: 1.45;
     }
-    .finding.error { border-color: var(--coral); background: #fff0f0; }
+    .finding.error { border-color: var(--coral); background: var(--finding-error-bg); }
     .legend {
       margin-top: auto;
       border-top: 1px solid var(--line);
@@ -283,27 +357,39 @@ _HTML_TEMPLATE = r"""<!doctype html>
       color: var(--muted);
       font-size: 10px;
     }
+    .legend span { display: flex; align-items: center; }
     .legend span::before {
       content: "";
-      width: 8px;
-      height: 8px;
+      width: 9px;
+      height: 9px;
+      border-radius: 3px;
       display: inline-block;
-      margin-right: 7px;
+      margin-right: 8px;
       background: var(--blue);
     }
     .legend .decision::before { background: var(--amber); transform: rotate(45deg); }
     .legend .call::before { background: var(--violet); }
-    .legend .gap::before { background: var(--coral); }
+    .legend .gap::before { background: var(--coral); border-radius: 50%; }
     .node { cursor: grab; }
     .node.dragging { cursor: grabbing; }
-    .node.dragging .shape { filter: url(#nodeLift); }
-    .node .shape { fill: #fff; stroke: var(--blue); stroke-width: 2; filter: url(#nodeShadow); transition: filter .12s ease; }
-    .node.entry .shape { fill: #e9effe; stroke: var(--blue); }
-    .node.decision .shape { fill: #fff7e2; stroke: var(--amber); }
-    .node.call .shape { fill: #f1edff; stroke: var(--violet); }
-    .node.terminal .shape { fill: #e7f8f4; stroke: var(--cyan); }
-    .node.error .shape { fill: #fff0f0; stroke: var(--coral); }
+    .node .shape {
+      fill: var(--node-fill);
+      stroke: var(--blue);
+      stroke-width: 2;
+      filter: url(#nodeShadow);
+      transition: filter .14s ease, stroke-width .14s ease, opacity .18s ease;
+    }
+    .node.entry .shape { fill: var(--fill-entry); stroke: var(--blue); }
+    .node.decision .shape { fill: var(--fill-decision); stroke: var(--amber); }
+    .node.call .shape { fill: var(--fill-call); stroke: var(--violet); }
+    .node.terminal .shape { fill: var(--fill-terminal); stroke: var(--cyan); }
+    .node.error .shape { fill: var(--fill-error); stroke: var(--coral); }
     .node.has-finding .shape { stroke: var(--coral); stroke-width: 3; }
+    .node:hover .shape, .node:focus-visible .shape { filter: url(#nodeLift); stroke-width: 2.6; }
+    .node:focus-visible { outline: none; }
+    .node.dragging .shape { filter: url(#nodeLift); }
+    .node.selected .shape { stroke-width: 3.4; filter: url(#nodeLift); }
+    .node.dimmed { opacity: .26; }
     .node text {
       fill: var(--ink);
       font-size: 13px;
@@ -318,7 +404,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
       letter-spacing: .05em;
       text-transform: uppercase;
     }
-    .edge { fill: none; stroke: #9ba8bf; stroke-width: 2; marker-end: url(#arrow); }
+    .arrow { fill: var(--edge); transition: fill .18s ease; }
+    .edge { fill: none; stroke: var(--edge); stroke-width: 2; marker-end: url(#arrow); transition: stroke .18s ease, opacity .18s ease; }
+    .edge.incident { stroke: var(--blue); stroke-width: 2.6; }
+    .edge.dimmed { opacity: .18; }
     .edge-label {
       fill: var(--muted);
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -327,16 +416,18 @@ _HTML_TEMPLATE = r"""<!doctype html>
       paint-order: stroke;
       stroke: var(--paper);
       stroke-width: 6px;
+      transition: opacity .18s ease;
     }
-    .decision-spine { stroke: rgba(4,166,194,.22); stroke-width: 5; stroke-dasharray: 3 10; }
+    .edge-label.dimmed { opacity: .18; }
+    .decision-spine { stroke: var(--cyan); opacity: .16; stroke-width: 5; stroke-dasharray: 3 10; }
     @media (max-width: 1050px) {
-      .shell { grid-template-columns: 260px minmax(0,1fr); }
+      .shell { grid-template-columns: 262px minmax(0,1fr); }
       .right-rail {
         position: fixed;
         right: 0;
-        top: 76px;
+        top: 78px;
         bottom: 0;
-        width: 320px;
+        width: 322px;
         z-index: 5;
         box-shadow: var(--shadow);
         transform: translateX(100%);
@@ -353,9 +444,9 @@ _HTML_TEMPLATE = r"""<!doctype html>
       .left-rail {
         position: fixed;
         left: 0;
-        top: 76px;
+        top: 78px;
         bottom: 0;
-        width: 285px;
+        width: 286px;
         z-index: 5;
         box-shadow: var(--shadow);
         transform: translateX(-100%);
@@ -383,6 +474,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <div class="metric"><strong id="entryCount">0</strong><span>entries</span></div>
         <div class="metric"><strong id="findingCount">0</strong><span>review</span></div>
       </div>
+      <button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle light/dark theme">&#9789;</button>
     </header>
 
     <aside class="left-rail" id="leftRail">
@@ -442,12 +534,15 @@ _HTML_TEMPLATE = r"""<!doctype html>
     const detailsEl = document.getElementById("details");
     const rightRail = document.getElementById("rightRail");
     const leftRail = document.getElementById("leftRail");
+    const themeToggleBtn = document.getElementById("themeToggle");
     let activeFlow = null;
     let view = { x: 0, y: 0, width: 1000, height: 800 };
     let drag = null;
     // Per-flow manual node positions: flowId -> Map(nodeId -> {x, y}). Lets the user
     // hand-arrange blocks; survives navigating away and back within the session.
     const manualPositions = new Map();
+    // Element references for the currently rendered flow, for selection highlighting.
+    let currentRender = null;
 
     document.getElementById("flowCount").textContent = flows.length;
     document.getElementById("entryCount").textContent = flows.filter(item => item.is_entrypoint).length;
@@ -574,7 +669,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
           <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#1e2e4e" flood-opacity=".24"/>
         </filter>
         <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-          <path d="M0,0 L8,4 L0,8 z" fill="#9ba8bf"></path>
+          <path class="arrow" d="M0,0 L8,4 L0,8 z"></path>
         </marker>`;
       svg.appendChild(defs);
 
@@ -586,8 +681,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
       spine.setAttribute("y2", String(bounds.maxY + 100));
       svg.appendChild(spine);
 
-      // Keep edge element references per node so dragging a block re-routes its edges live.
+      // Keep edge element references per node so dragging a block re-routes its edges live,
+      // and a flat list so selecting a node can highlight its incident edges.
       const nodeEdges = new Map(flow.nodes.map(node => [node.id, []]));
+      const edgeRecords = [];
       const edgeLayer = svgEl("g");
       flow.edges.forEach(edge => {
         const start = positions.get(edge.source);
@@ -608,6 +705,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
           edgeLayer.appendChild(label);
         }
         const record = { edge, path, label };
+        edgeRecords.push(record);
         nodeEdges.get(edge.source)?.push(record);
         nodeEdges.get(edge.target)?.push(record);
       });
@@ -628,9 +726,11 @@ _HTML_TEMPLATE = r"""<!doctype html>
       }
 
       const nodeLayer = svgEl("g");
+      const nodeGroups = new Map();
       flow.nodes.forEach(node => {
         const position = positions.get(node.id);
         const group = svgEl("g");
+        nodeGroups.set(node.id, group);
         group.setAttribute("class", `node ${node.kind}${findingsByNode.has(node.id) ? " has-finding" : ""}`);
         group.setAttribute("transform", `translate(${position.x} ${position.y})`);
         group.setAttribute("tabindex", "0");
@@ -701,6 +801,32 @@ _HTML_TEMPLATE = r"""<!doctype html>
         nodeLayer.appendChild(group);
       });
       svg.appendChild(nodeLayer);
+      currentRender = { nodeGroups, edgeRecords };
+    }
+
+    function clearHighlight() {
+      if (!currentRender) return;
+      currentRender.nodeGroups.forEach(group => group.classList.remove("selected", "dimmed"));
+      currentRender.edgeRecords.forEach(record => {
+        record.path.classList.remove("incident", "dimmed");
+        if (record.label) record.label.classList.remove("dimmed");
+      });
+    }
+
+    function highlightNode(nodeId) {
+      if (!currentRender) return;
+      const connected = new Set([nodeId]);
+      currentRender.edgeRecords.forEach(record => {
+        const incident = record.edge.source === nodeId || record.edge.target === nodeId;
+        record.path.classList.toggle("incident", incident);
+        record.path.classList.toggle("dimmed", !incident);
+        if (record.label) record.label.classList.toggle("dimmed", !incident);
+        if (incident) { connected.add(record.edge.source); connected.add(record.edge.target); }
+      });
+      currentRender.nodeGroups.forEach((group, id) => {
+        group.classList.toggle("selected", id === nodeId);
+        group.classList.toggle("dimmed", !connected.has(id));
+      });
     }
 
     function nodeShape(kind) {
@@ -719,6 +845,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
     }
 
     function inspectFlow(flow) {
+      clearHighlight();
       detailsEl.replaceChildren();
       const badge = element("span", "detail-kind", flow.is_entrypoint ? "Entry point" : "Subflow");
       const title = element("h3", "", flow.name);
@@ -737,6 +864,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
 
     function inspectNode(flow, node) {
       rightRail.classList.add("open");
+      highlightNode(node.id);
       detailsEl.replaceChildren();
       detailsEl.append(
         element("span", "detail-kind", `${node.kind} · ${node.evidence}`),
@@ -840,6 +968,21 @@ _HTML_TEMPLATE = r"""<!doctype html>
       updateViewBox();
     });
     svg.addEventListener("pointerup", () => { drag = null; svg.classList.remove("dragging"); });
+
+    const THEME_KEY = "logicchart-theme";
+    function applyTheme(theme) {
+      document.documentElement.dataset.theme = theme;
+      themeToggleBtn.textContent = theme === "dark" ? "☀" : "☾";  // sun / moon
+      themeToggleBtn.title = theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+      try { localStorage.setItem(THEME_KEY, theme); } catch (_) {}
+    }
+    let storedTheme = null;
+    try { storedTheme = localStorage.getItem(THEME_KEY); } catch (_) {}
+    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(storedTheme || (prefersDark ? "dark" : "light"));
+    themeToggleBtn.addEventListener("click", () =>
+      applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")
+    );
 
     renderList();
     const requested = decodeURIComponent(location.hash.slice(1));

@@ -6,6 +6,10 @@ The project follows Semantic Versioning once public releases begin.
 
 ## Unreleased
 
+- Viewer UI refresh: a light/dark theme toggle (remembered across sessions), refined
+  palette, node hover and shadow states, and selecting a block now highlights it and its
+  connected edges while dimming the rest.
+
 ## 0.2.1
 
 - Interactive viewer: drag any block to rearrange the flowchart by hand; connected edges
