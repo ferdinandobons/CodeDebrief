@@ -228,6 +228,20 @@ _HTML_TEMPLATE = r"""<!doctype html>
       transition: border-color .15s ease, box-shadow .15s ease;
     }
     .search:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47, 99, 239, .16); }
+    .filters { display: flex; gap: 8px; margin-top: 10px; }
+    .filter {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--paper);
+      color: var(--ink);
+      padding: 7px 9px;
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+    }
+    .filter:focus { border-color: var(--blue); }
     .flow-list, .detail-scroll { overflow: auto; min-height: 0; }
     .flow-list { padding: 10px; }
     .flow-item {
@@ -484,6 +498,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <div class="rail-head">
           <h2 class="rail-title">Entry points and subflows</h2>
           <input class="search" id="flowSearch" type="search" placeholder="Filter flows..." aria-label="Filter flows">
+          <div class="filters">
+            <select class="filter" id="scopeFilter" aria-label="Filter by scope"></select>
+            <select class="filter" id="langFilter" aria-label="Filter by language"></select>
+          </div>
         </div>
         <div class="flow-list" id="flowList"></div>
         <div class="legend">
@@ -534,6 +552,8 @@ _HTML_TEMPLATE = r"""<!doctype html>
     const svg = document.getElementById("canvas");
     const listEl = document.getElementById("flowList");
     const searchEl = document.getElementById("flowSearch");
+    const scopeFilterEl = document.getElementById("scopeFilter");
+    const langFilterEl = document.getElementById("langFilter");
     const detailsEl = document.getElementById("details");
     const rightRail = document.getElementById("rightRail");
     const leftRail = document.getElementById("leftRail");
@@ -557,11 +577,43 @@ _HTML_TEMPLATE = r"""<!doctype html>
       );
     }
 
+    function populateFilters() {
+      const scopes = new Set();
+      const languages = new Set();
+      flows.forEach(flow => {
+        (flow.metadata.scope || []).forEach(scope => scopes.add(scope));
+        if (flow.language) languages.add(flow.language);
+      });
+      fillSelect(scopeFilterEl, "All scopes", [...scopes].sort());
+      fillSelect(langFilterEl, "All languages", [...languages].sort());
+      // Hide a filter that offers no real choice (a single scope/language).
+      scopeFilterEl.style.display = scopes.size > 1 ? "" : "none";
+      langFilterEl.style.display = languages.size > 1 ? "" : "none";
+    }
+
+    function fillSelect(select, allLabel, values) {
+      select.replaceChildren();
+      const all = document.createElement("option");
+      all.value = "";
+      all.textContent = allLabel;
+      select.appendChild(all);
+      values.forEach(value => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+    }
+
     function renderList(filter = "") {
       const needle = filter.trim().toLowerCase();
+      const scope = scopeFilterEl.value;
+      const language = langFilterEl.value;
       listEl.replaceChildren();
       sortedFlows()
         .filter(flow => !flow.metadata.test)
+        .filter(flow => !scope || (flow.metadata.scope || []).includes(scope))
+        .filter(flow => !language || flow.language === language)
         .filter(flow => `${flow.name} ${flow.symbol} ${flow.entry_kind}`.toLowerCase().includes(needle))
         .forEach(flow => {
           const button = document.createElement("button");
@@ -943,7 +995,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
       updateViewBox();
     }
 
-    searchEl.addEventListener("input", event => renderList(event.target.value));
+    const applyFilters = () => renderList(searchEl.value);
+    searchEl.addEventListener("input", applyFilters);
+    scopeFilterEl.addEventListener("change", applyFilters);
+    langFilterEl.addEventListener("change", applyFilters);
     document.getElementById("zoomIn").addEventListener("click", () => zoom(.82));
     document.getElementById("zoomOut").addEventListener("click", () => zoom(1.22));
     document.getElementById("resetView").addEventListener("click", () => {
@@ -987,6 +1042,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
       applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")
     );
 
+    populateFilters();
     renderList();
     const requested = decodeURIComponent(location.hash.slice(1));
     const initial = byId.get(requested) || flows.find(item => item.is_entrypoint) || flows[0];
