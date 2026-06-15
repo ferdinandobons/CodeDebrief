@@ -6,7 +6,16 @@ from pathlib import Path
 from typing import Any
 
 from logicchart.analysis.common import (
+    CONTINUES,
+    EMPTY,
+    FALLS_THROUGH,
     MATCH,
+    NO,
+    RAISES,
+    RETURNS,
+    SUCCESS,
+    WILDCARD,
+    YES,
     FlowBuilder,
     PendingEdge,
     annotate_reachability,
@@ -272,16 +281,16 @@ class PythonAnalyzer:
             metadata=decision_metadata(condition),
         )
         node.metadata["branches"] = [
-            branch("Yes", _branch_outcome(statement.body)),
+            branch(YES, _branch_outcome(statement.body)),
             branch(
-                "No",
-                _branch_outcome(statement.orelse) if statement.orelse else "falls_through",
+                NO,
+                _branch_outcome(statement.orelse) if statement.orelse else FALLS_THROUGH,
                 implicit=not statement.orelse,
             ),
         ]
         yes_endpoints = self._walk_statements(
             statement.body,
-            [PendingEdge(node.id, "Yes")],
+            [PendingEdge(node.id, YES)],
             builder,
             findings,
             source,
@@ -290,14 +299,14 @@ class PythonAnalyzer:
         if statement.orelse:
             no_endpoints = self._walk_statements(
                 statement.orelse,
-                [PendingEdge(node.id, "No")],
+                [PendingEdge(node.id, NO)],
                 builder,
                 findings,
                 source,
                 relative,
             )
         else:
-            no_endpoints = [PendingEdge(node.id, "No")]
+            no_endpoints = [PendingEdge(node.id, NO)]
         return yes_endpoints + no_endpoints
 
     def _walk_match(
@@ -332,10 +341,10 @@ class PythonAnalyzer:
             # A guarded wildcard `case _ if cond:` only matches when the guard holds,
             # so it is NOT an exhaustive default — the unmatched fall-through and any
             # missing enum members must still be surfaced.
-            is_default = pattern == "_" and case.guard is None
+            is_default = pattern == WILDCARD and case.guard is None
             has_default = has_default or is_default
             label = f"{pattern} if {_safe_unparse(case.guard)}" if case.guard else pattern
-            if not is_default and pattern != "_":
+            if not is_default and pattern != WILDCARD:
                 # Split OR-patterns (`case A | B:`) into their individual members so
                 # value_namespace and enum exhaustiveness see the real values.
                 values.extend(_match_values(case.pattern))
@@ -353,9 +362,9 @@ class PythonAnalyzer:
         node.metadata["values"] = sorted(set(values))
         node.metadata["value_namespace"] = value_namespace(sorted(set(values)))
         if not has_default:
-            branches.append(branch("_", "falls_through", implicit=True))
+            branches.append(branch(WILDCARD, FALLS_THROUGH, implicit=True))
             # An unmatched value falls through to whatever follows the match.
-            endpoints.append(PendingEdge(node.id, "_"))
+            endpoints.append(PendingEdge(node.id, WILDCARD))
         node.metadata["branches"] = branches
         return endpoints
 
@@ -383,10 +392,10 @@ class PythonAnalyzer:
                 namespace="",
             ),
         )
-        branches: list[dict[str, Any]] = [branch("Success", _branch_outcome(statement.body))]
+        branches: list[dict[str, Any]] = [branch(SUCCESS, _branch_outcome(statement.body))]
         endpoints = self._walk_statements(
             statement.body,
-            [PendingEdge(node.id, "Success")],
+            [PendingEdge(node.id, SUCCESS)],
             builder,
             findings,
             source,
@@ -676,27 +685,27 @@ def _branch_outcome(stmts: list[ast.stmt]) -> str:
     """Classify how control leaves a branch body: one of common.BRANCH_OUTCOMES."""
     meaningful = [stmt for stmt in stmts if not _is_noop(stmt)]
     if not meaningful:
-        return "empty"
+        return EMPTY
     for stmt in meaningful:
         if isinstance(stmt, ast.Return):
-            return "returns"
+            return RETURNS
         if isinstance(stmt, ast.Raise):
-            return "raises"
+            return RAISES
         if isinstance(stmt, ast.Continue):
-            return "continues"
+            return CONTINUES
         if isinstance(stmt, ast.Break):
             # break exits the enclosing loop/switch; control resumes after it.
-            return "falls_through"
+            return FALLS_THROUGH
         if isinstance(stmt, ast.If) and stmt.orelse:
             then_outcome = _branch_outcome(stmt.body)
             else_outcome = _branch_outcome(stmt.orelse)
             if _terminates(then_outcome) and _terminates(else_outcome):
-                return then_outcome if then_outcome == else_outcome else "returns"
-    return "falls_through"
+                return then_outcome if then_outcome == else_outcome else RETURNS
+    return FALLS_THROUGH
 
 
 def _terminates(outcome: str) -> bool:
-    return outcome in {"returns", "raises", "continues"}
+    return outcome in {RETURNS, RAISES, CONTINUES}
 
 
 def _is_noop(stmt: ast.stmt) -> bool:

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from logicchart.model import Finding, Flow, NodeKind, ProjectModel
+from logicchart.model import Finding, FindingKind, Flow, NodeKind, ProjectModel
 
 
 @dataclass(slots=True)
@@ -225,7 +225,12 @@ def find_decisions(
     gap_nodes = {
         item.node_id
         for item in model.findings
-        if item.kind in {"missing_branch", "enum_exhaustiveness", "inconsistent_case_handling"}
+        if item.kind
+        in {
+            FindingKind.MISSING_BRANCH,
+            FindingKind.ENUM_EXHAUSTIVENESS,
+            FindingKind.INCONSISTENT_CASE_HANDLING,
+        }
     }
     results: list[dict[str, Any]] = []
     for flow in model.flows:

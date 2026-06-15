@@ -11,8 +11,17 @@ import tree_sitter_typescript
 from tree_sitter import Language, Parser
 
 from logicchart.analysis.common import (
+    CONTINUES,
+    DEFAULT,
     DEFAULT_EXPORT_MARKER,
+    EMPTY,
+    FALLS_THROUGH,
+    NO,
+    RAISES,
+    RETURNS,
+    SUCCESS,
     SWITCH,
+    YES,
     FlowBuilder,
     PendingEdge,
     annotate_reachability,
@@ -278,20 +287,20 @@ class TypeScriptAnalyzer:
             metadata=decision_metadata(condition),
         )
         node.metadata["branches"] = [
-            branch("Yes", _branch_outcome(_statement_children(consequence))),
+            branch(YES, _branch_outcome(_statement_children(consequence))),
             branch(
-                "No",
+                NO,
                 (
                     _branch_outcome(_statement_children(alternative))
                     if alternative is not None
-                    else "falls_through"
+                    else FALLS_THROUGH
                 ),
                 implicit=alternative is None,
             ),
         ]
         yes_endpoints = self._walk_statements(
             _statement_children(consequence),
-            [PendingEdge(node.id, "Yes")],
+            [PendingEdge(node.id, YES)],
             builder,
             findings,
             source,
@@ -300,14 +309,14 @@ class TypeScriptAnalyzer:
         if alternative is not None:
             no_endpoints = self._walk_statements(
                 _statement_children(alternative),
-                [PendingEdge(node.id, "No")],
+                [PendingEdge(node.id, NO)],
                 builder,
                 findings,
                 source,
                 relative,
             )
         else:
-            no_endpoints = [PendingEdge(node.id, "No")]
+            no_endpoints = [PendingEdge(node.id, NO)]
         return yes_endpoints + no_endpoints
 
     def _walk_switch(
@@ -342,7 +351,7 @@ class TypeScriptAnalyzer:
         for case in _named_children(body):
             value_node = case.child_by_field_name("value")
             if case.type == "switch_default":
-                label = "default"
+                label = DEFAULT
                 has_default = True
             elif case.type == "switch_case":
                 label = _text(value_node, source) or "case"
@@ -372,9 +381,9 @@ class TypeScriptAnalyzer:
         node.metadata["values"] = sorted(set(values))
         node.metadata["value_namespace"] = value_namespace(sorted(set(values)))
         if not has_default:
-            branches.append(branch("default", "falls_through", implicit=True))
+            branches.append(branch(DEFAULT, FALLS_THROUGH, implicit=True))
             # An unmatched value falls through to whatever follows the switch.
-            endpoints.append(PendingEdge(node.id, "default"))
+            endpoints.append(PendingEdge(node.id, DEFAULT))
         node.metadata["branches"] = branches
         return endpoints
 
@@ -406,11 +415,11 @@ class TypeScriptAnalyzer:
             ),
         )
         branches: list[dict[str, Any]] = [
-            branch("Success", _branch_outcome(_statement_children(body)))
+            branch(SUCCESS, _branch_outcome(_statement_children(body)))
         ]
         endpoints = self._walk_statements(
             _statement_children(body),
-            [PendingEdge(node.id, "Success")],
+            [PendingEdge(node.id, SUCCESS)],
             builder,
             findings,
             source,
@@ -752,17 +761,17 @@ def _branch_outcome(statements: list[Any]) -> str:
     """Classify how control leaves a branch body: one of common.BRANCH_OUTCOMES."""
     meaningful = [stmt for stmt in statements if stmt.type not in _INERT_STATEMENTS]
     if not meaningful:
-        return "empty"
+        return EMPTY
     for stmt in meaningful:
         if stmt.type == "return_statement":
-            return "returns"
+            return RETURNS
         if stmt.type == "throw_statement":
-            return "raises"
+            return RAISES
         if stmt.type == "continue_statement":
-            return "continues"
+            return CONTINUES
         if stmt.type == "break_statement":
             # break exits the enclosing loop/switch; control resumes after it.
-            return "falls_through"
+            return FALLS_THROUGH
         if stmt.type == "if_statement":
             alternative = stmt.child_by_field_name("alternative")
             if alternative is not None:
@@ -771,12 +780,12 @@ def _branch_outcome(statements: list[Any]) -> str:
                 )
                 else_outcome = _branch_outcome(_statement_children(alternative))
                 if _terminates(then_outcome) and _terminates(else_outcome):
-                    return then_outcome if then_outcome == else_outcome else "returns"
-    return "falls_through"
+                    return then_outcome if then_outcome == else_outcome else RETURNS
+    return FALLS_THROUGH
 
 
 def _terminates(outcome: str) -> bool:
-    return outcome in {"returns", "raises", "continues"}
+    return outcome in {RETURNS, RAISES, CONTINUES}
 
 
 def _strip_parentheses(value: str) -> str:

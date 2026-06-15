@@ -28,6 +28,29 @@ class Severity(str, Enum):
     ERROR = "error"
 
 
+class FindingKind(str, Enum):
+    """The single source for the finding-kind vocabulary.
+
+    Producers set ``kind`` to one of these and the suppression/query joins compare
+    against them, so a rename cannot silently desync a cross-module string contract.
+    Values are the wire form, so JSON and existing comparisons are unchanged.
+    """
+
+    # Single-flow (detectors.py)
+    MISSING_BRANCH = "missing_branch"
+    DEAD_CODE = "dead_code"
+    BROAD_EXCEPT_SWALLOW = "broad_except_swallow"
+    NO_OP_BRANCH = "no_op_branch"
+    ASYMMETRIC_RETURN = "asymmetric_return"
+    # Project-level / cross-flow (cross_flow.py)
+    DEAD_GUARD = "dead_guard"
+    INCONSISTENT_CASE_HANDLING = "inconsistent_case_handling"
+    ENUM_EXHAUSTIVENESS = "enum_exhaustiveness"
+    OUTCOME_INCONSISTENCY = "outcome_inconsistency"
+    LOGGING_ASYMMETRY = "logging_asymmetry"
+    AUTH_DIVERGENCE = "auth_divergence"
+
+
 @dataclass(slots=True)
 class SourceLocation:
     path: str

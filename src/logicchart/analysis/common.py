@@ -145,10 +145,32 @@ EMPTY = "empty"
 CONTINUES = "continues"
 BRANCH_OUTCOMES = frozenset({RETURNS, RAISES, FALLS_THROUGH, EMPTY, CONTINUES})
 
+# Structural branch *labels* the walkers emit on decision edges. These travel on
+# the same edges the detectors read, so they are a producer/consumer contract and
+# are single-sourced here alongside the outcomes.
+YES = "Yes"
+NO = "No"
+SUCCESS = "Success"
+DEFAULT = "default"
+WILDCARD = "_"
+# Labels that mark a genuine else/default branch (vs the positive case).
+FALLBACK_LABELS = frozenset({NO, DEFAULT, WILDCARD})
+
 # Value-dispatch decision constructs, stored in a decision node's `operator`.
 MATCH = "match"
 SWITCH = "switch"
 DISPATCH_OPERATORS = frozenset({MATCH, SWITCH})
+
+# Canonical comparison operators stored in a decision node's `operator`.
+OP_EQ = "=="
+OP_NE = "!="
+OP_IS = "is"
+OP_IS_NOT = "is not"
+OP_IN = "in"
+OP_NOT_IN = "not in"
+# A negative comparison (status != X / status not in {...}) is a guard that allows
+# the rest, not a positive value-dispatch over those members.
+NEGATIVE_OPERATORS = frozenset({OP_NE, OP_NOT_IN, OP_IS_NOT})
 
 DOMAIN_TERMS = ("status", "state", "role", "type", "kind", "mode", "permission")
 _IDENTITY_OPERATORS = r"==|!=|\bis not\b|\bnot in\b|\bis\b|\bin\b"

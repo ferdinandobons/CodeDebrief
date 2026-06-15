@@ -12,6 +12,9 @@ from logicchart.analysis.common import (
     CONFIDENCE_MEDIUM,
     CONFIDENCE_NONE,
     DEFAULT_EXPORT_MARKER,
+    FALLBACK_LABELS,
+    NEGATIVE_OPERATORS,
+    YES,
 )
 from logicchart.analysis.discovery import discover_source_files, language_for
 from logicchart.analysis.python import PythonAnalyzer
@@ -22,6 +25,7 @@ from logicchart.model import (
     FileAnalysis,
     FileRecord,
     Finding,
+    FindingKind,
     Flow,
     FlowNode,
     NodeKind,
@@ -493,15 +497,11 @@ def _skip_reason(error: Exception) -> str:
 # Cross-flow quorum needs a real majority context: with fewer siblings, a single
 # differing flow could not form a meaningful majority.
 _MIN_QUORUM_SIBLINGS = 3
-_FALLBACK_LABELS = {"No", "default", "_"}
-# A negative comparison (status not in {...}) is a guard that allows the rest, not
-# a positive value-dispatch, so it must not be read as "handling" those members.
-_NEGATIVE_OPERATORS = {"!=", "not in", "is not"}
 
 
 def _is_positive_dispatch(node: FlowNode) -> bool:
     return not node.metadata.get("negation") and (
-        node.metadata.get("operator") not in _NEGATIVE_OPERATORS
+        node.metadata.get("operator") not in NEGATIVE_OPERATORS
     )
 
 
@@ -526,7 +526,7 @@ def _outcome_signature(flow: Flow, node: FlowNode) -> str:
     """
     nodes = {item.id: item for item in flow.nodes}
     out = _edges_by_source(flow)
-    cursor = next((target for label, target in out.get(node.id, []) if label == "Yes"), None)
+    cursor = next((target for label, target in out.get(node.id, []) if label == YES), None)
     seen: set[str] = set()
     while cursor is not None and cursor not in seen:
         seen.add(cursor)
@@ -589,7 +589,7 @@ def _branch_logs(flow: Flow, node: FlowNode) -> bool:
     """Whether the positive ("Yes") branch reaches a logging call before it ends."""
     nodes = {item.id: item for item in flow.nodes}
     out = _edges_by_source(flow)
-    start = next((target for label, target in out.get(node.id, []) if label == "Yes"), None)
+    start = next((target for label, target in out.get(node.id, []) if label == YES), None)
     if start is None:
         return False
     seen: set[str] = set()
@@ -641,7 +641,7 @@ def _has_subject_default(flow: Flow, subject: str, namespace: str) -> bool:
 
     sources = {node.id for node in flow.nodes if on_subject(node.id)}
     for edge in flow.edges:
-        if edge.source not in sources or edge.label not in _FALLBACK_LABELS:
+        if edge.source not in sources or edge.label not in FALLBACK_LABELS:
             continue
         branch = next(
             (
@@ -666,7 +666,7 @@ def _inconsistent_finding(
 ) -> Finding:
     return Finding(
         id=stable_id(coverage.flow.id, coverage.node.id, "inconsistent-case"),
-        kind="inconsistent_case_handling",
+        kind=FindingKind.INCONSISTENT_CASE_HANDLING,
         severity=Severity.WARNING,
         message=(f"Most sibling flows handle {subject} values omitted here: {', '.join(missing)}"),
         evidence=Evidence.POTENTIAL_GAP,
@@ -693,7 +693,7 @@ def _enum_finding(
 ) -> Finding:
     return Finding(
         id=stable_id(coverage.flow.id, coverage.node.id, "enum-exhaustiveness"),
-        kind="enum_exhaustiveness",
+        kind=FindingKind.ENUM_EXHAUSTIVENESS,
         severity=Severity.WARNING,
         message=f"Declared {namespace} members not handled for {subject}: {', '.join(missing)}",
         evidence=Evidence.INFERRED,
@@ -719,7 +719,7 @@ def _outcome_finding(
 ) -> Finding:
     return Finding(
         id=stable_id(flow.id, node.id, "outcome-inconsistency"),
-        kind="outcome_inconsistency",
+        kind=FindingKind.OUTCOME_INCONSISTENCY,
         severity=Severity.WARNING,
         message=f"{subject} == {value} resolves to {signature} here, but {expected} elsewhere",
         evidence=Evidence.INFERRED,
@@ -743,7 +743,7 @@ def _outcome_finding(
 def _logging_finding(flow: Flow, node: FlowNode, condition: str) -> Finding:
     return Finding(
         id=stable_id(flow.id, node.id, "logging-asymmetry"),
-        kind="logging_asymmetry",
+        kind=FindingKind.LOGGING_ASYMMETRY,
         severity=Severity.INFO,
         message=f"Guard '{condition}' is logged in a sibling flow but silent here",
         evidence=Evidence.INFERRED,
@@ -762,7 +762,7 @@ def _auth_finding(flow: Flow) -> Finding:
     entry = flow.nodes[0] if flow.nodes else None
     return Finding(
         id=stable_id(flow.id, "auth-divergence"),
-        kind="auth_divergence",
+        kind=FindingKind.AUTH_DIVERGENCE,
         severity=Severity.WARNING,
         message=f"{flow.name} skips the authorization check its sibling entry points perform",
         evidence=Evidence.POTENTIAL_GAP,
@@ -784,19 +784,23 @@ def _suppress_redundant_missing_branch(findings: list[Finding]) -> list[Finding]
     strictly more actionable, so keep it and suppress the generic one on that node.
     """
     enum_nodes = {
-        (item.flow_id, item.node_id) for item in findings if item.kind == "enum_exhaustiveness"
+        (item.flow_id, item.node_id)
+        for item in findings
+        if item.kind == FindingKind.ENUM_EXHAUSTIVENESS
     }
     return [
         item
         for item in findings
-        if not (item.kind == "missing_branch" and (item.flow_id, item.node_id) in enum_nodes)
+        if not (
+            item.kind == FindingKind.MISSING_BRANCH and (item.flow_id, item.node_id) in enum_nodes
+        )
     ]
 
 
 def _dead_guard_finding(flow: Flow, node: FlowNode, subject: str, always: bool) -> Finding:
     return Finding(
         id=stable_id(flow.id, node.id, "dead-guard"),
-        kind="dead_guard",
+        kind=FindingKind.DEAD_GUARD,
         severity=Severity.WARNING,
         message=f"Guard on the constant {subject} is always {always}",
         evidence=Evidence.INFERRED,

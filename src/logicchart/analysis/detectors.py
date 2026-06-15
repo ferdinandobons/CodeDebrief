@@ -15,12 +15,15 @@ from logicchart.analysis.common import (
     DISPATCH_OPERATORS,
     EMPTY,
     FALLS_THROUGH,
+    NO,
     RAISES,
     RETURNS,
+    SUCCESS,
 )
 from logicchart.model import (
     Evidence,
     Finding,
+    FindingKind,
     Flow,
     FlowNode,
     NodeKind,
@@ -31,9 +34,6 @@ from logicchart.util import compact_text, stable_id
 
 # A branch whose outcome is one of these exits the function early.
 _EARLY_EXIT = frozenset({RETURNS, RAISES})
-# Structural branch labels emitted by the walkers (see analysis.*._walk_*).
-_SUCCESS = "Success"
-_NO = "No"
 
 
 def single_flow_findings(flow: Flow) -> list[Finding]:
@@ -52,13 +52,14 @@ def dead_code_finding(flow: Flow, location: SourceLocation, detail: str) -> Find
     """Code that follows a point where every path has already returned/raised."""
     return Finding(
         id=stable_id(flow.id, "dead-code", str(location.start_line)),
-        kind="dead_code",
+        kind=FindingKind.DEAD_CODE,
         severity=Severity.WARNING,
         message=f"Unreachable code after all paths return or raise (line {location.start_line})",
         evidence=Evidence.INFERRED,
         flow_id=flow.id,
         location=location,
         detail=detail,
+        metadata={"category": "single_flow"},
     )
 
 
@@ -87,13 +88,13 @@ def _missing_else_in_chain(flow: Flow, decisions: dict[str, FlowNode]) -> list[F
     """
 
     def links_via_else(node_id: str) -> bool:
-        no_branch = _branch(decisions[node_id], _NO)
+        no_branch = _branch(decisions[node_id], NO)
         return no_branch is not None and not no_branch["implicit"]
 
     no_target = {
         edge.source: edge.target
         for edge in flow.edges
-        if edge.label == _NO
+        if edge.label == NO
         and edge.source in decisions
         and edge.target in decisions
         and links_via_else(edge.source)
@@ -118,7 +119,7 @@ def _missing_else_in_chain(flow: Flow, decisions: dict[str, FlowNode]) -> list[F
             chain.append(decisions[cursor])
         if len(chain) < 2:
             continue
-        tail_no = _branch(chain[-1], _NO)
+        tail_no = _branch(chain[-1], NO)
         if tail_no is not None and tail_no["implicit"]:
             findings.append(_missing_branch_finding(flow, head, f"if/elif on {subject}"))
     return findings
@@ -128,7 +129,7 @@ def _missing_branch_finding(flow: Flow, node: FlowNode, condition: str) -> Findi
     return _node_finding(
         flow,
         node,
-        kind="missing_branch",
+        kind=FindingKind.MISSING_BRANCH,
         severity=Severity.WARNING,
         evidence=Evidence.POTENTIAL_GAP,
         message=f"Decision has no explicit fallback: {compact_text(condition, 80)}",
@@ -152,7 +153,7 @@ def _broad_except_swallow(flow: Flow) -> list[Finding]:
             continue
         for entry in _explicit_branches(node):
             label = str(entry["label"])
-            if label == _SUCCESS:
+            if label == SUCCESS:
                 continue
             if entry["outcome"] == EMPTY:
                 findings.append(_swallow_finding(flow, node, label, log_only=False))
@@ -174,7 +175,7 @@ def _swallow_finding(flow: Flow, node: FlowNode, label: str, *, log_only: bool) 
     return _node_finding(
         flow,
         node,
-        kind="broad_except_swallow",
+        kind=FindingKind.BROAD_EXCEPT_SWALLOW,
         severity=Severity.WARNING,
         evidence=Evidence.INFERRED,
         message=message,
@@ -232,7 +233,7 @@ def _no_op_branch(flow: Flow) -> list[Finding]:
                     _node_finding(
                         flow,
                         node,
-                        kind="no_op_branch",
+                        kind=FindingKind.NO_OP_BRANCH,
                         severity=Severity.INFO,
                         evidence=Evidence.INFERRED,
                         message=f"Branch '{entry['label']}' has an empty body",
@@ -264,7 +265,7 @@ def _asymmetric_return(flow: Flow) -> list[Finding]:
                 _node_finding(
                     flow,
                     node,
-                    kind="asymmetric_return",
+                    kind=FindingKind.ASYMMETRIC_RETURN,
                     severity=Severity.WARNING,
                     evidence=Evidence.INFERRED,
                     message=f"Most cases return, but these fall through: {labels}",
@@ -285,7 +286,7 @@ def _node_finding(
     flow: Flow,
     node: FlowNode,
     *,
-    kind: str,
+    kind: FindingKind,
     severity: Severity,
     evidence: Evidence,
     message: str,
@@ -303,6 +304,7 @@ def _node_finding(
         node_id=node.id,
         location=node.location,
         detail=detail,
+        metadata={"category": "single_flow"},
     )
 
 
