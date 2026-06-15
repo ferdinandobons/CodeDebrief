@@ -87,6 +87,8 @@ class LanguageProfile:
     condition_field: str = "condition"
     consequence_field: str = "consequence"
     alternative_field: str = "alternative"
+    # Else-branch node types when the else is a child rather than a field (Ruby).
+    alternative_types: frozenset[str] = frozenset()
     switch_types: frozenset[str] = frozenset()
     switch_value_field: str = "value"
     switch_body_field: str | None = "body"
@@ -331,6 +333,11 @@ class TreeSitterAnalyzer:
         condition_node = statement.child_by_field_name(profile.condition_field)
         consequence = statement.child_by_field_name(profile.consequence_field)
         alternative = statement.child_by_field_name(profile.alternative_field)
+        if alternative is None and profile.alternative_types:
+            # Languages where the else branch is a child node, not a field (Ruby).
+            alternative = next(
+                (c for c in _named_children(statement) if c.type in profile.alternative_types), None
+            )
         condition = _strip_parentheses(_text(condition_node, source))
         branch_text = _text(consequence, source)
 
