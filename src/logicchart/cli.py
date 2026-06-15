@@ -138,6 +138,10 @@ def _analyze(root: Path, *, full: bool, include_html: bool) -> int:
         f"Incremental cache: {result.cache_hits} hits, {len(result.changed_files)} changed, "
         f"{len(result.deleted_files)} deleted."
     )
+    if result.skipped_files:
+        print(f"Skipped {len(result.skipped_files)} unparseable file(s):", file=sys.stderr)
+        for relative, reason in result.skipped_files:
+            print(f"  - {relative}: {reason}", file=sys.stderr)
     print(f"Wrote {json_path}")
     print(f"Wrote {markdown_path}")
     if html_path:

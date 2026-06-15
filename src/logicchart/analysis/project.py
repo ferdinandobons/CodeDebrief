@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -28,9 +28,21 @@ from logicchart.model import (
     ProjectModel,
     Severity,
 )
-from logicchart.util import file_sha256, read_json, relpath, stable_id, write_json
+from logicchart.util import (
+    compact_text,
+    file_sha256,
+    read_json,
+    relpath,
+    stable_id,
+    write_json,
+)
 
 CACHE_VERSION = "2"
+
+# One bad file (mid-edit syntax error, non-UTF-8 bytes, a merge-conflict marker)
+# must never abort the whole run — the tool's promise is to stay in sync on every
+# commit. These are the errors the analyzers raise while ingesting one file.
+_INGEST_ERRORS = (SyntaxError, UnicodeDecodeError, ValueError, OSError)
 
 
 @dataclass(slots=True)
@@ -39,6 +51,7 @@ class AnalysisResult:
     changed_files: list[str]
     deleted_files: list[str]
     cache_hits: int
+    skipped_files: list[tuple[str, str]] = field(default_factory=list)
 
 
 class ProjectAnalyzer:
@@ -58,6 +71,7 @@ class ProjectAnalyzer:
         deleted_files = sorted(set(previous_index) - current_paths)
         analyses: list[FileAnalysis] = []
         changed_files: list[str] = []
+        skipped_files: list[tuple[str, str]] = []
         cache_hits = 0
         new_index: dict[str, dict[str, str]] = {}
 
@@ -66,11 +80,19 @@ class ProjectAnalyzer:
             digest = file_sha256(path)
             cache_file = self.cache_dir / f"{stable_id(relative, length=24)}.json"
             cached = previous_index.get(relative)
-            if not full and cached and cached.get("sha256") == digest and cache_file.exists():
-                analysis = FileAnalysis.from_dict(read_json(cache_file))
+            reused = (
+                not full
+                and cached is not None
+                and cached.get("sha256") == digest
+                and self._load_cached_analysis(cache_file)
+            )
+            if reused:
+                analysis = reused
                 cache_hits += 1
             else:
-                analysis = self._analyze_file(path)
+                analysis, reason = self._safe_analyze_file(path, relative, digest)
+                if reason is not None:
+                    skipped_files.append((relative, reason))
                 write_json(cache_file, analysis.to_dict())
                 changed_files.append(relative)
             analyses.append(analysis)
@@ -93,6 +115,7 @@ class ProjectAnalyzer:
             changed_files=changed_files,
             deleted_files=deleted_files,
             cache_hits=cache_hits,
+            skipped_files=skipped_files,
         )
 
     def _analyze_file(self, path: Path) -> FileAnalysis:
@@ -100,6 +123,33 @@ class ProjectAnalyzer:
         if language == "python":
             return self.python.analyze(path)
         return self.typescript.analyze(path)
+
+    def _safe_analyze_file(
+        self, path: Path, relative: str, digest: str
+    ) -> tuple[FileAnalysis, str | None]:
+        """Analyze one file, degrading to an empty record instead of aborting the run.
+
+        A single un-parseable or non-UTF-8 file (common while editing, on a merge
+        conflict, or in a mixed-language repo) is recorded as a skipped file and the
+        rest of the model is still built — the "always in sync" guarantee can't hinge
+        on every file parsing cleanly.
+        """
+        try:
+            return self._analyze_file(path), None
+        except _INGEST_ERRORS as error:
+            return self._degraded_file(path, relative, digest), _skip_reason(error)
+
+    def _degraded_file(self, path: Path, relative: str, digest: str) -> FileAnalysis:
+        return FileAnalysis(path=relative, language=language_for(path), sha256=digest)
+
+    def _load_cached_analysis(self, cache_file: Path) -> FileAnalysis | None:
+        if not cache_file.exists():
+            return None
+        try:
+            return FileAnalysis.from_dict(read_json(cache_file))
+        except (ValueError, KeyError, TypeError, OSError):
+            # A corrupt cache entry is never fatal — fall back to a fresh analysis.
+            return None
 
     def _load_index(self) -> dict[str, dict[str, str]]:
         if not self.index_path.exists():
@@ -431,6 +481,12 @@ class ProjectAnalyzer:
                 always = (not value) if node.metadata.get("negation") else value
                 findings.append(_dead_guard_finding(flow, node, subject, always))
         return findings
+
+
+def _skip_reason(error: Exception) -> str:
+    """A one-line, human-readable reason a file was skipped."""
+    text = str(error).strip() or error.__class__.__name__
+    return compact_text(text, 200)
 
 
 # Cross-flow quorum needs a real majority context: with fewer siblings, a single

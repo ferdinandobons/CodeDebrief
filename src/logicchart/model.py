@@ -144,18 +144,26 @@ class ProjectModel:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProjectModel:
-        flows = [_flow_from_dict(item) for item in data.get("flows", [])]
-        findings = [_finding_from_dict(item) for item in data.get("findings", [])]
-        files = [FileRecord(**item) for item in data.get("files", [])]
-        return cls(
-            schema_version=data["schema_version"],
-            generated_at=data["generated_at"],
-            root=data["root"],
-            flows=flows,
-            findings=findings,
-            files=files,
-            metadata=data.get("metadata", {}),
-        )
+        # `diff` / `diff_findings` deserialize attacker-/teammate-supplied JSON, so a
+        # malformed shape must surface as a clean ValueError, not a raw KeyError /
+        # TypeError traceback leaking to the CLI or the MCP transport.
+        if not isinstance(data, dict):
+            raise ValueError("malformed logic-flow.json: expected a JSON object at the top level")
+        try:
+            flows = [_flow_from_dict(item) for item in data.get("flows", [])]
+            findings = [_finding_from_dict(item) for item in data.get("findings", [])]
+            files = [FileRecord(**item) for item in data.get("files", [])]
+            return cls(
+                schema_version=data["schema_version"],
+                generated_at=data["generated_at"],
+                root=data["root"],
+                flows=flows,
+                findings=findings,
+                files=files,
+                metadata=data.get("metadata", {}),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError(f"malformed logic-flow.json: {error}") from error
 
 
 def _location_from_dict(data: dict[str, Any]) -> SourceLocation:
