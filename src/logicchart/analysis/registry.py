@@ -35,10 +35,18 @@ class LanguageSpec:
     factory: AnalyzerFactory
 
 
+def _make_go(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
+    # Lazy import so the Go grammar (.so) loads only when a .go file is analyzed.
+    from logicchart.analysis.languages.go import build_analyzer
+
+    return build_analyzer(root, config)
+
+
 # The order is the dispatch precedence when two specs claim the same suffix (none do today).
 LANGUAGES: tuple[LanguageSpec, ...] = (
     LanguageSpec("python", (".py",), PythonAnalyzer),
     LanguageSpec("typescript", (".ts", ".tsx"), TypeScriptAnalyzer),
+    LanguageSpec("go", (".go",), _make_go),
 )
 
 _BY_SUFFIX: dict[str, LanguageSpec] = {
