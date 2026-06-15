@@ -47,6 +47,8 @@ class PythonAnalyzer:
         relative = relpath(path, self.root)
         tree = ast.parse(source, filename=relative)
         module_name = _module_name(relative)
+        constants = _harvest_constants(tree)
+        constant_names = set(constants)
         flows: list[Flow] = []
         findings: list[Finding] = []
 
@@ -59,20 +61,24 @@ class PythonAnalyzer:
                 module_name=module_name,
                 findings=findings,
             )
+            # A module constant rebound or shadowed locally is runtime-dependent, so
+            # dead_guard must not claim its guard is always true/false.
+            shadowed = _assigned_names(definition) & constant_names
+            if shadowed:
+                flow.metadata["shadows_constants"] = sorted(shadowed)
             flows.append(flow)
 
         is_package = Path(relative).name == "__init__.py"
         import_map = _import_map(tree, module_name, is_package, self.root)
         for flow in flows:
             attach_qualified_calls(flow, import_map, module_name)
-            tag_call_effects(flow)
 
         return FileAnalysis(
             path=relative,
             language="python",
             sha256=file_sha256(path),
             enums=_harvest_enums(tree),
-            constants=_harvest_constants(tree),
+            constants=constants,
             flows=flows,
             findings=findings,
         )
@@ -137,6 +143,9 @@ class PythonAnalyzer:
                 evidence=Evidence.INFERRED,
             )
         annotate_reachability(flow)
+        # Tag effects before single-flow detection so detectors that reason about
+        # call effects (e.g. a log-only exception handler) see them.
+        tag_call_effects(flow)
         findings.extend(single_flow_findings(flow))
         return flow
 
@@ -409,6 +418,21 @@ class PythonAnalyzer:
                 # terminator resumes, so anything after the try is unreachable.
                 endpoints = []
         return endpoints
+
+
+def _assigned_names(definition: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """Names bound inside a function: assignment targets, loop/with vars, and params.
+
+    A name in Store context (or a parameter) shadows any module-level constant of
+    the same name, making a guard on it runtime-dependent rather than statically dead.
+    """
+    names: set[str] = set()
+    for node in ast.walk(definition):
+        if isinstance(node, ast.arg):
+            names.add(node.arg)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            names.add(node.id)
+    return names
 
 
 def _match_values(pattern: ast.pattern) -> list[str]:

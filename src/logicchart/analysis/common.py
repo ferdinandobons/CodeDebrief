@@ -194,21 +194,25 @@ def decision_identity(
     }
 
 
+_VALUE_OPERATORS = r"==|!=|\bis not\b|\bnot in\b|\bin\b|\bis\b"
+# Tuple, list, set literal, dotted identifier, or quoted string after a comparison.
+_VALUE_LITERAL = r"\([^)]*\)|\[[^\]]*\]|\{[^}]*\}|[A-Za-z_][\w.]*|['\"][^'\"]+['\"]"
+_VALUE_PATTERN = re.compile(rf"(?:{_VALUE_OPERATORS})\s*(?:{_VALUE_LITERAL})")
+_LEADING_OPERATOR = re.compile(rf"^(?:{_VALUE_OPERATORS})\s*")
+_VALUE_STRIP = " '\"[](){}"
+
+
 def decision_metadata(condition: str) -> dict[str, Any]:
     compact = compact_text(condition, 240)
     lowered = compact.lower()
     domain = next((term for term in DOMAIN_TERMS if re.search(rf"\b{term}\b", lowered)), "")
 
     values: list[str] = []
-    for value in re.findall(
-        r"(?:==|!=|\bin\b|\bis\b)\s*(?:\([^)]*\)|\[[^\]]*\]|[A-Za-z_][\w.]*|['\"][^'\"]+['\"])",
-        compact,
-    ):
-        values.extend(
-            token.strip(" '\"[]()")
-            for token in re.split(r"[,|]", re.sub(r"^(==|!=|\bin\b|\bis\b)\s*", "", value))
-            if token.strip(" '\"[]()")
-        )
+    for value in _VALUE_PATTERN.findall(compact):
+        for token in re.split(r"[,|]", _LEADING_OPERATOR.sub("", value)):
+            cleaned = token.strip(_VALUE_STRIP)
+            if cleaned:
+                values.append(cleaned)
     subject, operator, negation = parse_subject_operator(compact)
     return decision_identity(
         condition=compact,

@@ -73,7 +73,6 @@ class TypeScriptAnalyzer:
         module_name = _module_name(relative)
         for flow in flows:
             attach_qualified_calls(flow, import_map, module_name)
-            tag_call_effects(flow)
         return FileAnalysis(
             path=relative,
             language="typescript",
@@ -145,6 +144,9 @@ class TypeScriptAnalyzer:
                 evidence=Evidence.INFERRED,
             )
         annotate_reachability(flow)
+        # Tag effects before single-flow detection so detectors that reason about
+        # call effects (e.g. a log-only exception handler) see them.
+        tag_call_effects(flow)
         findings.extend(single_flow_findings(flow))
         return flow
 

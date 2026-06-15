@@ -144,29 +144,74 @@ def _missing_branch_finding(flow: Flow, node: FlowNode, condition: str) -> Findi
 
 
 def _broad_except_swallow(flow: Flow) -> list[Finding]:
-    """An exception handler with an empty body — the error is silently swallowed."""
+    """An exception handler that swallows the error: an empty body, or a log-only
+    handler that neither re-raises nor returns an error path (per spec §5.1)."""
     findings: list[Finding] = []
     for node in flow.nodes:
         if node.kind is not NodeKind.DECISION or node.metadata.get("domain") != "error":
             continue
         for entry in _explicit_branches(node):
-            if entry["label"] != _SUCCESS and entry["outcome"] == EMPTY:
-                findings.append(
-                    _node_finding(
-                        flow,
-                        node,
-                        kind="broad_except_swallow",
-                        severity=Severity.WARNING,
-                        evidence=Evidence.INFERRED,
-                        message=f"Exception handler '{entry['label']}' swallows the error",
-                        detail=(
-                            "The handler body neither re-raises nor returns an error path, "
-                            "so the failure is hidden from callers."
-                        ),
-                        key=("swallow", str(entry["label"])),
-                    )
-                )
+            label = str(entry["label"])
+            if label == _SUCCESS:
+                continue
+            if entry["outcome"] == EMPTY:
+                findings.append(_swallow_finding(flow, node, label, log_only=False))
+            elif entry["outcome"] == FALLS_THROUGH and _branch_effects(flow, node, label) == {
+                "log"
+            }:
+                # Logging the exception is not handling it: the only side effect is a
+                # log, and control neither re-raises nor returns an error path.
+                findings.append(_swallow_finding(flow, node, label, log_only=True))
     return findings
+
+
+def _swallow_finding(flow: Flow, node: FlowNode, label: str, *, log_only: bool) -> Finding:
+    message = (
+        f"Exception handler '{label}' only logs the error"
+        if log_only
+        else f"Exception handler '{label}' swallows the error"
+    )
+    return _node_finding(
+        flow,
+        node,
+        kind="broad_except_swallow",
+        severity=Severity.WARNING,
+        evidence=Evidence.INFERRED,
+        message=message,
+        detail=(
+            "The handler body neither re-raises nor returns an error path, "
+            "so the failure is hidden from callers."
+        ),
+        key=("swallow", label),
+    )
+
+
+def _branch_effects(flow: Flow, node: FlowNode, label: str) -> set[str]:
+    """The union of call effects reachable along one branch, before any nested
+    decision or terminal — used to recognize a log-only handler body."""
+    nodes = {item.id: item for item in flow.nodes}
+    out: dict[str, list[tuple[str, str]]] = {}
+    for edge in flow.edges:
+        out.setdefault(edge.source, []).append((edge.label, edge.target))
+    start = next((target for lbl, target in out.get(node.id, []) if lbl == label), None)
+    effects: set[str] = set()
+    seen: set[str] = set()
+    stack = [start] if start is not None else []
+    while stack:
+        current_id = stack.pop()
+        if current_id in seen:
+            continue
+        seen.add(current_id)
+        current = nodes.get(current_id)
+        if current is None:
+            continue
+        effects.update(str(item) for item in current.metadata.get("effects", []))
+        if current.kind in (NodeKind.TERMINAL, NodeKind.ERROR):
+            continue
+        if current.kind is NodeKind.DECISION and current_id != start:
+            continue
+        stack.extend(target for _, target in out.get(current_id, []))
+    return effects
 
 
 def _no_op_branch(flow: Flow) -> list[Finding]:

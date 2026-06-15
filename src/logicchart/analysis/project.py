@@ -403,7 +403,7 @@ class ProjectAnalyzer:
             if count * 2 <= len(entries):
                 continue  # no strict-majority expected outcome
             for flow, node, signature in entries:
-                if signature != common:
+                if not _outcomes_compatible(signature, common):
                     findings.append(_outcome_finding(flow, node, subject, value, signature, common))
         return findings
 
@@ -471,11 +471,12 @@ class ProjectAnalyzer:
             constants = constants_by_path.get(flow.location.path, {})
             if not constants:
                 continue
+            shadowed = set(flow.metadata.get("shadows_constants", []))
             for node in flow.nodes:
                 if node.kind is not NodeKind.DECISION or node.metadata.get("operator"):
                     continue
                 subject = str(node.metadata.get("subject", ""))
-                if subject not in constants:
+                if subject not in constants or subject in shadowed:
                     continue
                 value = constants[subject]
                 always = (not value) if node.metadata.get("negation") else value
@@ -548,10 +549,40 @@ def _raise_signature(label: str) -> str:
     exception = (match.group(1) if match else "error").rsplit(".", 1)[-1]
     keyword = re.search(r"(?:status_code|status|code)\s*=\s*(\d{3})", label)
     code = keyword.group(1) if keyword else None
+    if code is None:
+        # Symbolic status constants (status.HTTP_403_FORBIDDEN) are the canonical
+        # FastAPI/Starlette spelling — normalize to the numeric code so they compare
+        # equal to the literal form and a symbolic 403-vs-404 still diverges.
+        symbolic = re.search(r"\bHTTP_(\d{3})", label)
+        code = symbolic.group(1) if symbolic else None
     if code is None and exception.lower() in _HTTP_ERROR_CLASSES:
         positional = re.search(r"\(\s*(\d{3})\b", label)
         code = positional.group(1) if positional else None
     return f"raise:{exception}" + (f":{code}" if code else "")
+
+
+def _outcomes_compatible(actual: str, expected: str) -> bool:
+    """Whether two outcome signatures describe the same outcome.
+
+    A coded raise (``raise:HTTPException:403``) is compatible with the same
+    exception carrying no code (``raise:HTTPException``): that is a literal-vs-
+    symbolic status spelling, not a real divergence. Two differing codes on the
+    same exception, or a different exception/terminal, remain a divergence.
+    """
+    if actual == expected:
+        return True
+    actual_exc, actual_code = _raise_exception_and_code(actual)
+    expected_exc, expected_code = _raise_exception_and_code(expected)
+    if actual_exc != expected_exc:
+        return False
+    return actual_code is None or expected_code is None or actual_code == expected_code
+
+
+def _raise_exception_and_code(signature: str) -> tuple[str, str | None]:
+    if not signature.startswith("raise:"):
+        return signature, None
+    exception, _, code = signature[len("raise:") :].partition(":")
+    return f"raise:{exception}", (code or None)
 
 
 def _branch_logs(flow: Flow, node: FlowNode) -> bool:
