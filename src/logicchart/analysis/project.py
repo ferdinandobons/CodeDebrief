@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -129,6 +130,8 @@ class ProjectAnalyzer:
                 known.extend(member for member in members if member not in known)
         findings.extend(self._find_inconsistent_decisions(flows, enums))
         findings.extend(self._enum_exhaustiveness(flows, enums))
+        findings.extend(self._outcome_inconsistency(flows))
+        findings.extend(self._logging_asymmetry(flows))
         findings = _deduplicate_findings(findings)
         files = [
             FileRecord(
@@ -318,6 +321,63 @@ class ProjectAnalyzer:
                     findings.append(_enum_finding(cov, subject, namespace, missing, declared))
         return findings
 
+    def _outcome_inconsistency(self, flows: list[Flow]) -> list[Finding]:
+        # The same positive `subject == value` condition handled with materially
+        # different outcomes across flows (e.g. raise 403 here, raise 404 there). A
+        # strict majority sets the expected outcome, so a lone difference is flagged
+        # against agreement, not guessed.
+        by_condition: dict[tuple[str, str, str], list[tuple[Flow, FlowNode, str]]] = {}
+        for flow in flows:
+            if flow.metadata.get("test"):
+                continue
+            for node in flow.nodes:
+                if node.kind is not NodeKind.DECISION or not _is_positive_dispatch(node):
+                    continue
+                subject = str(node.metadata.get("subject", ""))
+                values = [str(item) for item in node.metadata.get("values", []) if str(item)]
+                signature = _outcome_signature(flow, node)
+                if subject and len(values) == 1 and signature:
+                    key = (flow.language, subject, values[0])
+                    by_condition.setdefault(key, []).append((flow, node, signature))
+
+        findings: list[Finding] = []
+        for (_language, subject, value), entries in by_condition.items():
+            if len(entries) < _MIN_QUORUM_SIBLINGS:
+                continue
+            ((common, count),) = Counter(sig for _, _, sig in entries).most_common(1)
+            if count * 2 <= len(entries):
+                continue  # no strict-majority expected outcome
+            for flow, node, signature in entries:
+                if signature != common:
+                    findings.append(_outcome_finding(flow, node, subject, value, signature, common))
+        return findings
+
+    def _logging_asymmetry(self, flows: list[Flow]) -> list[Finding]:
+        # Flows sharing the exact same guard condition where some branches log the
+        # rejection and a sibling silently proceeds — an observability gap.
+        by_condition: dict[tuple[str, str], list[tuple[Flow, FlowNode, bool]]] = {}
+        for flow in flows:
+            if flow.metadata.get("test"):
+                continue
+            for node in flow.nodes:
+                if node.kind is not NodeKind.DECISION:
+                    continue
+                condition = str(node.metadata.get("condition", ""))
+                if condition and node.metadata.get("domain") != "error":
+                    by_condition.setdefault((flow.language, condition), []).append(
+                        (flow, node, _branch_logs(flow, node))
+                    )
+
+        findings: list[Finding] = []
+        for (_language, condition), entries in by_condition.items():
+            if len(entries) < 2:
+                continue
+            if any(logs for *_, logs in entries) and any(not logs for *_, logs in entries):
+                for flow, node, logs in entries:
+                    if not logs:
+                        findings.append(_logging_finding(flow, node, condition))
+        return findings
+
 
 # Cross-flow quorum needs a real majority context: with fewer siblings, a single
 # differing flow could not form a meaningful majority.
@@ -332,6 +392,58 @@ def _is_positive_dispatch(node: FlowNode) -> bool:
     return not node.metadata.get("negation") and (
         node.metadata.get("operator") not in _NEGATIVE_OPERATORS
     )
+
+
+def _edges_by_source(flow: Flow) -> dict[str, list[tuple[str, str]]]:
+    out: dict[str, list[tuple[str, str]]] = {}
+    for edge in flow.edges:
+        out.setdefault(edge.source, []).append((edge.label, edge.target))
+    return out
+
+
+def _outcome_signature(flow: Flow, node: FlowNode) -> str:
+    """How the positive ("Yes") branch of a decision ends: raise:<code>/raise/return."""
+    nodes = {item.id: item for item in flow.nodes}
+    target_id = next(
+        (target for label, target in _edges_by_source(flow).get(node.id, []) if label == "Yes"),
+        None,
+    )
+    target = nodes.get(target_id) if target_id else None
+    if target is None:
+        return ""
+    if target.kind is NodeKind.ERROR:
+        match = re.search(r"\b([1-5]\d\d)\b", target.label)
+        return f"raise:{match.group(1)}" if match else "raise"
+    if target.kind is NodeKind.TERMINAL:
+        return "return"
+    return str(target.kind.value)
+
+
+def _branch_logs(flow: Flow, node: FlowNode) -> bool:
+    """Whether the positive ("Yes") branch reaches a logging call before it ends."""
+    nodes = {item.id: item for item in flow.nodes}
+    out = _edges_by_source(flow)
+    start = next((target for label, target in out.get(node.id, []) if label == "Yes"), None)
+    if start is None:
+        return False
+    seen: set[str] = set()
+    stack = [start]
+    while stack:
+        current_id = stack.pop()
+        if current_id in seen:
+            continue
+        seen.add(current_id)
+        current = nodes.get(current_id)
+        if current is None:
+            continue
+        if "log" in current.metadata.get("effects", []):
+            return True
+        if current.kind in (NodeKind.TERMINAL, NodeKind.ERROR):
+            continue
+        if current.kind is NodeKind.DECISION and current_id != start:
+            continue  # do not cross into an unrelated nested decision
+        stack.extend(target for _, target in out.get(current_id, []))
+    return False
 
 
 @dataclass(slots=True)
@@ -433,6 +545,50 @@ def _enum_finding(
             "missing": missing,
             "declared": list(declared),
         },
+    )
+
+
+def _outcome_finding(
+    flow: Flow, node: FlowNode, subject: str, value: str, signature: str, expected: str
+) -> Finding:
+    return Finding(
+        id=stable_id(flow.id, node.id, "outcome-inconsistency"),
+        kind="outcome_inconsistency",
+        severity=Severity.WARNING,
+        message=f"{subject} == {value} resolves to {signature} here, but {expected} elsewhere",
+        evidence=Evidence.INFERRED,
+        flow_id=flow.id,
+        node_id=node.id,
+        location=node.location,
+        detail=(
+            "Most sibling flows resolve this exact condition with a different outcome; "
+            "review whether the divergence is intentional."
+        ),
+        metadata={
+            "category": "cross_flow",
+            "subject": subject,
+            "value": value,
+            "outcome": signature,
+            "expected": expected,
+        },
+    )
+
+
+def _logging_finding(flow: Flow, node: FlowNode, condition: str) -> Finding:
+    return Finding(
+        id=stable_id(flow.id, node.id, "logging-asymmetry"),
+        kind="logging_asymmetry",
+        severity=Severity.INFO,
+        message=f"Guard '{condition}' is logged in a sibling flow but silent here",
+        evidence=Evidence.INFERRED,
+        flow_id=flow.id,
+        node_id=node.id,
+        location=node.location,
+        detail=(
+            "A sibling flow logs or alerts on the same guard while this one proceeds "
+            "silently — an observability gap on a shared condition."
+        ),
+        metadata={"category": "cross_flow", "condition": condition},
     )
 
 

@@ -83,3 +83,48 @@ def test_enum_exhaustiveness_silent_without_declared_enum(tmp_path: Path) -> Non
     )
     model = ProjectAnalyzer(tmp_path).analyze(full=True).model
     assert "enum_exhaustiveness" not in _kinds_for(model, "handle")
+
+
+def test_outcome_inconsistency_flags_the_minority_outcome(tmp_path: Path) -> None:
+    handler = (
+        "def {n}(account):\n"
+        "    if account.status == Status.DELETED:\n        raise ApiError({code})\n"
+        "    return ok()\n\n\n"
+    )
+    body = (
+        handler.format(n="a", code=410)
+        + handler.format(n="b", code=410)
+        + handler.format(n="c", code=404)
+    )
+    (tmp_path / "svc.py").write_text(body, encoding="utf-8")
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    minority = next(f for f in model.flows if f.name == "c")
+    flagged = [
+        f for f in model.findings if f.kind == "outcome_inconsistency" and f.flow_id == minority.id
+    ]
+    assert flagged
+    assert flagged[0].metadata["outcome"] == "raise:404"
+    assert flagged[0].metadata["expected"] == "raise:410"
+    # The agreeing majority is not flagged.
+    assert not any(
+        f.kind == "outcome_inconsistency" and f.flow_id != minority.id for f in model.findings
+    )
+
+
+def test_logging_asymmetry_flags_the_silent_sibling(tmp_path: Path) -> None:
+    (tmp_path / "svc.py").write_text(
+        "def refund(order):\n"
+        "    if order.amount <= 0:\n"
+        "        log_warning('bad')\n        raise ApiError(422)\n"
+        "    do_refund(order)\n\n\n"
+        "def capture(order):\n"
+        "    if order.amount <= 0:\n        return\n"
+        "    do_capture(order)\n",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    capture = next(f for f in model.flows if f.name == "capture")
+    refund = next(f for f in model.flows if f.name == "refund")
+    assert any(f.kind == "logging_asymmetry" and f.flow_id == capture.id for f in model.findings)
+    # The flow that logs is not the one flagged.
+    assert not any(f.kind == "logging_asymmetry" and f.flow_id == refund.id for f in model.findings)

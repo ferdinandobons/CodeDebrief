@@ -129,7 +129,8 @@ def is_functional_condition(condition: str, branch_text: str = "") -> bool:
     tokens = set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", lowered))
     if tokens & FUNCTIONAL_TERMS:
         return True
-    if any(term in lowered for term in ("return ", "raise ", "throw ", "redirect(")):
+    # Control-flow outcomes mark a branch as functional, including a bare `return`.
+    if re.search(r"\b(return|raise|throw|redirect)\b", lowered):
         return True
     return any(term in lowered for term in BOUNDARY_CALL_TERMS)
 
