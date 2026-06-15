@@ -6,6 +6,8 @@ The project follows Semantic Versioning once public releases begin.
 
 ## Unreleased
 
+## 0.2.1
+
 - Interactive viewer: drag any block to rearrange the flowchart by hand; connected edges
   re-route live, hand-placed positions persist per flow, and reset restores the auto layout.
 - README rewritten for clarity: sharper scope, a runnable 30-second example, an outcome-
