@@ -33,7 +33,8 @@ def run_mcp(root: Path) -> None:
         from mcp.server.fastmcp import FastMCP
     except ImportError as error:
         raise RuntimeError(
-            "MCP support is not installed. Run `pip install 'logicchart[mcp]'`."
+            "MCP support is not installed. Run `uv tool install '.[mcp]'` "
+            "(or `uv sync --extra mcp` for development)."
         ) from error
 
     project_root = root.resolve()

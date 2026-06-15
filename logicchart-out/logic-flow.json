@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T19:54:36.860332+00:00",
+  "generated_at": "2026-06-15T20:49:42.736593+00:00",
   "root": ".",
   "flows": [
     {
@@ -51,11 +51,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "examples.demo.backend.users:load_user"
-            ],
             "effects": [
               "db_read"
+            ],
+            "qualified_calls": [
+              "examples.demo.backend.users:load_user"
             ],
             "link_confidence": "high",
             "call_candidates": [
@@ -294,11 +294,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "examples.demo.backend.users:repository.fetch"
-            ],
             "effects": [
               "db_read"
+            ],
+            "qualified_calls": [
+              "examples.demo.backend.users:repository.fetch"
             ],
             "link_confidence": "medium",
             "call_candidates": [
@@ -403,11 +403,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "examples.demo.frontend.app.api.users.route:loadUser"
-            ],
             "effects": [
               "db_read"
+            ],
+            "qualified_calls": [
+              "examples.demo.frontend.app.api.users.route:loadUser"
             ],
             "link_confidence": "high",
             "call_candidates": [
@@ -783,11 +783,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "backend.auth:require_role"
-            ],
             "effects": [
               "auth_check"
+            ],
+            "qualified_calls": [
+              "backend.auth:require_role"
             ],
             "link_confidence": "medium",
             "call_candidates": [
@@ -814,11 +814,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "examples.shop.backend.api.admin_routes:do_delete"
-            ],
             "effects": [
               "db_write"
+            ],
+            "qualified_calls": [
+              "examples.shop.backend.api.admin_routes:do_delete"
             ]
           }
         },
@@ -1848,11 +1848,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "examples.shop.backend.api.users_routes:update_email"
-            ],
             "effects": [
               "db_write"
+            ],
+            "qualified_calls": [
+              "examples.shop.backend.api.users_routes:update_email"
             ]
           }
         },
@@ -3909,11 +3909,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "examples.shop.backend.payments_service:log_warning"
-            ],
             "effects": [
               "log"
+            ],
+            "qualified_calls": [
+              "examples.shop.backend.payments_service:log_warning"
             ]
           }
         },
@@ -3934,11 +3934,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "examples.shop.backend.payments_service:alert_ops"
-            ],
             "effects": [
               "log"
+            ],
+            "qualified_calls": [
+              "examples.shop.backend.payments_service:alert_ops"
             ]
           }
         },
@@ -4122,11 +4122,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "backend.auth:ensure_authenticated"
-            ],
             "effects": [
               "auth_check"
+            ],
+            "qualified_calls": [
+              "backend.auth:ensure_authenticated"
             ],
             "link_confidence": "medium",
             "call_candidates": [
@@ -4976,11 +4976,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "examples.shop.frontend.app.api.orders.route:loadOrder"
-            ],
             "effects": [
               "db_read"
+            ],
+            "qualified_calls": [
+              "examples.shop.frontend.app.api.orders.route:loadOrder"
             ]
           }
         },
@@ -5287,11 +5287,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "examples.shop.frontend.app.api.users.route:loadAccount"
-            ],
             "effects": [
               "db_read"
+            ],
+            "qualified_calls": [
+              "examples.shop.frontend.app.api.users.route:loadAccount"
             ]
           }
         },
@@ -6000,11 +6000,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "examples.demo.frontend.app.api.users.route:database.users.find"
-            ],
             "effects": [
               "db_read"
+            ],
+            "qualified_calls": [
+              "examples.demo.frontend.app.api.users.route:database.users.find"
             ]
           }
         },
@@ -6245,11 +6245,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "backend.users_service:authenticate"
-            ],
             "effects": [
               "auth_check"
+            ],
+            "qualified_calls": [
+              "backend.users_service:authenticate"
             ],
             "link_confidence": "medium",
             "call_candidates": [
@@ -6320,7 +6320,9 @@
       },
       "node_id": "flow-cfef4e8dba6238fd:n4",
       "detail": "The branch is taken but performs no work — likely unfinished.",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     },
     {
       "id": "2d9cd792976631eb",
@@ -6355,7 +6357,9 @@
       },
       "node_id": "flow-a14422f6dd2875d3:n2",
       "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     },
     {
       "id": "eab63c83f19823c4",
@@ -6371,7 +6375,9 @@
       },
       "node_id": "flow-484f0b6804aa2ba6:n3",
       "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     },
     {
       "id": "2f85bea2b1d5a941",
@@ -6387,7 +6393,9 @@
       },
       "node_id": "flow-f74e7243a59c82e6:n3",
       "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     },
     {
       "id": "52579c8f864156ca",
@@ -6496,7 +6504,9 @@
       },
       "node_id": "flow-f9ae842409a8d60d:n2",
       "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     },
     {
       "id": "59fd4827af2add96",
@@ -6512,7 +6522,9 @@
       },
       "node_id": "flow-3fb7f77aa3ec9fd5:n5",
       "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     },
     {
       "id": "8fc720508c09144c",
@@ -6548,7 +6560,9 @@
       },
       "node_id": null,
       "detail": "profile[\"leaked\"] = \"true\"",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     }
   ],
   "files": [

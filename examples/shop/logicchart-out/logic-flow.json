@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T19:54:36.700609+00:00",
+  "generated_at": "2026-06-15T20:49:42.601352+00:00",
   "root": ".",
   "flows": [
     {
@@ -67,11 +67,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "backend.auth:require_role"
-            ],
             "effects": [
               "auth_check"
+            ],
+            "qualified_calls": [
+              "backend.auth:require_role"
             ],
             "link_confidence": "high",
             "call_candidates": [
@@ -98,11 +98,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "backend.api.admin_routes:do_delete"
-            ],
             "effects": [
               "db_write"
+            ],
+            "qualified_calls": [
+              "backend.api.admin_routes:do_delete"
             ]
           }
         },
@@ -1132,11 +1132,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "backend.api.users_routes:update_email"
-            ],
             "effects": [
               "db_write"
+            ],
+            "qualified_calls": [
+              "backend.api.users_routes:update_email"
             ]
           }
         },
@@ -3193,11 +3193,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "backend.payments_service:log_warning"
-            ],
             "effects": [
               "log"
+            ],
+            "qualified_calls": [
+              "backend.payments_service:log_warning"
             ]
           }
         },
@@ -3218,11 +3218,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "backend.payments_service:alert_ops"
-            ],
             "effects": [
               "log"
+            ],
+            "qualified_calls": [
+              "backend.payments_service:alert_ops"
             ]
           }
         },
@@ -3406,11 +3406,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "backend.auth:ensure_authenticated"
-            ],
             "effects": [
               "auth_check"
+            ],
+            "qualified_calls": [
+              "backend.auth:ensure_authenticated"
             ],
             "link_confidence": "high",
             "call_candidates": [
@@ -4260,11 +4260,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "frontend.app.api.orders.route:loadOrder"
-            ],
             "effects": [
               "db_read"
+            ],
+            "qualified_calls": [
+              "frontend.app.api.orders.route:loadOrder"
             ]
           }
         },
@@ -4571,11 +4571,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "frontend.app.api.users.route:loadAccount"
-            ],
             "effects": [
               "db_read"
+            ],
+            "qualified_calls": [
+              "frontend.app.api.users.route:loadAccount"
             ]
           }
         },
@@ -5359,11 +5359,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "backend.users_service:authenticate"
-            ],
             "effects": [
               "auth_check"
+            ],
+            "qualified_calls": [
+              "backend.users_service:authenticate"
             ],
             "link_confidence": "high",
             "call_candidates": [
@@ -5434,7 +5434,9 @@
       },
       "node_id": "flow-454eee0405381967:n4",
       "detail": "The branch is taken but performs no work — likely unfinished.",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     },
     {
       "id": "957bc27cae37c837",
@@ -5469,7 +5471,9 @@
       },
       "node_id": "flow-a8e844538cf5c5b4:n2",
       "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     },
     {
       "id": "99c80eaa831916f3",
@@ -5485,7 +5489,9 @@
       },
       "node_id": "flow-adbd361ae9be144a:n3",
       "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     },
     {
       "id": "80b94776d6c8df60",
@@ -5594,7 +5600,9 @@
       },
       "node_id": "flow-77b21193aa0c1d4d:n2",
       "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     },
     {
       "id": "622ade35bfcf623b",
@@ -5610,7 +5618,9 @@
       },
       "node_id": "flow-50e684eafc6a8ce3:n5",
       "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     },
     {
       "id": "22b81c0a670593f2",
@@ -5646,7 +5656,9 @@
       },
       "node_id": null,
       "detail": "profile[\"leaked\"] = \"true\"",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     },
     {
       "id": "c7170e6aac93f13b",

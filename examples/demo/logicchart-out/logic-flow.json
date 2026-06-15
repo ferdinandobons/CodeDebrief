@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T19:54:36.765714+00:00",
+  "generated_at": "2026-06-15T20:49:42.473109+00:00",
   "root": ".",
   "flows": [
     {
@@ -51,11 +51,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "backend.users:load_user"
-            ],
             "effects": [
               "db_read"
+            ],
+            "qualified_calls": [
+              "backend.users:load_user"
             ],
             "link_confidence": "high",
             "call_candidates": [
@@ -294,11 +294,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "backend.users:repository.fetch"
-            ],
             "effects": [
               "db_read"
+            ],
+            "qualified_calls": [
+              "backend.users:repository.fetch"
             ],
             "link_confidence": "medium",
             "call_candidates": [
@@ -403,11 +403,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "frontend.app.api.users.route:loadUser"
-            ],
             "effects": [
               "db_read"
+            ],
+            "qualified_calls": [
+              "frontend.app.api.users.route:loadUser"
             ],
             "link_confidence": "high",
             "call_candidates": [
@@ -836,11 +836,11 @@
             ],
             "reachable_from_entry": true,
             "reaches_terminal": true,
-            "qualified_calls": [
-              "frontend.app.api.users.route:database.users.find"
-            ],
             "effects": [
               "db_read"
+            ],
+            "qualified_calls": [
+              "frontend.app.api.users.route:database.users.find"
             ]
           }
         },
@@ -905,7 +905,9 @@
       },
       "node_id": "flow-3de3eacd67f96e64:n3",
       "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-      "metadata": {}
+      "metadata": {
+        "category": "single_flow"
+      }
     }
   ],
   "files": [

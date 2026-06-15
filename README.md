@@ -76,6 +76,12 @@ logicchart analyze --full
 logicchart view
 ```
 
+The Markdown report keeps a signal/noise split: `VERIFIED`/`INFERRED` findings in the
+main section and `POTENTIAL_GAP` review candidates folded under a collapsible
+"Review-only" block. Pass `--include-gaps` to `analyze`/`update` to expand it. An
+un-parseable or non-UTF-8 source file is skipped (and reported) rather than aborting
+the whole run, so the model stays in sync even mid-edit.
+
 Incrementally refresh after source changes:
 
 ```bash
@@ -130,10 +136,11 @@ Use `--platform codex`, `claude`, `gemini`, or `cursor` to install one target on
 
 ## MCP Server
 
-Install the optional MCP dependency:
+Install the optional MCP dependency (LogicChart is not on PyPI yet, so install the
+extra from the source checkout):
 
 ```bash
-pip install "logicchart[mcp]"
+uv tool install '.[mcp]'   # or, for development: uv sync --extra mcp
 ```
 
 Start the stdio server in the analyzed project:
@@ -181,7 +188,7 @@ Single-flow (reason about one flow):
 
 - `missing_branch`: a `match`/`switch` or `if`/`elif` chain on a state-like subject with no explicit `else`/`default`.
 - `dead_code`: code after a point where every path already returned or raised.
-- `broad_except_swallow`: an exception handler whose body silently discards the error.
+- `broad_except_swallow`: an exception handler that silently discards the error — an empty body or one that only logs it, with no re-raise or error return.
 - `no_op_branch`: an explicit `if` branch with an empty body.
 - `asymmetric_return`: a dispatch where most cases return/raise but one falls through (a likely missing return).
 - `dead_guard`: a truthiness guard on a module-level boolean constant, so one branch is always dead.

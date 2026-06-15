@@ -409,6 +409,13 @@ def/use data-flow primitive and the detectors it unblocks (type/schema contradic
 contradictory guards, state-machine inconsistency, null-handling); additional-language
 analyzers via the pluggable layer.
 
+**Not yet implemented (explicitly deferred).** Some surfaces named in §5.2/§5.4 are not in
+the current CLI and are deferred rather than dropped, so the gap is documented, not silent:
+the `watch` debounced rebuild; `install --hook` (the Claude Code PreToolUse nudge — distinct
+from the delivered `hook install` git auto-sync); the `--deep`/audit mode; and the
+confidence-threshold / evidence-filter query flags. The signal/noise split and `--include-gaps`
+gating (§5.2/§7) and the §5.3 query tools that exist today are delivered.
+
 **Standing rules across stages:** build the IR a detector needs before the detector; never
 ship an MCP tool name before its underlying data exists; keep the default report
 high-confidence; measure every noise claim against `examples/demo`, not the self-scan.
