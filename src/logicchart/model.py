@@ -36,13 +36,15 @@ class FindingKind(str, Enum):
     Values are the wire form, so JSON and existing comparisons are unchanged.
     """
 
-    # Single-flow (detectors.py)
+    # Single-flow, emitted by detectors.py (reason about one flow).
     MISSING_BRANCH = "missing_branch"
     DEAD_CODE = "dead_code"
     BROAD_EXCEPT_SWALLOW = "broad_except_swallow"
     NO_OP_BRANCH = "no_op_branch"
     ASYMMETRIC_RETURN = "asymmetric_return"
-    # Project-level / cross-flow (cross_flow.py)
+    # Project-level, emitted by cross_flow.py. dead_guard still reasons about a single
+    # flow (category single_flow) but needs the project-level constant table; the rest
+    # compare sibling flows.
     DEAD_GUARD = "dead_guard"
     INCONSISTENT_CASE_HANDLING = "inconsistent_case_handling"
     ENUM_EXHAUSTIVENESS = "enum_exhaustiveness"

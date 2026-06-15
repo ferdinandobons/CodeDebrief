@@ -213,11 +213,16 @@ include_public_functions = true
 max_call_depth = 4
 output_dir = "logicchart-out"
 self_exclude = true
+gated_detectors = false
 
 [logicchart.entrypoints]
 include = []
 exclude = []
 ```
+
+`gated_detectors` (default `false`) enables opt-in, review-tier detectors such as
+`auth_divergence` that are more prone to false positives (middleware/DI can authorize
+invisibly), so they are off unless you turn them on.
 
 `self_exclude` (default `true`) keeps LogicChart's own installed package — and, when
 you analyze its source checkout, its `tests/` — out of the generated model, so the
