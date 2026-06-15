@@ -81,8 +81,6 @@ class LanguageProfile:
     harvest_enums: Callable[[Any, bytes], dict[str, list[str]]] | None = None
     # Node-type vocabulary (C-family defaults).
     block_types: frozenset[str] = frozenset({"block"})
-    name_field: str = "name"
-    body_field: str = "body"
     if_type: str = "if_statement"
     condition_field: str = "condition"
     consequence_field: str = "consequence"
@@ -617,10 +615,24 @@ class TreeSitterAnalyzer:
     def _statement_children(self, node: Any | None) -> list[Any]:
         if node is None:
             return []
-        if node.type in self.profile.block_types:
+        profile = self.profile
+        if node.type in profile.block_types:
             return list(_named_children(node))
+        # A control-flow statement used directly as a branch body (an `else if`, where the
+        # alternative IS the nested if) must be dispatched by the walker, not flattened to
+        # one of its blocks - otherwise the middle branch is silently dropped.
+        dispatchable = (
+            {profile.if_type, profile.return_type}
+            | profile.switch_types
+            | profile.loop_types
+            | profile.throw_types
+        )
+        if profile.try_type is not None:
+            dispatchable.add(profile.try_type)
+        if node.type in dispatchable:
+            return [node]
         # A wrapper clause (else clause, then clause): descend into the block it holds.
-        blocks = [c for c in _named_children(node) if c.type in self.profile.block_types]
+        blocks = [c for c in _named_children(node) if c.type in profile.block_types]
         if blocks:
             return list(_named_children(blocks[-1]))
         return [node]

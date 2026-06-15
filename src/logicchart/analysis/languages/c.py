@@ -8,18 +8,13 @@ from typing import Any
 
 import tree_sitter_c
 
+from logicchart.analysis.languages._common import module_name, text
 from logicchart.analysis.treesitter import (
     LanguageProfile,
     TreeSitterAnalyzer,
     TSDefinition,
 )
 from logicchart.config import LogicChartConfig
-
-
-def _text(node: Any | None, source: bytes) -> str:
-    if node is None:
-        return ""
-    return source[node.start_byte : node.end_byte].decode("utf-8", "replace")
 
 
 def _definitions(
@@ -39,14 +34,14 @@ def _function_name(declarator: Any | None, source: bytes) -> str:
     node = declarator
     while node is not None:
         if node.type == "identifier":
-            return _text(node, source)
+            return text(node, source)
         inner = node.child_by_field_name("declarator")
         if inner is None:
             break
         node = inner
     if node is not None:
         ident = next((c for c in node.children if c.type == "identifier"), None)
-        return _text(ident, source)
+        return text(ident, source)
     return ""
 
 
@@ -68,10 +63,6 @@ def _is_test(relative: str, name: str) -> bool:
     return "test" in relative.lower() or name.startswith("test")
 
 
-def _module_name(relative: str) -> str:
-    return Path(relative).parent.as_posix().replace("/", ".").strip(".")
-
-
 C_PROFILE = LanguageProfile(
     language="c",
     grammar_loader=tree_sitter_c.language,
@@ -79,7 +70,7 @@ C_PROFILE = LanguageProfile(
     definitions=_definitions,
     classify=_classify,
     is_test=_is_test,
-    module_name=_module_name,
+    module_name=module_name,
     block_types=frozenset({"compound_statement"}),
     switch_types=frozenset({"switch_statement"}),
     switch_value_field="condition",

@@ -59,6 +59,33 @@ def test_csharp_methods_switch_try_calls(tmp_path: Path) -> None:
     assert _flow(model, "Svc.Persist").id in handle.calls
 
 
+def test_else_if_chain_keeps_the_middle_branch(tmp_path: Path) -> None:
+    # An `else if` whose alternative IS the nested if must still be walked - the middle
+    # branch must not be dropped (regression for _statement_children).
+    cs = (
+        "class Svc { public int H(Status status) {\n"
+        "  if (status == Active) { return 1; }\n"
+        "  else if (status == Suspended) { return 2; }\n"
+        "  else { return 0; }\n"
+        "} }\n"
+    )
+    java = (
+        "class Svc { int h(Status status) {\n"
+        "  if (status == Active) { return 1; }\n"
+        "  else if (status == Suspended) { return 2; }\n"
+        "  else { return 0; }\n"
+        "} }\n"
+    )
+    for name, content in (("Svc.cs", cs), ("Svc.java", java)):
+        root = tmp_path / name.split(".")[1]
+        root.mkdir()
+        model = _analyze(root, name, content)
+        flow = model.flows[0]
+        labels = {n.label for n in flow.nodes if n.kind is NodeKind.DECISION}
+        assert "status == Active" in labels
+        assert "status == Suspended" in labels  # the middle branch survives
+
+
 def test_php_methods_switch_calls(tmp_path: Path) -> None:
     model = _analyze(tmp_path, "Svc.php", _PHP)
     by_name = {f.name: f for f in model.flows}

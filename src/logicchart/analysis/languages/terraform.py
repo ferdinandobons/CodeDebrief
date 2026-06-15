@@ -17,6 +17,7 @@ import tree_sitter_hcl
 from tree_sitter import Language, Parser
 
 from logicchart.analysis.common import FlowBuilder, PendingEdge, annotate_reachability
+from logicchart.analysis.languages._common import module_name
 from logicchart.config import LogicChartConfig
 from logicchart.model import Evidence, FileAnalysis, Flow, NodeKind, SourceLocation
 from logicchart.util import file_sha256, relpath, stable_id
@@ -37,7 +38,7 @@ class TerraformAnalyzer:
         source = path.read_bytes()
         relative = relpath(path, self.root)
         tree = self.parser.parse(source)
-        module = _module_name(relative)
+        module = module_name(relative)
         flows = [
             flow
             for block in _blocks(tree.root_node)
@@ -171,10 +172,6 @@ def _text(node: Any | None, source: bytes) -> str:
 
 def _location(relative: str, node: Any) -> SourceLocation:
     return SourceLocation(relative, int(node.start_point.row) + 1, int(node.end_point.row) + 1)
-
-
-def _module_name(relative: str) -> str:
-    return Path(relative).parent.as_posix().replace("/", ".").strip(".")
 
 
 def build_analyzer(root: Path, config: LogicChartConfig) -> TerraformAnalyzer:

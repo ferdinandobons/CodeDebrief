@@ -8,6 +8,7 @@ from typing import Any
 
 import tree_sitter_go
 
+from logicchart.analysis.languages._common import module_name, text
 from logicchart.analysis.treesitter import (
     LanguageProfile,
     TreeSitterAnalyzer,
@@ -19,23 +20,17 @@ from logicchart.model import Flow
 _TEST_PREFIXES = ("Test", "Benchmark", "Example", "Fuzz")
 
 
-def _text(node: Any | None, source: bytes) -> str:
-    if node is None:
-        return ""
-    return source[node.start_byte : node.end_byte].decode("utf-8", "replace")
-
-
 def _definitions(
     root: Any, source: bytes, relative: str, profile: LanguageProfile
 ) -> Iterable[TSDefinition]:
     for node in root.children:
         if node.type == "function_declaration":
-            name = _text(node.child_by_field_name("name"), source)
+            name = text(node.child_by_field_name("name"), source)
             body = node.child_by_field_name("body")
             if name and body is not None:
                 yield TSDefinition(name=name, node=node, body=body, owner="")
         elif node.type == "method_declaration":
-            name = _text(node.child_by_field_name("name"), source)
+            name = text(node.child_by_field_name("name"), source)
             body = node.child_by_field_name("body")
             owner = _receiver_type(node.child_by_field_name("receiver"), source)
             if name and body is not None:
@@ -49,7 +44,7 @@ def _receiver_type(receiver: Any | None, source: bytes) -> str:
     while stack:
         current = stack.pop()
         if current.type == "type_identifier":
-            return _text(current, source)
+            return text(current, source)
         stack.extend(current.children)
     return ""
 
@@ -71,12 +66,6 @@ def _is_test(relative: str, name: str) -> bool:
     return relative.endswith("_test.go") or name.startswith(_TEST_PREFIXES)
 
 
-def _module_name(relative: str) -> str:
-    # A Go package is a directory, so files in the same directory share a module name
-    # and same-package calls resolve against one another.
-    return Path(relative).parent.as_posix().replace("/", ".").strip(".")
-
-
 def _entry_label(flow: Flow) -> str:
     prefix = {"main": "Main", "test": "Test"}.get(flow.entry_kind)
     return f"{prefix}: {flow.name}" if prefix else flow.name
@@ -89,7 +78,7 @@ GO_PROFILE = LanguageProfile(
     definitions=_definitions,
     classify=_classify,
     is_test=_is_test,
-    module_name=_module_name,
+    module_name=module_name,
     entry_label=_entry_label,
     switch_types=frozenset({"expression_switch_statement", "type_switch_statement"}),
     switch_body_field=None,
