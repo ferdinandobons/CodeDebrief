@@ -42,6 +42,18 @@ from logicchart.util import compact_text, file_sha256, relpath, stable_id
 
 HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"}
 LOOP_TYPES = {"for_statement", "for_in_statement", "while_statement", "do_statement"}
+# JavaScript variants the TypeScript grammar also parses; labelled "javascript" in the IR.
+_JS_SUFFIXES = {".js", ".jsx", ".mjs", ".cjs"}
+# Next.js convention files, in their TS and JS spellings.
+_ROUTE_FILES = ("/route.ts", "/route.tsx", "/route.js", "/route.jsx", "/route.mjs")
+_PAGE_FILES = (
+    "/page.tsx",
+    "/page.jsx",
+    "/page.js",
+    "/layout.tsx",
+    "/layout.jsx",
+    "/layout.js",
+)
 FUNCTION_TYPES = {"function_declaration", "generator_function_declaration"}
 CALLABLE_VALUE_TYPES = {"arrow_function", "function_expression", "generator_function"}
 
@@ -65,17 +77,21 @@ class TypeScriptAnalyzer:
         source_bytes = path.read_bytes()
         source = source_bytes.decode("utf-8")
         relative = relpath(path, self.root)
-        language = "tsx" if path.suffix == ".tsx" else "typescript"
+        # The TypeScript grammar is a superset of JavaScript, so the same analyzer
+        # handles .js/.jsx/.mjs/.cjs; only the grammar variant (JSX) and the IR
+        # language label differ.
+        jsx = path.suffix in {".tsx", ".jsx"}
+        ir_language = "javascript" if path.suffix in _JS_SUFFIXES else "typescript"
         grammar = (
             tree_sitter_typescript.language_tsx()
-            if language == "tsx"
+            if jsx
             else tree_sitter_typescript.language_typescript()
         )
         parser = Parser(Language(grammar))
         tree = parser.parse(source_bytes)
         findings: list[Finding] = []
         flows = [
-            self._analyze_definition(item, source_bytes, source, relative, findings)
+            self._analyze_definition(item, source_bytes, source, relative, ir_language, findings)
             for item in _definitions(tree.root_node, source_bytes, relative)
         ]
         import_map = _import_map(tree.root_node, source_bytes, relative)
@@ -84,7 +100,7 @@ class TypeScriptAnalyzer:
             attach_qualified_calls(flow, import_map, module_name)
         return FileAnalysis(
             path=relative,
-            language="typescript",
+            language=ir_language,
             sha256=file_sha256(path),
             enums=_harvest_enums(tree.root_node, source_bytes),
             flows=flows,
@@ -97,6 +113,7 @@ class TypeScriptAnalyzer:
         source_bytes: bytes,
         source: str,
         relative: str,
+        ir_language: str,
         findings: list[Finding],
     ) -> Flow:
         qualified_name = (
@@ -116,7 +133,7 @@ class TypeScriptAnalyzer:
             id=f"flow-{stable_id(symbol)}",
             name=qualified_name,
             symbol=symbol,
-            language="typescript",
+            language=ir_language,
             framework=framework,
             entry_kind=entry_kind,
             is_entrypoint=is_entrypoint,
@@ -528,22 +545,20 @@ def _classify_entrypoint(
     if (
         definition.name in HTTP_METHODS
         and definition.exported
-        and (normalized.endswith("/route.ts") or normalized.endswith("/route.tsx"))
+        and normalized.endswith(_ROUTE_FILES)
     ):
         return "nextjs", "route", override if override is not None else True
     if definition.name == "middleware" and definition.exported:
         return "nextjs", "middleware", override if override is not None else True
     if ('"use server"' in source or "'use server'" in source) and definition.exported:
         return "nextjs", "server_action", override if override is not None else True
-    if relative.endswith(("/page.tsx", "/layout.tsx")) and (
-        definition.default_export or definition.exported
-    ):
+    if relative.endswith(_PAGE_FILES) and (definition.default_export or definition.exported):
         return "nextjs", "component", override if override is not None else True
     if re.match(r"^(on|handle)[A-Z_]", definition.name):
         return "react", "event_handler", override if override is not None else True
     if definition.name.startswith("use") and len(definition.name) > 3:
         return "react", "hook", override if override is not None else definition.exported
-    if relative.endswith(".tsx") and definition.name[:1].isupper():
+    if relative.endswith((".tsx", ".jsx")) and definition.name[:1].isupper():
         return "react", "component", override if override is not None else definition.exported
     if definition.owner:
         return "generic", "method", override if override is not None else False
@@ -648,9 +663,10 @@ def _entry_label(flow: Flow) -> str:
 
 
 def _module_name(relative: str) -> str:
-    for suffix in (".tsx", ".ts"):
+    for suffix in (".tsx", ".ts", ".jsx", ".mjs", ".cjs", ".js"):
         if relative.endswith(suffix):
             relative = relative[: -len(suffix)]
+            break
     return relative.replace("/", ".")
 
 

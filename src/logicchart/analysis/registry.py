@@ -45,7 +45,9 @@ def _make_go(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
 # The order is the dispatch precedence when two specs claim the same suffix (none do today).
 LANGUAGES: tuple[LanguageSpec, ...] = (
     LanguageSpec("python", (".py",), PythonAnalyzer),
-    LanguageSpec("typescript", (".ts", ".tsx"), TypeScriptAnalyzer),
+    # JavaScript reuses the TypeScript analyzer (the grammar is a superset) so it keeps
+    # the Next.js / React entry-point detection; the IR labels it "javascript".
+    LanguageSpec("typescript", (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"), TypeScriptAnalyzer),
     LanguageSpec("go", (".go",), _make_go),
 )
 
