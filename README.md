@@ -102,6 +102,15 @@ logicchart diff base/logic-flow.json logicchart-out/logic-flow.json \
 It prints a GitHub-Markdown summary of findings introduced/resolved/persisting,
 optionally writes SARIF, and exits non-zero when a finding is introduced.
 
+Keep the committed model from drifting with managed git hooks (and a union merge
+driver for `logic-flow.json`):
+
+```bash
+logicchart hook install     # writes post-commit / post-checkout hooks
+logicchart hook status
+logicchart hook uninstall
+```
+
 ## Agent Instructions
 
 Install persistent instructions that tell coding agents to consult and refresh LogicChart:
