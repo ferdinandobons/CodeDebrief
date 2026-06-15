@@ -173,7 +173,11 @@ class ProjectAnalyzer:
                     target.tests.append(flow.symbol)
 
     def _find_inconsistent_decisions(self, flows: list[Flow]) -> list[Finding]:
-        domains: dict[str, list[tuple[Flow, FlowNode, set[str]]]] = {}
+        # Bucket comparable decisions by (language, domain). Language scoping keeps
+        # cross-language closed sets apart (e.g. a Python `status` enum is never
+        # compared against a TS `status` union), which removes the cross-language
+        # false positive without changing same-language behavior.
+        buckets: dict[tuple[str, str], list[tuple[Flow, FlowNode, set[str]]]] = {}
         for flow in flows:
             if flow.metadata.get("test"):
                 continue
@@ -183,10 +187,10 @@ class ProjectAnalyzer:
                 domain = str(node.metadata.get("domain", ""))
                 values = {str(item) for item in node.metadata.get("values", []) if str(item)}
                 if domain and values:
-                    domains.setdefault(domain, []).append((flow, node, values))
+                    buckets.setdefault((flow.language, domain), []).append((flow, node, values))
 
         findings: list[Finding] = []
-        for domain, decisions in domains.items():
+        for (_language, domain), decisions in buckets.items():
             all_values = set().union(*(values for _, _, values in decisions))
             if len(all_values) < 2:
                 continue

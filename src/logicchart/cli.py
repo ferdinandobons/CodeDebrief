@@ -217,6 +217,7 @@ exclude = []
 include_public_functions = true
 max_call_depth = 4
 output_dir = "logicchart-out"
+self_exclude = true
 
 [logicchart.entrypoints]
 include = []

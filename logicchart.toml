@@ -4,6 +4,10 @@ exclude = []
 include_public_functions = true
 max_call_depth = 4
 output_dir = "logicchart-out"
+# LogicChart self-excludes its own src/logicchart and tests from the published
+# artifact, so the committed dogfood model covers the example corpus, never the
+# tool's own parser internals (which would only add self-scan noise).
+self_exclude = true
 
 [logicchart.entrypoints]
 include = []

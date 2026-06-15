@@ -34,6 +34,7 @@ class LogicChartConfig:
     include_public_functions: bool = True
     max_call_depth: int = 4
     output_dir: str = "logicchart-out"
+    self_exclude: bool = True
     entrypoint_include: list[str] = field(default_factory=list)
     entrypoint_exclude: list[str] = field(default_factory=list)
 
@@ -51,6 +52,7 @@ class LogicChartConfig:
             )
             config.max_call_depth = int(section.get("max_call_depth", config.max_call_depth))
             config.output_dir = str(section.get("output_dir", config.output_dir))
+            config.self_exclude = bool(section.get("self_exclude", config.self_exclude))
             entrypoints = section.get("entrypoints", {})
             config.entrypoint_include = list(entrypoints.get("include", []))
             config.entrypoint_exclude = list(entrypoints.get("exclude", []))

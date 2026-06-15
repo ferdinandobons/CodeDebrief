@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-06-15T14:00:49.668098+00:00",
+  "generated_at": "2026-06-15T16:25:15.902607+00:00",
   "root": ".",
   "flows": [
     {
@@ -708,21 +708,6 @@
       },
       "node_id": "flow-3de3eacd67f96e64:n3",
       "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases."
-    },
-    {
-      "id": "e32db3299e300c6d",
-      "kind": "inconsistent_case_handling",
-      "severity": "warning",
-      "message": "Related flows explicitly mention additional status cases; review fallback handling for: UserStatus.ACTIVE",
-      "evidence": "POTENTIAL_GAP",
-      "flow_id": "flow-9006888be936bd6a",
-      "location": {
-        "path": "backend/users.py",
-        "start_line": 27,
-        "end_line": 27
-      },
-      "node_id": "flow-9006888be936bd6a:n5",
-      "detail": "The comparison is heuristic and based on values used by other status decisions in this project."
     }
   ],
   "files": [
@@ -761,6 +746,6 @@
     ],
     "entrypoint_count": 4,
     "flow_count": 6,
-    "finding_count": 2
+    "finding_count": 1
   }
 }

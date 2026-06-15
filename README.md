@@ -161,11 +161,16 @@ exclude = []
 include_public_functions = true
 max_call_depth = 4
 output_dir = "logicchart-out"
+self_exclude = true
 
 [logicchart.entrypoints]
 include = []
 exclude = []
 ```
+
+`self_exclude` (default `true`) keeps LogicChart's own installed package — and, when
+you analyze its source checkout, its `tests/` — out of the generated model, so the
+artifact is never polluted by the tool scanning its own internals.
 
 Use `.logicchartignore` for generated files or directories that should not be analyzed.
 
