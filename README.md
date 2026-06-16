@@ -4,32 +4,21 @@
 
 ![Before AI you built code by hand and understood it; with AI no one knows how it works; with AI plus LogicChart you understand it again.](docs/assets/why-logicchart.svg)
 
-In the AI era it is easy to lose track of what your own code does. You ship fast, but end up
-unsure how a feature works or how the pieces fit together - until, eventually, no one really
-knows. LogicChart turns the code back into something you can see and reason about: a navigable
-map of its decisions, so you can understand what was built, hold it in your head again, and
-spot exactly what to change or where the gaps are.
+In the AI era it is easy to lose track of what your own code does. You ship fast, then end up
+unsure how it works or fits together - until no one really knows. LogicChart turns the code
+back into a navigable map of its decisions, so you can see it, reason about it, and spot what
+to change or where the gaps are.
 
-Code is full of decisions: `if` this, `switch` on that, handle one case, raise an error on
-another. That branching logic is what matters most when you review or change code, yet it is
-scattered across files and hard to see at a glance. LogicChart reads your source and turns it
-into clear, clickable flowcharts.
+It reads your source (never running it) and turns the branching logic - the `if` / `switch` /
+`match` paths, the error handling, and the calls that link one piece to the next - into clear,
+clickable flowcharts. Deterministic and offline: the same code always gives the same result.
+Terraform gets a resource dependency graph instead.
 
-It works by **reading the structure of your code, never running it**, so it is fast, safe, and
-deterministic - the same code always gives the same result. For each function it captures the
-branches, the error paths, what each branch ends up doing (return, raise, redirect, save
-data), and the calls that connect one piece of logic to the next. Terraform is declarative, so
-there it draws the resource dependency graph instead.
-
-One model can cover **a single function, one part of the system (all of `backend/`,
-`frontend/`, or `infra/`), or the whole codebase** - and you can zoom between them. It is saved
-in git next to your code as a machine-readable model, reviewable flowcharts, and an
-interactive viewer, made to be read by both people and coding agents.
-
-Every finding is tagged with **how sure LogicChart is**: `VERIFIED` (read straight from the
-code), `INFERRED` (a deterministic rule), or `POTENTIAL_GAP` (worth a look). A fact is never
-dressed up as a guess. (Optional LLM add-ons may enrich the labels later, but are never needed
-to build the model.)
+One model covers **a single function, one part of the system (`backend/`, `frontend/`,
+`infra/`), or the whole codebase**, and you can zoom between them. It is committed to git as a
+machine-readable model, reviewable flowcharts, and an interactive viewer - for people and
+coding agents alike. Every finding is tagged by confidence - `VERIFIED`, `INFERRED`, or
+`POTENTIAL_GAP` - so a fact is never dressed up as a guess.
 
 > **Status:** early alpha. The logical model is versioned, but its schema may still evolve
 > before 1.0.
