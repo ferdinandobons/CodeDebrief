@@ -16,14 +16,14 @@ control-flow map.
 > **Status:** early alpha. The logical model is versioned, but the schema may evolve before
 > 1.0.
 >
-> **Latest release:** [v0.6.1](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.6.1) ·
+> **Latest release:** [v0.6.2](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.6.2) ·
 > [Changelog](CHANGELOG.md)
 
 ## What You Get
 
 - A whole-codebase decision map, from one function to a large polyglot repo.
-- A local HTML viewer built for broad codebase study: scope map, file tree, flow search,
-  language filter, expandable flowcharts, source panel, and prioritized findings.
+- A local HTML viewer built for broad codebase study: expandable codebase map, file tree,
+  flow search, language filter, inline flowcharts, source panel, and prioritized findings.
 - A reviewable Markdown report with Mermaid flowcharts.
 - A canonical JSON model for CI, scripts, and MCP/coding-agent context.
 - Evidence labels on every finding: `VERIFIED`, `INFERRED`, or `POTENTIAL_GAP`.

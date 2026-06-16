@@ -6,6 +6,15 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.6.2 - 2026-06-16
+
+### Changed
+
+- Updated the HTML viewer so expanding a scope keeps the whole codebase map visible while
+  drawing the active scope's files and flows in place.
+- Added folder/file path focus in the viewer (`#path=...`) so clicking a tree folder
+  highlights the matching canvas area without losing global context.
+
 ## 0.6.1 - 2026-06-16
 
 ### Fixed
