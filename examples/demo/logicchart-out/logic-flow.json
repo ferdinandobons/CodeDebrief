@@ -1,8 +1,1937 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T22:51:03.722434+00:00",
+  "generated_at": "2026-06-16T00:00:27.040596+00:00",
   "root": ".",
   "flows": [
+    {
+      "id": "flow-b226bde59bf18f8f",
+      "name": "AuthService.CanAccess",
+      "symbol": "backend.auth:AuthService.CanAccess",
+      "language": "csharp",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "backend/auth/AuthService.cs",
+        "start_line": 12,
+        "end_line": 25
+      },
+      "nodes": [
+        {
+          "id": "flow-b226bde59bf18f8f:n1",
+          "kind": "entry",
+          "label": "AuthService.CanAccess",
+          "location": {
+            "path": "backend/auth/AuthService.cs",
+            "start_line": 12,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.auth:AuthService.CanAccess",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-b226bde59bf18f8f:n2",
+          "kind": "decision",
+          "label": "Switch on role",
+          "location": {
+            "path": "backend/auth/AuthService.cs",
+            "start_line": 14,
+            "end_line": 24
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "role",
+            "domain": "role",
+            "values": [
+              "Role.Admin",
+              "Role.Guest",
+              "Role.Member"
+            ],
+            "subject": "role",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "Role",
+            "branches": [
+              {
+                "label": "Role.Admin",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "Role.Member",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "Role.Guest",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "returns",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-b226bde59bf18f8f:n3",
+          "kind": "terminal",
+          "label": "Return true",
+          "location": {
+            "path": "backend/auth/AuthService.cs",
+            "start_line": 17,
+            "end_line": 17
+          },
+          "evidence": "VERIFIED",
+          "detail": "return true;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-b226bde59bf18f8f:n4",
+          "kind": "call",
+          "label": "Call IsPublic()",
+          "location": {
+            "path": "backend/auth/AuthService.cs",
+            "start_line": 19,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "return IsPublic(resource);",
+          "metadata": {
+            "calls": [
+              "IsPublic"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.auth:IsPublic"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-11f1f62f87562179"
+            ],
+            "target_flow": "flow-11f1f62f87562179",
+            "target_symbol": "backend.auth:AuthService.IsPublic"
+          }
+        },
+        {
+          "id": "flow-b226bde59bf18f8f:n5",
+          "kind": "terminal",
+          "label": "Return IsPublic(resource)",
+          "location": {
+            "path": "backend/auth/AuthService.cs",
+            "start_line": 19,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "return IsPublic(resource);",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-b226bde59bf18f8f:n6",
+          "kind": "terminal",
+          "label": "Return false",
+          "location": {
+            "path": "backend/auth/AuthService.cs",
+            "start_line": 21,
+            "end_line": 21
+          },
+          "evidence": "VERIFIED",
+          "detail": "return false;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-b226bde59bf18f8f:n7",
+          "kind": "terminal",
+          "label": "Return false",
+          "location": {
+            "path": "backend/auth/AuthService.cs",
+            "start_line": 23,
+            "end_line": 23
+          },
+          "evidence": "VERIFIED",
+          "detail": "return false;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-b226bde59bf18f8f:e1",
+          "source": "flow-b226bde59bf18f8f:n1",
+          "target": "flow-b226bde59bf18f8f:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b226bde59bf18f8f:e2",
+          "source": "flow-b226bde59bf18f8f:n2",
+          "target": "flow-b226bde59bf18f8f:n3",
+          "label": "Role.Admin",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b226bde59bf18f8f:e3",
+          "source": "flow-b226bde59bf18f8f:n2",
+          "target": "flow-b226bde59bf18f8f:n4",
+          "label": "Role.Member",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b226bde59bf18f8f:e4",
+          "source": "flow-b226bde59bf18f8f:n4",
+          "target": "flow-b226bde59bf18f8f:n5",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b226bde59bf18f8f:e5",
+          "source": "flow-b226bde59bf18f8f:n2",
+          "target": "flow-b226bde59bf18f8f:n6",
+          "label": "Role.Guest",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b226bde59bf18f8f:e6",
+          "source": "flow-b226bde59bf18f8f:n2",
+          "target": "flow-b226bde59bf18f8f:n7",
+          "label": "default",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-11f1f62f87562179"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
+    {
+      "id": "flow-a089159bd40801b9",
+      "name": "BillingService.settle",
+      "symbol": "backend.billing:BillingService.settle",
+      "language": "java",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "backend/billing/BillingService.java",
+        "start_line": 13,
+        "end_line": 26
+      },
+      "nodes": [
+        {
+          "id": "flow-a089159bd40801b9:n1",
+          "kind": "entry",
+          "label": "BillingService.settle",
+          "location": {
+            "path": "backend/billing/BillingService.java",
+            "start_line": 13,
+            "end_line": 26
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.billing:BillingService.settle",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a089159bd40801b9:n2",
+          "kind": "decision",
+          "label": "Switch on state",
+          "location": {
+            "path": "backend/billing/BillingService.java",
+            "start_line": 14,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "state",
+            "domain": "state",
+            "values": [
+              "AUTHORIZED",
+              "CAPTURED",
+              "FAILED",
+              "REFUNDED"
+            ],
+            "subject": "state",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "AUTHORIZED",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "CAPTURED",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "REFUNDED",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "FAILED",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "returns",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a089159bd40801b9:n3",
+          "kind": "call",
+          "label": "Call capture()",
+          "location": {
+            "path": "backend/billing/BillingService.java",
+            "start_line": 16,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "return capture(amountCents);",
+          "metadata": {
+            "calls": [
+              "capture"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.billing:capture"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-a4e4a0d7d38cc4fa"
+            ],
+            "target_flow": "flow-a4e4a0d7d38cc4fa",
+            "target_symbol": "backend.billing:BillingService.capture"
+          }
+        },
+        {
+          "id": "flow-a089159bd40801b9:n4",
+          "kind": "terminal",
+          "label": "Return capture(amountCents)",
+          "location": {
+            "path": "backend/billing/BillingService.java",
+            "start_line": 16,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "return capture(amountCents);",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a089159bd40801b9:n5",
+          "kind": "terminal",
+          "label": "Return \"already_settled\"",
+          "location": {
+            "path": "backend/billing/BillingService.java",
+            "start_line": 18,
+            "end_line": 18
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"already_settled\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a089159bd40801b9:n6",
+          "kind": "terminal",
+          "label": "Return \"refunded\"",
+          "location": {
+            "path": "backend/billing/BillingService.java",
+            "start_line": 20,
+            "end_line": 20
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"refunded\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a089159bd40801b9:n7",
+          "kind": "terminal",
+          "label": "Return \"retry_payment\"",
+          "location": {
+            "path": "backend/billing/BillingService.java",
+            "start_line": 22,
+            "end_line": 22
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"retry_payment\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a089159bd40801b9:n8",
+          "kind": "terminal",
+          "label": "Return \"manual_review\"",
+          "location": {
+            "path": "backend/billing/BillingService.java",
+            "start_line": 24,
+            "end_line": 24
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"manual_review\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-a089159bd40801b9:e1",
+          "source": "flow-a089159bd40801b9:n1",
+          "target": "flow-a089159bd40801b9:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a089159bd40801b9:e2",
+          "source": "flow-a089159bd40801b9:n2",
+          "target": "flow-a089159bd40801b9:n3",
+          "label": "AUTHORIZED",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a089159bd40801b9:e3",
+          "source": "flow-a089159bd40801b9:n3",
+          "target": "flow-a089159bd40801b9:n4",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a089159bd40801b9:e4",
+          "source": "flow-a089159bd40801b9:n2",
+          "target": "flow-a089159bd40801b9:n5",
+          "label": "CAPTURED",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a089159bd40801b9:e5",
+          "source": "flow-a089159bd40801b9:n2",
+          "target": "flow-a089159bd40801b9:n6",
+          "label": "REFUNDED",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a089159bd40801b9:e6",
+          "source": "flow-a089159bd40801b9:n2",
+          "target": "flow-a089159bd40801b9:n7",
+          "label": "FAILED",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a089159bd40801b9:e7",
+          "source": "flow-a089159bd40801b9:n2",
+          "target": "flow-a089159bd40801b9:n8",
+          "label": "default",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-a4e4a0d7d38cc4fa"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
+    {
+      "id": "flow-b702de640dfbab12",
+      "name": "Catalog.reorderQuantity",
+      "symbol": "backend.catalog:Catalog.reorderQuantity",
+      "language": "php",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "backend/catalog/Catalog.php",
+        "start_line": 7,
+        "end_line": 21
+      },
+      "nodes": [
+        {
+          "id": "flow-b702de640dfbab12:n1",
+          "kind": "entry",
+          "label": "Catalog.reorderQuantity",
+          "location": {
+            "path": "backend/catalog/Catalog.php",
+            "start_line": 7,
+            "end_line": 21
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.catalog:Catalog.reorderQuantity",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-b702de640dfbab12:n2",
+          "kind": "decision",
+          "label": "Switch on $availability",
+          "location": {
+            "path": "backend/catalog/Catalog.php",
+            "start_line": 9,
+            "end_line": 20
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "$availability",
+            "domain": "",
+            "values": [
+              "\"discontinued\"",
+              "\"in_stock\"",
+              "\"low_stock\"",
+              "\"out_of_stock\""
+            ],
+            "subject": "$availability",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "\"in_stock\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "\"low_stock\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "\"out_of_stock\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "\"discontinued\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "returns",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-b702de640dfbab12:n3",
+          "kind": "terminal",
+          "label": "Return 0",
+          "location": {
+            "path": "backend/catalog/Catalog.php",
+            "start_line": 11,
+            "end_line": 11
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 0;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-b702de640dfbab12:n4",
+          "kind": "call",
+          "label": "Call restockTarget()",
+          "location": {
+            "path": "backend/catalog/Catalog.php",
+            "start_line": 13,
+            "end_line": 13
+          },
+          "evidence": "VERIFIED",
+          "detail": "return $this->restockTarget() - $onHand;",
+          "metadata": {
+            "calls": [
+              "restockTarget"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.catalog:restockTarget"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-f98e4c798beecd3f"
+            ],
+            "target_flow": "flow-f98e4c798beecd3f",
+            "target_symbol": "backend.catalog:Catalog.restockTarget"
+          }
+        },
+        {
+          "id": "flow-b702de640dfbab12:n5",
+          "kind": "terminal",
+          "label": "Return $this->restockTarget() - $onHand",
+          "location": {
+            "path": "backend/catalog/Catalog.php",
+            "start_line": 13,
+            "end_line": 13
+          },
+          "evidence": "VERIFIED",
+          "detail": "return $this->restockTarget() - $onHand;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-b702de640dfbab12:n6",
+          "kind": "call",
+          "label": "Call restockTarget()",
+          "location": {
+            "path": "backend/catalog/Catalog.php",
+            "start_line": 15,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "return $this->restockTarget();",
+          "metadata": {
+            "calls": [
+              "restockTarget"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.catalog:restockTarget"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-f98e4c798beecd3f"
+            ],
+            "target_flow": "flow-f98e4c798beecd3f",
+            "target_symbol": "backend.catalog:Catalog.restockTarget"
+          }
+        },
+        {
+          "id": "flow-b702de640dfbab12:n7",
+          "kind": "terminal",
+          "label": "Return $this->restockTarget()",
+          "location": {
+            "path": "backend/catalog/Catalog.php",
+            "start_line": 15,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "return $this->restockTarget();",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-b702de640dfbab12:n8",
+          "kind": "terminal",
+          "label": "Return 0",
+          "location": {
+            "path": "backend/catalog/Catalog.php",
+            "start_line": 17,
+            "end_line": 17
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 0;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-b702de640dfbab12:n9",
+          "kind": "terminal",
+          "label": "Return 0",
+          "location": {
+            "path": "backend/catalog/Catalog.php",
+            "start_line": 19,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 0;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-b702de640dfbab12:e1",
+          "source": "flow-b702de640dfbab12:n1",
+          "target": "flow-b702de640dfbab12:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b702de640dfbab12:e2",
+          "source": "flow-b702de640dfbab12:n2",
+          "target": "flow-b702de640dfbab12:n3",
+          "label": "\"in_stock\"",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b702de640dfbab12:e3",
+          "source": "flow-b702de640dfbab12:n2",
+          "target": "flow-b702de640dfbab12:n4",
+          "label": "\"low_stock\"",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b702de640dfbab12:e4",
+          "source": "flow-b702de640dfbab12:n4",
+          "target": "flow-b702de640dfbab12:n5",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b702de640dfbab12:e5",
+          "source": "flow-b702de640dfbab12:n2",
+          "target": "flow-b702de640dfbab12:n6",
+          "label": "\"out_of_stock\"",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b702de640dfbab12:e6",
+          "source": "flow-b702de640dfbab12:n6",
+          "target": "flow-b702de640dfbab12:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b702de640dfbab12:e7",
+          "source": "flow-b702de640dfbab12:n2",
+          "target": "flow-b702de640dfbab12:n8",
+          "label": "\"discontinued\"",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b702de640dfbab12:e8",
+          "source": "flow-b702de640dfbab12:n2",
+          "target": "flow-b702de640dfbab12:n9",
+          "label": "default",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-f98e4c798beecd3f"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
+    {
+      "id": "flow-361a56fe0ff06af0",
+      "name": "Notifier.deliver",
+      "symbol": "backend.notifications:Notifier.deliver",
+      "language": "ruby",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "backend/notifications/notifier.rb",
+        "start_line": 4,
+        "end_line": 15
+      },
+      "nodes": [
+        {
+          "id": "flow-361a56fe0ff06af0:n1",
+          "kind": "entry",
+          "label": "Notifier.deliver",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 4,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.notifications:Notifier.deliver",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:n2",
+          "kind": "decision",
+          "label": "Switch on channel",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 5,
+            "end_line": 14
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "channel",
+            "domain": "",
+            "values": [
+              ":email",
+              ":push",
+              ":sms"
+            ],
+            "subject": "channel",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": ":email",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": ":sms",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": ":push",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "falls_through",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:n3",
+          "kind": "call",
+          "label": "Call send_email()",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 7,
+            "end_line": 7
+          },
+          "evidence": "VERIFIED",
+          "detail": "send_email(message)",
+          "metadata": {
+            "calls": [
+              "send_email"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "effects": [
+              "network"
+            ],
+            "qualified_calls": [
+              "backend.notifications:send_email"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-a6f2cf6897eab6f4"
+            ],
+            "target_flow": "flow-a6f2cf6897eab6f4",
+            "target_symbol": "backend.notifications:Notifier.send_email"
+          }
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:n4",
+          "kind": "call",
+          "label": "Call send_sms()",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 9,
+            "end_line": 9
+          },
+          "evidence": "VERIFIED",
+          "detail": "send_sms(message)",
+          "metadata": {
+            "calls": [
+              "send_sms"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "effects": [
+              "network"
+            ],
+            "qualified_calls": [
+              "backend.notifications:send_sms"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-15929a604b30aadf"
+            ],
+            "target_flow": "flow-15929a604b30aadf",
+            "target_symbol": "backend.notifications:Notifier.send_sms"
+          }
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:n5",
+          "kind": "call",
+          "label": "Call send_push()",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 11,
+            "end_line": 11
+          },
+          "evidence": "VERIFIED",
+          "detail": "send_push(message)",
+          "metadata": {
+            "calls": [
+              "send_push"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "effects": [
+              "network"
+            ],
+            "qualified_calls": [
+              "backend.notifications:send_push"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-c093a998648019e9"
+            ],
+            "target_flow": "flow-c093a998648019e9",
+            "target_symbol": "backend.notifications:Notifier.send_push"
+          }
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:n6",
+          "kind": "call",
+          "label": "Call queue_for_review()",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 13,
+            "end_line": 13
+          },
+          "evidence": "VERIFIED",
+          "detail": "queue_for_review(message)",
+          "metadata": {
+            "calls": [
+              "queue_for_review"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.notifications:queue_for_review"
+            ],
+            "link_confidence": "medium",
+            "call_candidates": [
+              "flow-132416d127f7fc0d"
+            ],
+            "target_flow": "flow-132416d127f7fc0d",
+            "target_symbol": "backend.notifications:Notifier.queue_for_review"
+          }
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:n7",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 4,
+            "end_line": 15
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-361a56fe0ff06af0:e1",
+          "source": "flow-361a56fe0ff06af0:n1",
+          "target": "flow-361a56fe0ff06af0:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:e2",
+          "source": "flow-361a56fe0ff06af0:n2",
+          "target": "flow-361a56fe0ff06af0:n3",
+          "label": ":email",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:e3",
+          "source": "flow-361a56fe0ff06af0:n2",
+          "target": "flow-361a56fe0ff06af0:n4",
+          "label": ":sms",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:e4",
+          "source": "flow-361a56fe0ff06af0:n2",
+          "target": "flow-361a56fe0ff06af0:n5",
+          "label": ":push",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:e5",
+          "source": "flow-361a56fe0ff06af0:n2",
+          "target": "flow-361a56fe0ff06af0:n6",
+          "label": "default",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:e6",
+          "source": "flow-361a56fe0ff06af0:n3",
+          "target": "flow-361a56fe0ff06af0:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:e7",
+          "source": "flow-361a56fe0ff06af0:n4",
+          "target": "flow-361a56fe0ff06af0:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:e8",
+          "source": "flow-361a56fe0ff06af0:n5",
+          "target": "flow-361a56fe0ff06af0:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-361a56fe0ff06af0:e9",
+          "source": "flow-361a56fe0ff06af0:n6",
+          "target": "flow-361a56fe0ff06af0:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-a6f2cf6897eab6f4",
+        "flow-15929a604b30aadf",
+        "flow-c093a998648019e9",
+        "flow-132416d127f7fc0d"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
+    {
+      "id": "flow-132416d127f7fc0d",
+      "name": "Notifier.queue_for_review",
+      "symbol": "backend.notifications:Notifier.queue_for_review",
+      "language": "ruby",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "backend/notifications/notifier.rb",
+        "start_line": 31,
+        "end_line": 33
+      },
+      "nodes": [
+        {
+          "id": "flow-132416d127f7fc0d:n1",
+          "kind": "entry",
+          "label": "Notifier.queue_for_review",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 31,
+            "end_line": 33
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.notifications:Notifier.queue_for_review",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-132416d127f7fc0d:n2",
+          "kind": "call",
+          "label": "Call length()",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 32,
+            "end_line": 32
+          },
+          "evidence": "VERIFIED",
+          "detail": "message.length",
+          "metadata": {
+            "calls": [
+              "length"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.notifications:length"
+            ]
+          }
+        },
+        {
+          "id": "flow-132416d127f7fc0d:n3",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 31,
+            "end_line": 33
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-132416d127f7fc0d:e1",
+          "source": "flow-132416d127f7fc0d:n1",
+          "target": "flow-132416d127f7fc0d:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-132416d127f7fc0d:e2",
+          "source": "flow-132416d127f7fc0d:n2",
+          "target": "flow-132416d127f7fc0d:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "flow-361a56fe0ff06af0"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
+    {
+      "id": "flow-a6f2cf6897eab6f4",
+      "name": "Notifier.send_email",
+      "symbol": "backend.notifications:Notifier.send_email",
+      "language": "ruby",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "backend/notifications/notifier.rb",
+        "start_line": 19,
+        "end_line": 21
+      },
+      "nodes": [
+        {
+          "id": "flow-a6f2cf6897eab6f4:n1",
+          "kind": "entry",
+          "label": "Notifier.send_email",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 19,
+            "end_line": 21
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.notifications:Notifier.send_email",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a6f2cf6897eab6f4:n2",
+          "kind": "call",
+          "label": "Call length()",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 20,
+            "end_line": 20
+          },
+          "evidence": "VERIFIED",
+          "detail": "message.length",
+          "metadata": {
+            "calls": [
+              "length"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.notifications:length"
+            ]
+          }
+        },
+        {
+          "id": "flow-a6f2cf6897eab6f4:n3",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 19,
+            "end_line": 21
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-a6f2cf6897eab6f4:e1",
+          "source": "flow-a6f2cf6897eab6f4:n1",
+          "target": "flow-a6f2cf6897eab6f4:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a6f2cf6897eab6f4:e2",
+          "source": "flow-a6f2cf6897eab6f4:n2",
+          "target": "flow-a6f2cf6897eab6f4:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "flow-361a56fe0ff06af0"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
+    {
+      "id": "flow-c093a998648019e9",
+      "name": "Notifier.send_push",
+      "symbol": "backend.notifications:Notifier.send_push",
+      "language": "ruby",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "backend/notifications/notifier.rb",
+        "start_line": 27,
+        "end_line": 29
+      },
+      "nodes": [
+        {
+          "id": "flow-c093a998648019e9:n1",
+          "kind": "entry",
+          "label": "Notifier.send_push",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 27,
+            "end_line": 29
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.notifications:Notifier.send_push",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-c093a998648019e9:n2",
+          "kind": "call",
+          "label": "Call length()",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 28,
+            "end_line": 28
+          },
+          "evidence": "VERIFIED",
+          "detail": "message.length",
+          "metadata": {
+            "calls": [
+              "length"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.notifications:length"
+            ]
+          }
+        },
+        {
+          "id": "flow-c093a998648019e9:n3",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 27,
+            "end_line": 29
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-c093a998648019e9:e1",
+          "source": "flow-c093a998648019e9:n1",
+          "target": "flow-c093a998648019e9:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-c093a998648019e9:e2",
+          "source": "flow-c093a998648019e9:n2",
+          "target": "flow-c093a998648019e9:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "flow-361a56fe0ff06af0"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
+    {
+      "id": "flow-15929a604b30aadf",
+      "name": "Notifier.send_sms",
+      "symbol": "backend.notifications:Notifier.send_sms",
+      "language": "ruby",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "backend/notifications/notifier.rb",
+        "start_line": 23,
+        "end_line": 25
+      },
+      "nodes": [
+        {
+          "id": "flow-15929a604b30aadf:n1",
+          "kind": "entry",
+          "label": "Notifier.send_sms",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 23,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.notifications:Notifier.send_sms",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-15929a604b30aadf:n2",
+          "kind": "call",
+          "label": "Call length()",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 24,
+            "end_line": 24
+          },
+          "evidence": "VERIFIED",
+          "detail": "message.length",
+          "metadata": {
+            "calls": [
+              "length"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.notifications:length"
+            ]
+          }
+        },
+        {
+          "id": "flow-15929a604b30aadf:n3",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "backend/notifications/notifier.rb",
+            "start_line": 23,
+            "end_line": 25
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-15929a604b30aadf:e1",
+          "source": "flow-15929a604b30aadf:n1",
+          "target": "flow-15929a604b30aadf:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-15929a604b30aadf:e2",
+          "source": "flow-15929a604b30aadf:n2",
+          "target": "flow-15929a604b30aadf:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "flow-361a56fe0ff06af0"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
+    {
+      "id": "flow-38ef9d2c42d7f7ea",
+      "name": "Order.CanFulfill",
+      "symbol": "backend.orders:Order.CanFulfill",
+      "language": "go",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "backend/orders/service.go",
+        "start_line": 38,
+        "end_line": 46
+      },
+      "nodes": [
+        {
+          "id": "flow-38ef9d2c42d7f7ea:n1",
+          "kind": "entry",
+          "label": "Order.CanFulfill",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 38,
+            "end_line": 46
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.orders:Order.CanFulfill",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-38ef9d2c42d7f7ea:n2",
+          "kind": "decision",
+          "label": "o.Status != StatusPaid",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 39,
+            "end_line": 39
+          },
+          "evidence": "VERIFIED",
+          "detail": "o.Status != StatusPaid",
+          "metadata": {
+            "condition": "o.Status != StatusPaid",
+            "domain": "status",
+            "values": [
+              "StatusPaid"
+            ],
+            "subject": "o.Status",
+            "operator": "!=",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-38ef9d2c42d7f7ea:n3",
+          "kind": "terminal",
+          "label": "Return false",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 40,
+            "end_line": 40
+          },
+          "evidence": "VERIFIED",
+          "detail": "return false",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-38ef9d2c42d7f7ea:n4",
+          "kind": "decision",
+          "label": "!stockAvailable",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 42,
+            "end_line": 42
+          },
+          "evidence": "VERIFIED",
+          "detail": "!stockAvailable",
+          "metadata": {
+            "condition": "!stockAvailable",
+            "domain": "",
+            "values": [],
+            "subject": "stockAvailable",
+            "operator": "",
+            "negation": true,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-38ef9d2c42d7f7ea:n5",
+          "kind": "terminal",
+          "label": "Return false",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 43,
+            "end_line": 43
+          },
+          "evidence": "VERIFIED",
+          "detail": "return false",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-38ef9d2c42d7f7ea:n6",
+          "kind": "terminal",
+          "label": "Return true",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 45,
+            "end_line": 45
+          },
+          "evidence": "VERIFIED",
+          "detail": "return true",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-38ef9d2c42d7f7ea:e1",
+          "source": "flow-38ef9d2c42d7f7ea:n1",
+          "target": "flow-38ef9d2c42d7f7ea:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-38ef9d2c42d7f7ea:e2",
+          "source": "flow-38ef9d2c42d7f7ea:n2",
+          "target": "flow-38ef9d2c42d7f7ea:n3",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-38ef9d2c42d7f7ea:e3",
+          "source": "flow-38ef9d2c42d7f7ea:n2",
+          "target": "flow-38ef9d2c42d7f7ea:n4",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-38ef9d2c42d7f7ea:e4",
+          "source": "flow-38ef9d2c42d7f7ea:n4",
+          "target": "flow-38ef9d2c42d7f7ea:n5",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-38ef9d2c42d7f7ea:e5",
+          "source": "flow-38ef9d2c42d7f7ea:n4",
+          "target": "flow-38ef9d2c42d7f7ea:n6",
+          "label": "No",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
+    {
+      "id": "flow-7def16576d7663e7",
+      "name": "Order.NextAction",
+      "symbol": "backend.orders:Order.NextAction",
+      "language": "go",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": true,
+      "location": {
+        "path": "backend/orders/service.go",
+        "start_line": 20,
+        "end_line": 35
+      },
+      "nodes": [
+        {
+          "id": "flow-7def16576d7663e7:n1",
+          "kind": "entry",
+          "label": "Order.NextAction",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 20,
+            "end_line": 35
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.orders:Order.NextAction",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-7def16576d7663e7:n2",
+          "kind": "decision",
+          "label": "Switch on o.Status",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 21,
+            "end_line": 34
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "o.Status",
+            "domain": "status",
+            "values": [
+              "StatusCancelled",
+              "StatusDelivered",
+              "StatusPaid",
+              "StatusPending",
+              "StatusShipped"
+            ],
+            "subject": "o.Status",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "StatusPending",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "StatusPaid",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "StatusShipped",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "StatusDelivered",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "StatusCancelled",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "returns",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-7def16576d7663e7:n3",
+          "kind": "terminal",
+          "label": "Return \"await_payment\"",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 23,
+            "end_line": 23
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"await_payment\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-7def16576d7663e7:n4",
+          "kind": "terminal",
+          "label": "Return \"schedule_shipment\"",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 25,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"schedule_shipment\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-7def16576d7663e7:n5",
+          "kind": "terminal",
+          "label": "Return \"track_delivery\"",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 27,
+            "end_line": 27
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"track_delivery\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-7def16576d7663e7:n6",
+          "kind": "terminal",
+          "label": "Return \"request_review\"",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 29,
+            "end_line": 29
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"request_review\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-7def16576d7663e7:n7",
+          "kind": "terminal",
+          "label": "Return \"issue_refund\"",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 31,
+            "end_line": 31
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"issue_refund\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-7def16576d7663e7:n8",
+          "kind": "terminal",
+          "label": "Return \"manual_review\"",
+          "location": {
+            "path": "backend/orders/service.go",
+            "start_line": 33,
+            "end_line": 33
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"manual_review\"",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-7def16576d7663e7:e1",
+          "source": "flow-7def16576d7663e7:n1",
+          "target": "flow-7def16576d7663e7:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7def16576d7663e7:e2",
+          "source": "flow-7def16576d7663e7:n2",
+          "target": "flow-7def16576d7663e7:n3",
+          "label": "StatusPending",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7def16576d7663e7:e3",
+          "source": "flow-7def16576d7663e7:n2",
+          "target": "flow-7def16576d7663e7:n4",
+          "label": "StatusPaid",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7def16576d7663e7:e4",
+          "source": "flow-7def16576d7663e7:n2",
+          "target": "flow-7def16576d7663e7:n5",
+          "label": "StatusShipped",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7def16576d7663e7:e5",
+          "source": "flow-7def16576d7663e7:n2",
+          "target": "flow-7def16576d7663e7:n6",
+          "label": "StatusDelivered",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7def16576d7663e7:e6",
+          "source": "flow-7def16576d7663e7:n2",
+          "target": "flow-7def16576d7663e7:n7",
+          "label": "StatusCancelled",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7def16576d7663e7:e7",
+          "source": "flow-7def16576d7663e7:n2",
+          "target": "flow-7def16576d7663e7:n8",
+          "label": "default",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
     {
       "id": "flow-9006888be936bd6a",
       "name": "get_user",
@@ -362,6 +2291,821 @@
       }
     },
     {
+      "id": "flow-081d78e37a773634",
+      "name": "dispatch",
+      "symbol": "edge.router.src:dispatch",
+      "language": "rust",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "edge/router/src/lib.rs",
+        "start_line": 10,
+        "end_line": 17
+      },
+      "nodes": [
+        {
+          "id": "flow-081d78e37a773634:n1",
+          "kind": "entry",
+          "label": "dispatch",
+          "location": {
+            "path": "edge/router/src/lib.rs",
+            "start_line": 10,
+            "end_line": 17
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "edge.router.src:dispatch",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-081d78e37a773634:n2",
+          "kind": "decision",
+          "label": "Switch on route",
+          "location": {
+            "path": "edge/router/src/lib.rs",
+            "start_line": 11,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "route",
+            "domain": "",
+            "values": [
+              "Route::Health",
+              "Route::Orders",
+              "Route::Unknown",
+              "Route::Users"
+            ],
+            "subject": "route",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Route::Health",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "Route::Users",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "Route::Orders",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "Route::Unknown",
+                "outcome": "falls_through",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-081d78e37a773634:n3",
+          "kind": "action",
+          "label": "200",
+          "location": {
+            "path": "edge/router/src/lib.rs",
+            "start_line": 12,
+            "end_line": 12
+          },
+          "evidence": "VERIFIED",
+          "detail": "200",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-081d78e37a773634:n4",
+          "kind": "call",
+          "label": "Call guard()",
+          "location": {
+            "path": "edge/router/src/lib.rs",
+            "start_line": 13,
+            "end_line": 13
+          },
+          "evidence": "VERIFIED",
+          "detail": "guard(authenticated)",
+          "metadata": {
+            "calls": [
+              "guard"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "edge.router.src:guard"
+            ],
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-993bb9d5d0bf4b6e"
+            ],
+            "target_flow": "flow-993bb9d5d0bf4b6e",
+            "target_symbol": "edge.router.src:guard"
+          }
+        },
+        {
+          "id": "flow-081d78e37a773634:n5",
+          "kind": "call",
+          "label": "Call guard()",
+          "location": {
+            "path": "edge/router/src/lib.rs",
+            "start_line": 14,
+            "end_line": 14
+          },
+          "evidence": "VERIFIED",
+          "detail": "guard(authenticated)",
+          "metadata": {
+            "calls": [
+              "guard"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "edge.router.src:guard"
+            ],
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-993bb9d5d0bf4b6e"
+            ],
+            "target_flow": "flow-993bb9d5d0bf4b6e",
+            "target_symbol": "edge.router.src:guard"
+          }
+        },
+        {
+          "id": "flow-081d78e37a773634:n6",
+          "kind": "action",
+          "label": "404",
+          "location": {
+            "path": "edge/router/src/lib.rs",
+            "start_line": 15,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "404",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-081d78e37a773634:n7",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "edge/router/src/lib.rs",
+            "start_line": 10,
+            "end_line": 17
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-081d78e37a773634:e1",
+          "source": "flow-081d78e37a773634:n1",
+          "target": "flow-081d78e37a773634:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-081d78e37a773634:e2",
+          "source": "flow-081d78e37a773634:n2",
+          "target": "flow-081d78e37a773634:n3",
+          "label": "Route::Health",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-081d78e37a773634:e3",
+          "source": "flow-081d78e37a773634:n2",
+          "target": "flow-081d78e37a773634:n4",
+          "label": "Route::Users",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-081d78e37a773634:e4",
+          "source": "flow-081d78e37a773634:n2",
+          "target": "flow-081d78e37a773634:n5",
+          "label": "Route::Orders",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-081d78e37a773634:e5",
+          "source": "flow-081d78e37a773634:n2",
+          "target": "flow-081d78e37a773634:n6",
+          "label": "Route::Unknown",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-081d78e37a773634:e6",
+          "source": "flow-081d78e37a773634:n3",
+          "target": "flow-081d78e37a773634:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-081d78e37a773634:e7",
+          "source": "flow-081d78e37a773634:n4",
+          "target": "flow-081d78e37a773634:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-081d78e37a773634:e8",
+          "source": "flow-081d78e37a773634:n5",
+          "target": "flow-081d78e37a773634:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-081d78e37a773634:e9",
+          "source": "flow-081d78e37a773634:n6",
+          "target": "flow-081d78e37a773634:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-993bb9d5d0bf4b6e"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "edge"
+        ]
+      }
+    },
+    {
+      "id": "flow-88c2580fdbcaad79",
+      "name": "evict_index",
+      "symbol": "edge:evict_index",
+      "language": "c",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "edge/cache.c",
+        "start_line": 10,
+        "end_line": 24
+      },
+      "nodes": [
+        {
+          "id": "flow-88c2580fdbcaad79:n1",
+          "kind": "entry",
+          "label": "evict_index",
+          "location": {
+            "path": "edge/cache.c",
+            "start_line": 10,
+            "end_line": 24
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "edge:evict_index",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:n2",
+          "kind": "decision",
+          "label": "size <= 0",
+          "location": {
+            "path": "edge/cache.c",
+            "start_line": 11,
+            "end_line": 11
+          },
+          "evidence": "VERIFIED",
+          "detail": "size <= 0",
+          "metadata": {
+            "condition": "size <= 0",
+            "domain": "",
+            "values": [],
+            "subject": "size <= 0",
+            "operator": "",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:n3",
+          "kind": "terminal",
+          "label": "Return -1",
+          "location": {
+            "path": "edge/cache.c",
+            "start_line": 12,
+            "end_line": 12
+          },
+          "evidence": "VERIFIED",
+          "detail": "return -1;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:n4",
+          "kind": "decision",
+          "label": "Switch on policy",
+          "location": {
+            "path": "edge/cache.c",
+            "start_line": 14,
+            "end_line": 23
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "policy",
+            "domain": "",
+            "values": [
+              "POLICY_FIFO",
+              "POLICY_LFU",
+              "POLICY_LRU"
+            ],
+            "subject": "policy",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "POLICY_LRU",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "POLICY_LFU",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "POLICY_FIFO",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "returns",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:n5",
+          "kind": "terminal",
+          "label": "Return 0",
+          "location": {
+            "path": "edge/cache.c",
+            "start_line": 16,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 0;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:n6",
+          "kind": "terminal",
+          "label": "Return size / 2",
+          "location": {
+            "path": "edge/cache.c",
+            "start_line": 18,
+            "end_line": 18
+          },
+          "evidence": "VERIFIED",
+          "detail": "return size / 2;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:n7",
+          "kind": "terminal",
+          "label": "Return size - 1",
+          "location": {
+            "path": "edge/cache.c",
+            "start_line": 20,
+            "end_line": 20
+          },
+          "evidence": "VERIFIED",
+          "detail": "return size - 1;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:n8",
+          "kind": "terminal",
+          "label": "Return 0",
+          "location": {
+            "path": "edge/cache.c",
+            "start_line": 22,
+            "end_line": 22
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 0;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-88c2580fdbcaad79:e1",
+          "source": "flow-88c2580fdbcaad79:n1",
+          "target": "flow-88c2580fdbcaad79:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:e2",
+          "source": "flow-88c2580fdbcaad79:n2",
+          "target": "flow-88c2580fdbcaad79:n3",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:e3",
+          "source": "flow-88c2580fdbcaad79:n2",
+          "target": "flow-88c2580fdbcaad79:n4",
+          "label": "No",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:e4",
+          "source": "flow-88c2580fdbcaad79:n4",
+          "target": "flow-88c2580fdbcaad79:n5",
+          "label": "POLICY_LRU",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:e5",
+          "source": "flow-88c2580fdbcaad79:n4",
+          "target": "flow-88c2580fdbcaad79:n6",
+          "label": "POLICY_LFU",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:e6",
+          "source": "flow-88c2580fdbcaad79:n4",
+          "target": "flow-88c2580fdbcaad79:n7",
+          "label": "POLICY_FIFO",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-88c2580fdbcaad79:e7",
+          "source": "flow-88c2580fdbcaad79:n4",
+          "target": "flow-88c2580fdbcaad79:n8",
+          "label": "default",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "edge"
+        ]
+      }
+    },
+    {
+      "id": "flow-e59a7853839b21f0",
+      "name": "GET",
+      "symbol": "frontend.app.api.orders.route:GET",
+      "language": "typescript",
+      "framework": "nextjs",
+      "entry_kind": "route",
+      "is_entrypoint": true,
+      "location": {
+        "path": "frontend/app/api/orders/route.ts",
+        "start_line": 3,
+        "end_line": 16
+      },
+      "nodes": [
+        {
+          "id": "flow-e59a7853839b21f0:n1",
+          "kind": "entry",
+          "label": "Route: GET",
+          "location": {
+            "path": "frontend/app/api/orders/route.ts",
+            "start_line": 3,
+            "end_line": 16
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "frontend.app.api.orders.route:GET",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-e59a7853839b21f0:n2",
+          "kind": "call",
+          "label": "Call loadOrder()",
+          "location": {
+            "path": "frontend/app/api/orders/route.ts",
+            "start_line": 4,
+            "end_line": 4
+          },
+          "evidence": "VERIFIED",
+          "detail": "const order = await loadOrder(request);",
+          "metadata": {
+            "calls": [
+              "loadOrder"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "effects": [
+              "db_read"
+            ],
+            "qualified_calls": [
+              "frontend.app.api.orders.route:loadOrder"
+            ],
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-b702e4be67436003"
+            ],
+            "target_flow": "flow-b702e4be67436003",
+            "target_symbol": "frontend.app.api.orders.route:loadOrder"
+          }
+        },
+        {
+          "id": "flow-e59a7853839b21f0:n3",
+          "kind": "decision",
+          "label": "Switch on order.state",
+          "location": {
+            "path": "frontend/app/api/orders/route.ts",
+            "start_line": 6,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "order.state",
+            "domain": "state",
+            "values": [
+              "\"closed\"",
+              "\"open\"",
+              "\"paid\""
+            ],
+            "subject": "order.state",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "\"open\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "\"paid\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "\"closed\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "returns",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-e59a7853839b21f0:n4",
+          "kind": "call",
+          "label": "Call Response.json()",
+          "location": {
+            "path": "frontend/app/api/orders/route.ts",
+            "start_line": 8,
+            "end_line": 8
+          },
+          "evidence": "VERIFIED",
+          "detail": "return Response.json(order);",
+          "metadata": {
+            "calls": [
+              "Response.json"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "frontend.app.api.orders.route:Response.json"
+            ]
+          }
+        },
+        {
+          "id": "flow-e59a7853839b21f0:n5",
+          "kind": "terminal",
+          "label": "Return Response.json(order)",
+          "location": {
+            "path": "frontend/app/api/orders/route.ts",
+            "start_line": 8,
+            "end_line": 8
+          },
+          "evidence": "VERIFIED",
+          "detail": "return Response.json(order);",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-e59a7853839b21f0:n6",
+          "kind": "call",
+          "label": "Call Response.json()",
+          "location": {
+            "path": "frontend/app/api/orders/route.ts",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "return Response.json(order);",
+          "metadata": {
+            "calls": [
+              "Response.json"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "frontend.app.api.orders.route:Response.json"
+            ]
+          }
+        },
+        {
+          "id": "flow-e59a7853839b21f0:n7",
+          "kind": "terminal",
+          "label": "Return Response.json(order)",
+          "location": {
+            "path": "frontend/app/api/orders/route.ts",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "return Response.json(order);",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-e59a7853839b21f0:n8",
+          "kind": "terminal",
+          "label": "Return new Response(\"Closed\", { status: 410 })",
+          "location": {
+            "path": "frontend/app/api/orders/route.ts",
+            "start_line": 12,
+            "end_line": 12
+          },
+          "evidence": "VERIFIED",
+          "detail": "return new Response(\"Closed\", { status: 410 });",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-e59a7853839b21f0:n9",
+          "kind": "terminal",
+          "label": "Return new Response(\"Bad state\", { status: 400 })",
+          "location": {
+            "path": "frontend/app/api/orders/route.ts",
+            "start_line": 14,
+            "end_line": 14
+          },
+          "evidence": "VERIFIED",
+          "detail": "return new Response(\"Bad state\", { status: 400 });",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-e59a7853839b21f0:e1",
+          "source": "flow-e59a7853839b21f0:n1",
+          "target": "flow-e59a7853839b21f0:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-e59a7853839b21f0:e2",
+          "source": "flow-e59a7853839b21f0:n2",
+          "target": "flow-e59a7853839b21f0:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-e59a7853839b21f0:e3",
+          "source": "flow-e59a7853839b21f0:n3",
+          "target": "flow-e59a7853839b21f0:n4",
+          "label": "\"open\"",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-e59a7853839b21f0:e4",
+          "source": "flow-e59a7853839b21f0:n4",
+          "target": "flow-e59a7853839b21f0:n5",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-e59a7853839b21f0:e5",
+          "source": "flow-e59a7853839b21f0:n3",
+          "target": "flow-e59a7853839b21f0:n6",
+          "label": "\"paid\"",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-e59a7853839b21f0:e6",
+          "source": "flow-e59a7853839b21f0:n6",
+          "target": "flow-e59a7853839b21f0:n7",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-e59a7853839b21f0:e7",
+          "source": "flow-e59a7853839b21f0:n3",
+          "target": "flow-e59a7853839b21f0:n8",
+          "label": "\"closed\"",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-e59a7853839b21f0:e8",
+          "source": "flow-e59a7853839b21f0:n3",
+          "target": "flow-e59a7853839b21f0:n9",
+          "label": "default",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-b702e4be67436003"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "exported": true,
+        "default_export": false,
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "frontend"
+        ]
+      }
+    },
+    {
       "id": "flow-3de3eacd67f96e64",
       "name": "POST",
       "symbol": "frontend.app.api.users.route:POST",
@@ -371,8 +3115,8 @@
       "is_entrypoint": true,
       "location": {
         "path": "frontend/app/api/users/route.ts",
-        "start_line": 1,
-        "end_line": 10
+        "start_line": 4,
+        "end_line": 13
       },
       "nodes": [
         {
@@ -381,8 +3125,8 @@
           "label": "Route: POST",
           "location": {
             "path": "frontend/app/api/users/route.ts",
-            "start_line": 1,
-            "end_line": 10
+            "start_line": 4,
+            "end_line": 13
           },
           "evidence": "VERIFIED",
           "detail": "",
@@ -398,8 +3142,8 @@
           "label": "Call loadUser()",
           "location": {
             "path": "frontend/app/api/users/route.ts",
-            "start_line": 2,
-            "end_line": 2
+            "start_line": 5,
+            "end_line": 5
           },
           "evidence": "VERIFIED",
           "detail": "const user = await loadUser(request);",
@@ -429,8 +3173,8 @@
           "label": "Switch on user.status",
           "location": {
             "path": "frontend/app/api/users/route.ts",
-            "start_line": 4,
-            "end_line": 9
+            "start_line": 7,
+            "end_line": 12
           },
           "evidence": "VERIFIED",
           "detail": "",
@@ -472,8 +3216,8 @@
           "label": "Call Response.json()",
           "location": {
             "path": "frontend/app/api/users/route.ts",
-            "start_line": 6,
-            "end_line": 6
+            "start_line": 9,
+            "end_line": 9
           },
           "evidence": "VERIFIED",
           "detail": "return Response.json(user);",
@@ -494,8 +3238,8 @@
           "label": "Return Response.json(user)",
           "location": {
             "path": "frontend/app/api/users/route.ts",
-            "start_line": 6,
-            "end_line": 6
+            "start_line": 9,
+            "end_line": 9
           },
           "evidence": "VERIFIED",
           "detail": "return Response.json(user);",
@@ -510,8 +3254,8 @@
           "label": "Return new Response(\"Blocked\", { status: 403 })",
           "location": {
             "path": "frontend/app/api/users/route.ts",
-            "start_line": 8,
-            "end_line": 8
+            "start_line": 11,
+            "end_line": 11
           },
           "evidence": "VERIFIED",
           "detail": "return new Response(\"Blocked\", { status: 403 });",
@@ -526,8 +3270,8 @@
           "label": "Complete",
           "location": {
             "path": "frontend/app/api/users/route.ts",
-            "start_line": 1,
-            "end_line": 10
+            "start_line": 4,
+            "end_line": 13
           },
           "evidence": "INFERRED",
           "detail": "",
@@ -732,6 +3476,1252 @@
       }
     },
     {
+      "id": "flow-8a4924a1be17b42e",
+      "name": "statusLabel",
+      "symbol": "frontend.lib.status:statusLabel",
+      "language": "javascript",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": true,
+      "location": {
+        "path": "frontend/lib/status.js",
+        "start_line": 3,
+        "end_line": 14
+      },
+      "nodes": [
+        {
+          "id": "flow-8a4924a1be17b42e:n1",
+          "kind": "entry",
+          "label": "statusLabel",
+          "location": {
+            "path": "frontend/lib/status.js",
+            "start_line": 3,
+            "end_line": 14
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "frontend.lib.status:statusLabel",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-8a4924a1be17b42e:n2",
+          "kind": "decision",
+          "label": "Switch on status",
+          "location": {
+            "path": "frontend/lib/status.js",
+            "start_line": 4,
+            "end_line": 13
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "condition": "status",
+            "domain": "status",
+            "values": [
+              "\"active\"",
+              "\"deleted\"",
+              "\"suspended\""
+            ],
+            "subject": "status",
+            "operator": "switch",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "\"active\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "\"suspended\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "\"deleted\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "returns",
+                "implicit": false
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-8a4924a1be17b42e:n3",
+          "kind": "terminal",
+          "label": "Return \"Active\"",
+          "location": {
+            "path": "frontend/lib/status.js",
+            "start_line": 6,
+            "end_line": 6
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"Active\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-8a4924a1be17b42e:n4",
+          "kind": "terminal",
+          "label": "Return \"Suspended\"",
+          "location": {
+            "path": "frontend/lib/status.js",
+            "start_line": 8,
+            "end_line": 8
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"Suspended\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-8a4924a1be17b42e:n5",
+          "kind": "terminal",
+          "label": "Return \"Deleted\"",
+          "location": {
+            "path": "frontend/lib/status.js",
+            "start_line": 10,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"Deleted\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-8a4924a1be17b42e:n6",
+          "kind": "terminal",
+          "label": "Return \"Unknown\"",
+          "location": {
+            "path": "frontend/lib/status.js",
+            "start_line": 12,
+            "end_line": 12
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"Unknown\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-8a4924a1be17b42e:e1",
+          "source": "flow-8a4924a1be17b42e:n1",
+          "target": "flow-8a4924a1be17b42e:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-8a4924a1be17b42e:e2",
+          "source": "flow-8a4924a1be17b42e:n2",
+          "target": "flow-8a4924a1be17b42e:n3",
+          "label": "\"active\"",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-8a4924a1be17b42e:e3",
+          "source": "flow-8a4924a1be17b42e:n2",
+          "target": "flow-8a4924a1be17b42e:n4",
+          "label": "\"suspended\"",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-8a4924a1be17b42e:e4",
+          "source": "flow-8a4924a1be17b42e:n2",
+          "target": "flow-8a4924a1be17b42e:n5",
+          "label": "\"deleted\"",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-8a4924a1be17b42e:e5",
+          "source": "flow-8a4924a1be17b42e:n2",
+          "target": "flow-8a4924a1be17b42e:n6",
+          "label": "default",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "exported": true,
+        "default_export": false,
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "frontend"
+        ]
+      }
+    },
+    {
+      "id": "flow-bad14c2738f04ca9",
+      "name": "aws_s3_bucket.this",
+      "symbol": "infra.modules.assets:aws_s3_bucket.this",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "resource",
+      "is_entrypoint": true,
+      "location": {
+        "path": "infra/modules/assets/main.tf",
+        "start_line": 5,
+        "end_line": 11
+      },
+      "nodes": [
+        {
+          "id": "flow-bad14c2738f04ca9:n1",
+          "kind": "entry",
+          "label": "resource: aws_s3_bucket.this",
+          "location": {
+            "path": "infra/modules/assets/main.tf",
+            "start_line": 5,
+            "end_line": 11
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra.modules.assets:aws_s3_bucket.this",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        },
+        {
+          "id": "flow-bad14c2738f04ca9:n2",
+          "kind": "call",
+          "label": "Depends on var.origin_id",
+          "location": {
+            "path": "infra/modules/assets/main.tf",
+            "start_line": 5,
+            "end_line": 11
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "origin_id"
+            ],
+            "qualified_calls": [
+              "infra.modules.assets:var.origin_id"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-7a2b770d4a370ca6"
+            ],
+            "target_flow": "flow-7a2b770d4a370ca6",
+            "target_symbol": "infra.modules.assets:var.origin_id"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-bad14c2738f04ca9:e1",
+          "source": "flow-bad14c2738f04ca9:n1",
+          "target": "flow-bad14c2738f04ca9:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-7a2b770d4a370ca6"
+      ],
+      "called_by": [
+        "flow-5b8c2d5bd6212e56"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "resource",
+        "scope": [
+          "infra"
+        ]
+      }
+    },
+    {
+      "id": "flow-7f204fddfcb641a8",
+      "name": "aws_instance.backend",
+      "symbol": "infra:aws_instance.backend",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "resource",
+      "is_entrypoint": true,
+      "location": {
+        "path": "infra/main.tf",
+        "start_line": 1,
+        "end_line": 10
+      },
+      "nodes": [
+        {
+          "id": "flow-7f204fddfcb641a8:n1",
+          "kind": "entry",
+          "label": "resource: aws_instance.backend",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 1,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra:aws_instance.backend",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        },
+        {
+          "id": "flow-7f204fddfcb641a8:n2",
+          "kind": "call",
+          "label": "Depends on aws_security_group.web",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 1,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "web"
+            ],
+            "qualified_calls": [
+              "infra:aws_security_group.web"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-909e0d00dc6439cd"
+            ],
+            "target_flow": "flow-909e0d00dc6439cd",
+            "target_symbol": "infra:aws_security_group.web"
+          }
+        },
+        {
+          "id": "flow-7f204fddfcb641a8:n3",
+          "kind": "call",
+          "label": "Depends on aws_subnet.public",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 1,
+            "end_line": 10
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "public"
+            ],
+            "qualified_calls": [
+              "infra:aws_subnet.public"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-f1099c033c0bc7f4"
+            ],
+            "target_flow": "flow-f1099c033c0bc7f4",
+            "target_symbol": "infra:aws_subnet.public"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-7f204fddfcb641a8:e1",
+          "source": "flow-7f204fddfcb641a8:n1",
+          "target": "flow-7f204fddfcb641a8:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-7f204fddfcb641a8:e2",
+          "source": "flow-7f204fddfcb641a8:n1",
+          "target": "flow-7f204fddfcb641a8:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-909e0d00dc6439cd",
+        "flow-f1099c033c0bc7f4"
+      ],
+      "called_by": [
+        "flow-81803ba5995ddbb9",
+        "flow-946feb007b826648"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "resource",
+        "scope": [
+          "infra"
+        ]
+      }
+    },
+    {
+      "id": "flow-81803ba5995ddbb9",
+      "name": "aws_instance.edge",
+      "symbol": "infra:aws_instance.edge",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "resource",
+      "is_entrypoint": true,
+      "location": {
+        "path": "infra/main.tf",
+        "start_line": 12,
+        "end_line": 19
+      },
+      "nodes": [
+        {
+          "id": "flow-81803ba5995ddbb9:n1",
+          "kind": "entry",
+          "label": "resource: aws_instance.edge",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 12,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra:aws_instance.edge",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        },
+        {
+          "id": "flow-81803ba5995ddbb9:n2",
+          "kind": "call",
+          "label": "Depends on aws_instance.backend",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 12,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "backend"
+            ],
+            "qualified_calls": [
+              "infra:aws_instance.backend"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-7f204fddfcb641a8"
+            ],
+            "target_flow": "flow-7f204fddfcb641a8",
+            "target_symbol": "infra:aws_instance.backend"
+          }
+        },
+        {
+          "id": "flow-81803ba5995ddbb9:n3",
+          "kind": "call",
+          "label": "Depends on aws_security_group.web",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 12,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "web"
+            ],
+            "qualified_calls": [
+              "infra:aws_security_group.web"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-909e0d00dc6439cd"
+            ],
+            "target_flow": "flow-909e0d00dc6439cd",
+            "target_symbol": "infra:aws_security_group.web"
+          }
+        },
+        {
+          "id": "flow-81803ba5995ddbb9:n4",
+          "kind": "call",
+          "label": "Depends on aws_subnet.public",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 12,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "public"
+            ],
+            "qualified_calls": [
+              "infra:aws_subnet.public"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-f1099c033c0bc7f4"
+            ],
+            "target_flow": "flow-f1099c033c0bc7f4",
+            "target_symbol": "infra:aws_subnet.public"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-81803ba5995ddbb9:e1",
+          "source": "flow-81803ba5995ddbb9:n1",
+          "target": "flow-81803ba5995ddbb9:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-81803ba5995ddbb9:e2",
+          "source": "flow-81803ba5995ddbb9:n1",
+          "target": "flow-81803ba5995ddbb9:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-81803ba5995ddbb9:e3",
+          "source": "flow-81803ba5995ddbb9:n1",
+          "target": "flow-81803ba5995ddbb9:n4",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-7f204fddfcb641a8",
+        "flow-909e0d00dc6439cd",
+        "flow-f1099c033c0bc7f4"
+      ],
+      "called_by": [
+        "flow-946f8fabc660a175"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "resource",
+        "scope": [
+          "infra"
+        ]
+      }
+    },
+    {
+      "id": "flow-909e0d00dc6439cd",
+      "name": "aws_security_group.web",
+      "symbol": "infra:aws_security_group.web",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "resource",
+      "is_entrypoint": true,
+      "location": {
+        "path": "infra/network.tf",
+        "start_line": 33,
+        "end_line": 36
+      },
+      "nodes": [
+        {
+          "id": "flow-909e0d00dc6439cd:n1",
+          "kind": "entry",
+          "label": "resource: aws_security_group.web",
+          "location": {
+            "path": "infra/network.tf",
+            "start_line": 33,
+            "end_line": 36
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra:aws_security_group.web",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        },
+        {
+          "id": "flow-909e0d00dc6439cd:n2",
+          "kind": "call",
+          "label": "Depends on var.environment",
+          "location": {
+            "path": "infra/network.tf",
+            "start_line": 33,
+            "end_line": 36
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "environment"
+            ],
+            "qualified_calls": [
+              "infra:var.environment"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-7867b06611a29910"
+            ],
+            "target_flow": "flow-7867b06611a29910",
+            "target_symbol": "infra:var.environment"
+          }
+        },
+        {
+          "id": "flow-909e0d00dc6439cd:n3",
+          "kind": "call",
+          "label": "Depends on aws_vpc.main",
+          "location": {
+            "path": "infra/network.tf",
+            "start_line": 33,
+            "end_line": 36
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "main"
+            ],
+            "qualified_calls": [
+              "infra:aws_vpc.main"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-950b4629bb27de5e"
+            ],
+            "target_flow": "flow-950b4629bb27de5e",
+            "target_symbol": "infra:aws_vpc.main"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-909e0d00dc6439cd:e1",
+          "source": "flow-909e0d00dc6439cd:n1",
+          "target": "flow-909e0d00dc6439cd:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-909e0d00dc6439cd:e2",
+          "source": "flow-909e0d00dc6439cd:n1",
+          "target": "flow-909e0d00dc6439cd:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-7867b06611a29910",
+        "flow-950b4629bb27de5e"
+      ],
+      "called_by": [
+        "flow-7f204fddfcb641a8",
+        "flow-81803ba5995ddbb9"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "resource",
+        "scope": [
+          "infra"
+        ]
+      }
+    },
+    {
+      "id": "flow-f1099c033c0bc7f4",
+      "name": "aws_subnet.public",
+      "symbol": "infra:aws_subnet.public",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "resource",
+      "is_entrypoint": true,
+      "location": {
+        "path": "infra/network.tf",
+        "start_line": 28,
+        "end_line": 31
+      },
+      "nodes": [
+        {
+          "id": "flow-f1099c033c0bc7f4:n1",
+          "kind": "entry",
+          "label": "resource: aws_subnet.public",
+          "location": {
+            "path": "infra/network.tf",
+            "start_line": 28,
+            "end_line": 31
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra:aws_subnet.public",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        },
+        {
+          "id": "flow-f1099c033c0bc7f4:n2",
+          "kind": "call",
+          "label": "Depends on aws_vpc.main",
+          "location": {
+            "path": "infra/network.tf",
+            "start_line": 28,
+            "end_line": 31
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "main"
+            ],
+            "qualified_calls": [
+              "infra:aws_vpc.main"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-950b4629bb27de5e"
+            ],
+            "target_flow": "flow-950b4629bb27de5e",
+            "target_symbol": "infra:aws_vpc.main"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-f1099c033c0bc7f4:e1",
+          "source": "flow-f1099c033c0bc7f4:n1",
+          "target": "flow-f1099c033c0bc7f4:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-950b4629bb27de5e"
+      ],
+      "called_by": [
+        "flow-7f204fddfcb641a8",
+        "flow-81803ba5995ddbb9"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "resource",
+        "scope": [
+          "infra"
+        ]
+      }
+    },
+    {
+      "id": "flow-950b4629bb27de5e",
+      "name": "aws_vpc.main",
+      "symbol": "infra:aws_vpc.main",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "resource",
+      "is_entrypoint": true,
+      "location": {
+        "path": "infra/network.tf",
+        "start_line": 20,
+        "end_line": 26
+      },
+      "nodes": [
+        {
+          "id": "flow-950b4629bb27de5e:n1",
+          "kind": "entry",
+          "label": "resource: aws_vpc.main",
+          "location": {
+            "path": "infra/network.tf",
+            "start_line": 20,
+            "end_line": 26
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra:aws_vpc.main",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        },
+        {
+          "id": "flow-950b4629bb27de5e:n2",
+          "kind": "call",
+          "label": "Depends on var.environment",
+          "location": {
+            "path": "infra/network.tf",
+            "start_line": 20,
+            "end_line": 26
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "environment"
+            ],
+            "qualified_calls": [
+              "infra:var.environment"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-7867b06611a29910"
+            ],
+            "target_flow": "flow-7867b06611a29910",
+            "target_symbol": "infra:var.environment"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-950b4629bb27de5e:e1",
+          "source": "flow-950b4629bb27de5e:n1",
+          "target": "flow-950b4629bb27de5e:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-7867b06611a29910"
+      ],
+      "called_by": [
+        "flow-f1099c033c0bc7f4",
+        "flow-909e0d00dc6439cd"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "resource",
+        "scope": [
+          "infra"
+        ]
+      }
+    },
+    {
+      "id": "flow-946f8fabc660a175",
+      "name": "module.frontend_assets",
+      "symbol": "infra:module.frontend_assets",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "module",
+      "is_entrypoint": true,
+      "location": {
+        "path": "infra/main.tf",
+        "start_line": 21,
+        "end_line": 24
+      },
+      "nodes": [
+        {
+          "id": "flow-946f8fabc660a175:n1",
+          "kind": "entry",
+          "label": "module: module.frontend_assets",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 21,
+            "end_line": 24
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra:module.frontend_assets",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        },
+        {
+          "id": "flow-946f8fabc660a175:n2",
+          "kind": "call",
+          "label": "Depends on aws_instance.edge",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 21,
+            "end_line": 24
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "edge"
+            ],
+            "qualified_calls": [
+              "infra:aws_instance.edge"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-81803ba5995ddbb9"
+            ],
+            "target_flow": "flow-81803ba5995ddbb9",
+            "target_symbol": "infra:aws_instance.edge"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-946f8fabc660a175:e1",
+          "source": "flow-946f8fabc660a175:n1",
+          "target": "flow-946f8fabc660a175:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-81803ba5995ddbb9"
+      ],
+      "called_by": [
+        "flow-450d65ecbb3e47ae"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "module",
+        "scope": [
+          "infra"
+        ]
+      }
+    },
+    {
+      "id": "flow-11f1f62f87562179",
+      "name": "AuthService.IsPublic",
+      "symbol": "backend.auth:AuthService.IsPublic",
+      "language": "csharp",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": false,
+      "location": {
+        "path": "backend/auth/AuthService.cs",
+        "start_line": 27,
+        "end_line": 30
+      },
+      "nodes": [
+        {
+          "id": "flow-11f1f62f87562179:n1",
+          "kind": "entry",
+          "label": "AuthService.IsPublic",
+          "location": {
+            "path": "backend/auth/AuthService.cs",
+            "start_line": 27,
+            "end_line": 30
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.auth:AuthService.IsPublic",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-11f1f62f87562179:n2",
+          "kind": "call",
+          "label": "Call resource.StartsWith()",
+          "location": {
+            "path": "backend/auth/AuthService.cs",
+            "start_line": 29,
+            "end_line": 29
+          },
+          "evidence": "VERIFIED",
+          "detail": "return resource.StartsWith(\"public/\");",
+          "metadata": {
+            "calls": [
+              "resource.StartsWith"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "qualified_calls": [
+              "backend.auth:resource.StartsWith"
+            ]
+          }
+        },
+        {
+          "id": "flow-11f1f62f87562179:n3",
+          "kind": "terminal",
+          "label": "Return resource.StartsWith(\"public/\")",
+          "location": {
+            "path": "backend/auth/AuthService.cs",
+            "start_line": 29,
+            "end_line": 29
+          },
+          "evidence": "VERIFIED",
+          "detail": "return resource.StartsWith(\"public/\");",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-11f1f62f87562179:e1",
+          "source": "flow-11f1f62f87562179:n1",
+          "target": "flow-11f1f62f87562179:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-11f1f62f87562179:e2",
+          "source": "flow-11f1f62f87562179:n2",
+          "target": "flow-11f1f62f87562179:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "flow-b226bde59bf18f8f"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
+    {
+      "id": "flow-a4e4a0d7d38cc4fa",
+      "name": "BillingService.capture",
+      "symbol": "backend.billing:BillingService.capture",
+      "language": "java",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": false,
+      "location": {
+        "path": "backend/billing/BillingService.java",
+        "start_line": 28,
+        "end_line": 33
+      },
+      "nodes": [
+        {
+          "id": "flow-a4e4a0d7d38cc4fa:n1",
+          "kind": "entry",
+          "label": "BillingService.capture",
+          "location": {
+            "path": "backend/billing/BillingService.java",
+            "start_line": 28,
+            "end_line": 33
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.billing:BillingService.capture",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a4e4a0d7d38cc4fa:n2",
+          "kind": "decision",
+          "label": "amountCents <= 0",
+          "location": {
+            "path": "backend/billing/BillingService.java",
+            "start_line": 29,
+            "end_line": 29
+          },
+          "evidence": "VERIFIED",
+          "detail": "amountCents <= 0",
+          "metadata": {
+            "condition": "amountCents <= 0",
+            "domain": "",
+            "values": [],
+            "subject": "amountCents <= 0",
+            "operator": "",
+            "negation": false,
+            "value_namespace": "",
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a4e4a0d7d38cc4fa:n3",
+          "kind": "terminal",
+          "label": "Return \"invalid_amount\"",
+          "location": {
+            "path": "backend/billing/BillingService.java",
+            "start_line": 30,
+            "end_line": 30
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"invalid_amount\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-a4e4a0d7d38cc4fa:n4",
+          "kind": "terminal",
+          "label": "Return \"captured\"",
+          "location": {
+            "path": "backend/billing/BillingService.java",
+            "start_line": 32,
+            "end_line": 32
+          },
+          "evidence": "VERIFIED",
+          "detail": "return \"captured\";",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-a4e4a0d7d38cc4fa:e1",
+          "source": "flow-a4e4a0d7d38cc4fa:n1",
+          "target": "flow-a4e4a0d7d38cc4fa:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a4e4a0d7d38cc4fa:e2",
+          "source": "flow-a4e4a0d7d38cc4fa:n2",
+          "target": "flow-a4e4a0d7d38cc4fa:n3",
+          "label": "Yes",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-a4e4a0d7d38cc4fa:e3",
+          "source": "flow-a4e4a0d7d38cc4fa:n2",
+          "target": "flow-a4e4a0d7d38cc4fa:n4",
+          "label": "No",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "flow-a089159bd40801b9"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
+    {
+      "id": "flow-f98e4c798beecd3f",
+      "name": "Catalog.restockTarget",
+      "symbol": "backend.catalog:Catalog.restockTarget",
+      "language": "php",
+      "framework": "generic",
+      "entry_kind": "method",
+      "is_entrypoint": false,
+      "location": {
+        "path": "backend/catalog/Catalog.php",
+        "start_line": 23,
+        "end_line": 26
+      },
+      "nodes": [
+        {
+          "id": "flow-f98e4c798beecd3f:n1",
+          "kind": "entry",
+          "label": "Catalog.restockTarget",
+          "location": {
+            "path": "backend/catalog/Catalog.php",
+            "start_line": 23,
+            "end_line": 26
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "backend.catalog:Catalog.restockTarget",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-f98e4c798beecd3f:n2",
+          "kind": "terminal",
+          "label": "Return 100",
+          "location": {
+            "path": "backend/catalog/Catalog.php",
+            "start_line": 25,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "return 100;",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-f98e4c798beecd3f:e1",
+          "source": "flow-f98e4c798beecd3f:n1",
+          "target": "flow-f98e4c798beecd3f:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "flow-b702de640dfbab12"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "backend"
+        ]
+      }
+    },
+    {
       "id": "flow-eef1d33de2175dfc",
       "name": "Repository.fetch",
       "symbol": "backend.users:Repository.fetch",
@@ -804,6 +4794,203 @@
       }
     },
     {
+      "id": "flow-993bb9d5d0bf4b6e",
+      "name": "guard",
+      "symbol": "edge.router.src:guard",
+      "language": "rust",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": false,
+      "location": {
+        "path": "edge/router/src/lib.rs",
+        "start_line": 19,
+        "end_line": 25
+      },
+      "nodes": [
+        {
+          "id": "flow-993bb9d5d0bf4b6e:n1",
+          "kind": "entry",
+          "label": "guard",
+          "location": {
+            "path": "edge/router/src/lib.rs",
+            "start_line": 19,
+            "end_line": 25
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "edge.router.src:guard",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-993bb9d5d0bf4b6e:n2",
+          "kind": "action",
+          "label": "Handle internal condition: authenticated",
+          "location": {
+            "path": "edge/router/src/lib.rs",
+            "start_line": 20,
+            "end_line": 24
+          },
+          "evidence": "INFERRED",
+          "detail": "if authenticated { 200 } else { 401 }",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-993bb9d5d0bf4b6e:n3",
+          "kind": "terminal",
+          "label": "Complete",
+          "location": {
+            "path": "edge/router/src/lib.rs",
+            "start_line": 19,
+            "end_line": 25
+          },
+          "evidence": "INFERRED",
+          "detail": "",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-993bb9d5d0bf4b6e:e1",
+          "source": "flow-993bb9d5d0bf4b6e:n1",
+          "target": "flow-993bb9d5d0bf4b6e:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-993bb9d5d0bf4b6e:e2",
+          "source": "flow-993bb9d5d0bf4b6e:n2",
+          "target": "flow-993bb9d5d0bf4b6e:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "flow-081d78e37a773634"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "edge"
+        ]
+      }
+    },
+    {
+      "id": "flow-b702e4be67436003",
+      "name": "loadOrder",
+      "symbol": "frontend.app.api.orders.route:loadOrder",
+      "language": "typescript",
+      "framework": "generic",
+      "entry_kind": "function",
+      "is_entrypoint": false,
+      "location": {
+        "path": "frontend/app/api/orders/route.ts",
+        "start_line": 18,
+        "end_line": 20
+      },
+      "nodes": [
+        {
+          "id": "flow-b702e4be67436003:n1",
+          "kind": "entry",
+          "label": "loadOrder",
+          "location": {
+            "path": "frontend/app/api/orders/route.ts",
+            "start_line": 18,
+            "end_line": 20
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "frontend.app.api.orders.route:loadOrder",
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        },
+        {
+          "id": "flow-b702e4be67436003:n2",
+          "kind": "call",
+          "label": "Call database.orders.find()",
+          "location": {
+            "path": "frontend/app/api/orders/route.ts",
+            "start_line": 19,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "return database.orders.find(request);",
+          "metadata": {
+            "calls": [
+              "database.orders.find"
+            ],
+            "reachable_from_entry": true,
+            "reaches_terminal": true,
+            "effects": [
+              "db_read"
+            ],
+            "qualified_calls": [
+              "frontend.lib.db:database.orders.find"
+            ]
+          }
+        },
+        {
+          "id": "flow-b702e4be67436003:n3",
+          "kind": "terminal",
+          "label": "Return database.orders.find(request)",
+          "location": {
+            "path": "frontend/app/api/orders/route.ts",
+            "start_line": 19,
+            "end_line": 19
+          },
+          "evidence": "VERIFIED",
+          "detail": "return database.orders.find(request);",
+          "metadata": {
+            "reachable_from_entry": true,
+            "reaches_terminal": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-b702e4be67436003:e1",
+          "source": "flow-b702e4be67436003:n1",
+          "target": "flow-b702e4be67436003:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        },
+        {
+          "id": "flow-b702e4be67436003:e2",
+          "source": "flow-b702e4be67436003:n2",
+          "target": "flow-b702e4be67436003:n3",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "flow-e59a7853839b21f0"
+      ],
+      "tests": [],
+      "metadata": {
+        "exported": false,
+        "default_export": false,
+        "test": false,
+        "performs_auth_check": false,
+        "scope": [
+          "frontend"
+        ]
+      }
+    },
+    {
       "id": "flow-b79df7006d56acea",
       "name": "loadUser",
       "symbol": "frontend.app.api.users.route:loadUser",
@@ -813,8 +5000,8 @@
       "is_entrypoint": false,
       "location": {
         "path": "frontend/app/api/users/route.ts",
-        "start_line": 12,
-        "end_line": 14
+        "start_line": 15,
+        "end_line": 17
       },
       "nodes": [
         {
@@ -823,8 +5010,8 @@
           "label": "loadUser",
           "location": {
             "path": "frontend/app/api/users/route.ts",
-            "start_line": 12,
-            "end_line": 14
+            "start_line": 15,
+            "end_line": 17
           },
           "evidence": "VERIFIED",
           "detail": "",
@@ -840,8 +5027,8 @@
           "label": "Call database.users.find()",
           "location": {
             "path": "frontend/app/api/users/route.ts",
-            "start_line": 13,
-            "end_line": 13
+            "start_line": 16,
+            "end_line": 16
           },
           "evidence": "VERIFIED",
           "detail": "return database.users.find(request);",
@@ -855,7 +5042,7 @@
               "db_read"
             ],
             "qualified_calls": [
-              "frontend.app.api.users.route:database.users.find"
+              "frontend.lib.db:database.users.find"
             ]
           }
         },
@@ -865,8 +5052,8 @@
           "label": "Return database.users.find(request)",
           "location": {
             "path": "frontend/app/api/users/route.ts",
-            "start_line": 13,
-            "end_line": 13
+            "start_line": 16,
+            "end_line": 16
           },
           "evidence": "VERIFIED",
           "detail": "return database.users.find(request);",
@@ -906,29 +5093,473 @@
           "frontend"
         ]
       }
+    },
+    {
+      "id": "flow-5b8c2d5bd6212e56",
+      "name": "output.domain",
+      "symbol": "infra.modules.assets:output.domain",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "output",
+      "is_entrypoint": false,
+      "location": {
+        "path": "infra/modules/assets/main.tf",
+        "start_line": 13,
+        "end_line": 15
+      },
+      "nodes": [
+        {
+          "id": "flow-5b8c2d5bd6212e56:n1",
+          "kind": "entry",
+          "label": "output: output.domain",
+          "location": {
+            "path": "infra/modules/assets/main.tf",
+            "start_line": 13,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra.modules.assets:output.domain",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        },
+        {
+          "id": "flow-5b8c2d5bd6212e56:n2",
+          "kind": "call",
+          "label": "Depends on aws_s3_bucket.this",
+          "location": {
+            "path": "infra/modules/assets/main.tf",
+            "start_line": 13,
+            "end_line": 15
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "this"
+            ],
+            "qualified_calls": [
+              "infra.modules.assets:aws_s3_bucket.this"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-bad14c2738f04ca9"
+            ],
+            "target_flow": "flow-bad14c2738f04ca9",
+            "target_symbol": "infra.modules.assets:aws_s3_bucket.this"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-5b8c2d5bd6212e56:e1",
+          "source": "flow-5b8c2d5bd6212e56:n1",
+          "target": "flow-5b8c2d5bd6212e56:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-bad14c2738f04ca9"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "output",
+        "scope": [
+          "infra"
+        ]
+      }
+    },
+    {
+      "id": "flow-7a2b770d4a370ca6",
+      "name": "var.origin_id",
+      "symbol": "infra.modules.assets:var.origin_id",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "variable",
+      "is_entrypoint": false,
+      "location": {
+        "path": "infra/modules/assets/main.tf",
+        "start_line": 1,
+        "end_line": 3
+      },
+      "nodes": [
+        {
+          "id": "flow-7a2b770d4a370ca6:n1",
+          "kind": "entry",
+          "label": "variable: var.origin_id",
+          "location": {
+            "path": "infra/modules/assets/main.tf",
+            "start_line": 1,
+            "end_line": 3
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra.modules.assets:var.origin_id",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        }
+      ],
+      "edges": [],
+      "calls": [],
+      "called_by": [
+        "flow-bad14c2738f04ca9"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "variable",
+        "scope": [
+          "infra"
+        ]
+      }
+    },
+    {
+      "id": "flow-450d65ecbb3e47ae",
+      "name": "output.assets_domain",
+      "symbol": "infra:output.assets_domain",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "output",
+      "is_entrypoint": false,
+      "location": {
+        "path": "infra/main.tf",
+        "start_line": 30,
+        "end_line": 32
+      },
+      "nodes": [
+        {
+          "id": "flow-450d65ecbb3e47ae:n1",
+          "kind": "entry",
+          "label": "output: output.assets_domain",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 30,
+            "end_line": 32
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra:output.assets_domain",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        },
+        {
+          "id": "flow-450d65ecbb3e47ae:n2",
+          "kind": "call",
+          "label": "Depends on module.frontend_assets",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 30,
+            "end_line": 32
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "frontend_assets"
+            ],
+            "qualified_calls": [
+              "infra:module.frontend_assets"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-946f8fabc660a175"
+            ],
+            "target_flow": "flow-946f8fabc660a175",
+            "target_symbol": "infra:module.frontend_assets"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-450d65ecbb3e47ae:e1",
+          "source": "flow-450d65ecbb3e47ae:n1",
+          "target": "flow-450d65ecbb3e47ae:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-946f8fabc660a175"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "output",
+        "scope": [
+          "infra"
+        ]
+      }
+    },
+    {
+      "id": "flow-946feb007b826648",
+      "name": "output.backend_ip",
+      "symbol": "infra:output.backend_ip",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "output",
+      "is_entrypoint": false,
+      "location": {
+        "path": "infra/main.tf",
+        "start_line": 26,
+        "end_line": 28
+      },
+      "nodes": [
+        {
+          "id": "flow-946feb007b826648:n1",
+          "kind": "entry",
+          "label": "output: output.backend_ip",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 26,
+            "end_line": 28
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra:output.backend_ip",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        },
+        {
+          "id": "flow-946feb007b826648:n2",
+          "kind": "call",
+          "label": "Depends on aws_instance.backend",
+          "location": {
+            "path": "infra/main.tf",
+            "start_line": 26,
+            "end_line": 28
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "calls": [
+              "backend"
+            ],
+            "qualified_calls": [
+              "infra:aws_instance.backend"
+            ],
+            "effects": [],
+            "reachable_from_entry": true,
+            "reaches_terminal": false,
+            "link_confidence": "high",
+            "call_candidates": [
+              "flow-7f204fddfcb641a8"
+            ],
+            "target_flow": "flow-7f204fddfcb641a8",
+            "target_symbol": "infra:aws_instance.backend"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "flow-946feb007b826648:e1",
+          "source": "flow-946feb007b826648:n1",
+          "target": "flow-946feb007b826648:n2",
+          "label": "",
+          "evidence": "VERIFIED"
+        }
+      ],
+      "calls": [
+        "flow-7f204fddfcb641a8"
+      ],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "output",
+        "scope": [
+          "infra"
+        ]
+      }
+    },
+    {
+      "id": "flow-56cc552cff11dffc",
+      "name": "provider.aws",
+      "symbol": "infra:provider.aws",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "provider",
+      "is_entrypoint": false,
+      "location": {
+        "path": "infra/network.tf",
+        "start_line": 11,
+        "end_line": 13
+      },
+      "nodes": [
+        {
+          "id": "flow-56cc552cff11dffc:n1",
+          "kind": "entry",
+          "label": "provider: provider.aws",
+          "location": {
+            "path": "infra/network.tf",
+            "start_line": 11,
+            "end_line": 13
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra:provider.aws",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        }
+      ],
+      "edges": [],
+      "calls": [],
+      "called_by": [],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "provider",
+        "scope": [
+          "infra"
+        ]
+      }
+    },
+    {
+      "id": "flow-7867b06611a29910",
+      "name": "var.environment",
+      "symbol": "infra:var.environment",
+      "language": "terraform",
+      "framework": "terraform",
+      "entry_kind": "variable",
+      "is_entrypoint": false,
+      "location": {
+        "path": "infra/network.tf",
+        "start_line": 15,
+        "end_line": 18
+      },
+      "nodes": [
+        {
+          "id": "flow-7867b06611a29910:n1",
+          "kind": "entry",
+          "label": "variable: var.environment",
+          "location": {
+            "path": "infra/network.tf",
+            "start_line": 15,
+            "end_line": 18
+          },
+          "evidence": "VERIFIED",
+          "detail": "",
+          "metadata": {
+            "symbol": "infra:var.environment",
+            "reachable_from_entry": true,
+            "reaches_terminal": false
+          }
+        }
+      ],
+      "edges": [],
+      "calls": [],
+      "called_by": [
+        "flow-950b4629bb27de5e",
+        "flow-909e0d00dc6439cd"
+      ],
+      "tests": [],
+      "metadata": {
+        "test": false,
+        "block_type": "variable",
+        "scope": [
+          "infra"
+        ]
+      }
     }
   ],
   "findings": [
     {
-      "id": "3f4a828fef7e9e4f",
-      "kind": "missing_branch",
+      "id": "2d9ffc38644f9209",
+      "kind": "enum_exhaustiveness",
       "severity": "warning",
-      "message": "Decision has no explicit fallback: switch user.status",
-      "evidence": "POTENTIAL_GAP",
+      "message": "Declared UserStatus members not handled for user.status: UserStatus.DELETED",
+      "evidence": "INFERRED",
       "flow_id": "flow-3de3eacd67f96e64",
       "location": {
         "path": "frontend/app/api/users/route.ts",
-        "start_line": 4,
-        "end_line": 9
+        "start_line": 7,
+        "end_line": 12
       },
       "node_id": "flow-3de3eacd67f96e64:n3",
-      "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
+      "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
       "metadata": {
-        "category": "single_flow"
+        "category": "cross_flow",
+        "subject": "user.status",
+        "value_namespace": "UserStatus",
+        "missing": [
+          "UserStatus.DELETED"
+        ],
+        "declared": [
+          "UserStatus.ACTIVE",
+          "UserStatus.SUSPENDED",
+          "UserStatus.DELETED"
+        ]
       }
     }
   ],
   "files": [
+    {
+      "path": "backend/auth/AuthService.cs",
+      "language": "csharp",
+      "sha256": "5ba05358e677ca249097b6371a0004de01cdb89e6b3cc2f0f5d6e317fcfcf783",
+      "flow_ids": [
+        "flow-b226bde59bf18f8f",
+        "flow-11f1f62f87562179"
+      ]
+    },
+    {
+      "path": "backend/billing/BillingService.java",
+      "language": "java",
+      "sha256": "940e91a954db9c7341b92809f0c4733b8a62ab1373c0d8e4c5fc13f5f10ba338",
+      "flow_ids": [
+        "flow-a089159bd40801b9",
+        "flow-a4e4a0d7d38cc4fa"
+      ]
+    },
+    {
+      "path": "backend/catalog/Catalog.php",
+      "language": "php",
+      "sha256": "482e1c7399f8e822150338f4902f47c8c9dea80ca1d98fc0302a0cb2846a7e36",
+      "flow_ids": [
+        "flow-b702de640dfbab12",
+        "flow-f98e4c798beecd3f"
+      ]
+    },
+    {
+      "path": "backend/notifications/notifier.rb",
+      "language": "ruby",
+      "sha256": "41b02d5eab804e08218f42acd4b1ede41cc1e51dd11b246b75613b2b9f0d47ea",
+      "flow_ids": [
+        "flow-361a56fe0ff06af0",
+        "flow-a6f2cf6897eab6f4",
+        "flow-15929a604b30aadf",
+        "flow-c093a998648019e9",
+        "flow-132416d127f7fc0d"
+      ]
+    },
+    {
+      "path": "backend/orders/service.go",
+      "language": "go",
+      "sha256": "9b63fdfad771117a407a411c831ec923c73c21a43fb4b88d270ffb73b515ba7d",
+      "flow_ids": [
+        "flow-7def16576d7663e7",
+        "flow-38ef9d2c42d7f7ea"
+      ]
+    },
     {
       "path": "backend/users.py",
       "language": "python",
@@ -940,9 +5571,35 @@
       ]
     },
     {
+      "path": "edge/cache.c",
+      "language": "c",
+      "sha256": "a77fb5ece9bf0f91ed4d8aa46fe6ec238a8b95d814bab984aea28b41b29c2fd7",
+      "flow_ids": [
+        "flow-88c2580fdbcaad79"
+      ]
+    },
+    {
+      "path": "edge/router/src/lib.rs",
+      "language": "rust",
+      "sha256": "a4705e097ad7dcf738b14602de0d26ffa1eed7315d0325a4a1d437832ab71a4d",
+      "flow_ids": [
+        "flow-081d78e37a773634",
+        "flow-993bb9d5d0bf4b6e"
+      ]
+    },
+    {
+      "path": "frontend/app/api/orders/route.ts",
+      "language": "typescript",
+      "sha256": "752587b9a470c26be331eefc47bfb581588bff924573dacfed6c0cc4a48682e7",
+      "flow_ids": [
+        "flow-e59a7853839b21f0",
+        "flow-b702e4be67436003"
+      ]
+    },
+    {
       "path": "frontend/app/api/users/route.ts",
       "language": "typescript",
-      "sha256": "aa1eb70726488d38801fabeda1e453802ef11b736b6cd45248cb22c15bbdc4f2",
+      "sha256": "7fc48d9014ba5577b35bb00d84e8ed39c5ebbffe5ed998b41fe67a46d2d3dadd",
       "flow_ids": [
         "flow-3de3eacd67f96e64",
         "flow-b79df7006d56acea"
@@ -955,17 +5612,85 @@
       "flow_ids": [
         "flow-3d6bdb52c57fafa8"
       ]
+    },
+    {
+      "path": "frontend/lib/db.ts",
+      "language": "typescript",
+      "sha256": "3a94336360437aa437a6bcb955b93b6ea790df08d7c6df1aff5268dd59a3484f",
+      "flow_ids": []
+    },
+    {
+      "path": "frontend/lib/status.js",
+      "language": "javascript",
+      "sha256": "ba666bfdb04325ab3ed7f7348b8dacad51b1432280803543de28ba7a4a4b7bdf",
+      "flow_ids": [
+        "flow-8a4924a1be17b42e"
+      ]
+    },
+    {
+      "path": "frontend/lib/userStatus.ts",
+      "language": "typescript",
+      "sha256": "574d5ec02e6c4cfa30e7f48a2878e7ea176b5327c61dd0813624002f99a8182a",
+      "flow_ids": []
+    },
+    {
+      "path": "infra/main.tf",
+      "language": "terraform",
+      "sha256": "f680c097ea86f146cbce1e322bfe8c3e3b84fc0da09ea34f33185eecffb674c1",
+      "flow_ids": [
+        "flow-7f204fddfcb641a8",
+        "flow-81803ba5995ddbb9",
+        "flow-946f8fabc660a175",
+        "flow-946feb007b826648",
+        "flow-450d65ecbb3e47ae"
+      ]
+    },
+    {
+      "path": "infra/modules/assets/main.tf",
+      "language": "terraform",
+      "sha256": "6228c267fd09a13caadd00f03c7523e8e4c311df210e351a144a566292fdeddb",
+      "flow_ids": [
+        "flow-7a2b770d4a370ca6",
+        "flow-bad14c2738f04ca9",
+        "flow-5b8c2d5bd6212e56"
+      ]
+    },
+    {
+      "path": "infra/network.tf",
+      "language": "terraform",
+      "sha256": "b5b1556b871bae02ce99fa9223ff0e30b52740a736ba8155b869307e67de66c5",
+      "flow_ids": [
+        "flow-56cc552cff11dffc",
+        "flow-7867b06611a29910",
+        "flow-950b4629bb27de5e",
+        "flow-f1099c033c0bc7f4",
+        "flow-909e0d00dc6439cd"
+      ]
     }
   ],
   "metadata": {
     "languages": [
+      "c",
+      "csharp",
+      "go",
+      "java",
+      "javascript",
+      "php",
       "python",
+      "ruby",
+      "rust",
+      "terraform",
       "typescript"
     ],
-    "entrypoint_count": 4,
-    "flow_count": 6,
+    "entrypoint_count": 25,
+    "flow_count": 38,
     "finding_count": 1,
     "enums": {
+      "csharp": {},
+      "java": {},
+      "php": {},
+      "ruby": {},
+      "go": {},
       "python": {
         "UserStatus": [
           "UserStatus.ACTIVE",
@@ -973,11 +5698,23 @@
           "UserStatus.DELETED"
         ]
       },
-      "typescript": {}
+      "c": {},
+      "rust": {},
+      "typescript": {
+        "UserStatus": [
+          "UserStatus.ACTIVE",
+          "UserStatus.SUSPENDED",
+          "UserStatus.DELETED"
+        ]
+      },
+      "javascript": {},
+      "terraform": {}
     },
     "scopes": {
-      "backend": 3,
-      "frontend": 3
+      "backend": 16,
+      "edge": 3,
+      "frontend": 6,
+      "infra": 13
     }
   }
 }

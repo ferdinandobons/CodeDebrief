@@ -1,3 +1,6 @@
+import { database, User } from "../../../lib/db";
+import { UserStatus } from "../../../lib/userStatus";
+
 export async function POST(request: Request) {
   const user = await loadUser(request);
 
@@ -9,6 +12,6 @@ export async function POST(request: Request) {
   }
 }
 
-async function loadUser(request: Request) {
+async function loadUser(request: Request): Promise<User> {
   return database.users.find(request);
 }

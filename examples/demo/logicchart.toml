@@ -1,7 +1,15 @@
 [logicchart]
-source_roots = ["backend", "frontend"]
+source_roots = ["backend", "frontend", "edge", "infra"]
 include_public_functions = true
 output_dir = "logicchart-out"
+
+# Macro-parts of the codebase. Query, impact, and the viewer can be restricted to
+# a single scope, or the whole polyglot model can be viewed at once.
+[logicchart.scopes]
+backend = ["backend/**"]
+frontend = ["frontend/**"]
+edge = ["edge/**"]
+infra = ["infra/**"]
 
 [logicchart.entrypoints]
 include = []

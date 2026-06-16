@@ -1,9 +1,10 @@
 """Golden-master precision SLA, measured on examples/demo.
 
-Stage 0 of the build order pins the published-artifact noise budget: the
-cross-language false positive must be gone, while the one true-positive review
-signal (the TS switch without a default) survives. A second test proves the
-language-scoping guard did not gut same-language cross-flow detection.
+The demo is a polyglot, multi-scope codebase (11 languages across backend,
+frontend, edge, and infra). The SLA pins the published-artifact noise budget:
+across the whole codebase LogicChart surfaces exactly one true-positive review
+signal (the TS switch with no default) and nothing else - every other service is
+clean. A second test proves same-language cross-flow detection still fires.
 """
 
 from __future__ import annotations
@@ -16,10 +17,27 @@ from logicchart.model import Evidence
 
 DEMO = Path(__file__).resolve().parent.parent / "examples" / "demo"
 
+_SOURCE_ROOTS = ("backend", "frontend", "edge", "infra", "logicchart.toml")
+# Every language the polyglot demo is meant to exercise end to end.
+_EXPECTED_LANGUAGES = {
+    "python",
+    "typescript",
+    "javascript",
+    "go",
+    "java",
+    "csharp",
+    "php",
+    "c",
+    "rust",
+    "ruby",
+    "terraform",
+}
+_EXPECTED_SCOPES = {"backend", "frontend", "edge", "infra"}
+
 
 def _analyze_copy(source: Path, tmp_path: Path) -> ProjectAnalyzer:
     """Analyze a copy so the committed fixture's cache/output stay pristine."""
-    for item in ("backend", "frontend", "logicchart.toml"):
+    for item in _SOURCE_ROOTS:
         src = source / item
         dst = tmp_path / item
         if src.is_dir():
@@ -29,19 +47,42 @@ def _analyze_copy(source: Path, tmp_path: Path) -> ProjectAnalyzer:
     return ProjectAnalyzer(tmp_path)
 
 
+def test_demo_is_polyglot_and_scoped(tmp_path: Path) -> None:
+    model = _analyze_copy(DEMO, tmp_path).analyze(full=True).model
+
+    languages = {flow.language for flow in model.flows}
+    assert languages >= _EXPECTED_LANGUAGES
+
+    scopes = {scope for flow in model.flows for scope in (flow.metadata.get("scope") or [])}
+    assert scopes >= _EXPECTED_SCOPES
+
+
 def test_demo_precision_sla(tmp_path: Path) -> None:
     model = _analyze_copy(DEMO, tmp_path).analyze(full=True).model
     findings = model.findings
 
-    # The cross-language false positive must not survive language scoping.
+    # Exactly one finding across the whole polyglot codebase: the TS users route
+    # handles UserStatus.ACTIVE/SUSPENDED but not the declared DELETED member.
+    assert len(findings) == 1
+    only = findings[0]
+    assert only.kind == "enum_exhaustiveness"
+    assert only.evidence is Evidence.INFERRED
+    flagged = next(flow for flow in model.flows if flow.id == only.flow_id)
+    assert flagged.language == "typescript"
+    assert "user.status" in only.message
+    assert "UserStatus.DELETED" in only.metadata.get("missing", [])
+
+    # No cross-flow false positive survives, and no review-only noise either.
     assert not any(f.kind == "inconsistent_case_handling" for f in findings)
+    assert not any(f.evidence is Evidence.POTENTIAL_GAP for f in findings)
 
-    # The one true-positive review signal survives: the TS switch with no default.
-    assert [f.kind for f in findings].count("missing_branch") == 1
 
-    # Precision SLA: at most one POTENTIAL_GAP across the whole demo.
-    gaps = [f for f in findings if f.evidence is Evidence.POTENTIAL_GAP]
-    assert len(gaps) <= 1
+def test_demo_rust_match_is_not_a_false_positive(tmp_path: Path) -> None:
+    # The Rust router's exhaustive `match` must not be flagged as a missing fallback.
+    model = _analyze_copy(DEMO, tmp_path).analyze(full=True).model
+    rust_flows = {flow.id for flow in model.flows if flow.language == "rust"}
+    assert rust_flows  # the edge router was discovered
+    assert not any(f.flow_id in rust_flows for f in model.findings)
 
 
 def test_quorum_cross_flow_flags_the_minority_omission(tmp_path: Path) -> None:
