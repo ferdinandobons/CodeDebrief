@@ -327,7 +327,7 @@
       transition: border-color .15s ease, transform .15s ease;
     }
     .tool:hover, .tool:focus-visible { border-color: var(--blue); outline: none; transform: translateY(-1px); }
-    #canvas { width: 100%; height: 100%; cursor: grab; }
+    #canvas { width: 100%; height: 100%; cursor: grab; user-select: none; -webkit-user-select: none; }
     #canvas.dragging { cursor: grabbing; }
     .empty {
       position: absolute;
@@ -618,6 +618,7 @@
        (panels.js never uses innerHTML for it). pre-wrap keeps long lines readable without
        a horizontal scroll fight; the panel scrolls vertically. */
     .source-scroll { padding: 8px 0 8px; }
+    .source-scroll .panel-empty { margin: 6px 16px; }
     .code-block {
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 12px;

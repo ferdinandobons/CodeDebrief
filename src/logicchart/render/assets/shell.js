@@ -507,6 +507,11 @@
       zoom(event.deltaY > 0 ? 1.08 : .92);
     }, { passive: false });
     svg.addEventListener("pointerdown", event => {
+      if (event.button !== 0) return;
+      // Pan only from the empty canvas background. If the press lands on an interactive
+      // node group (scope/file/flow all carry role="button"), do not start a pan or
+      // capture the pointer, so the node's own click handler fires (expand/toggle).
+      if (event.target.closest('[role="button"]')) return;
       drag = { x: event.clientX, y: event.clientY, vx: view.x, vy: view.y };
       svg.classList.add("dragging");
       svg.setPointerCapture(event.pointerId);
