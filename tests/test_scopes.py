@@ -1,4 +1,4 @@
-"""Scope / macro-parts: tag flows by backend/frontend/infra and filter by scope."""
+"""Scope / macro-parts: tag flows by backend/frontend/edge and filter by scope."""
 
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def test_query_and_impact_respect_scope(tmp_path: Path) -> None:
 
 
 def test_config_scopes_for_helper() -> None:
-    config = LogicChartConfig(scopes={"infra": ["**/*.tf"], "api": ["backend/**"]})
+    config = LogicChartConfig(scopes={"edge": ["edge/**"], "api": ["backend/**"]})
     assert config.scopes_for("backend/app.py") == ["api"]
-    assert config.scopes_for("deploy/main.tf") == ["infra"]
+    assert config.scopes_for("edge/router.go") == ["edge"]
     assert config.scopes_for("other/x.py") == []

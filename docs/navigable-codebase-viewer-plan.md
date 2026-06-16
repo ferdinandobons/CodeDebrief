@@ -28,7 +28,7 @@ Per the user's requirement, implementation and review run as `Workflow` scripts,
 export const meta = { name: 'review-viewer-phase', description: 'Multi-dimension review of a viewer phase', phases: [{title:'Review'},{title:'Verify'}] }
 const DIMENSIONS = [
   { key: 'correctness',  prompt: 'Review the git diff for this phase for logic bugs and broken behavior. Run the CI mirror.' },
-  { key: 'generality',   prompt: 'Does anything hard-code demo scopes/paths/languages? It must work for any codebase (0..N scopes, any tree, any of the 11 languages + Terraform, any finding kind).' },
+  { key: 'generality',   prompt: 'Does anything hard-code demo scopes/paths/languages? It must work for any codebase (0..N scopes, any tree, any of the 10 languages, any finding kind).' },
   { key: 'performance',  prompt: 'Is rendering lazy? Are closed scopes left as super-nodes? Any O(all-nodes) work on load?' },
   { key: 'a11y-ui',      prompt: 'Keyboard nav, focus, ARIA, dark mode, no layout breakage in the existing shell.' },
   { key: 'security',     prompt: 'Embedded source snippets and labels must stay escaped (no HTML/JS injection from source-derived text).' },

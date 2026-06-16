@@ -1,5 +1,5 @@
 [logicchart]
-source_roots = ["backend", "frontend", "edge", "infra"]
+source_roots = ["backend", "frontend", "edge"]
 include_public_functions = true
 output_dir = "logicchart-out"
 
@@ -9,7 +9,6 @@ output_dir = "logicchart-out"
 backend = ["backend/**"]
 frontend = ["frontend/**"]
 edge = ["edge/**"]
-infra = ["infra/**"]
 
 [logicchart.entrypoints]
 include = []

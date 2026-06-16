@@ -1,10 +1,10 @@
 # LogicChart: multi-language and whole-codebase expansion
 
 This document defines the next major phase of LogicChart. The goal: extend the deterministic
-engine from Python + TypeScript to **all popular languages** (including infrastructure-as-code),
+engine from Python + TypeScript to **all popular languages**,
 represent **complex code correctly**, and operate at **any scale** - from a single function (as
 today) to an entire codebase or a macro-part of one (all the backend, all the frontend, the
-Terraform infrastructure).
+edge layer).
 
 It builds on the existing architecture (see [project-definition.md](project-definition.md)):
 per-file analyzers produce one IR (`logic-flow.json`, schema 1.1), and a project layer links
@@ -72,12 +72,6 @@ identity, effects, qualified calls) is identical across all front-ends.
 - **Control-flow (profiles):** JavaScript/JSX, Go, Java, C#, Ruby, PHP, Rust, C, C++, Kotlin,
   Swift, Bash. Each ships with framework/entry-point hints where they matter (e.g. Spring,
   Rails, Gin, ASP.NET) and test-file detection.
-- **Infrastructure-as-code (declarative):** Terraform/HCL is not control flow; it is a
-  resource/module dependency graph. It gets its own analyzer that emits the same IR with a
-  declarative flavor: each resource/module/data block is a node, `depends_on` and interpolation
-  references are edges, and `module` calls link sub-graphs. Findings: missing/duplicate
-  dependencies, unused variables/outputs, provider/version gaps. (Kubernetes/YAML manifests and
-  CloudFormation can follow the same declarative pattern later.)
 
 ## 3. Scope and macro-parts
 
@@ -91,7 +85,7 @@ or a named macro-part.
   [logicchart.scopes]
   backend  = ["backend/**", "services/**"]
   frontend = ["frontend/**", "web/**"]
-  infra    = ["infra/**", "**/*.tf"]
+  edge     = ["edge/**", "workers/**"]
   ```
 
   When no scopes are declared, each top-level `source_root` (or language family) is an implicit
@@ -141,7 +135,6 @@ and a code-quality review; automated gates green; the demo precision SLA holds).
   fixture, golden) to prove a language is cheap to add.
 - **Stage C - Popular control-flow languages.** Java, C#, Ruby, PHP, Rust, C/C++, plain JS/JSX,
   Kotlin, Swift, Bash as profiles, each with fixtures, entry-point and test detection.
-- **Stage D - Terraform / IaC.** The declarative resource-dependency analyzer and its render.
 - **Stage E - Scope / macro-parts.** Config scopes, per-flow tagging, `--scope` across the CLI,
   scope-grouped render/query/diff, the codebase map.
 - **Stage F - Whole-codebase scale.** Parallel analysis; viewer clustering/scope filtering and

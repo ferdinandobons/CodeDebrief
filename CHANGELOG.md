@@ -4,6 +4,12 @@ All notable changes to LogicChart will be documented in this file.
 
 The project follows Semantic Versioning once public releases begin.
 
+## Unreleased
+
+### Removed
+
+- Removed Terraform/HCL support.
+
 ## 0.3.0
 
 Major capability expansion: from a Python/TypeScript analyzer to a polyglot,

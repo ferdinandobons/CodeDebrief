@@ -1,6 +1,6 @@
 # LogicChart
 
-**LogicChart reads your code and draws its decision logic as flowcharts in 11 languages, with no API key.**
+**LogicChart reads your code and draws its decision logic as flowcharts in 10 languages, with no API key.**
 
 ![Before AI you built code by hand and understood it; with AI no one knows how it works; with AI plus LogicChart you understand it again.](docs/assets/why-logicchart.svg)
 
@@ -11,10 +11,9 @@ to change or where the gaps are.
 
 It reads your source (never running it) and turns the branching logic into clear, clickable flowcharts: the `if` / `switch` / `match`
 paths, the error handling, and the calls that link one piece to the next. Deterministic and offline: the same code always gives the same result.
-Terraform gets a resource dependency graph instead.
 
 One model covers **a single function, one part of the system (`backend/`, `frontend/`,
-`infra/`), or the whole codebase**, and you can zoom between them. It is committed to git as a
+`edge/`), or the whole codebase**, and you can zoom between them. It is committed to git as a
 machine-readable model, reviewable flowcharts, and an interactive viewer, for people and
 coding agents alike. Every finding is tagged by confidence (`VERIFIED`, `INFERRED`, or
 `POTENTIAL_GAP`), so a fact is never dressed up as a guess.
@@ -43,7 +42,7 @@ member, and labels how it knows:
 ```
 
 `INFERRED` means a deterministic heuristic over the declared enum, not a guess. That is the
-**only** finding across the bundled demo's 11-language, 4-scope codebase. The model stays
+**only** finding across the bundled demo's 10-language, 3-scope codebase. The model stays
 precise as it scales. Run it yourself on [`examples/demo`](examples/demo).
 
 ## Why LogicChart
@@ -55,7 +54,7 @@ in review and refactoring, at any scope from one function to the whole repo:
 - **Check state handling is consistent** across sibling flows: a status one route handles
   but another silently drops, even across files and languages.
 - **See change impact**: which entry points are reachable from the service you're about to edit.
-- **Reason about a whole codebase or one macro-part** (backend, frontend, or Terraform infra) from a single model.
+- **Reason about a whole codebase or one macro-part** (backend, frontend, or edge) from a single model.
 - **Give coding agents a deterministic control-flow map** they can query instead of re-reading files.
 
 ## Install
@@ -207,19 +206,19 @@ One model can hold an entire polyglot repo. Declare the macro-parts once, and ev
 [logicchart.scopes]
 backend  = ["backend/**", "services/**"]
 frontend = ["frontend/**", "web/**"]
-infra    = ["infra/**", "terraform/**"]
+edge     = ["edge/**", "workers/**"]
 ```
 
 With no `[logicchart.scopes]` block, the top-level directory is the inferred scope, so a
-codebase splits into backend/frontend/infra-style parts out of the box. Pass `--scope
+codebase splits into backend/frontend/edge-style parts out of the box. Pass `--scope
 <name>` to `query` and `impact`, and use the scope and language filters in the viewer, to
 reason about one part at a time or the whole system at once. Every flow records the scope(s)
 it belongs to, and the Markdown header summarizes the breakdown (e.g. `backend (16) · edge
-(3) · frontend (6) · infra (13)`).
+(3) · frontend (6)`).
 
 ## Supported Code
 
-**Languages: 10 for control flow, plus Terraform (11 in all).** Control flow (functions,
+**Languages: 10 for control flow.** Control flow (functions,
 methods, `if` / `else`, `switch` / `match`, exceptions, returns, and the internal calls that
 link flows) is extracted from:
 
@@ -233,12 +232,6 @@ A new control-flow language is a small *profile* (grammar vocabulary + a few ext
 a bespoke analyzer, so coverage grows without forking the pipeline. Language-specific
 correctness is respected: e.g. a Rust `match` is compiler-exhaustive, so it is never flagged
 for a missing `default`.
-
-**Terraform / HCL** (`.tf`) is declarative, so instead of control flow LogicChart maps the
-**resource dependency graph**: each `resource` / `module` / `data` / `variable` / `output`
-block becomes a flow, and each reference (`aws_vpc.main.id`, `depends_on`) becomes a
-dependency edge, viewable for the whole infrastructure, one scope, or one resource's
-dependencies.
 
 **Framework-aware entry points:**
 
@@ -300,7 +293,7 @@ exclude = []
 # [logicchart.scopes]
 # backend = ["backend/**", "services/**"]
 # frontend = ["frontend/**", "web/**"]
-# infra = ["infra/**", "**/*.tf"]
+# edge = ["edge/**", "workers/**"]
 ```
 
 `gated_detectors` (default `false`) enables opt-in, review-tier detectors such as

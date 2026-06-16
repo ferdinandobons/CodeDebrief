@@ -1,7 +1,7 @@
 # LogicChart demo: a polyglot, multi-scope codebase
 
-A small but realistic "users & orders" platform, deliberately spread across **11
-languages** and **4 macro-parts** to show LogicChart representing a whole codebase,
+A small but realistic "users & orders" platform, deliberately spread across **10
+languages** and **3 macro-parts** to show LogicChart representing a whole codebase,
 a single scope, or one flow, all from the same deterministic model.
 
 ## Layout
@@ -20,7 +20,6 @@ a single scope, or one flow, all from the same deterministic model.
 | `frontend` | `frontend/lib/status.js`       | JavaScript  | Status label helper                   |
 | `edge`     | `edge/cache.c`                 | C           | Cache eviction policy                 |
 | `edge`     | `edge/router/src/lib.rs`       | Rust        | Request router (exhaustive `match`)   |
-| `infra`    | `infra/*.tf`                   | Terraform   | VPC, subnet, instances, assets module |
 
 ## The one finding
 

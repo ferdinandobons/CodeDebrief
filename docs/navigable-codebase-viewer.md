@@ -94,7 +94,7 @@ numbers - into the JSON payload. This:
 
 - keeps the viewer self-contained (no fetch, works offline);
 - is bounded (only code that belongs to a flow, not whole trees);
-- is language-agnostic (plain text by line range, works for any of the 11 languages + HCL);
+- is language-agnostic (plain text by line range, works for any of the 10 languages);
 - changes only the **render payload**, not the model schema or the analyzer.
 
 A node's `location` (path + line range) maps a clicked block to the exact line(s) to
@@ -107,8 +107,7 @@ The design reads only the generic IR, so it holds for any codebase:
 - **Scopes**: however many the project declares or infers (2, 5, 20, or none). None -> L0 is
   top-level directories; flat repo -> start at files.
 - **Tree**: the actual analyzed directory, any shape.
-- **Canvas**: call graph + decisions from the IR, identical across all 11 languages and
-  Terraform.
+- **Canvas**: call graph + decisions from the IR, identical across all 10 languages.
 - **Errors**: any finding kind, shown with its evidence tier.
 - **Scale**: large scope -> group by folder/file and stay lazy; large call graph -> draw only
   the expanded part. No hard-coded names, scopes, or language assumptions anywhere.

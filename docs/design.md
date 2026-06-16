@@ -6,8 +6,8 @@ LogicChart turns a source folder into navigable decision flowcharts. Its primary
 to help humans and coding agents understand what a project can do, identify behavior that
 was handled in one path but forgotten in another, and evaluate the impact of a change.
 
-Language support spans 11 languages (Python, TypeScript/JavaScript, Go, Java, C#, PHP, C,
-Rust, Ruby) plus Terraform/HCL as a resource dependency graph; see
+Language support spans 10 languages (Python, TypeScript/JavaScript, Go, Java, C#, PHP, C,
+Rust, Ruby); see
 [multi-language-and-scale.md](multi-language-and-scale.md) for the engine design. The
 framework adapters cover FastAPI and Next.js, including shallow React component, hook, and
 event recognition.

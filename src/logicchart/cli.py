@@ -27,7 +27,7 @@ from logicchart.render.html import render_html
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="logicchart",
-        description="Turn Python and TypeScript code into decision flowcharts.",
+        description="Turn a polyglot codebase into navigable decision flowcharts.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -273,7 +273,7 @@ exclude = []
 # [logicchart.scopes]
 # backend = ["backend/**", "services/**"]
 # frontend = ["frontend/**", "web/**"]
-# infra = ["infra/**", "**/*.tf"]
+# edge = ["edge/**", "workers/**"]
 """,
         encoding="utf-8",
     )

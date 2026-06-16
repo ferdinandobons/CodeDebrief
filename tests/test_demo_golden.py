@@ -1,7 +1,7 @@
 """Golden-master precision SLA, measured on examples/demo.
 
-The demo is a polyglot, multi-scope codebase (11 languages across backend,
-frontend, edge, and infra). The SLA pins the published-artifact noise budget:
+The demo is a polyglot, multi-scope codebase (10 languages across backend,
+frontend, and edge). The SLA pins the published-artifact noise budget:
 across the whole codebase LogicChart surfaces exactly one true-positive review
 signal (the TS switch with no default) and nothing else - every other service is
 clean. A second test proves same-language cross-flow detection still fires.
@@ -17,7 +17,7 @@ from logicchart.model import Evidence
 
 DEMO = Path(__file__).resolve().parent.parent / "examples" / "demo"
 
-_SOURCE_ROOTS = ("backend", "frontend", "edge", "infra", "logicchart.toml")
+_SOURCE_ROOTS = ("backend", "frontend", "edge", "logicchart.toml")
 # Every language the polyglot demo is meant to exercise end to end.
 _EXPECTED_LANGUAGES = {
     "python",
@@ -30,9 +30,8 @@ _EXPECTED_LANGUAGES = {
     "c",
     "rust",
     "ruby",
-    "terraform",
 }
-_EXPECTED_SCOPES = {"backend", "frontend", "edge", "infra"}
+_EXPECTED_SCOPES = {"backend", "frontend", "edge"}
 
 
 def _analyze_copy(source: Path, tmp_path: Path) -> ProjectAnalyzer:

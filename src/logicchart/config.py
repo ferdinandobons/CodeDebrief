@@ -38,7 +38,7 @@ class LogicChartConfig:
     gated_detectors: bool = False
     entrypoint_include: list[str] = field(default_factory=list)
     entrypoint_exclude: list[str] = field(default_factory=list)
-    # Named macro-parts of the codebase, e.g. {"backend": ["backend/**"], "infra": ["**/*.tf"]}.
+    # Named macro-parts of the codebase, e.g. {"backend": ["backend/**"], "edge": ["edge/**"]}.
     scopes: dict[str, list[str]] = field(default_factory=dict)
 
     @classmethod
