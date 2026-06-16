@@ -88,3 +88,22 @@ def test_where_is_state_handled(tmp_path: Path) -> None:
 def test_find_decisions_missing_fallback(tmp_path: Path) -> None:
     gaps = find_decisions(_model(tmp_path, _CHAIN), missing_fallback=True)
     assert gaps and all(decision["has_gap"] for decision in gaps)
+
+
+def test_find_decisions_subject_is_equality_not_substring(tmp_path: Path) -> None:
+    """Subject matching is exact equality, consistent with where_is_state_handled's
+    exact domain/value matching (a substring 'status' must not match 'order_status')."""
+    model = _model(
+        tmp_path,
+        "def a(s):\n    if s.status == X.A:\n        return 1\n    return 0\n",
+    )
+    subject = next(
+        node.metadata.get("subject")
+        for flow in model.flows
+        for node in flow.nodes
+        if node.metadata.get("subject")
+    )
+    assert subject  # the decision branches on some subject
+    assert find_decisions(model, subject=subject), "exact subject must match"
+    # A strict substring of that subject must NOT match.
+    assert find_decisions(model, subject=subject[:-1]) == []

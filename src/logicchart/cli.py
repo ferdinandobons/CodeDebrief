@@ -192,22 +192,25 @@ def _impact(root: Path, files: list[str], json_output: bool, scope: str | None =
 def _query(
     root: Path, question: str, limit: int, json_output: bool, scope: str | None = None
 ) -> int:
-    matches = query_model(load_model(root.resolve()), question, limit, scope)
-    if json_output:
-        print(
-            json.dumps(
-                [
-                    {
-                        "flow_id": item.flow.id,
-                        "name": item.flow.name,
-                        "score": item.score,
-                        "reasons": item.reasons,
-                    }
-                    for item in matches
-                ],
-                indent=2,
+    model = load_model(root.resolve())
+    if scope is not None:
+        known_scopes = model.metadata.get("scopes", {})
+        if scope not in known_scopes:
+            print(
+                f"warning: unknown scope {scope!r}; known scopes: "
+                f"{', '.join(sorted(known_scopes)) or '(none)'}",
+                file=sys.stderr,
             )
+    if limit < 0:
+        # A negative slice would silently drop results; treat it as "no limit".
+        print(
+            f"warning: ignoring negative --limit {limit}; returning all matches",
+            file=sys.stderr,
         )
+        limit = 0
+    matches = query_model(model, question, limit, scope)
+    if json_output:
+        print(json.dumps([item.to_dict() for item in matches], indent=2))
     else:
         print(render_query(matches))
     return 0

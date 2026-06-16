@@ -8,12 +8,34 @@ from typing import Any
 
 from logicchart.model import Finding, FindingKind, Flow, NodeKind, ProjectModel
 
+# Per-bucket relevance weights. Named constants instead of inline magic numbers so the
+# ranking model is auditable and the tests can assert exact scores.
+IDENTITY_WEIGHT = 6
+NODE_WEIGHT = 3
+FINDING_WEIGHT = 4
+# Tie-breaker only: nudges an entrypoint above an otherwise-equal non-entrypoint. Added
+# only when the term-overlap score is already > 0, so it never manufactures a match.
+ENTRYPOINT_BONUS = 1
+
 
 @dataclass(slots=True)
 class QueryMatch:
     flow: Flow
     score: int
     reasons: list[str]
+
+    def to_dict(self, include_source: bool = True) -> dict[str, Any]:
+        """The single serialization shared by the CLI ``--json`` path and the MCP
+        ``query_logic`` tool, so both surfaces emit an identical JSON shape."""
+        payload: dict[str, Any] = {
+            "flow_id": self.flow.id,
+            "name": self.flow.name,
+            "score": self.score,
+            "reasons": self.reasons,
+        }
+        if include_source:
+            payload["source"] = f"{self.flow.location.path}:{self.flow.location.start_line}"
+        return payload
 
 
 @dataclass(slots=True)
@@ -35,6 +57,15 @@ def query_model(
     model: ProjectModel, question: str, limit: int = 10, scope: str | None = None
 ) -> list[QueryMatch]:
     terms = _terms(question)
+    if not terms:
+        # A blank or punctuation-only question has nothing to rank against. Returning []
+        # (rather than every entrypoint) makes the CLI print "No matching logic flows
+        # found." instead of garbage filler.
+        return []
+    # Dedup query terms before scoring so repeating a word ("user user user") cannot
+    # inflate a flow's rank. dict.fromkeys preserves order for stable reason text.
+    unique_terms = list(dict.fromkeys(terms))
+
     matches: list[QueryMatch] = []
     findings_by_flow: dict[str, list[Finding]] = {}
     for finding in model.findings:
@@ -43,28 +74,38 @@ def query_model(
     for flow in model.flows:
         if not flow_in_scope(flow, scope):
             continue
+        # Match on tokens, not substrings: "order" must not match inside "reordering".
+        # entry_kind / framework are an internal vocabulary ("route", "function", ...),
+        # not user-authored content, so they are excluded from the identity bucket.
+        name_tokens = _tokenize(f"{flow.name} {flow.symbol}")
+        node_tokens = _tokenize(" ".join(node.label for node in flow.nodes))
+        finding_tokens = _tokenize(
+            " ".join(finding.message for finding in findings_by_flow.get(flow.id, []))
+        )
         score = 0
         reasons: list[str] = []
-        name_text = f"{flow.name} {flow.symbol} {flow.entry_kind} {flow.framework}".lower()
-        node_text = " ".join(node.label for node in flow.nodes).lower()
-        finding_text = " ".join(
-            finding.message for finding in findings_by_flow.get(flow.id, [])
-        ).lower()
-        for term in terms:
-            if term in name_text:
-                score += 6
+        for term in unique_terms:
+            if term in name_tokens:
+                score += IDENTITY_WEIGHT
                 reasons.append(f"`{term}` matches the flow identity")
-            if term in node_text:
-                score += 3
+            if term in node_tokens:
+                score += NODE_WEIGHT
                 reasons.append(f"`{term}` appears in a decision or action")
-            if term in finding_text:
-                score += 4
+            if term in finding_tokens:
+                score += FINDING_WEIGHT
                 reasons.append(f"`{term}` appears in a review finding")
-        if flow.is_entrypoint:
-            score += 1
+        # The entrypoint bonus is a tie-breaker among real matches, never a match on its
+        # own: only add it once the term-overlap score is already positive.
         if score:
+            if flow.is_entrypoint:
+                score += ENTRYPOINT_BONUS
             matches.append(QueryMatch(flow, score, list(dict.fromkeys(reasons))))
-    return sorted(matches, key=lambda item: (-item.score, item.flow.name))[:limit]
+    # Deterministic order: score desc, then name, then unique id, so equal score+name is
+    # stable regardless of flow insertion order.
+    matches.sort(key=lambda item: (-item.score, item.flow.name, item.flow.id))
+    if limit and limit > 0:
+        matches = matches[:limit]
+    return matches
 
 
 def impact_model(
@@ -254,7 +295,10 @@ def find_decisions(
                 continue
             if domain is not None and node.metadata.get("domain") != domain:
                 continue
-            if subject is not None and subject not in str(node.metadata.get("subject", "")):
+            # Equality match on subject, consistent with where_is_state_handled's exact
+            # domain/value matching (was a substring test, so "status" matched
+            # "order_status").
+            if subject is not None and str(node.metadata.get("subject", "")) != subject:
                 continue
             has_gap = node.id in gap_nodes
             if missing_fallback and not has_gap:
@@ -313,11 +357,19 @@ def _terms(question: str) -> list[str]:
         "where",
         "which",
     }
+    # \w is unicode-aware in py3, so "café" / "日本語" survive tokenization instead of
+    # being dropped or split by the ASCII-only [a-zA-Z0-9_] class.
     return [
         token
-        for token in re.findall(r"[a-zA-Z0-9_]+", question.lower())
+        for token in re.findall(r"\w+", question.lower())
         if len(token) > 1 and token not in stopwords
     ]
+
+
+def _tokenize(text: str) -> set[str]:
+    """The field-side tokenizer that mirrors ``_terms`` (unicode \\w words, lowercased),
+    so query terms are matched against whole tokens rather than substrings."""
+    return set(re.findall(r"\w+", text.lower()))
 
 
 def _normalize_path(value: str) -> str:

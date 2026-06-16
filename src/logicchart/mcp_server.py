@@ -69,9 +69,19 @@ def run_mcp(root: Path) -> None:
         if flow is None:
             return {"error": f"Unknown flow: {flow_id}"}
         flow_dict = _flow_dict(flow)
-        # Honor the budget by trimming the largest list-shaped fields of the graph.
+        # Honor the budget by trimming the largest list-shaped fields of the graph, then
+        # keep the subgraph internally consistent: drop any edge whose source or target
+        # node was capped away, so the result is never a dangling-edge graph.
         flow_dict["nodes"] = _cap(flow_dict.get("nodes", []), token_budget)
-        flow_dict["edges"] = _cap(flow_dict.get("edges", []), token_budget)
+        kept_node_ids = {node["id"] for node in flow_dict["nodes"]}
+        flow_dict["edges"] = _cap(
+            [
+                edge
+                for edge in flow_dict.get("edges", [])
+                if edge["source"] in kept_node_ids and edge["target"] in kept_node_ids
+            ],
+            token_budget,
+        )
         return {
             "flow": flow_dict,
             "findings": _cap(
@@ -81,22 +91,21 @@ def run_mcp(root: Path) -> None:
         }
 
     @server.tool()
-    def query_logic(question: str, limit: int = 10, token_budget: int = 0) -> list[dict[str, Any]]:
-        """Find flows relevant to a behavior, decision, state, or codebase question."""
+    def query_logic(
+        question: str,
+        limit: int = 10,
+        scope: str | None = None,
+        token_budget: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Find flows relevant to a behavior, decision, state, or codebase question.
+
+        ``scope`` restricts to a named macro-part so the result matches the CLI's
+        ``query --scope`` ranking. ``token_budget`` only ever shrinks the list below
+        ``limit``; it never expands it (query_model has already truncated to ``limit``).
+        """
         model = load_model(project_root)
-        return _cap(
-            [
-                {
-                    "flow_id": match.flow.id,
-                    "name": match.flow.name,
-                    "score": match.score,
-                    "reasons": match.reasons,
-                    "source": (f"{match.flow.location.path}:{match.flow.location.start_line}"),
-                }
-                for match in query_model(model, question, limit)
-            ],
-            token_budget,
-        )
+        matches = query_model(model, question, limit, scope)
+        return _cap([match.to_dict() for match in matches], token_budget)
 
     @server.tool()
     def get_findings(flow_id: str | None = None, token_budget: int = 0) -> list[dict[str, Any]]:
@@ -161,9 +170,14 @@ def run_mcp(root: Path) -> None:
         }
 
     @server.tool()
-    def analyze_impact(changed_files: list[str], token_budget: int = 0) -> dict[str, Any]:
-        """Find direct and transitive decision flows affected by changed source files."""
-        result = impact_model(load_model(project_root), changed_files)
+    def analyze_impact(
+        changed_files: list[str], scope: str | None = None, token_budget: int = 0
+    ) -> dict[str, Any]:
+        """Find direct and transitive decision flows affected by changed source files.
+
+        ``scope`` restricts to a named macro-part, matching the CLI's ``impact --scope``.
+        """
+        result = impact_model(load_model(project_root), changed_files, scope)
         direct = [_flow_summary(item) for item in result.directly_impacted]
         transitive = [_flow_summary(item) for item in result.transitively_impacted]
         return {
