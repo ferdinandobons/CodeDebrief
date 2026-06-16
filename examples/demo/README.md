@@ -2,7 +2,7 @@
 
 A small but realistic "users & orders" platform, deliberately spread across **11
 languages** and **4 macro-parts** to show LogicChart representing a whole codebase,
-a single scope, or one flow - all from the same deterministic model.
+a single scope, or one flow, all from the same deterministic model.
 
 ## Layout
 
@@ -31,7 +31,7 @@ declares `DELETED`, which is unhandled with no `default`. Because the enum is a
 declared closed set, LogicChart names the missing member precisely
 (`enum_exhaustiveness`, evidence `INFERRED`). The JavaScript helper in
 `frontend/lib/status.js` switches on the same statuses and *does* handle
-`deleted`, so it is clean - the contrast is the point. Every other service
+`deleted`, so it is clean: the contrast is the point. Every other service
 (including the Rust `match`, which the compiler already proves exhaustive) is
 reported clean: the model stays precise as the codebase grows.
 
