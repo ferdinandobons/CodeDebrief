@@ -17,9 +17,11 @@ def render_html(model: ProjectModel, source_root: Path | None = None) -> str:
     )
     css = _asset("styles.css")
     js = _asset("shell.js")
+    tree_js = _asset("tree.js")
     return (
         _HTML_TEMPLATE.replace("__STYLES__", css)
         .replace("__SHELL_JS__", js)
+        .replace("__TREE_JS__", tree_js)
         .replace("__LOGICCHART_DATA__", payload)
     )
 
@@ -61,14 +63,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
     <aside class="left-rail" id="leftRail">
       <div class="rail-inner">
         <div class="rail-head">
-          <h2 class="rail-title">Entry points and subflows</h2>
-          <input class="search" id="flowSearch" type="search" placeholder="Filter flows..." aria-label="Filter flows">
-          <div class="filters">
-            <select class="filter" id="scopeFilter" aria-label="Filter by scope"></select>
-            <select class="filter" id="langFilter" aria-label="Filter by language"></select>
-          </div>
+          <h2 class="rail-title">Codebase</h2>
+          <select class="filter" id="langFilter" aria-label="Filter by language" style="display:none"></select>
         </div>
-        <div class="flow-list" id="flowList"></div>
+        <div class="tree" id="tree" role="tree" aria-label="Directory tree"></div>
         <div class="legend">
           <span>Action</span><span class="decision">Decision</span>
           <span class="call">Subflow</span><span class="outcome">Outcome</span>
@@ -102,6 +100,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
 
   <script id="logicchart-data" type="application/json">__LOGICCHART_DATA__</script>
   <script>__SHELL_JS__</script>
+  <script>__TREE_JS__</script>
 </body>
 </html>
 """

@@ -11,11 +11,14 @@
       findingsByNode.set(item.node_id, list);
     });
 
+    // Shared surface other inlined scripts (tree.js, future panels) bind to. The left
+    // rail is owned by tree.js now, so the app shell exposes flow selection here.
+    const LC = (window.LC = window.LC || {});
+    LC.model = model;
+    LC.flows = flows;
+    LC.byId = byId;
+
     const svg = document.getElementById("canvas");
-    const listEl = document.getElementById("flowList");
-    const searchEl = document.getElementById("flowSearch");
-    const scopeFilterEl = document.getElementById("scopeFilter");
-    const langFilterEl = document.getElementById("langFilter");
     const detailsEl = document.getElementById("details");
     const rightRail = document.getElementById("rightRail");
     const leftRail = document.getElementById("leftRail");
@@ -33,61 +36,12 @@
     document.getElementById("entryCount").textContent = flows.filter(item => item.is_entrypoint).length;
     document.getElementById("findingCount").textContent = findings.length;
 
-    function sortedFlows() {
-      return [...flows].sort((a, b) =>
-        Number(b.is_entrypoint) - Number(a.is_entrypoint) || a.name.localeCompare(b.name)
+    // Entry points first, then by name. Shared so the tree lists a file's flows in the
+    // same order the old flat list used.
+    LC.sortFlows = list =>
+      [...list].sort(
+        (a, b) => Number(b.is_entrypoint) - Number(a.is_entrypoint) || a.name.localeCompare(b.name)
       );
-    }
-
-    function populateFilters() {
-      const scopes = new Set();
-      const languages = new Set();
-      flows.forEach(flow => {
-        (flow.metadata.scope || []).forEach(scope => scopes.add(scope));
-        if (flow.language) languages.add(flow.language);
-      });
-      fillSelect(scopeFilterEl, "All scopes", [...scopes].sort());
-      fillSelect(langFilterEl, "All languages", [...languages].sort());
-      // Hide a filter that offers no real choice (a single scope/language).
-      scopeFilterEl.style.display = scopes.size > 1 ? "" : "none";
-      langFilterEl.style.display = languages.size > 1 ? "" : "none";
-    }
-
-    function fillSelect(select, allLabel, values) {
-      select.replaceChildren();
-      const all = document.createElement("option");
-      all.value = "";
-      all.textContent = allLabel;
-      select.appendChild(all);
-      values.forEach(value => {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = value;
-        select.appendChild(option);
-      });
-    }
-
-    function renderList(filter = "") {
-      const needle = filter.trim().toLowerCase();
-      const scope = scopeFilterEl.value;
-      const language = langFilterEl.value;
-      listEl.replaceChildren();
-      sortedFlows()
-        .filter(flow => !flow.metadata.test)
-        .filter(flow => !scope || (flow.metadata.scope || []).includes(scope))
-        .filter(flow => !language || flow.language === language)
-        .filter(flow => `${flow.name} ${flow.symbol} ${flow.entry_kind}`.toLowerCase().includes(needle))
-        .forEach(flow => {
-          const button = document.createElement("button");
-          button.className = "flow-item" + (activeFlow?.id === flow.id ? " active" : "");
-          button.innerHTML = `<span class="bar"></span><span><strong></strong><span></span></span>`;
-          button.querySelector("strong").textContent = flow.name;
-          button.querySelector("span span").textContent =
-            `${flow.is_entrypoint ? "ENTRY" : "SUBFLOW"} · ${flow.entry_kind}`;
-          button.addEventListener("click", () => selectFlow(flow.id));
-          listEl.appendChild(button);
-        });
-    }
 
     function selectFlow(flowId) {
       const flow = byId.get(flowId);
@@ -97,10 +51,11 @@
       document.getElementById("flowTitle").textContent = flow.name;
       document.getElementById("flowKind").textContent =
         `${flow.entry_kind} · ${flow.language} · ${flow.framework}`;
-      renderList(searchEl.value);
       renderFlow(flow);
       inspectFlow(flow);
       leftRail.classList.remove("open");
+      // Let other inlined scripts (e.g. tree.js) reflect the active flow.
+      if (window.LC.onFlowSelected) window.LC.onFlowSelected(flow);
     }
 
     function layoutFlow(flow) {
@@ -457,10 +412,6 @@
       updateViewBox();
     }
 
-    const applyFilters = () => renderList(searchEl.value);
-    searchEl.addEventListener("input", applyFilters);
-    scopeFilterEl.addEventListener("change", applyFilters);
-    langFilterEl.addEventListener("change", applyFilters);
     document.getElementById("zoomIn").addEventListener("click", () => zoom(.82));
     document.getElementById("zoomOut").addEventListener("click", () => zoom(1.22));
     document.getElementById("resetView").addEventListener("click", () => {
@@ -504,9 +455,12 @@
       applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")
     );
 
-    populateFilters();
-    renderList();
+    // Expose flow selection so the directory tree (tree.js, a later <script>) can
+    // drive the canvas. tree.js renders the left rail and reads LC.activeFlowId() to
+    // mark the active row.
+    LC.selectFlow = selectFlow;
+    LC.activeFlowId = () => activeFlow?.id || null;
+
     const requested = decodeURIComponent(location.hash.slice(1));
     const initial = byId.get(requested) || flows.find(item => item.is_entrypoint) || flows[0];
     if (initial) selectFlow(initial.id);
-  

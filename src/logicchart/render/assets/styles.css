@@ -194,21 +194,11 @@
       text-transform: uppercase;
       color: var(--muted);
     }
-    .search {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      background: var(--paper);
-      color: var(--ink);
-      padding: 10px 12px;
-      outline: none;
-      transition: border-color .15s ease, box-shadow .15s ease;
-    }
-    .search:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47, 99, 239, .16); }
-    .filters { display: flex; gap: 8px; margin-top: 10px; }
+    /* Language dropdown above the tree (shown only for polyglot repos). */
     .filter {
-      flex: 1;
+      width: 100%;
       min-width: 0;
+      margin-top: 4px;
       border: 1px solid var(--line);
       border-radius: var(--radius-sm);
       background: var(--paper);
@@ -219,33 +209,96 @@
       cursor: pointer;
     }
     .filter:focus { border-color: var(--blue); }
-    .flow-list, .detail-scroll { overflow: auto; min-height: 0; }
-    .flow-list { padding: 10px; }
-    .flow-item {
+    .detail-scroll, .tree { overflow: auto; min-height: 0; }
+    /* Directory tree (left rail). Rows indent by --depth; folders/files toggle, flow
+       rows select. Colors reuse the shared theme variables (no new hardcoded color). */
+    .tree { padding: 8px 6px; }
+    .tree-dir, .tree-file, .tree-flow {
       width: 100%;
-      display: grid;
-      grid-template-columns: 5px 1fr;
-      gap: 11px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
       text-align: left;
       border: 0;
       border-radius: var(--radius-sm);
       background: transparent;
-      padding: 11px 11px;
+      color: var(--ink);
+      padding: 6px 8px;
+      padding-left: calc(8px + var(--depth, 0) * 15px);
       cursor: pointer;
+      font-size: 13px;
+      line-height: 1.3;
       transition: background-color .12s ease;
     }
-    .flow-item:hover, .flow-item:focus-visible { background: var(--hover); outline: none; }
-    .flow-item.active { background: var(--active); }
-    .flow-item .bar { background: var(--line-strong); border-radius: 3px; min-height: 42px; }
-    .flow-item.active .bar { background: var(--blue); }
-    .flow-item strong { display: block; font-size: 13px; line-height: 1.25; }
-    .flow-item span {
+    .tree-dir:hover, .tree-file:hover, .tree-flow:hover {
+      background: var(--hover);
+    }
+    /* Keyboard focus must be distinct from hover (which only changes the background).
+       A theme-aware outline reads correctly in both light and dark. */
+    .tree-dir:focus-visible, .tree-file:focus-visible, .tree-flow:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: -2px;
+    }
+    .tree-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tree-dir .tree-label { font-weight: 600; }
+    .tree-file.active-file { background: var(--active); }
+    .tree-file.active-file .tree-label { color: var(--blue); }
+    .tree-caret {
+      flex: none;
+      width: 13px;
+      height: 13px;
+      fill: none;
+      stroke: var(--muted);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform .12s ease;
+    }
+    .tree-caret.open { transform: rotate(90deg); }
+    .tree-file .tree-caret { stroke: var(--line-strong); }
+    .tree-count {
+      margin-left: auto;
+      flex: none;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: var(--chip);
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .tree-children { display: block; }
+    .tree-children[hidden] { display: none; }
+    .tree-flow {
+      display: grid;
+      grid-template-columns: 4px 1fr;
+      gap: 9px;
+      padding-top: 7px;
+      padding-bottom: 7px;
+    }
+    .tree-flow::before {
+      content: "";
+      align-self: stretch;
+      background: var(--line-strong);
+      border-radius: 3px;
+      min-height: 30px;
+    }
+    .tree-flow.active::before { background: var(--blue); }
+    .tree-flow.active { background: var(--active); }
+    .tree-flow strong { display: block; font-size: 13px; line-height: 1.25; }
+    .tree-flow span {
       display: block;
       color: var(--muted);
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 10px;
-      margin-top: 5px;
+      margin-top: 4px;
     }
+    .tree-flow.tree-empty { color: var(--muted); font-style: italic; cursor: default; }
+    .tree-flow.tree-empty::before { background: transparent; }
     main { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
     .canvas-toolbar {
       position: absolute;
