@@ -1,24 +1,23 @@
 # LogicChart
 
-**LogicChart reads your code and draws its decision logic as flowcharts - across 11 languages, with no API key.**
+**LogicChart reads your code and draws its decision logic as flowcharts in 11 languages, with no API key.**
 
 ![Before AI you built code by hand and understood it; with AI no one knows how it works; with AI plus LogicChart you understand it again.](docs/assets/why-logicchart.svg)
 
 In the AI era it is easy to lose track of what your own code does. You ship fast, then end up
-unsure how it works or fits together - until no one really knows. LogicChart turns the code
+unsure how it works or fits together, until no one really knows. LogicChart turns the code
 back into a navigable map of its decisions, so you can see it, reason about it, and spot what
 to change or where the gaps are.
 
-It reads your source (never running it) and turns the branching logic - the `if` / `switch` /
-`match` paths, the error handling, and the calls that link one piece to the next - into clear,
-clickable flowcharts. Deterministic and offline: the same code always gives the same result.
+It reads your source (never running it) and turns the branching logic into clear, clickable flowcharts: the `if` / `switch` / `match`
+paths, the error handling, and the calls that link one piece to the next. Deterministic and offline: the same code always gives the same result.
 Terraform gets a resource dependency graph instead.
 
 One model covers **a single function, one part of the system (`backend/`, `frontend/`,
 `infra/`), or the whole codebase**, and you can zoom between them. It is committed to git as a
-machine-readable model, reviewable flowcharts, and an interactive viewer - for people and
-coding agents alike. Every finding is tagged by confidence - `VERIFIED`, `INFERRED`, or
-`POTENTIAL_GAP` - so a fact is never dressed up as a guess.
+machine-readable model, reviewable flowcharts, and an interactive viewer, for people and
+coding agents alike. Every finding is tagged by confidence (`VERIFIED`, `INFERRED`, or
+`POTENTIAL_GAP`), so a fact is never dressed up as a guess.
 
 > **Status:** early alpha. The logical model is versioned, but its schema may still evolve
 > before 1.0.
@@ -32,7 +31,7 @@ enum declares:
 switch (user.status) {            // user.status: UserStatus { ACTIVE, SUSPENDED, DELETED }
   case UserStatus.ACTIVE:    return Response.json(user);
   case UserStatus.SUSPENDED: return new Response("Blocked", { status: 403 });
-  // no default - and DELETED is never handled
+  // no default, and DELETED is never handled
 }
 ```
 
@@ -44,7 +43,7 @@ member, and labels how it knows:
 ```
 
 `INFERRED` means a deterministic heuristic over the declared enum, not a guess. That is the
-**only** finding across the bundled demo's 11-language, 4-scope codebase - the model stays
+**only** finding across the bundled demo's 11-language, 4-scope codebase. The model stays
 precise as it scales. Run it yourself on [`examples/demo`](examples/demo).
 
 ## Why LogicChart
@@ -52,11 +51,11 @@ precise as it scales. Run it yourself on [`examples/demo`](examples/demo).
 Your IDE answers "where is this symbol?" LogicChart is built for the questions that come up
 in review and refactoring, at any scope from one function to the whole repo:
 
-- **Catch missing cases** before code review - a `switch` / `match` / `if`-chain with no fallback.
-- **Check state handling is consistent** across sibling flows - a status one route handles
-  but another silently drops - even across files and languages.
-- **See change impact** - which entry points are reachable from the service you're about to edit.
-- **Reason about a whole codebase or one macro-part** - backend, frontend, or Terraform infra - from a single model.
+- **Catch missing cases** before code review: a `switch` / `match` / `if`-chain with no fallback.
+- **Check state handling is consistent** across sibling flows: a status one route handles
+  but another silently drops, even across files and languages.
+- **See change impact**: which entry points are reachable from the service you're about to edit.
+- **Reason about a whole codebase or one macro-part** (backend, frontend, or Terraform infra) from a single model.
 - **Give coding agents a deterministic control-flow map** they can query instead of re-reading files.
 
 ## Install
@@ -91,7 +90,7 @@ You get three files under `logicchart-out/`:
 
 | File | Purpose |
 |---|---|
-| `logic-flow.json` | canonical model - consumed by the CLI and MCP; **commit it** |
+| `logic-flow.json` | canonical model, consumed by the CLI and MCP; **commit it** |
 | `logic-flow.md` | reviewable Mermaid flowcharts + a findings list; **commit it** |
 | `logic-flow.html` | interactive local viewer (drag blocks to rearrange); regenerated, git-ignored |
 
@@ -104,7 +103,7 @@ expands it). A file that can't be parsed is skipped and reported, never aborting
 Every command takes the project path as a positional argument (default `.`). Examples below
 run against the bundled [`examples/demo`](examples/demo).
 
-### `analyze` - build the model
+### `analyze`: build the model
 
 ```bash
 logicchart analyze examples/demo --full
@@ -119,7 +118,7 @@ Wrote .../logic-flow.html
 `--full` ignores the incremental cache; `--no-html` skips the viewer; `--include-gaps`
 expands the review-only findings in the Markdown.
 
-### `update` - incrementally refresh
+### `update`: incrementally refresh
 
 ```bash
 logicchart update examples/demo
@@ -127,7 +126,7 @@ logicchart update examples/demo
 Re-analyzes only the files whose contents changed (content-hash cache), then rewrites the
 JSON and Markdown. Commit those two files after a substantial change.
 
-### `query` - ask the model a question
+### `query`: ask the model a question
 
 ```bash
 logicchart query "where is suspended user status handled?" --path examples/demo
@@ -143,7 +142,7 @@ machine-readable output, or `--scope backend` to restrict the search to one macr
 logicchart query "order status" --path examples/demo --scope backend
 ```
 
-### `impact` - what does a change touch?
+### `impact`: what does a change touch?
 
 ```bash
 logicchart impact backend/users.py --path examples/demo
@@ -162,7 +161,7 @@ Direct impact:
 With no file arguments it uses `git diff` to infer what changed. `--scope <name>` limits the
 impact set to one macro-part.
 
-### `view` - interactive flowchart
+### `view`: interactive flowchart
 
 ```bash
 logicchart view examples/demo
@@ -172,7 +171,7 @@ filter flows, click a block to inspect its source and findings, and **drag block
 rearrange the diagram by hand** (the connectors follow; the reset button restores the
 automatic layout). Add `--render-only` to write the HTML without serving.
 
-### `diff` - gate a change in CI
+### `diff`: gate a change in CI
 
 ```bash
 logicchart diff base/logic-flow.json logicchart-out/logic-flow.json \
@@ -182,7 +181,7 @@ Compares two models by stable finding id, prints a GitHub-Markdown summary of fi
 introduced / resolved / persisting, optionally writes SARIF, and exits non-zero when a
 finding is introduced.
 
-### `hook` - keep the committed model fresh
+### `hook`: keep the committed model fresh
 
 ```bash
 logicchart hook install     # post-commit / post-checkout hooks + a union merge driver
@@ -220,7 +219,7 @@ it belongs to, and the Markdown header summarizes the breakdown (e.g. `backend (
 
 ## Supported Code
 
-**Languages - 10 for control flow, plus Terraform (11 in all).** Control flow (functions,
+**Languages: 10 for control flow, plus Terraform (11 in all).** Control flow (functions,
 methods, `if` / `else`, `switch` / `match`, exceptions, returns, and the internal calls that
 link flows) is extracted from:
 
@@ -232,13 +231,13 @@ link flows) is extracted from:
 
 A new control-flow language is a small *profile* (grammar vocabulary + a few extractors), not
 a bespoke analyzer, so coverage grows without forking the pipeline. Language-specific
-correctness is respected - e.g. a Rust `match` is compiler-exhaustive, so it is never flagged
+correctness is respected: e.g. a Rust `match` is compiler-exhaustive, so it is never flagged
 for a missing `default`.
 
 **Terraform / HCL** (`.tf`) is declarative, so instead of control flow LogicChart maps the
 **resource dependency graph**: each `resource` / `module` / `data` / `variable` / `output`
 block becomes a flow, and each reference (`aws_vpc.main.id`, `depends_on`) becomes a
-dependency edge - viewable for the whole infrastructure, one scope, or one resource's
+dependency edge, viewable for the whole infrastructure, one scope, or one resource's
 dependencies.
 
 **Framework-aware entry points:**
@@ -250,7 +249,7 @@ dependencies.
 
 **Limitations (by design):** LogicChart does not run your code, trace runtime behavior, do
 full symbolic execution, or reconstruct deep React state. "Shallow" React means it reads the
-structure of a component and its hooks, not what they render across re-renders - treat those
+structure of a component and its hooks, not what they render across re-renders; treat those
 findings as review candidates. It maps each entry point's own control flow plus the internal
 calls that connect flows, not arbitrarily deep call chains.
 
@@ -266,7 +265,7 @@ Single-flow (reason about one flow):
 
 - `missing_branch`: a `match` / `switch` or `if` / `elif` chain on a state-like subject with no explicit `else` / `default`.
 - `dead_code`: code after a point where every path already returned or raised.
-- `broad_except_swallow`: an exception handler that silently discards the error - an empty body or one that only logs it, with no re-raise or error return.
+- `broad_except_swallow`: an exception handler that silently discards the error: an empty body or one that only logs it, with no re-raise or error return.
 - `no_op_branch`: an explicit `if` branch with an empty body.
 - `asymmetric_return`: a dispatch where most cases return/raise but one falls through (a likely missing return).
 - `dead_guard`: a truthiness guard on a module-level boolean constant, so one branch is always dead.
@@ -308,15 +307,15 @@ exclude = []
 `auth_divergence` that are more prone to false positives (middleware/DI can authorize
 invisibly), so they are off unless you turn them on.
 
-`self_exclude` (default `true`) keeps LogicChart's own installed package - and, when you
-analyze its source checkout, its `tests/` - out of the generated model, so the artifact is
+`self_exclude` (default `true`) keeps LogicChart's own installed package (and, when you
+analyze its source checkout, its `tests/`) out of the generated model, so the artifact is
 never polluted by the tool scanning its own internals.
 
 Use `.logicchartignore` for generated files or directories that should not be analyzed.
 
 ## Advanced: agents, MCP, and CI
 
-> Optional - start with Quick Start above. These wire LogicChart into coding agents and tooling.
+> Optional: start with Quick Start above. These wire LogicChart into coding agents and tooling.
 
 ### Agent instructions
 
@@ -365,16 +364,16 @@ Example MCP configuration:
 
 Available tools:
 
-- `logicchart_summary` - flow/entrypoint counts and findings by kind/severity/evidence
+- `logicchart_summary`: flow/entrypoint counts and findings by kind/severity/evidence
 - `list_flows`
 - `get_flow`
 - `query_logic`
 - `get_findings`
-- `explain_finding_chain` - the deterministic evidence chain behind one finding
-- `where_state_handled` - every flow branching on a domain/value-namespace and the values it covers
-- `find_decision_nodes` - structured search over decision nodes (domain/subject/missing-fallback)
+- `explain_finding_chain`: the deterministic evidence chain behind one finding
+- `where_state_handled`: every flow branching on a domain/value-namespace and the values it covers
+- `find_decision_nodes`: structured search over decision nodes (domain/subject/missing-fallback)
 - `analyze_impact`
-- `diff_findings` - compare the current model against a baseline (the CI primitive)
+- `diff_findings`: compare the current model against a baseline (the CI primitive)
 - `update_logicchart`
 
 Every query/list tool accepts a `token_budget` cap so an agent can bound how much context a
