@@ -34,6 +34,7 @@
       // (a large codebase has thousands of findings) -- general over finding count.
       const MAX_FINDING_ROWS = 50;
 
+      const sourcePanel = document.getElementById("sourcePanel");
       const sourceBody = document.getElementById("source");
       const sourceFileEl = document.getElementById("sourceFile");
       const errorsBody = document.getElementById("errors");
@@ -115,9 +116,6 @@
       // hard-coded names.
       function relevantFlowIds(sel) {
         if (sel.flowId && byId.has(sel.flowId)) return new Set([sel.flowId]);
-        if (sel.scope && Object.prototype.hasOwnProperty.call(scopeFlows, sel.scope)) {
-          return new Set(scopeFlows[sel.scope] || []);
-        }
         if (sel.path) {
           // A path selection ALWAYS scopes, even when it matches no flows: returning the
           // (possibly empty) set keeps the panels showing "this file/dir's findings" rather
@@ -129,6 +127,9 @@
             if (p === prefix || p.startsWith(prefix + "/")) ids.add(flow.id);
           });
           return ids;
+        }
+        if (sel.scope && Object.prototype.hasOwnProperty.call(scopeFlows, sel.scope)) {
+          return new Set(scopeFlows[sel.scope] || []);
         }
         return null; // null => "all findings" (no scoping).
       }
@@ -260,7 +261,12 @@
         }
         list.forEach(finding => {
           const row = findingRow(finding);
-          if (sel.findingId && finding.id === sel.findingId) row.classList.add("selected");
+          if (
+            (sel.findingId && finding.id === sel.findingId) ||
+            (sel.nodeId && finding.node_id === sel.nodeId)
+          ) {
+            row.classList.add("selected");
+          }
           errorsBody.appendChild(row);
         });
         // Focus is restored once after the whole cascade settles (see onSelection), not here.
@@ -273,6 +279,7 @@
       // shows code. null when nothing resolves.
       function sourceFlowFor(sel) {
         if (sel.flowId && byId.has(sel.flowId)) return byId.get(sel.flowId);
+        if (!sel.path) return null;
         const ids = relevantFlowIds(sel);
         if (ids && ids.size) {
           // Deterministic: the lowest-line flow in the smallest path, good enough as a
@@ -364,6 +371,7 @@
         const flow = sourceFlowFor(sel);
         clear(sourceBody);
         if (sourceFileEl) sourceFileEl.textContent = "";
+        if (sourcePanel) sourcePanel.hidden = !flow;
 
         if (!flow) {
           sourceBody.appendChild(

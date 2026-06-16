@@ -70,6 +70,7 @@
       color-scheme: dark;
     }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     html, body { height: 100%; margin: 0; }
     body {
       color: var(--ink);
@@ -281,27 +282,69 @@
     .tree-children[hidden] { display: none; }
     .tree-flow {
       display: grid;
-      grid-template-columns: 4px 1fr;
-      gap: 9px;
-      padding-top: 7px;
-      padding-bottom: 7px;
+      grid-template-columns: 5px minmax(0, 1fr);
+      grid-template-rows: auto auto;
+      gap: 12px;
+      row-gap: 6px;
+      padding-top: 8px;
+      padding-bottom: 8px;
     }
     .tree-flow::before {
       content: "";
+      grid-row: 1 / span 2;
       align-self: stretch;
-      background: var(--line-strong);
-      border-radius: 3px;
-      min-height: 30px;
+      background: linear-gradient(var(--line-strong), var(--line));
+      border-radius: 999px;
+      min-height: 44px;
     }
     .tree-flow.active::before { background: var(--blue); }
     .tree-flow.active { background: var(--active); }
-    .tree-flow strong { display: block; font-size: 13px; line-height: 1.25; }
-    .tree-flow span {
+    .tree-flow strong {
+      grid-column: 2;
       display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 14px;
+      line-height: 1.2;
+    }
+    .tree-flow-badges {
+      grid-column: 2;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 0;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+    .tree-flow-badge {
+      display: inline-flex;
+      align-items: center;
+      flex: none;
+      min-height: 18px;
+      max-width: none;
+      padding: 2px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel-2);
       color: var(--muted);
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 10px;
-      margin-top: 4px;
+      font-size: 9px;
+      font-weight: 750;
+      line-height: 1;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .tree-flow-badge.role-entry {
+      border-color: color-mix(in srgb, var(--blue), var(--line) 45%);
+      background: var(--chip);
+      color: var(--blue);
+    }
+    .tree-flow-badge.role-subflow {
+      border-color: color-mix(in srgb, var(--violet), var(--line) 45%);
+      color: var(--violet);
     }
     .tree-flow.tree-empty { color: var(--muted); font-style: italic; cursor: default; }
     .tree-flow.tree-empty::before { background: transparent; }
@@ -757,6 +800,7 @@
        :fullscreen too. Selection state is untouched, so the panels are correct on exit. */
     body[data-fullscreen] .left-rail,
     body[data-fullscreen] .right-rail { display: none; }
+    body[data-fullscreen] #menuButton { display: none; }
     body[data-fullscreen] main {
       position: fixed;
       inset: 0;
@@ -813,4 +857,3 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
     }
-  

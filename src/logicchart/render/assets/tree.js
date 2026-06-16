@@ -55,8 +55,16 @@
         return row;
       }
 
-      function flowSubtitle(flow) {
-        return `${flow.is_entrypoint ? "ENTRY" : "SUBFLOW"} · ${flow.entry_kind}`;
+      function flowRole(flow) {
+        return flow.is_entrypoint ? "ENTRY" : "SUBFLOW";
+      }
+
+      function treePathLabel(node) {
+        if (!node || node.type !== "file") return node ? node.name : "";
+        const segments = String(node.path || "").split("/").filter(Boolean);
+        if (segments.length <= 2) return segments.join("/") || node.name;
+        const generic = /^(index|route|page|layout|handler|main)\.[^.]+$/i.test(node.name);
+        return generic ? segments.slice(-2).join("/") : node.name;
       }
 
       // Resolve a file node's flow ids to flows, pruned to the active language.
@@ -82,9 +90,16 @@
           row.setAttribute("data-path", file.path);
           const name = document.createElement("strong");
           name.textContent = flow.name;
-          const sub = document.createElement("span");
-          sub.textContent = flowSubtitle(flow);
-          row.append(name, sub);
+          const badges = document.createElement("span");
+          badges.className = "tree-flow-badges";
+          const role = document.createElement("span");
+          role.className = "tree-flow-badge role-" + flowRole(flow).toLowerCase();
+          role.textContent = flowRole(flow);
+          const kind = document.createElement("span");
+          kind.className = "tree-flow-badge";
+          kind.textContent = flow.entry_kind || "flow";
+          badges.append(role, kind);
+          row.append(name, badges);
           row.addEventListener("click", () => {
             if (LC.selectFlow) LC.selectFlow(flow.id);
           });
@@ -110,7 +125,8 @@
         const caret = svgFolderIcon(false);
         const label = document.createElement("span");
         label.className = "tree-label";
-        label.textContent = node.name;
+        label.textContent = treePathLabel(node);
+        if (!isDir && label.textContent !== node.path) label.title = node.path;
         row.append(caret, label);
 
         if (!isDir) {
@@ -182,6 +198,43 @@
           const fileRow = fileRows.get(flow.location.path);
           if (fileRow) fileRow.classList.add("active-file");
         }
+      }
+
+      function highlightPath(path) {
+        flowRows.forEach(row => row.classList.remove("active"));
+        fileRows.forEach(row => row.classList.remove("active-file"));
+        if (!path) return;
+        revealPath(path);
+        const row = structureRow(path);
+        if (row) row.classList.add("active-file");
+      }
+
+      function setLanguageFilterAvailability(sel) {
+        if (!langFilterEl || languages.length <= 1) return;
+        const locked = !!(sel && sel.flowId);
+        langFilterEl.disabled = locked;
+        langFilterEl.title = locked
+          ? "Return to the codebase or scope level to change language"
+          : "";
+      }
+
+      function clearCanvasSelectionForLanguageFilter() {
+        const sel = LC.selection || {};
+        if (!(sel.flowId || sel.nodeId || sel.path || sel.scope)) return;
+        lastActiveFlowId = null;
+        highlightActive(null);
+        if (LC.showL0) {
+          LC.showL0();
+        } else if (LC.select) {
+          LC.select({ scope: null, path: null, flowId: null, nodeId: null, findingId: null });
+        }
+      }
+
+      function resetLanguageFilterForFlow(flow) {
+        if (!langFilterEl || !flow || !activeLang || flow.language === activeLang) return;
+        activeLang = "";
+        langFilterEl.value = "";
+        render();
       }
 
       // --- Roving tabindex + keyboard navigation (WAI-ARIA tree pattern) --------------
@@ -364,6 +417,7 @@
         langFilterEl.addEventListener("change", () => {
           activeLang = langFilterEl.value;
           render();
+          clearCanvasSelectionForLanguageFilter();
         });
       }
 
@@ -372,8 +426,8 @@
 
       LC.onFlowSelected = function (flow) {
         if (!flow) return;
+        resetLanguageFilterForFlow(flow);
         lastActiveFlowId = flow.id;
-        if (activeLang && flow.language !== activeLang) return;
         revealPath(flow.location.path);
         highlightActive(flow.id);
         refreshRovingTarget();
@@ -386,13 +440,19 @@
       // onFlowSelected uses, so the tree's accent never drifts from the rest of the app.
       if (LC.onSelection) {
         LC.onSelection(function (sel) {
+          setLanguageFilterAvailability(sel);
           const flowId = sel.flowId;
-          if (!flowId) return;
+          if (!flowId) {
+            lastActiveFlowId = null;
+            highlightPath(sel.path);
+            refreshRovingTarget();
+            return;
+          }
           if (flowId === lastActiveFlowId) return; // already reflected.
           const flow = byId.get(flowId);
           if (!flow) return;
+          resetLanguageFilterForFlow(flow);
           lastActiveFlowId = flowId;
-          if (activeLang && flow.language !== activeLang) return;
           revealPath(flow.location.path);
           highlightActive(flowId);
           refreshRovingTarget();

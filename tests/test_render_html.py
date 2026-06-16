@@ -161,3 +161,35 @@ def test_render_html_emits_source_and_errors_panels(tmp_path: Path) -> None:
     # The code-line class panels.js stamps on each rendered snippet line is present in
     # the inlined stylesheet/script (the hook the DOM verification asserts at runtime).
     assert "code-line" in html
+
+
+def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
+    html = render_html(_model(tmp_path), tmp_path)
+    # File/path selections must drive the same shared selection store as flow/node clicks,
+    # otherwise opening a file can leave the Source panel showing a stale sibling file.
+    assert "selectFile(" in html
+    assert "setLevelHeader(" in html
+
+    # Breadcrumb and file chips should use a context-bearing path label, not only the
+    # basename (many frameworks have repeated names like route.ts).
+    assert "shortPathLabel(" in html
+    assert "treePathLabel(" in html
+
+    # Flow rows in the tree should render metadata as compact chips, not stacked text that
+    # breaks differently for every entry kind/framework.
+    assert "tree-flow-badges" in html
+
+    # The Source panel is meaningful only when a file/flow is selected; scope/root views
+    # should let Logical errors use the right rail without a placeholder source panel.
+    assert "sourcePanel.hidden = !flow" in html
+
+    # Selecting a decision node should visually select its finding row even when the user
+    # did not click the finding row itself.
+    assert "finding.node_id === sel.nodeId" in html
+
+    # Full-screen canvas hides rails, so the rail menu must not remain as a no-op control.
+    assert "body[data-fullscreen] #menuButton" in html
+
+    # Language filtering is tree-local; changing it while a deep canvas selection is active
+    # must clear the deep selection instead of leaving tree/canvas on different worlds.
+    assert "clearCanvasSelectionForLanguageFilter" in html

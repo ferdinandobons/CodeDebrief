@@ -62,6 +62,7 @@
       const canvasState = {
         level: 0,
         expandedScope: null,
+        selectedPath: null,
         selectedFlowId: null,
         expandedFiles: new Set(),
         // L2: the flow id whose decision flowchart is unfolded IN PLACE inside L1, or
@@ -329,12 +330,32 @@
       // through expandFlowInline without going through selectFlow, so mirror it here.
       function setFlowHeader(flow) {
         if (!flow) return;
+        setLevelHeader(
+          flow.name,
+          `${flow.entry_kind} · ${flow.language} · ${flow.framework}`
+        );
+      }
+
+      function setLevelHeader(title, kind) {
         const titleEl = document.getElementById("flowTitle");
         const kindEl = document.getElementById("flowKind");
-        if (titleEl) titleEl.textContent = flow.name;
-        if (kindEl) {
-          kindEl.textContent = `${flow.entry_kind} · ${flow.language} · ${flow.framework}`;
-        }
+        if (titleEl) titleEl.textContent = title;
+        if (kindEl) kindEl.textContent = kind;
+      }
+
+      function shortPathLabel(path) {
+        const segments = String(path || "").split("/").filter(Boolean);
+        if (segments.length <= 2) return segments.join("/") || String(path || "");
+        return segments.slice(-2).join("/");
+      }
+
+      function flowCountForPath(path) {
+        let count = 0;
+        byId.forEach(flow => {
+          const p = flow.location && flow.location.path;
+          if (p && (p === path || p.startsWith(path + "/"))) count += 1;
+        });
+        return count;
       }
 
       // Wrapped-grid column count, shared by L0 super-nodes and L1 file boxes.
@@ -658,11 +679,10 @@
         group.setAttribute("tabindex", "0");
         group.setAttribute("role", "button");
         group.setAttribute("aria-expanded", box.expanded ? "true" : "false");
-        const segments = path.split("/");
-        const tail = segments[segments.length - 1] || path;
+        const labelText = shortPathLabel(path);
         group.setAttribute(
           "aria-label",
-          `file ${tail}: ${count} flow${count === 1 ? "" : "s"}, ${box.expanded ? "expanded" : "collapsed"}`
+          `file ${labelText}: ${count} flow${count === 1 ? "" : "s"}, ${box.expanded ? "expanded" : "collapsed"}`
         );
 
         const rect = svgEl("rect");
@@ -688,8 +708,8 @@
         label.setAttribute("class", "file-label");
         label.setAttribute("x", String(FILE_PAD));
         label.setAttribute("y", String(FILE_PAD + 4));
-        // Show the file's tail so deep paths stay legible.
-        label.textContent = tail;
+        // Show a context-bearing label so repeated names like route.ts stay legible.
+        label.textContent = labelText;
         const full = svgEl("title");
         full.textContent = `${path} (${count} flow${count === 1 ? "" : "s"})`;
         label.appendChild(full);
@@ -1011,6 +1031,12 @@
       function expandScope(name) {
         if (!Object.prototype.hasOwnProperty.call(scopeFlows, name)) return;
         setScope(name);
+        canvasState.selectedFlowId = null;
+        canvasState.selectedPath = null;
+        setLevelHeader(
+          name,
+          `${(scopeFlows[name] || []).length} flow${(scopeFlows[name] || []).length === 1 ? "" : "s"} · scope`
+        );
         location.hash = "scope=" + encodeURIComponent(name);
         // Publish the scope so the logical-errors panel scopes to this L1 subtree's
         // findings. Clear any prior flow/node so the panels reflect the level, not a
@@ -1024,8 +1050,11 @@
       function collapseToL0() {
         canvasState.level = 0;
         canvasState.expandedScope = null;
+        canvasState.selectedFlowId = null;
+        canvasState.selectedPath = null;
         canvasState.expandedFiles.clear();
         clearInlineFlow();
+        setLevelHeader("Analyze a project to begin", "No flow selected");
         location.hash = "";
         // Back at L0 (the whole codebase): clear the selection so the panels show the
         // codebase-wide findings list and the source hint.
@@ -1048,7 +1077,36 @@
         } else {
           canvasState.expandedFiles.add(path);
         }
+        selectFile(path);
         renderCanvas();
+      }
+
+      function replaceHash(hash) {
+        if (window.history && window.history.replaceState) {
+          const base = location.pathname + location.search;
+          window.history.replaceState(null, "", hash ? base + "#" + hash : base);
+        } else {
+          location.hash = hash || "";
+        }
+      }
+
+      function selectFile(path) {
+        const count = flowCountForPath(path);
+        canvasState.selectedPath = path;
+        canvasState.selectedFlowId = null;
+        setLevelHeader(
+          shortPathLabel(path),
+          `${count} flow${count === 1 ? "" : "s"} · file`
+        );
+        if (LC.select) {
+          LC.select({
+            scope: canvasState.expandedScope,
+            path,
+            flowId: null,
+            nodeId: null,
+            findingId: null,
+          });
+        }
       }
 
       // Toggle the inline decision sub-graph for `id`. Expanding ensures the host scope +
@@ -1078,6 +1136,7 @@
         }
         canvasState.level = 1;
         canvasState.expandedFiles.add(flow.location.path);
+        canvasState.selectedPath = flow.location.path;
         canvasState.selectedFlowId = id;
         LC.mode = "canvas"; // inline L2 stays on the canvas; never flips to "flow".
         // Keep the header in sync even when a flow node is clicked directly on the canvas
@@ -1121,11 +1180,24 @@
       // Esc/Enter collapse does not drop the keyboard to <body>.
       function collapseInlineFlow(updateHash) {
         const hostId = canvasState.expandedFlow;
+        const hostFlow = hostId ? byId.get(hostId) : null;
         if (!clearInlineFlow()) return;
         if (updateHash) {
-          location.hash = canvasState.expandedScope
+          replaceHash(canvasState.expandedScope
             ? "scope=" + encodeURIComponent(canvasState.expandedScope)
-            : "";
+            : "");
+        }
+        const fileToSelect = hostFlow && hostFlow.location && hostFlow.location.path
+          ? hostFlow.location.path
+          : null;
+        if (fileToSelect) {
+          selectFile(fileToSelect);
+        } else if (canvasState.expandedScope) {
+          canvasState.selectedPath = null;
+          setLevelHeader(
+            canvasState.expandedScope,
+            `${(scopeFlows[canvasState.expandedScope] || []).length} flow${(scopeFlows[canvasState.expandedScope] || []).length === 1 ? "" : "s"} · scope`
+          );
         }
         renderCanvas();
         focusFlowNode(hostId);
@@ -1193,14 +1265,20 @@
         // sibling flows on the canvas, matching the spec's codebase/scope/file/flow path.
         if (inlineFlow) {
           const path = inlineFlow.location.path;
-          const segments = path.split("/");
-          const tail = segments[segments.length - 1] || path;
           breadcrumbEl.appendChild(crumbSeparator());
-          const fileCrumb = crumbButton(tail, () => collapseInlineFlow(true), false);
+          const fileCrumb = crumbButton(shortPathLabel(path), () => collapseInlineFlow(true), false);
           fileCrumb.title = path;
           breadcrumbEl.appendChild(fileCrumb);
           breadcrumbEl.appendChild(crumbSeparator());
           breadcrumbEl.appendChild(crumbButton(inlineFlow.name, null, true));
+          return;
+        }
+
+        if (state.level === 1 && state.selectedPath) {
+          breadcrumbEl.appendChild(crumbSeparator());
+          const fileCrumb = crumbButton(shortPathLabel(state.selectedPath), null, true);
+          fileCrumb.title = state.selectedPath;
+          breadcrumbEl.appendChild(fileCrumb);
           return;
         }
 
@@ -1219,8 +1297,11 @@
       LC.showL0 = function () {
         canvasState.level = 0;
         canvasState.expandedScope = null;
+        canvasState.selectedFlowId = null;
+        canvasState.selectedPath = null;
         canvasState.expandedFiles.clear();
         clearInlineFlow();
+        setLevelHeader("Analyze a project to begin", "No flow selected");
         if (LC.select) {
           LC.select({ scope: null, flowId: null, nodeId: null, findingId: null, path: null });
         }
@@ -1232,6 +1313,12 @@
           return;
         }
         setScope(name);
+        canvasState.selectedFlowId = null;
+        canvasState.selectedPath = null;
+        setLevelHeader(
+          name,
+          `${(scopeFlows[name] || []).length} flow${(scopeFlows[name] || []).length === 1 ? "" : "s"} · scope`
+        );
         if (LC.select) {
           LC.select({ scope: name, flowId: null, nodeId: null, findingId: null, path: null });
         }
