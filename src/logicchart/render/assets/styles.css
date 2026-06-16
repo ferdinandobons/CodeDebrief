@@ -586,6 +586,24 @@
     .flow-node { cursor: pointer; }
     .flow-node.entry .shape { fill: var(--fill-entry); stroke: var(--blue); }
     .flow-node.action .shape { fill: var(--node-fill); stroke: var(--blue); }
+    /* A flow node whose decision sub-graph is unfolded in place (L2 inline). */
+    .flow-node.flow-open .shape { stroke: var(--violet); stroke-width: 3; }
+
+    /* Inline L2: the expanded flow's decision flowchart, drawn under its node inside the
+       L1 canvas. The backing panel groups it; the connector ties it to the flow node. */
+    .inline-flow-panel {
+      fill: var(--panel-2);
+      stroke: var(--line);
+      stroke-width: 1.5;
+      opacity: .55;
+    }
+    .inline-flow-link {
+      fill: none;
+      stroke: var(--violet);
+      stroke-width: 2;
+      stroke-dasharray: 4 5;
+      opacity: .7;
+    }
     @media (max-width: 1050px) {
       .shell { grid-template-columns: 262px minmax(0,1fr); }
       .right-rail {

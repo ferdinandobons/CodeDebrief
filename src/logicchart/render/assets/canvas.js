@@ -64,7 +64,20 @@
         expandedScope: null,
         selectedFlowId: null,
         expandedFiles: new Set(),
+        // L2: the flow id whose decision flowchart is unfolded IN PLACE inside L1, or
+        // null. At most one at a time -- expanding another collapses the previous. The
+        // sub-graph is in the DOM only while this is set; collapse removes it.
+        expandedFlow: null,
       };
+      // Decision-node node geometry (matches shell.js's L2 chart: 290x86 rects, 145-radius
+      // diamonds). Used only to reserve the inline band; the real nodes come from shell.js.
+      const DECISION_PAD = 90; // breathing room around the reserved inline sub-graph.
+      // Stable DOM id for the inline sub-graph wrap of a given flow, so the host flow node
+      // can aria-controls= it (announcing the expanded region it owns). Sanitize the flow id
+      // to a valid token; the id only needs to be stable + unique per flow within the page.
+      function inlineWrapId(flowId) {
+        return "inline-flow-" + String(flowId).replace(/[^A-Za-z0-9_-]/g, "_");
+      }
       // cache key ("L0" | "L1:"+scope) -> computed layout {nodePos|fileBoxes, flowPos, bounds}.
       const layoutCache = new Map();
 
@@ -271,6 +284,59 @@
         });
       }
 
+      // Keep the host flow node on-screen when a flow is inline-expanded, WITHOUT changing
+      // the zoom (no refit): the surrounding L1 context must stay at its readable scale.
+      // Pans the shared `view` by the minimum amount so the node's rect is inside the
+      // viewport; if it is already visible, leaves the view untouched (no jump). The user
+      // pans/zooms to reach a taller-than-viewport sub-graph -- this only guarantees the
+      // anchor node itself does not end up off the edge after a re-render.
+      function ensureNodeVisible(node) {
+        if (!node || !LC.getView || !LC.setView) return;
+        const view = LC.getView();
+        if (!view || !view.width || !view.height) return;
+        const margin = 60;
+        const hw = (node.w || FLOW_W) / 2;
+        const hh = (node.h || FLOW_H) / 2;
+        const left = node.x - hw - margin;
+        const right = node.x + hw + margin;
+        const top = node.y - hh - margin;
+        const bottom = node.y + hh + margin;
+        let x = view.x;
+        let y = view.y;
+        if (left < x) x = left;
+        else if (right > x + view.width) x = right - view.width;
+        if (top < y) y = top;
+        else if (bottom > y + view.height) y = bottom - view.height;
+        if (x !== view.x || y !== view.y) {
+          LC.setView({ x, y, width: view.width, height: view.height });
+        }
+      }
+
+      // Re-focus a host flow node by id after a renderCanvas (which replaceChildren()s the
+      // SVG, destroying the previously-focused <g> and dropping focus to <body>). Keeps the
+      // keyboard position on the flow the user just toggled. Safe no-op if the node is not
+      // in the DOM (e.g. its file collapsed). CSS.escape guards ids with odd characters.
+      function focusFlowNode(id) {
+        if (!id) return;
+        const node = svg.querySelector(
+          '.flow-node[data-flow-id="' + CSS.escape(id) + '"]'
+        );
+        if (node && typeof node.focus === "function") node.focus();
+      }
+
+      // Update the page header (#flowTitle / #flowKind) for a flow. shell.js's selectFlow
+      // sets these for tree clicks, but a flow node clicked directly on the canvas routes
+      // through expandFlowInline without going through selectFlow, so mirror it here.
+      function setFlowHeader(flow) {
+        if (!flow) return;
+        const titleEl = document.getElementById("flowTitle");
+        const kindEl = document.getElementById("flowKind");
+        if (titleEl) titleEl.textContent = flow.name;
+        if (kindEl) {
+          kindEl.textContent = `${flow.entry_kind} · ${flow.language} · ${flow.framework}`;
+        }
+      }
+
       // Wrapped-grid column count, shared by L0 super-nodes and L1 file boxes.
       function gridCols(count, cellW) {
         const containerW = (canvasEl && canvasEl.clientWidth) || 1000;
@@ -391,24 +457,65 @@
           return { path, flows: flowsInFile, expanded: true, innerCols, w, h };
         });
 
-        // Outer wrapped grid of file boxes; row height = tallest box in the row.
+        // The inline-expanded flow (L2) lives in a file that must itself be expanded so
+        // the flow node is present to anchor under. expandFlowInline guarantees that, but
+        // guard here too: only reserve a band when the flow is actually a visible member.
+        const expandedFlow = canvasState.expandedFlow
+          ? byId.get(canvasState.expandedFlow)
+          : null;
+        // Reserve a band only for a flow that is a visible member AND actually has
+        // decision nodes -- an empty flow draws nothing, so it needs no space.
+        const expandedFlowPath =
+          expandedFlow &&
+          byPath.has(expandedFlow.location.path) &&
+          expandedFlow.nodes &&
+          expandedFlow.nodes.length
+            ? expandedFlow.location.path
+            : null;
+        // Measured size of the decision sub-graph, so the row it sits under is pushed down
+        // by exactly its height (no overlap with the next row), general over flow size.
+        const subMeasure =
+          expandedFlowPath && LC.measureFlow ? LC.measureFlow(expandedFlow) : null;
+        const reservedH = subMeasure
+          ? subMeasure.height + DECISION_PAD * 2
+          : 0;
+        const reservedW = subMeasure ? subMeasure.width + DECISION_PAD * 2 : 0;
+
+        // Outer wrapped grid of file boxes; row height = tallest box in the row. When a
+        // file in a row hosts the inline-expanded flow, the band BELOW that row is grown
+        // by the sub-graph height so following rows are pushed down, never overlapped.
         const fileBoxes = new Map();
         const flowPos = new Map();
+        // The inline sub-graph anchor (world center of its top), filled once the hosting
+        // flow node is placed. renderL1 draws the sub-graph there.
+        let inlineAnchor = null;
         const outerContainerW = (canvasEl && canvasEl.clientWidth) || 1000;
+        // File-box wrap threshold stays the CONTAINER width -- a wide inline sub-graph must
+        // NOT widen it, or the L1 file grid re-wraps every time a flow is expanded. The
+        // sub-graph reserves its own horizontal room LOCALLY (its band's bounds extend past
+        // the host row when reservedW is wide; the canvas pans to it), not globally here.
+        const rowLimit = outerContainerW;
         let cursorX = 0;
         let rowTop = bandTop;
         let rowMaxH = 0;
         let rowStart = 0;
+        let rowIndex = 0;
+        let rowHasExpandedFlow = false;
+        const rowMaxHeights = []; // finalized tallest box per row, for the inline anchor.
         boxes.forEach((box, i) => {
-          if (i > rowStart && cursorX + box.w > outerContainerW) {
-            // wrap to a new row.
-            rowTop += rowMaxH + GAP_Y;
+          if (i > rowStart && cursorX + box.w > rowLimit) {
+            // wrap to a new row; if the finished row hosted the inline flow, add its band.
+            rowMaxHeights[rowIndex] = rowMaxH;
+            rowTop += rowMaxH + GAP_Y + (rowHasExpandedFlow ? reservedH : 0);
             cursorX = 0;
             rowMaxH = 0;
             rowStart = i;
+            rowIndex += 1;
+            rowHasExpandedFlow = false;
           }
           box.x = cursorX;
           box.y = rowTop;
+          box.row = rowIndex;
           fileBoxes.set(box.path, box);
           // Only an expanded file places its flows in its inner grid; collapsed chips
           // contribute NO flow positions, so their flow nodes never enter the DOM.
@@ -422,9 +529,33 @@
               flowPos.set(flow.id, { x: cx, y: cy, w: FLOW_W, h: FLOW_H });
             });
           }
+          if (box.path === expandedFlowPath) rowHasExpandedFlow = true;
           cursorX += box.w + GAP_X;
           rowMaxH = Math.max(rowMaxH, box.h);
         });
+        rowMaxHeights[rowIndex] = rowMaxH; // finalize the last row.
+
+        // Anchor the inline sub-graph centered horizontally on its flow node, just below
+        // the bottom of the WHOLE host row (its tallest box) -- not just the host box --
+        // so it can never overlap a taller same-row sibling chip. The band that follows
+        // the host row was already grown by reservedH, so the next row clears it too.
+        if (expandedFlowPath && flowPos.has(canvasState.expandedFlow) && subMeasure) {
+          const hostBox = fileBoxes.get(expandedFlowPath);
+          const node = flowPos.get(canvasState.expandedFlow);
+          const rowBottom = hostBox.y + (rowMaxHeights[hostBox.row] || hostBox.h);
+          // origin = where layoutFlow's (0,0) maps to: center it on the node, top of band.
+          inlineAnchor = {
+            x: node.x - (subMeasure.minX + subMeasure.maxX) / 2,
+            y: rowBottom + DECISION_PAD - subMeasure.minY,
+            flowId: canvasState.expandedFlow,
+            bounds: {
+              minX: node.x - reservedW / 2,
+              maxX: node.x + reservedW / 2,
+              minY: rowBottom,
+              maxY: rowBottom + reservedH,
+            },
+          };
+        }
 
         // The visible flow set is exactly the flows of EXPANDED files -- the only ones
         // with a position, the only ones drawn, and the only edge endpoints.
@@ -434,12 +565,23 @@
         boxes.forEach(box => {
           allNodes.push({ x: box.x + box.w / 2, y: box.y + box.h / 2, w: box.w, h: box.h });
         });
+        // NOTE: the reserved inline sub-graph band is deliberately EXCLUDED from `bounds`.
+        // A large flow's band is ~thousands of world-px tall; folding it into the fit would
+        // zoom the SHARED canvas viewBox out to contain it, shrinking every L1 file box /
+        // sibling flow / residual scope to an illegible scale. renderL1 fits only this
+        // non-inline L1 content (and only on a fresh L1, never on expand) so the surrounding
+        // context stays at a readable scale; the inline sub-graph draws at 1x and the user
+        // pans to it. `inlineBounds` is exposed separately for the off-screen-nudge check.
 
         return {
           residualPos,
           fileBoxes,
           flowPos,
           visibleIds,
+          inlineAnchor,
+          // Inline band bounds kept SEPARATE from `bounds` (which excludes it). renderL1
+          // uses these only to keep the host flow node on-screen, never to refit the band.
+          inlineBounds: inlineAnchor ? inlineAnchor.bounds : null,
           bounds: boundsOf(allNodes),
         };
       }
@@ -576,18 +718,27 @@
       function makeFlowNode(flow, pos) {
         const group = svgEl("g");
         const isEntry = !!flow.is_entrypoint;
+        const isExpanded = flow.id === canvasState.expandedFlow;
         group.setAttribute(
           "class",
           "node flow-node " +
             (isEntry ? "entry" : "action") +
             (findingFlowIds.has(flow.id) ? " has-finding" : "") +
-            (flow.id === canvasState.selectedFlowId ? " selected" : "")
+            (flow.id === canvasState.selectedFlowId ? " selected" : "") +
+            (isExpanded ? " flow-open" : "")
         );
         group.setAttribute("data-flow-id", flow.id);
         group.setAttribute("transform", `translate(${pos.x} ${pos.y})`);
         group.setAttribute("tabindex", "0");
         group.setAttribute("role", "button");
-        group.setAttribute("aria-label", `flow: ${flow.name}`);
+        // The node toggles its inline decision sub-graph, so expose expanded state and,
+        // while expanded, point aria-controls at the sub-graph wrap it owns.
+        group.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+        if (isExpanded) group.setAttribute("aria-controls", inlineWrapId(flow.id));
+        group.setAttribute(
+          "aria-label",
+          `flow: ${flow.name}, ${isExpanded ? "expanded" : "collapsed"}`
+        );
 
         const rect = svgEl("rect");
         rect.setAttribute("class", "shape");
@@ -615,15 +766,15 @@
         meta.textContent = `${flow.location.path}:${flow.location.start_line}`;
         group.appendChild(meta);
 
-        const open = () => {
-          setSelected(flow.id);
-          LC.selectFlow(flow.id); // the single existing entry into renderFlow (L2).
-        };
-        group.addEventListener("click", open);
+        // Click / Enter / Space toggles the flow's decision sub-graph IN PLACE (L2).
+        // Expanding an already-open flow collapses it; expanding another collapses the
+        // previous (single inline flow for v1). Selection + breadcrumb follow the toggle.
+        const toggle = () => toggleFlow(flow.id);
+        group.addEventListener("click", toggle);
         group.addEventListener("keydown", event => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            open();
+            toggle();
           }
         });
         return group;
@@ -693,7 +844,12 @@
       }
 
       function renderL1(scope) {
-        canvasEl.setAttribute("data-level", "1");
+        // L1 by default; an inline-expanded flow puts a decision flowchart on the canvas,
+        // so the level reads L2 (the decisions are L2 in the spec) without leaving L1.
+        canvasEl.setAttribute(
+          "data-level",
+          canvasState.expandedFlow ? "2" : "1"
+        );
         setEmptyMessage(defaultEmptyMessage);
         if (emptyState) emptyState.style.display = "none";
 
@@ -746,11 +902,88 @@
           const pos = layout.flowPos.get(id);
           if (flow && pos) nodeLayer.appendChild(makeFlowNode(flow, pos));
         });
-        // Background click on empty canvas collapses to L0.
         svg.appendChild(nodeLayer);
 
-        fitBounds(layout.bounds);
+        // Inline L2: unfold the expanded flow's decision flowchart in place, anchored
+        // under its flow node in the reserved band. Lazy: the sub-graph enters the DOM
+        // ONLY here, only while expandedFlow is set; collapse re-renders without it.
+        renderInlineFlow(layout);
+
+        // Fit the viewBox to the NON-INLINE L1 content only, and ONLY when no flow is
+        // inline-expanded. While a flow is expanded we must NOT refit: folding the (often
+        // huge) decision band into the fit would shrink every file box / sibling flow /
+        // residual scope to an illegible scale. Instead the inline sub-graph renders at 1x
+        // and we keep the user's current zoom/pan, nudging only enough to keep the host
+        // flow node on-screen (the user pans to reach a tall/wide sub-graph).
+        if (canvasState.expandedFlow) {
+          const hostNode = layout.flowPos.get(canvasState.expandedFlow);
+          ensureNodeVisible(hostNode);
+        } else {
+          fitBounds(layout.bounds);
+        }
         renderBreadcrumb(canvasState);
+      }
+
+      // Draw the expanded flow's decisions in place using shell.js's reusable decision
+      // renderer (LC.drawFlowGraph), anchored at layout.inlineAnchor. A faint connector
+      // ties the flow node to its sub-graph. The drawn sub-graph is bound as the active
+      // inspect/highlight target so clicking a decision node still calls inspectNode and
+      // the bidirectional highlight + finding ring keep working, exactly as full screen.
+      function renderInlineFlow(layout) {
+        const anchor = layout.inlineAnchor;
+        if (!anchor || !LC.drawFlowGraph) return;
+        const flow = byId.get(anchor.flowId);
+        if (!flow || !flow.nodes || !flow.nodes.length) return;
+
+        const wrap = svgEl("g");
+        wrap.setAttribute("class", "inline-flow");
+        wrap.setAttribute("data-inline-flow", flow.id);
+        // Stable id so the host flow node's aria-controls can reference this region.
+        wrap.setAttribute("id", inlineWrapId(flow.id));
+
+        // Soft backing panel behind the sub-graph so it reads as a unit within L1.
+        const b = anchor.bounds;
+        const panel = svgEl("rect");
+        panel.setAttribute("class", "inline-flow-panel");
+        panel.setAttribute("x", String(b.minX));
+        panel.setAttribute("y", String(b.minY));
+        panel.setAttribute("width", String(b.maxX - b.minX));
+        panel.setAttribute("height", String(b.maxY - b.minY));
+        panel.setAttribute("rx", "18");
+        wrap.appendChild(panel);
+
+        // Connector from the flow node down into its decision panel.
+        const node = layout.flowPos.get(flow.id);
+        if (node) {
+          const link = svgEl("path");
+          link.setAttribute("class", "inline-flow-link");
+          link.setAttribute(
+            "d",
+            `M ${node.x} ${node.y + FLOW_H / 2} L ${node.x} ${b.minY}`
+          );
+          wrap.appendChild(link);
+        }
+
+        const render = LC.drawFlowGraph(flow, {
+          originX: anchor.x,
+          originY: anchor.y,
+          layerClass: "inline-flow-graph",
+        });
+        wrap.appendChild(render.layer);
+        // Insert the inline sub-graph immediately AFTER the host flow node's <g>, so Tab
+        // order is host node -> its decisions -> next sibling flow (appending to the SVG
+        // would instead walk every sibling flow node before reaching the decisions).
+        const hostNode = svg.querySelector(
+          '.flow-node[data-flow-id="' + CSS.escape(flow.id) + '"]'
+        );
+        if (hostNode) hostNode.after(wrap);
+        else svg.appendChild(wrap);
+
+        // Bind the sub-graph as the active inspect/highlight target. Do NOT prime the
+        // inspector here -- this runs on EVERY re-render, so calling inspectFlow would wipe
+        // a clicked decision node's detail back to the flow summary. expandFlowInline primes
+        // it once, when the flow is first opened.
+        if (LC.setCurrentRender) LC.setCurrentRender(render);
       }
 
       // --- Single dispatch entry ---------------------------------------------------
@@ -764,9 +997,13 @@
       // --- Mutators ----------------------------------------------------------------
 
       // Enter L1 for `name`. File chips start collapsed; entering a DIFFERENT scope
-      // resets the expanded-file set (a file path only makes sense within its scope).
+      // resets the expanded-file set AND any inline-expanded flow (both are scoped to the
+      // scope being left, so they cannot carry over).
       function setScope(name) {
-        if (canvasState.expandedScope !== name) canvasState.expandedFiles.clear();
+        if (canvasState.expandedScope !== name) {
+          canvasState.expandedFiles.clear();
+          clearInlineFlow();
+        }
         canvasState.level = 1;
         canvasState.expandedScope = name;
       }
@@ -782,28 +1019,105 @@
         canvasState.level = 0;
         canvasState.expandedScope = null;
         canvasState.expandedFiles.clear();
+        clearInlineFlow();
         location.hash = "";
         renderCanvas();
       }
 
       // Expand/collapse one file chip at L1, materializing or removing its flow nodes.
+      // Collapsing the file that hosts the inline-expanded flow also collapses the flow
+      // (its sub-graph would otherwise be orphaned with no node to anchor under).
       function toggleFile(path) {
-        if (canvasState.expandedFiles.has(path)) canvasState.expandedFiles.delete(path);
-        else canvasState.expandedFiles.add(path);
+        if (canvasState.expandedFiles.has(path)) {
+          canvasState.expandedFiles.delete(path);
+          const open = canvasState.expandedFlow
+            ? byId.get(canvasState.expandedFlow)
+            : null;
+          if (open && open.location.path === path) clearInlineFlow();
+        } else {
+          canvasState.expandedFiles.add(path);
+        }
         renderCanvas();
       }
 
-      function setSelected(id) {
-        canvasState.selectedFlowId = id;
-        // Refresh selection highlight without a full relayout when staying on canvas.
-        if (LC.mode === "canvas" && canvasState.level === 1) {
-          svg.querySelectorAll(".flow-node").forEach(node => {
-            node.classList.toggle(
-              "selected",
-              node.getAttribute("data-flow-id") === id
-            );
-          });
+      // Toggle the inline decision sub-graph for `id`. Expanding ensures the host scope +
+      // file are open so the flow node exists to anchor under; expanding a different flow
+      // replaces the previous (single inline flow for v1). Re-renders L1 in place.
+      function toggleFlow(id) {
+        if (canvasState.expandedFlow === id) {
+          collapseInlineFlow(true);
+          return;
         }
+        expandFlowInline(id);
+      }
+
+      // Open `id`'s decisions inline within L1. Reveals its scope + file first (so the
+      // node is materialized), pins selection, sets the #flow= hash for deep-linkability,
+      // updates the header, primes the inspector ONCE, re-renders, and re-focuses the host
+      // flow node (renderCanvas replaced the SVG, so its <g> -- and the focus on it -- was
+      // destroyed). A flow with no decision nodes is NOT expandable: it would reserve no
+      // band and draw nothing, so we just select + inspect it without entering inline mode.
+      function expandFlowInline(id) {
+        const flow = byId.get(id);
+        if (!flow) return;
+        const scope = scopeOfFlow(flow);
+        if (scope && Object.prototype.hasOwnProperty.call(scopeFlows, scope)) {
+          if (canvasState.expandedScope !== scope) canvasState.expandedFiles.clear();
+          canvasState.expandedScope = scope;
+        }
+        canvasState.level = 1;
+        canvasState.expandedFiles.add(flow.location.path);
+        canvasState.selectedFlowId = id;
+        LC.mode = "canvas"; // inline L2 stays on the canvas; never flips to "flow".
+        // Keep the header in sync even when a flow node is clicked directly on the canvas
+        // (shell.js's selectFlow sets it for tree clicks, but a direct node click routes
+        // here without going through selectFlow).
+        setFlowHeader(flow);
+        const expandable = !!(flow.nodes && flow.nodes.length);
+        if (expandable) {
+          canvasState.expandedFlow = id;
+          location.hash = "flow=" + encodeURIComponent(id);
+        } else {
+          // No decisions: clear any prior inline flow, select-only, no band, no flow-open.
+          clearInlineFlow();
+          location.hash = canvasState.expandedScope
+            ? "scope=" + encodeURIComponent(canvasState.expandedScope)
+            : "";
+        }
+        // Prime the inspector with the flow summary ONCE, here on open -- NOT in
+        // renderInlineFlow (which runs on every re-render and would wipe a clicked node's
+        // detail back to the summary).
+        if (LC.inspectFlow) LC.inspectFlow(flow);
+        renderCanvas();
+        // renderCanvas() replaceChildren()'d the SVG; restore focus to the host node so the
+        // keyboard does not fall through to <body> after an Enter/Space toggle.
+        focusFlowNode(id);
+      }
+
+      // Clear the inline-flow STATE only (no render). Drops the active inspect/highlight
+      // binding since the decision nodes are about to leave the DOM. Returns whether
+      // anything was open, so callers can decide whether to re-render.
+      function clearInlineFlow() {
+        if (!canvasState.expandedFlow) return false;
+        canvasState.expandedFlow = null;
+        if (LC.setCurrentRender) LC.setCurrentRender(null);
+        return true;
+      }
+
+      // Collapse the inline sub-graph, restoring the plain L1 layout. When `updateHash`,
+      // rewinds the hash to the scope so back/refresh land on L1, not L2. Restores focus to
+      // the now-collapsed host flow node (it is still in the DOM as a plain flow node) so an
+      // Esc/Enter collapse does not drop the keyboard to <body>.
+      function collapseInlineFlow(updateHash) {
+        const hostId = canvasState.expandedFlow;
+        if (!clearInlineFlow()) return;
+        if (updateHash) {
+          location.hash = canvasState.expandedScope
+            ? "scope=" + encodeURIComponent(canvasState.expandedScope)
+            : "";
+        }
+        renderCanvas();
+        focusFlowNode(hostId);
       }
 
       // --- Breadcrumb --------------------------------------------------------------
@@ -826,28 +1140,60 @@
         return sep;
       }
 
+      // Breadcrumb levels:
+      //   L0                       -> codebase
+      //   L1                       -> codebase / scope
+      //   L1 + inline flow (L2)    -> codebase / scope / file / flow
+      //   standalone full-screen   -> codebase / scope / flow (no file; legacy fallback)
+      // `inFlow` is the legacy full-screen renderFlow mode; inline L2 stays "canvas" and
+      // is detected via state.expandedFlow instead.
       function renderBreadcrumb(state) {
         if (!breadcrumbEl) return;
         breadcrumbEl.replaceChildren();
         const inFlow = LC.mode === "flow";
+        const inlineFlow = state.expandedFlow ? byId.get(state.expandedFlow) : null;
         const atRoot = state.level === 0 && !inFlow;
-        breadcrumbEl.appendChild(
-          crumbButton("codebase", collapseToL0, atRoot)
-        );
+        breadcrumbEl.appendChild(crumbButton("codebase", collapseToL0, atRoot));
+
         if (state.level === 1 && state.expandedScope) {
           breadcrumbEl.appendChild(crumbSeparator());
           const scope = state.expandedScope;
+          // The scope crumb is "current" at plain L1 (no inline flow, not full-screen);
+          // clicking it from a deeper level returns here and collapses the inline flow.
+          const scopeCurrent = state.level === 1 && !inFlow && !inlineFlow;
           breadcrumbEl.appendChild(
-            crumbButton(scope, () => {
-              // Return to L1 for this scope (e.g. from a flow crumb).
-              if (LC.mode === "flow" || canvasState.level !== 1) {
-                setScope(scope);
-                location.hash = "scope=" + encodeURIComponent(scope);
-                renderCanvas();
-              }
-            }, state.level === 1 && !inFlow)
+            crumbButton(
+              scope,
+              () => {
+                if (inFlow || inlineFlow || canvasState.level !== 1) {
+                  clearInlineFlow();
+                  setScope(scope);
+                  location.hash = "scope=" + encodeURIComponent(scope);
+                  renderCanvas();
+                }
+              },
+              scopeCurrent
+            )
           );
         }
+
+        // Inline L2: file crumb (collapses the inline flow, keeps the file open) + flow
+        // crumb (current). The file crumb collapses the decisions but leaves the file's
+        // sibling flows on the canvas, matching the spec's codebase/scope/file/flow path.
+        if (inlineFlow) {
+          const path = inlineFlow.location.path;
+          const segments = path.split("/");
+          const tail = segments[segments.length - 1] || path;
+          breadcrumbEl.appendChild(crumbSeparator());
+          const fileCrumb = crumbButton(tail, () => collapseInlineFlow(true), false);
+          fileCrumb.title = path;
+          breadcrumbEl.appendChild(fileCrumb);
+          breadcrumbEl.appendChild(crumbSeparator());
+          breadcrumbEl.appendChild(crumbButton(inlineFlow.name, null, true));
+          return;
+        }
+
+        // Legacy standalone full-screen flow crumb (only when renderFlow took the SVG).
         if (inFlow && state.selectedFlowId) {
           const flow = byId.get(state.selectedFlowId);
           if (flow) {
@@ -863,6 +1209,7 @@
         canvasState.level = 0;
         canvasState.expandedScope = null;
         canvasState.expandedFiles.clear();
+        clearInlineFlow();
         renderCanvas();
       };
       LC.showScope = function (name) {
@@ -873,6 +1220,9 @@
         setScope(name);
         renderCanvas();
       };
+      // Inline-L2 entry shell.js's selectFlow delegates to (tree click, #flow= deep link).
+      // Reveals the flow's scope + file and unfolds its decisions in place within L1.
+      LC.expandFlowInline = expandFlowInline;
       // When shell.js enters flow mode (renderFlow), refresh the breadcrumb so it
       // gains the flow crumb. A flow opened from the tree or a #flow= deep link may
       // have no scope set yet, so derive the flow's scope (first membership, mirroring
@@ -892,9 +1242,25 @@
         renderBreadcrumb(canvasState);
       };
       LC.resetCanvas = function () {
-        // resetView in canvas mode: re-fit + redraw the current level. (Drag-to-arrange
-        // on the canvas is out of scope for Phase 2, so there are no overrides to drop;
-        // renderCanvas recomputes the layout and re-fits the viewBox.)
+        // resetView in canvas mode: re-fit + redraw the current level. When a flow is
+        // inline-expanded, also drop its hand-placed decision positions so the sub-graph
+        // returns to its automatic layout (mirrors the full-screen reset).
+        if (canvasState.expandedFlow && LC.clearFlowPositions) {
+          LC.clearFlowPositions(canvasState.expandedFlow);
+        }
         renderCanvas();
       };
+
+      // Esc collapses the deepest open level: an inline flow first (back to plain L1),
+      // else an expanded scope (back to L0). Ignored while typing in a form control.
+      document.addEventListener("keydown", event => {
+        if (event.key !== "Escape") return;
+        const target = event.target;
+        if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || "")) return;
+        if (canvasState.expandedFlow) {
+          collapseInlineFlow(true);
+        } else if (canvasState.level === 1) {
+          collapseToL0();
+        }
+      });
     })();

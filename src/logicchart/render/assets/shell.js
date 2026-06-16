@@ -47,22 +47,33 @@
         (a, b) => Number(b.is_entrypoint) - Number(a.is_entrypoint) || a.name.localeCompare(b.name)
       );
 
+    // Updates the header + the active-flow bookkeeping shared by the tree and breadcrumb.
+    // Selection RENDERS via canvas.js's inline-L2 expander (LC.expandFlowInline) when it
+    // is registered -- the flow's decisions unfold IN PLACE inside the L1 canvas, keeping
+    // the surrounding files/flows visible. Only when no inline expander is available (a
+    // bare deep link before canvas.js boots, or a degraded shell) does it fall back to the
+    // full-screen renderFlow, so #flow= and tree clicks never dead-end.
     function selectFlow(flowId) {
       const flow = byId.get(flowId);
       if (!flow) return;
       activeFlow = flow;
-      location.hash = "flow=" + encodeURIComponent(flow.id);
       document.getElementById("flowTitle").textContent = flow.name;
       document.getElementById("flowKind").textContent =
         `${flow.entry_kind} · ${flow.language} · ${flow.framework}`;
-      LC.mode = "flow"; // this is the single dispatch into the L2 renderer.
-      renderFlow(flow);
-      inspectFlow(flow);
+      if (window.LC.expandFlowInline) {
+        // canvas.js owns the SVG (mode stays "canvas"); it sets the hash, draws the
+        // inline sub-graph, refreshes the breadcrumb, and calls inspectFlow itself.
+        window.LC.expandFlowInline(flow.id);
+      } else {
+        location.hash = "flow=" + encodeURIComponent(flow.id);
+        LC.mode = "flow"; // single dispatch into the standalone full-screen L2 renderer.
+        renderFlow(flow);
+        inspectFlow(flow);
+        if (window.LC.onCanvasFlow) window.LC.onCanvasFlow(flow);
+      }
       leftRail.classList.remove("open");
       // Let other inlined scripts (e.g. tree.js) reflect the active flow.
       if (window.LC.onFlowSelected) window.LC.onFlowSelected(flow);
-      // Let canvas.js refresh the breadcrumb (gains the flow crumb).
-      if (window.LC.onCanvasFlow) window.LC.onCanvasFlow(flow);
     }
 
     function layoutFlow(flow) {
@@ -121,27 +132,10 @@
       };
     }
 
-    function renderFlow(flow) {
-      svg.replaceChildren();
-      // The L2 decision chart is canvas level 2; keep the level attribute correct so a
-      // reader (or test) can tell which level is on screen (L0 scopes / L1 flows / L2).
-      svg.setAttribute("data-level", "2");
-      if (!flow.nodes.length) {
-        document.getElementById("emptyState").style.display = "grid";
-        return;
-      }
-      document.getElementById("emptyState").style.display = "none";
-      const { positions, bounds } = layoutFlow(flow);
-      const padding = 170;
-      const top = Math.min(-90, bounds.minY - 70);
-      view = {
-        x: bounds.minX - padding,
-        y: top,
-        width: Math.max(760, bounds.maxX - bounds.minX + padding * 2),
-        height: Math.max(600, bounds.maxY - top + 250)
-      };
-      updateViewBox();
-
+    // Decision-flow defs (shadow filters + arrow marker). canvas.js draws its own copy
+    // for L0/L1, but the inline-L2 sub-graph reuses these ids, so renderFlow and the
+    // inline path both ensure a <defs> is present in whatever SVG they draw into.
+    function flowDefs() {
       const defs = svgEl("defs");
       defs.innerHTML = `
         <filter id="nodeShadow" x="-30%" y="-30%" width="160%" height="180%">
@@ -153,15 +147,41 @@
         <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path class="arrow" d="M0,0 L8,4 L0,8 z"></path>
         </marker>`;
-      svg.appendChild(defs);
+      return defs;
+    }
 
-      const spine = svgEl("line");
-      spine.setAttribute("class", "decision-spine");
-      spine.setAttribute("x1", "0");
-      spine.setAttribute("y1", "-20");
-      spine.setAttribute("x2", "0");
-      spine.setAttribute("y2", String(bounds.maxY + 100));
-      svg.appendChild(spine);
+    // Reusable decision-graph renderer. Draws `flow`'s nodes/edges (the L2 chart) into a
+    // fresh <g> layer and RETURNS it WITHOUT touching the SVG, the global `view`, or
+    // data-level -- so the same code powers both the full-screen renderFlow and the
+    // inline-L2 sub-graph canvas.js anchors under an expanded flow node.
+    //
+    // opts.originX/originY translate the whole sub-graph (layoutFlow is origin-relative;
+    // the caller places it). opts.spine adds the decision spine (full-screen only). Drag
+    // and the bidirectional highlight keep working in both modes: drag uses the shared
+    // `view` scale (same SVG world units inline or full), and the returned record is set
+    // as `currentRender` so inspectNode -> highlightNode lights up incident edges/nodes.
+    function drawFlowGraph(flow, opts) {
+      opts = opts || {};
+      const originX = opts.originX || 0;
+      const originY = opts.originY || 0;
+      const { positions, bounds } = layoutFlow(flow);
+      const layer = svgEl("g");
+      if (opts.layerClass) layer.setAttribute("class", opts.layerClass);
+
+      if (opts.spine) {
+        const spine = svgEl("line");
+        spine.setAttribute("class", "decision-spine");
+        spine.setAttribute("x1", String(originX));
+        spine.setAttribute("y1", String(originY - 20));
+        spine.setAttribute("x2", String(originX));
+        spine.setAttribute("y2", String(originY + bounds.maxY + 100));
+        layer.appendChild(spine);
+      }
+
+      const at = id => {
+        const p = positions.get(id);
+        return p ? { x: p.x + originX, y: p.y + originY } : null;
+      };
 
       // Keep edge element references per node so dragging a block re-routes its edges live,
       // and a flat list so selecting a node can highlight its incident edges.
@@ -169,8 +189,8 @@
       const edgeRecords = [];
       const edgeLayer = svgEl("g");
       flow.edges.forEach(edge => {
-        const start = positions.get(edge.source);
-        const end = positions.get(edge.target);
+        const start = at(edge.source);
+        const end = at(edge.target);
         if (!start || !end) return;
         const geometry = edgeGeometry(start, end);
         const path = svgEl("path");
@@ -191,12 +211,12 @@
         nodeEdges.get(edge.source)?.push(record);
         nodeEdges.get(edge.target)?.push(record);
       });
-      svg.appendChild(edgeLayer);
+      layer.appendChild(edgeLayer);
 
       function rerouteFrom(nodeId) {
         (nodeEdges.get(nodeId) || []).forEach(({ edge, path, label }) => {
-          const start = positions.get(edge.source);
-          const end = positions.get(edge.target);
+          const start = at(edge.source);
+          const end = at(edge.target);
           if (!start || !end) return;
           const geometry = edgeGeometry(start, end);
           path.setAttribute("d", geometry.d);
@@ -211,10 +231,12 @@
       const nodeGroups = new Map();
       flow.nodes.forEach(node => {
         const position = positions.get(node.id);
+        // Live world-space position of this node (origin-translated). Drag mutates it.
+        const place = { x: position.x + originX, y: position.y + originY };
         const group = svgEl("g");
         nodeGroups.set(node.id, group);
         group.setAttribute("class", `node ${node.kind}${findingsByNode.has(node.id) ? " has-finding" : ""}`);
-        group.setAttribute("transform", `translate(${position.x} ${position.y})`);
+        group.setAttribute("transform", `translate(${place.x} ${place.y})`);
         group.setAttribute("tabindex", "0");
         group.setAttribute("role", "button");
         group.setAttribute("aria-label", `${node.kind}: ${node.label}`);
@@ -226,8 +248,8 @@
           nodeDrag = {
             x: event.clientX,
             y: event.clientY,
-            ox: position.x,
-            oy: position.y,
+            ox: place.x,
+            oy: place.y,
             scaleX: view.width / svg.clientWidth,
             scaleY: view.height / svg.clientHeight,
             moved: 0
@@ -240,9 +262,13 @@
           const dx = (event.clientX - nodeDrag.x) * nodeDrag.scaleX;
           const dy = (event.clientY - nodeDrag.y) * nodeDrag.scaleY;
           nodeDrag.moved = Math.max(nodeDrag.moved, Math.abs(dx) + Math.abs(dy));
-          position.x = nodeDrag.ox + dx;
-          position.y = nodeDrag.oy + dy;
-          group.setAttribute("transform", `translate(${position.x} ${position.y})`);
+          place.x = nodeDrag.ox + dx;
+          place.y = nodeDrag.oy + dy;
+          // positions is origin-relative; mirror the drag back so rerouteFrom (which
+          // re-adds the origin) and any later override store both stay consistent.
+          position.x = place.x - originX;
+          position.y = place.y - originY;
+          group.setAttribute("transform", `translate(${place.x} ${place.y})`);
           rerouteFrom(node.id);
         });
         const endNodeDrag = event => {
@@ -282,8 +308,51 @@
         group.appendChild(meta);
         nodeLayer.appendChild(group);
       });
-      svg.appendChild(nodeLayer);
-      currentRender = { nodeGroups, edgeRecords };
+      layer.appendChild(nodeLayer);
+
+      // World-space bounds of the drawn sub-graph, so the caller can reserve room / fit.
+      const worldBounds = {
+        minX: bounds.minX + originX,
+        maxX: bounds.maxX + originX,
+        minY: bounds.minY + originY,
+        maxY: bounds.maxY + originY,
+      };
+      return { layer, nodeGroups, edgeRecords, bounds: worldBounds };
+    }
+
+    // Bind a freshly drawn decision graph as the active highlight target. Inline-L2
+    // (canvas.js) calls this after placing the sub-graph so a click on a decision node
+    // routes through the same inspectNode -> highlightNode path as the full-screen view.
+    function setCurrentRender(render) {
+      currentRender = render ? { nodeGroups: render.nodeGroups, edgeRecords: render.edgeRecords } : null;
+    }
+
+    function renderFlow(flow) {
+      svg.replaceChildren();
+      // The L2 decision chart is canvas level 2; keep the level attribute correct so a
+      // reader (or test) can tell which level is on screen (L0 scopes / L1 flows / L2).
+      svg.setAttribute("data-level", "2");
+      if (!flow.nodes.length) {
+        document.getElementById("emptyState").style.display = "grid";
+        currentRender = null;
+        return;
+      }
+      document.getElementById("emptyState").style.display = "none";
+
+      svg.appendChild(flowDefs());
+      const render = drawFlowGraph(flow, { spine: true });
+      const bounds = render.bounds;
+      const padding = 170;
+      const top = Math.min(-90, bounds.minY - 70);
+      view = {
+        x: bounds.minX - padding,
+        y: top,
+        width: Math.max(760, bounds.maxX - bounds.minX + padding * 2),
+        height: Math.max(600, bounds.maxY - top + 250)
+      };
+      updateViewBox();
+      svg.appendChild(render.layer);
+      currentRender = { nodeGroups: render.nodeGroups, edgeRecords: render.edgeRecords };
     }
 
     function clearHighlight() {
@@ -485,6 +554,47 @@
     LC.setView = v => { view = v; updateViewBox(); };
     LC.updateViewBox = updateViewBox;
     LC.getView = () => view;
+    // Inline-L2 seam: canvas.js draws a flow's decisions in place (inside the L1 canvas)
+    // by reusing the very same decision renderer. drawFlowGraph returns a detached <g>
+    // (no SVG/view side effects); flowDefs supplies the shared filter/marker ids;
+    // setCurrentRender binds the sub-graph as the active inspect/highlight target.
+    LC.drawFlowGraph = drawFlowGraph;
+    LC.flowDefs = flowDefs;
+    LC.setCurrentRender = setCurrentRender;
+    LC.inspectFlow = inspectFlow;
+    // Half-extents of a drawn decision node, so measureFlow (which only knows node
+    // CENTERS) can inflate its bounds to the box the rendered nodes actually occupy.
+    // Decision diamonds are 290 wide / 116 tall (points at +-145, +-58); the 290x86
+    // rects are narrower but never taller, so 145/58 bound every node kind.
+    const NODE_HALF_W = 145;
+    const NODE_HALF_H = 58;
+    // Origin-relative bounds of a flow's decision layout, so canvas.js can RESERVE the
+    // band an inline-expanded sub-graph will occupy BEFORE drawing it (layout then draw),
+    // keeping siblings from overlapping. Same layoutFlow the renderer uses, so the
+    // reserved box matches the drawn one (manual drag overrides included). layoutFlow
+    // returns bounds over node CENTERS only; inflate by the node half-extents so the
+    // reserved band/panel actually contains the rendered nodes (a single-node flow then
+    // measures 290x116, not 0x0) -- callers add their own DECISION_PAD breathing room.
+    LC.measureFlow = flow => {
+      if (!flow || !flow.nodes || !flow.nodes.length) {
+        return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0 };
+      }
+      const { bounds } = layoutFlow(flow);
+      const inflated = {
+        minX: bounds.minX - NODE_HALF_W,
+        maxX: bounds.maxX + NODE_HALF_W,
+        minY: bounds.minY - NODE_HALF_H,
+        maxY: bounds.maxY + NODE_HALF_H,
+      };
+      return {
+        ...inflated,
+        width: inflated.maxX - inflated.minX,
+        height: inflated.maxY - inflated.minY,
+      };
+    };
+    // Drop a flow's hand-placed decision-node positions, so the canvas reset (0) restores
+    // the automatic layout of an inline-expanded sub-graph just like it does full screen.
+    LC.clearFlowPositions = id => { manualPositions.delete(id); };
 
     // Single hash router. Parsed once on load and on every hashchange; dispatches to
     // the right owner so a deep link / refresh / back-button restores the level.

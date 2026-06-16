@@ -105,3 +105,17 @@ def test_render_html_emits_codebase_canvas(tmp_path: Path) -> None:
     assert match is not None
     payload = json.loads(match.group(1).replace("<\\/", "</"))
     assert isinstance(payload["scope_edges"], list)
+
+
+def test_render_html_wires_inline_decision_expansion(tmp_path: Path) -> None:
+    html = render_html(_model(tmp_path), tmp_path)
+    # Phase 3 (L2): a flow node unfolds its decision flowchart in place inside the L1
+    # canvas. Pin the seam so the inline expander cannot silently regress:
+    #   - canvas.js exposes the inline entry shell.js's selectFlow delegates to,
+    #   - it draws a dedicated inline sub-graph layer,
+    #   - shell.js exposes the reusable decision renderer the inline path reuses.
+    assert "expandFlowInline" in html
+    assert "inline-flow" in html
+    assert "drawFlowGraph" in html
+    # The reusable measure helper that reserves the inline band (so siblings never overlap).
+    assert "measureFlow" in html
