@@ -148,9 +148,10 @@ def _analyze(root: Path, *, full: bool, include_html: bool, include_gaps: bool =
     json_path, markdown_path, html_path = write_artifacts(
         root, result.model, include_html=include_html, include_gaps=include_gaps
     )
+    findings = len(result.model.findings)
     print(
         f"Analyzed {len(result.model.files)} files: {len(result.model.flows)} flows, "
-        f"{len(result.model.findings)} review findings."
+        f"{findings} finding{'s' if findings != 1 else ''}."
     )
     print(
         f"Incremental cache: {result.cache_hits} hits, {len(result.changed_files)} changed, "
