@@ -174,6 +174,8 @@ errors**. Selecting a block, a source line, a tree file, or a finding highlights
 and a full-screen toggle maximizes the canvas. Add `--render-only` to write the HTML without
 serving.
 
+![LogicChart interactive viewer showing the codebase tree, expandable canvas, selected flow, and synchronized source/finding panels.](docs/assets/logicchart-viewer.jpg)
+
 ### `init` / `install` / `mcp`
 
 ```bash
