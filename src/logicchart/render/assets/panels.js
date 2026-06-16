@@ -199,7 +199,7 @@
             )
           );
         }
-        if (finding.detail) row.title = finding.detail;
+        row.title = finding.detail || `Open finding ${finding.kind || "review item"} in the flowchart`;
 
         // Activating a finding selects its flow + node (bidirectional: lights the block,
         // the source line, and the tree file). selectFlow opens the flow inline so its
@@ -450,6 +450,7 @@
             lineEl.setAttribute("role", "button");
             lineEl.setAttribute("tabindex", "0");
             lineEl.setAttribute("data-node-id", nodeId);
+            lineEl.title = `Select logic block on line ${lineNo}`;
           }
           const isHi = hiFrom != null && lineNo >= hiFrom && lineNo <= hiTo;
           if (isHi) {

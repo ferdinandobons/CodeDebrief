@@ -98,9 +98,11 @@ _HTML_TEMPLATE = r"""<!doctype html>
       <div class="canvas-toolbar" aria-label="Canvas controls">
         <button class="tool" id="menuButton" title="Toggle codebase tree" aria-label="Toggle codebase tree">&#9776;</button>
         <button class="tool detail-tool" id="detailButton" title="Show source and findings" aria-label="Toggle source and findings" aria-pressed="false">i</button>
-        <button class="tool" id="zoomOut" title="Zoom out">&minus;</button>
-        <button class="tool" id="resetView" title="Reset view &amp; layout">0</button>
-        <button class="tool" id="zoomIn" title="Zoom in">+</button>
+        <button class="tool" id="zoomOut" title="Zoom out" aria-label="Zoom out">&minus;</button>
+        <button class="tool" id="resetView" title="Reset expanded sections and fit current scope" aria-label="Reset expanded sections and fit current scope">0</button>
+        <button class="tool" id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+        <button class="tool export-tool" id="exportPng" title="Export current flowchart as PNG" aria-label="Export current flowchart as PNG">PNG</button>
+        <button class="tool export-tool" id="exportJpg" title="Export current flowchart as JPG" aria-label="Export current flowchart as JPG">JPG</button>
         <button class="tool" id="fullscreenToggle" data-action="fullscreen" title="Full screen (Esc to exit)" aria-label="Toggle full-screen canvas" aria-pressed="false">&#9974;</button>
       </div>
       <svg id="canvas" role="img" aria-label="Codebase canvas" data-level="0"></svg>

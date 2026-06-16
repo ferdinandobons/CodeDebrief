@@ -125,6 +125,8 @@
           row.setAttribute("data-path", file.path);
           const name = document.createElement("strong");
           name.textContent = flow.name;
+          row.title = `Open ${flow.name} in the progressive flowchart`;
+          row.setAttribute("aria-label", `Open ${flow.name} in the progressive flowchart`);
           const badges = document.createElement("span");
           badges.className = "tree-flow-badges";
           const role = document.createElement("span");
@@ -161,6 +163,10 @@
         const label = document.createElement("span");
         label.className = "tree-label";
         label.textContent = treePathLabel(node);
+        row.title = node.type === "dir"
+          ? `Expand ${node.path || node.name} and focus it on the flowchart`
+          : `Expand ${node.path || node.name} and show its flows`;
+        row.setAttribute("aria-label", row.title);
         if (!isDir && label.textContent !== node.path) label.title = node.path;
         row.append(caret, label);
 
@@ -246,18 +252,18 @@
       function highlightActive(flowId) {
         flowRows.forEach((row, id) => row.classList.toggle("active", id === flowId));
         dirRows.forEach(row => row.classList.remove("active-folder"));
-        fileRows.forEach(row => row.classList.remove("active-file"));
+        fileRows.forEach(row => row.classList.remove("active-file", "active-parent"));
         const flow = byId.get(flowId);
         if (flow) {
           const fileRow = fileRows.get(flow.location.path);
-          if (fileRow) fileRow.classList.add("active-file");
+          if (fileRow) fileRow.classList.add("active-parent");
         }
       }
 
       function highlightPath(path) {
         flowRows.forEach(row => row.classList.remove("active"));
         dirRows.forEach(row => row.classList.remove("active-folder"));
-        fileRows.forEach(row => row.classList.remove("active-file"));
+        fileRows.forEach(row => row.classList.remove("active-file", "active-parent"));
         if (!path) return;
         revealPath(path);
         const row = structureRow(path);
@@ -319,7 +325,8 @@
         let target =
           (lastActiveFlowId && flowRows.get(lastActiveFlowId)) ||
           treeEl.querySelector(".tree-dir.active-folder") ||
-          treeEl.querySelector(".tree-file.active-file");
+          treeEl.querySelector(".tree-file.active-file") ||
+          treeEl.querySelector(".tree-file.active-parent");
         if (!target || target.offsetParent === null) target = rows[0];
         setRovingTarget(target);
       }

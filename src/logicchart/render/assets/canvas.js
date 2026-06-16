@@ -1,9 +1,10 @@
 
-    // Codebase canvas (Phase 2). Owns the two top levels of the viewer:
+    // Codebase canvas. Owns the progressive flowchart surface:
     //   L0 = one super-node per scope, edges = aggregated cross-scope calls.
-    //   L1 = the whole codebase map plus one expanded scope's files/flows in place.
-    // Selecting a flow (here or from the tree) still defers to shell.js's
-    // renderFlow via LC.selectFlow -- that is the L2 renderer (Phase 3 inlines it).
+    //   L1 = the whole codebase map plus one expanded scope's entrypoint/call graph.
+    //   L2 = a selected flow's decisions unfolded in place inside that same graph.
+    // The filesystem is navigation/evidence only: paths appear as small source tags,
+    // never as the primary canvas hierarchy.
     //
     // OWNERSHIP SEAM: shell.js owns the SVG element, the shared `view` object, and
     // the pan/zoom/wheel handlers (generic over `view`). It exposes those as LC.svg,
@@ -13,10 +14,9 @@
     // breadcrumb, expand/collapse) funnels through renderCanvas().
     //
     // LAZY INVARIANT: renderL0 builds only `scopes.length` super-node groups + the
-    // scope_edges paths -- O(scopes), never O(flows). Expanding a scope keeps those
-    // super-nodes visible and draws ONLY the active scope's file groups in an attached
-    // detail area; unrelated scopes remain collapsed context nodes. Collapsing
-    // replaceChildren() back to L0.
+    // scope_edges paths -- O(scopes), never O(flows). Expanding a scope draws only its
+    // main entrypoints plus the downstream calls explicitly unlocked by the user. It
+    // never dumps every file or every function from a large codebase onto the canvas.
     (function () {
       const LC = window.LC;
       if (!LC || !LC.svg) return; // shell.js must have booted and exposed the seam.
@@ -47,7 +47,11 @@
       const FLOW_H = 68;
       const GAP_X = 70;
       const GAP_Y = 60;
-      const FILE_PAD = 24;
+      const FLOW_ROW_GAP = 150;
+      const FLOW_LAYER_GAP = 360;
+      const FLOW_CHIP_Y = 27;
+      const FLOW_META_Y = 45;
+      const DETAIL_PAD = 60;
 
       const canvasEl = document.getElementById("canvas");
       const breadcrumbEl = document.getElementById("breadcrumb");
@@ -62,18 +66,19 @@
       }
 
       // --- State (single explicit object; no hidden DOM state) ---------------------
-      // L1 also tracks which file chips are expanded; a file's flow nodes (and their
-      // intra-file/visible call edges) are materialized only while its path is in this
-      // set, so a scope with hundreds of flows never dumps everything onto the canvas.
+      // L1 tracks an unlocked route of flows. The first layer is the active scope's
+      // entrypoints; each route flow reveals only its direct call targets as the next
+      // layer. This keeps the canvas universal and progressive across different codebases:
+      // no backend/frontend/file assumptions, only entrypoints, calls, decisions, outcomes.
       const canvasState = {
         level: 0,
         expandedScope: null,
         selectedPath: null,
         selectedFlowId: null,
-        expandedFiles: new Set(),
-        // L2: the flow id whose decision flowchart is unfolded IN PLACE inside L1, or
-        // null. At most one at a time -- expanding another collapses the previous. The
-        // sub-graph is in the DOM only while this is set; collapse removes it.
+        routeFlowIds: [],
+        // L2: all flow ids whose decision flowcharts are unfolded IN PLACE inside L1.
+        // `expandedFlow` is only the active/last-selected one for hash, focus, and reset.
+        expandedFlowIds: new Set(),
         expandedFlow: null,
       };
       // Decision-node node geometry (matches shell.js's L2 chart: 290x86 rects, 145-radius
@@ -88,6 +93,11 @@
       // Cache the scope-grid geometry; file/detail layouts stay per-render because they
       // depend on expanded files and the selected inline flow.
       const layoutCache = new Map();
+      // User-adjusted positions for canvas blocks. The automatic layout gives the first
+      // readable flowchart; drag lets users refine spacing on the codebase they inspect.
+      const manualScopePositions = new Map();
+      const manualFlowPositions = new Map();
+      let currentRouteEdgeRecords = new Map();
 
       function layoutWidthBucket() {
         const width = (canvasEl && canvasEl.clientWidth) || 1000;
@@ -344,6 +354,9 @@
           </filter>
           <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
             <path class="arrow" d="M0,0 L8,4 L0,8 z"></path>
+          </marker>
+          <marker id="arrowFocus" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+            <path class="arrow-focus" d="M0,0 L8,4 L0,8 z"></path>
           </marker>`;
         return defs;
       }
@@ -460,17 +473,6 @@
         );
       }
 
-      function findingCountForPath(path) {
-        let count = 0;
-        byId.forEach(flow => {
-          const p = flow.location && flow.location.path;
-          if (p && (p === path || p.startsWith(path + "/"))) {
-            count += (findingsByFlow.get(flow.id) || []).length;
-          }
-        });
-        return count;
-      }
-
       function scopeStats(name) {
         const ids = scopeFlows[name] || [];
         const languages = new Set();
@@ -483,7 +485,7 @@
         return { languages: languages.size, review };
       }
 
-      // Wrapped-grid column count, shared by L0 super-nodes and L1 file boxes.
+      // Wrapped-grid column count for L0 super-nodes.
       function gridCols(count, cellW) {
         const containerW = (canvasEl && canvasEl.clientWidth) || 1000;
         const fitting = Math.max(1, Math.floor(containerW / (cellW + GAP_X)));
@@ -508,9 +510,10 @@
             const row = Math.floor(i / cols);
             const cx = col * (SCOPE_W + GAP_X) + SCOPE_W / 2;
             const cy = row * (rowH + GAP_Y) + rowH / 2;
+            const manual = manualScopePositions.get(name);
             nodePos.set(name, {
-              x: cx,
-              y: cy,
+              x: manual ? manual.x : cx,
+              y: manual ? manual.y : cy,
               w: SCOPE_W,
               h: superNodeHeight((scopeFlows[name] || []).length),
               count: (scopeFlows[name] || []).length,
@@ -557,193 +560,255 @@
       }
 
       function offsetLayout(layout, dx, dy) {
-        layout.fileBoxes.forEach(box => {
-          box.x += dx;
-          box.y += dy;
-        });
         layout.flowPos.forEach(pos => {
           pos.x += dx;
           pos.y += dy;
+          pos.layoutOffsetX = (pos.layoutOffsetX || 0) + dx;
+          pos.layoutOffsetY = (pos.layoutOffsetY || 0) + dy;
         });
-        if (layout.inlineAnchor) {
-          layout.inlineAnchor.x += dx;
-          layout.inlineAnchor.y += dy;
-          layout.inlineAnchor.bounds = offsetBounds(layout.inlineAnchor.bounds, dx, dy);
-          layout.inlineBounds = layout.inlineAnchor.bounds;
-        } else if (layout.inlineBounds) {
-          layout.inlineBounds = offsetBounds(layout.inlineBounds, dx, dy);
-        }
+        layout.flowRows.forEach(row => {
+          row.x += dx;
+          row.y += dy;
+        });
+        layout.inlineAnchors.forEach(anchor => {
+          anchor.x += dx;
+          anchor.y += dy;
+          anchor.bounds = offsetBounds(anchor.bounds, dx, dy);
+        });
+        if (layout.inlineBounds) layout.inlineBounds = offsetBounds(layout.inlineBounds, dx, dy);
         layout.bounds = offsetBounds(layout.bounds, dx, dy);
         return layout;
       }
 
-      // --- L1 detail layout: one expanded scope's files in a grouped grid ----------
+      // --- L1 detail layout: progressive entrypoint/call graph ---------------------
 
-      // L1 layout. Each FILE in the expanded scope is a collapsed header chip by
-      // default (file name + flow count); a file's flow nodes are laid out ONLY when
-      // its path is in `canvasState.expandedFiles`. This keeps L1 lazy at scale: a
-      // scope with hundreds of flows shows one chip per file, never every flow node.
-      // The layout depends on the expanded-file set, so it is recomputed per render
-      // (cheap: only expanded files materialize their flows) rather than cached by
-      // scope alone.
-      function layoutL1(scope) {
-        // Expanded scope's flows, grouped by file. Files become chips; flows inside an
-        // expanded file are materialized, the rest are not. The caller offsets this local
-        // detail layout into the global codebase map.
-        const visibleFlows = (scopeFlows[scope] || [])
+      function flowInScope(flow, scope) {
+        return (scopeOfFlowIndex.get(flow.id) || [scopeOfFlow(flow)])
+          .filter(Boolean)
+          .includes(scope);
+      }
+
+      function nonTestScopeFlows(scope) {
+        return (scopeFlows[scope] || [])
           .map(id => byId.get(id))
           .filter(Boolean);
-        const byPath = new Map();
-        visibleFlows.forEach(flow => {
-          const list = byPath.get(flow.location.path) || [];
-          list.push(flow);
-          byPath.set(flow.location.path, list);
+      }
+
+      function directCallTargets(flow) {
+        return (flow.calls || [])
+          .map(id => byId.get(id))
+          .filter(Boolean);
+      }
+
+      function entryFlowsForScope(scope) {
+        const flows = nonTestScopeFlows(scope);
+        const ids = new Set(flows.map(flow => flow.id));
+        const entries = flows.filter(flow => flow.is_entrypoint);
+        const rootEntries = entries.filter(flow =>
+          !(flow.called_by || []).some(source => ids.has(source))
+        );
+        if (rootEntries.length) return sortFlows(rootEntries);
+        if (entries.length) return sortFlows(entries);
+        const roots = flows.filter(flow =>
+          !(flow.called_by || []).some(source => ids.has(source))
+        );
+        return sortFlows(roots.length ? roots : flows);
+      }
+
+      function pathMatchesFocus(flow) {
+        const path = flow.location && flow.location.path;
+        const selected = canvasState.selectedPath;
+        return !!(
+          selected &&
+          path &&
+          (pathContains(selected, path) || pathContains(path, selected))
+        );
+      }
+
+      function focusedPathFlows(scope) {
+        if (canvasState.selectedFlowId || canvasState.routeFlowIds.length) return [];
+        if (!canvasState.selectedPath) return [];
+        return sortFlows(
+          nonTestScopeFlows(scope).filter(pathMatchesFocus)
+        );
+      }
+
+      function routeContains(id) {
+        return canvasState.routeFlowIds.includes(id);
+      }
+
+      function normalizeRoute(scope) {
+        const seen = new Set();
+        canvasState.routeFlowIds = canvasState.routeFlowIds.filter(id => {
+          const flow = byId.get(id);
+          if (!flow || seen.has(id)) return false;
+          seen.add(id);
+          return !scope || flowInScope(flow, scope) || routeContains(id);
         });
-        const paths = [...byPath.keys()].sort((a, b) => a.localeCompare(b));
-
-        // Pre-size each file box. A collapsed chip is header-only; an expanded box
-        // grows to fit its flows in an inner grid.
-        const HEADER_H = 22;
-        const COLLAPSED_W = FILE_PAD * 2 + FLOW_W; // chip wide enough for the label.
-        const COLLAPSED_H = FILE_PAD * 2 + HEADER_H;
-        const boxes = paths.map(path => {
-          const flowsInFile = sortFlows(byPath.get(path));
-          const expanded = canvasState.expandedFiles.has(path);
-          if (!expanded) {
-            return { path, flows: flowsInFile, expanded: false, innerCols: 0, w: COLLAPSED_W, h: COLLAPSED_H };
-          }
-          const innerCols = Math.max(1, Math.floor(Math.sqrt(flowsInFile.length)));
-          const innerRows = Math.ceil(flowsInFile.length / innerCols);
-          const w = FILE_PAD * 2 + innerCols * FLOW_W + (innerCols - 1) * GAP_X;
-          const h =
-            FILE_PAD * 2 + HEADER_H + innerRows * FLOW_H + (innerRows - 1) * GAP_Y;
-          return { path, flows: flowsInFile, expanded: true, innerCols, w, h };
-        });
-
-        // The inline-expanded flow (L2) lives in a file that must itself be expanded so
-        // the flow node is present to anchor under. expandFlowInline guarantees that, but
-        // guard here too: only reserve a band when the flow is actually a visible member.
-        const expandedFlow = canvasState.expandedFlow
-          ? byId.get(canvasState.expandedFlow)
-          : null;
-        // Reserve a band only for a flow that is a visible member AND actually has
-        // decision nodes -- an empty flow draws nothing, so it needs no space.
-        const expandedFlowPath =
-          expandedFlow &&
-          byPath.has(expandedFlow.location.path) &&
-          expandedFlow.nodes &&
-          expandedFlow.nodes.length
-            ? expandedFlow.location.path
-            : null;
-        // Measured size of the decision sub-graph, so the row it sits under is pushed down
-        // by exactly its height (no overlap with the next row), general over flow size.
-        const subMeasure =
-          expandedFlowPath && LC.measureFlow ? LC.measureFlow(expandedFlow) : null;
-        const reservedH = subMeasure
-          ? subMeasure.height + DECISION_PAD * 2
-          : 0;
-        const reservedW = subMeasure ? subMeasure.width + DECISION_PAD * 2 : 0;
-
-        // Outer wrapped grid of file boxes; row height = tallest box in the row. When a
-        // file in a row hosts the inline-expanded flow, the band BELOW that row is grown
-        // by the sub-graph height so following rows are pushed down, never overlapped.
-        const fileBoxes = new Map();
-        const flowPos = new Map();
-        // The inline sub-graph anchor (world center of its top), filled once the hosting
-        // flow node is placed. renderL1 draws the sub-graph there.
-        let inlineAnchor = null;
-        const outerContainerW = (canvasEl && canvasEl.clientWidth) || 1000;
-        // File-box wrap threshold stays the CONTAINER width -- a wide inline sub-graph must
-        // NOT widen it, or the L1 file grid re-wraps every time a flow is expanded. The
-        // sub-graph reserves its own horizontal room LOCALLY (its band's bounds extend past
-        // the host row when reservedW is wide; the canvas pans to it), not globally here.
-        const rowLimit = outerContainerW;
-        let cursorX = 0;
-        let rowTop = 0;
-        let rowMaxH = 0;
-        let rowStart = 0;
-        let rowIndex = 0;
-        let rowHasExpandedFlow = false;
-        const rowMaxHeights = []; // finalized tallest box per row, for the inline anchor.
-        boxes.forEach((box, i) => {
-          if (i > rowStart && cursorX + box.w > rowLimit) {
-            // wrap to a new row; if the finished row hosted the inline flow, add its band.
-            rowMaxHeights[rowIndex] = rowMaxH;
-            rowTop += rowMaxH + GAP_Y + (rowHasExpandedFlow ? reservedH : 0);
-            cursorX = 0;
-            rowMaxH = 0;
-            rowStart = i;
-            rowIndex += 1;
-            rowHasExpandedFlow = false;
-          }
-          box.x = cursorX;
-          box.y = rowTop;
-          box.row = rowIndex;
-          fileBoxes.set(box.path, box);
-          // Only an expanded file places its flows in its inner grid; collapsed chips
-          // contribute NO flow positions, so their flow nodes never enter the DOM.
-          if (box.expanded) {
-            box.flows.forEach((flow, fi) => {
-              const col = fi % box.innerCols;
-              const row = Math.floor(fi / box.innerCols);
-              const cx = box.x + FILE_PAD + col * (FLOW_W + GAP_X) + FLOW_W / 2;
-              const cy =
-                box.y + FILE_PAD + HEADER_H + row * (FLOW_H + GAP_Y) + FLOW_H / 2;
-              flowPos.set(flow.id, { x: cx, y: cy, w: FLOW_W, h: FLOW_H });
-            });
-          }
-          if (box.path === expandedFlowPath) rowHasExpandedFlow = true;
-          cursorX += box.w + GAP_X;
-          rowMaxH = Math.max(rowMaxH, box.h);
-        });
-        rowMaxHeights[rowIndex] = rowMaxH; // finalize the last row.
-
-        // Anchor the inline sub-graph centered horizontally on its flow node, just below
-        // the bottom of the WHOLE host row (its tallest box) -- not just the host box --
-        // so it can never overlap a taller same-row sibling chip. The band that follows
-        // the host row was already grown by reservedH, so the next row clears it too.
-        if (expandedFlowPath && flowPos.has(canvasState.expandedFlow) && subMeasure) {
-          const hostBox = fileBoxes.get(expandedFlowPath);
-          const node = flowPos.get(canvasState.expandedFlow);
-          const rowBottom = hostBox.y + (rowMaxHeights[hostBox.row] || hostBox.h);
-          // origin = where layoutFlow's (0,0) maps to: center it on the node, top of band.
-          inlineAnchor = {
-            x: node.x - (subMeasure.minX + subMeasure.maxX) / 2,
-            y: rowBottom + DECISION_PAD - subMeasure.minY,
-            flowId: canvasState.expandedFlow,
-            bounds: {
-              minX: node.x - reservedW / 2,
-              maxX: node.x + reservedW / 2,
-              minY: rowBottom,
-              maxY: rowBottom + reservedH,
-            },
-          };
+        if (
+          canvasState.expandedFlow &&
+          !canvasState.routeFlowIds.includes(canvasState.expandedFlow)
+        ) {
+          canvasState.routeFlowIds.push(canvasState.expandedFlow);
         }
-
-        // The visible flow set is exactly the flows of EXPANDED files -- the only ones
-        // with a position, the only ones drawn, and the only edge endpoints.
-        const visibleIds = new Set(flowPos.keys());
-        const allNodes = [...flowPos.values()];
-        // Account for file-box extents too, so the viewBox includes box chrome.
-        boxes.forEach(box => {
-          allNodes.push({ x: box.x + box.w / 2, y: box.y + box.h / 2, w: box.w, h: box.h });
+        canvasState.expandedFlowIds.forEach(id => {
+          if (!canvasState.routeFlowIds.includes(id)) {
+            canvasState.routeFlowIds.push(id);
+          }
         });
-        // NOTE: the reserved inline sub-graph band is deliberately EXCLUDED from `bounds`.
-        // A large flow's band is ~thousands of world-px tall; folding it into the fit would
-        // zoom the SHARED canvas viewBox out to contain it, shrinking every L1 file box /
-        // sibling flow to an illegible scale. renderL1 fits only this
-        // non-inline L1 content (and only on a fresh L1, never on expand) so the surrounding
-        // context stays at a readable scale; the inline sub-graph draws at 1x and the user
-        // pans to it. `inlineBounds` is exposed separately for the off-screen-nudge check.
+      }
+
+      function appendUnique(list, flow) {
+        if (!flow || list.some(item => item.id === flow.id)) return;
+        list.push(flow);
+      }
+
+      function buildProgressiveLayers(scope) {
+        normalizeRoute(scope);
+        const root = entryFlowsForScope(scope);
+        focusedPathFlows(scope).forEach(flow => appendUnique(root, flow));
+        const firstRouteFlow = canvasState.routeFlowIds[0]
+          ? byId.get(canvasState.routeFlowIds[0])
+          : null;
+        appendUnique(root, firstRouteFlow);
+
+        const layers = [sortFlows(root)];
+        const seen = new Set(layers[0].map(flow => flow.id));
+        const route = canvasState.routeFlowIds
+          .map(id => byId.get(id))
+          .filter(Boolean);
+
+        route.forEach(flow => {
+          if (!seen.has(flow.id)) {
+            layers.push([flow]);
+            seen.add(flow.id);
+          }
+          const targets = directCallTargets(flow).filter(target => !seen.has(target.id));
+          if (targets.length) {
+            const sorted = sortFlows(targets);
+            sorted.forEach(target => seen.add(target.id));
+            layers.push(sorted);
+          }
+        });
+
+        return layers.filter(layer => layer.length);
+      }
+
+      function rowLabelFor(index) {
+        if (index === 0) return "entrypoints";
+        return `unlocked calls ${index}`;
+      }
+
+      function rowWidth(count) {
+        return Math.max(FLOW_W, count * FLOW_W + Math.max(0, count - 1) * GAP_X);
+      }
+
+      function layoutL1(scope) {
+        const layers = buildProgressiveLayers(scope);
+        const flowPos = new Map();
+        const flowRows = [];
+        const visibleIds = new Set();
+        const allNodes = [];
+        const routeEdges = [];
+        const maxWidth = Math.max(...layers.map(layer => rowWidth(layer.length)), FLOW_W);
+        const inlineAnchors = [];
+
+        let y = 0;
+        layers.forEach((layer, layerIndex) => {
+          const width = rowWidth(layer.length);
+          const startX = (maxWidth - width) / 2 + FLOW_W / 2;
+          flowRows.push({
+            x: maxWidth / 2,
+            y,
+            w: Math.max(width, FLOW_W),
+            h: FLOW_H + FLOW_CHIP_Y * 2,
+            label: rowLabelFor(layerIndex),
+          });
+
+          layer.forEach((flow, index) => {
+            const x = startX + index * (FLOW_W + GAP_X);
+            const pos = { x, y, w: FLOW_W, h: FLOW_H, layer: layerIndex };
+            const manual = manualFlowPositions.get(flow.id);
+            if (manual) {
+              pos.x = manual.x;
+              pos.y = manual.y;
+            }
+            flowPos.set(flow.id, pos);
+            visibleIds.add(flow.id);
+            allNodes.push(pos);
+          });
+
+          const expandedInRow = layer
+            .filter(flow => canvasState.expandedFlowIds.has(flow.id))
+            .map(flow => ({
+              flow,
+              measure:
+                flow.nodes &&
+                flow.nodes.length &&
+                LC.measureFlow
+                  ? LC.measureFlow(flow, { omitEntry: true })
+                  : null,
+            }))
+            .filter(item => item.measure);
+
+          if (expandedInRow.length) {
+            let rowExtra = 0;
+            let bandTop = y + FLOW_H / 2 + FLOW_CHIP_Y;
+            expandedInRow.forEach((item, index) => {
+              if (index > 0) {
+                bandTop += FLOW_ROW_GAP;
+                rowExtra += FLOW_ROW_GAP;
+              }
+              const node = flowPos.get(item.flow.id);
+              const reservedW = item.measure.width + DECISION_PAD * 2;
+              const reservedH = item.measure.height + DECISION_PAD * 2;
+              const anchor = {
+                x: node.x - (item.measure.minX + item.measure.maxX) / 2,
+                y: bandTop + DECISION_PAD - item.measure.minY,
+                flowId: item.flow.id,
+                bounds: {
+                  minX: node.x - reservedW / 2,
+                  maxX: node.x + reservedW / 2,
+                  minY: bandTop,
+                  maxY: bandTop + reservedH,
+                },
+              };
+              inlineAnchors.push(anchor);
+              allNodes.push({
+                x: (anchor.bounds.minX + anchor.bounds.maxX) / 2,
+                y: (anchor.bounds.minY + anchor.bounds.maxY) / 2,
+                w: anchor.bounds.maxX - anchor.bounds.minX,
+                h: anchor.bounds.maxY - anchor.bounds.minY,
+              });
+              bandTop += reservedH;
+              rowExtra += reservedH;
+            });
+            y += FLOW_H + FLOW_ROW_GAP + rowExtra;
+          } else {
+            y += FLOW_H + FLOW_LAYER_GAP;
+          }
+        });
+
+        visibleIds.forEach(id => {
+          const flow = byId.get(id);
+          const from = flowPos.get(id);
+          if (!flow || !from) return;
+          directCallTargets(flow).forEach(target => {
+            const to = flowPos.get(target.id);
+            if (!to) return;
+            routeEdges.push({ source: id, target: target.id, from, to, label: "calls" });
+          });
+        });
 
         return {
-          fileBoxes,
+          flowRows,
           flowPos,
           visibleIds,
-          inlineAnchor,
-          // Inline band bounds kept SEPARATE from `bounds` (which excludes it). renderL1
-          // uses these only to keep the host flow node on-screen, never to refit the band.
-          inlineBounds: inlineAnchor ? inlineAnchor.bounds : null,
+          routeEdges,
+          inlineAnchors,
+          inlineBounds: inlineAnchors.length
+            ? mergeBounds(inlineAnchors.map(anchor => anchor.bounds))
+            : null,
           bounds: boundsOf(allNodes),
         };
       }
@@ -781,7 +846,7 @@
         const group = svgEl("g");
         group.setAttribute(
           "class",
-          "scope-node" +
+          "node scope-node movable" +
             (opts.expanded ? " expanded" : "") +
             (opts.dimmed ? " dimmed" : "") +
             (stats.review ? " has-finding" : "")
@@ -798,7 +863,7 @@
         rect.setAttribute("y", String(-pos.h / 2));
         rect.setAttribute("width", String(pos.w));
         rect.setAttribute("height", String(pos.h));
-        rect.setAttribute("rx", "16");
+        rect.setAttribute("rx", "32");
         group.appendChild(rect);
 
         const nameLines = wrapLabel(name, 18, 2);
@@ -832,7 +897,48 @@
         }
 
         const activate = () => expandScope(name);
-        group.addEventListener("click", activate);
+        let scopeDrag = null;
+        group.addEventListener("pointerdown", event => {
+          if (event.button !== 0) return;
+          event.stopPropagation();
+          clearProgressiveLinkHighlight();
+          const currentView = LC.getView ? LC.getView() : null;
+          scopeDrag = {
+            x: event.clientX,
+            y: event.clientY,
+            ox: pos.x,
+            oy: pos.y,
+            moved: 0,
+            scaleX: currentView && svg.clientWidth ? currentView.width / svg.clientWidth : 1,
+            scaleY: currentView && svg.clientHeight ? currentView.height / svg.clientHeight : 1,
+          };
+          group.classList.add("dragging");
+          group.setPointerCapture(event.pointerId);
+        });
+        group.addEventListener("pointermove", event => {
+          if (!scopeDrag) return;
+          const dx = (event.clientX - scopeDrag.x) * scopeDrag.scaleX;
+          const dy = (event.clientY - scopeDrag.y) * scopeDrag.scaleY;
+          scopeDrag.moved = Math.max(scopeDrag.moved, Math.abs(dx) + Math.abs(dy));
+          pos.x = scopeDrag.ox + dx;
+          pos.y = scopeDrag.oy + dy;
+          group.setAttribute("transform", `translate(${pos.x} ${pos.y})`);
+        });
+        const finishScopeDrag = event => {
+          if (!scopeDrag) return;
+          group.classList.remove("dragging");
+          try { group.releasePointerCapture(event.pointerId); } catch (_) {}
+          if (scopeDrag.moved < 4 && event.type === "pointerup") {
+            activate();
+          } else {
+            manualScopePositions.set(name, { x: pos.x, y: pos.y });
+            layoutCache.clear();
+            renderCanvas();
+          }
+          scopeDrag = null;
+        };
+        group.addEventListener("pointerup", finishScopeDrag);
+        group.addEventListener("pointercancel", finishScopeDrag);
         group.addEventListener("keydown", event => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
@@ -842,106 +948,24 @@
         return group;
       }
 
-      // A file is rendered as an expandable header chip. Collapsed by default it shows
-      // only the file name + flow count; expanding (click / Enter / Space) materializes
-      // its flow nodes, collapsing removes them. The header is the toggle target and
-      // carries button semantics + aria-expanded so it is keyboard-accessible.
-      function makeFileBox(path, box) {
-        const count = box.flows.length;
-        const reviewCount = findingCountForPath(path);
-        const group = svgEl("g");
-        group.setAttribute(
-          "class",
-          "file-box" +
-            (box.expanded ? " expanded" : "") +
-            (pathTouchesActive(path) ? " active-area" : "") +
-            (reviewCount ? " has-finding" : "")
-        );
-        group.setAttribute("data-path", path);
-        group.setAttribute("transform", `translate(${box.x} ${box.y})`);
-        group.setAttribute("tabindex", "0");
-        group.setAttribute("role", "button");
-        group.setAttribute("aria-expanded", box.expanded ? "true" : "false");
-        const labelText = shortPathLabel(path);
-        group.setAttribute(
-          "aria-label",
-          `file ${labelText}: ${count} flow${count === 1 ? "" : "s"}, ${box.expanded ? "expanded" : "collapsed"}`
-        );
-
-        const rect = svgEl("rect");
-        rect.setAttribute("class", "file-frame");
-        rect.setAttribute("x", "0");
-        rect.setAttribute("y", "0");
-        rect.setAttribute("width", String(box.w));
-        rect.setAttribute("height", String(box.h));
-        rect.setAttribute("rx", "14");
-        group.appendChild(rect);
-
-        // Disclosure caret (rotates via CSS when expanded). Its position is baked into
-        // the path data -- not an inline transform attribute -- because the CSS rotate
-        // (transform-box: fill-box) would otherwise override an attribute transform.
-        const cx = FILE_PAD - 12;
-        const cy = FILE_PAD;
-        const caret = svgEl("path");
-        caret.setAttribute("class", "file-caret");
-        caret.setAttribute("d", `M${cx},${cy - 4} L${cx + 5},${cy} L${cx},${cy + 4}`);
-        group.appendChild(caret);
-
-        const label = svgEl("text");
-        label.setAttribute("class", "file-label");
-        label.setAttribute("x", String(FILE_PAD));
-        label.setAttribute("y", String(FILE_PAD + 4));
-        // Show a context-bearing label so repeated names like route.ts stay legible.
-        label.textContent = labelText;
-        const full = svgEl("title");
-        full.textContent = `${path} (${count} flow${count === 1 ? "" : "s"}${reviewCount ? `, ${reviewCount} review` : ""})`;
-        label.appendChild(full);
-        group.appendChild(label);
-
-        // Flow-count chip on the header, so a collapsed file still advertises its size.
-        const meta = svgEl("text");
-        meta.setAttribute("class", "file-count");
-        meta.setAttribute("x", String(box.w - FILE_PAD));
-        meta.setAttribute("y", String(FILE_PAD + 4));
-        meta.setAttribute("text-anchor", "end");
-        meta.textContent = `${count}`;
-        group.appendChild(meta);
-
-        if (reviewCount) {
-          const review = svgEl("circle");
-          review.setAttribute("class", "file-review-dot");
-          review.setAttribute("cx", String(box.w - 8));
-          review.setAttribute("cy", String(8));
-          review.setAttribute("r", "4");
-          const reviewTitle = svgEl("title");
-          reviewTitle.textContent = `${reviewCount} review finding${reviewCount === 1 ? "" : "s"}`;
-          review.appendChild(reviewTitle);
-          group.appendChild(review);
-        }
-
-        const toggle = () => toggleFile(path);
-        group.addEventListener("click", toggle);
-        group.addEventListener("keydown", event => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            toggle();
-          }
-        });
-        return group;
-      }
-
       function makeFlowNode(flow, pos) {
         const group = svgEl("g");
         const isEntry = !!flow.is_entrypoint;
-        const isExpanded = flow.id === canvasState.expandedFlow;
+        const isExpanded = canvasState.expandedFlowIds.has(flow.id);
+        const isRoute = routeContains(flow.id);
+        const callCount = directCallTargets(flow).length;
+        const decisionCount = (flow.nodes || []).filter(node => node.kind === "decision").length;
+        const sourceLabel = `${pathInActiveScope(flow.location.path)}:${flow.location.start_line}`;
         group.setAttribute(
           "class",
           "node flow-node " +
-            (isEntry ? "entry" : "action") +
+            (isEntry ? "entry" : "action subflow") +
             (findingFlowIds.has(flow.id) ? " has-finding" : "") +
             (flow.id === canvasState.selectedFlowId ? " selected" : "") +
             (pathTouchesActive(flow.location && flow.location.path) ? " active-area" : "") +
-            (isExpanded ? " flow-open" : "")
+            (isRoute ? " route-flow" : "") +
+            (isExpanded ? " flow-open" : "") +
+            " movable"
         );
         group.setAttribute("data-flow-id", flow.id);
         group.setAttribute("transform", `translate(${pos.x} ${pos.y})`);
@@ -953,7 +977,7 @@
         if (isExpanded) group.setAttribute("aria-controls", inlineWrapId(flow.id));
         group.setAttribute(
           "aria-label",
-          `flow: ${flow.name}, ${isExpanded ? "expanded" : "collapsed"}`
+          `flow: ${flow.name}, ${decisionCount} decisions, ${callCount} downstream calls, ${isExpanded ? "expanded" : "collapsed"}`
         );
 
         const rect = svgEl("rect");
@@ -979,14 +1003,94 @@
         meta.setAttribute("class", "meta");
         meta.setAttribute("text-anchor", "middle");
         meta.setAttribute("y", String(FLOW_H / 2 - 7));
-        meta.textContent = `${pathInActiveScope(flow.location.path)}:${flow.location.start_line}`;
+        meta.textContent = `${flow.entry_kind || "flow"} · ${flow.language || "unknown"}`;
         group.appendChild(meta);
 
-        // Click / Enter / Space toggles the flow's decision sub-graph IN PLACE (L2).
-        // Expanding an already-open flow collapses it; expanding another collapses the
-        // previous (single inline flow for v1). Selection + breadcrumb follow the toggle.
+        const source = svgEl("text");
+        source.setAttribute("class", "flow-source-tag");
+        source.setAttribute("text-anchor", "middle");
+        source.setAttribute("y", String(FLOW_H / 2 + 21));
+        source.textContent = sourceLabel;
+        const sourceTitle = svgEl("title");
+        sourceTitle.textContent = sourceLabel;
+        source.appendChild(sourceTitle);
+        group.appendChild(source);
+
+        if (callCount || decisionCount) {
+          const badgeText = callCount
+            ? `+ ${callCount} downstream`
+            : `${decisionCount} decision${decisionCount === 1 ? "" : "s"}`;
+          const badgeWidth = Math.max(80, badgeText.length * 6 + 20);
+          const badge = svgEl("g");
+          badge.setAttribute("class", "flow-expand-pill");
+          badge.setAttribute(
+            "transform",
+            `translate(${FLOW_W / 2 - badgeWidth / 2 - 8} ${-FLOW_H / 2 - 14})`
+          );
+          const badgeBg = svgEl("rect");
+          badgeBg.setAttribute("x", String(-badgeWidth / 2));
+          badgeBg.setAttribute("y", "-10");
+          badgeBg.setAttribute("width", String(badgeWidth));
+          badgeBg.setAttribute("height", "20");
+          badgeBg.setAttribute("rx", "10");
+          const badgeLabel = svgEl("text");
+          badgeLabel.setAttribute("text-anchor", "middle");
+          badgeLabel.setAttribute("y", "4");
+          badgeLabel.textContent = badgeText;
+          badge.append(badgeBg, badgeLabel);
+          group.appendChild(badge);
+        }
+
+        // Click / Enter / Space unlocks this flow in the route and, when it has decisions,
+        // unfolds the decision sub-graph in place. Pointer drag moves the block freely;
+        // a short press below the movement threshold remains a click.
         const toggle = () => toggleFlow(flow.id);
-        group.addEventListener("click", toggle);
+        let flowDrag = null;
+        group.addEventListener("pointerdown", event => {
+          if (event.button !== 0) return;
+          event.stopPropagation();
+          clearProgressiveLinkHighlight();
+          const currentView = LC.getView ? LC.getView() : null;
+          flowDrag = {
+            x: event.clientX,
+            y: event.clientY,
+            ox: pos.x,
+            oy: pos.y,
+            moved: 0,
+            scaleX: currentView && svg.clientWidth ? currentView.width / svg.clientWidth : 1,
+            scaleY: currentView && svg.clientHeight ? currentView.height / svg.clientHeight : 1,
+          };
+          group.classList.add("dragging");
+          group.setPointerCapture(event.pointerId);
+        });
+        group.addEventListener("pointermove", event => {
+          if (!flowDrag) return;
+          const dx = (event.clientX - flowDrag.x) * flowDrag.scaleX;
+          const dy = (event.clientY - flowDrag.y) * flowDrag.scaleY;
+          flowDrag.moved = Math.max(flowDrag.moved, Math.abs(dx) + Math.abs(dy));
+          pos.x = flowDrag.ox + dx;
+          pos.y = flowDrag.oy + dy;
+          group.setAttribute("transform", `translate(${pos.x} ${pos.y})`);
+          rerouteFlowNodeEdges(flow.id);
+        });
+        const finishDrag = event => {
+          if (!flowDrag) return;
+          group.classList.remove("dragging");
+          try { group.releasePointerCapture(event.pointerId); } catch (_) {}
+          if (flowDrag.moved < 4 && event.type === "pointerup") {
+            toggle();
+          } else {
+            manualFlowPositions.set(flow.id, {
+              x: pos.x - (pos.layoutOffsetX || 0),
+              y: pos.y - (pos.layoutOffsetY || 0),
+            });
+            renderCanvas();
+            focusFlowNode(flow.id);
+          }
+          flowDrag = null;
+        };
+        group.addEventListener("pointerup", finishDrag);
+        group.addEventListener("pointercancel", finishDrag);
         group.addEventListener("keydown", event => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
@@ -1004,6 +1108,119 @@
           path.setAttribute("stroke-width", String(clamp(1, Math.log2(count + 1), 6)));
         }
         return path;
+      }
+
+      function edgeFocusPath(geometry) {
+        const path = svgEl("path");
+        path.setAttribute("class", "edge-focus");
+        path.setAttribute("d", geometry.focusD || geometry.d);
+        return path;
+      }
+
+      function edgeHitPath(geometry) {
+        const hit = svgEl("g");
+        hit.setAttribute("class", "edge-hit");
+        setEdgeHitGeometry(hit, geometry);
+        return hit;
+      }
+
+      function setEdgeHitGeometry(hit, geometry) {
+        hit.replaceChildren();
+        const points = geometry.points || [];
+        const pad = 10;
+        for (let index = 0; index < points.length - 1; index += 1) {
+          const a = points[index];
+          const b = points[index + 1];
+          const rect = svgEl("rect");
+          rect.setAttribute("class", "edge-hit-segment");
+          rect.setAttribute("x", String(Math.min(a.x, b.x) - pad));
+          rect.setAttribute("y", String(Math.min(a.y, b.y) - pad));
+          rect.setAttribute("width", String(Math.max(Math.abs(a.x - b.x), 1) + pad * 2));
+          rect.setAttribute("height", String(Math.max(Math.abs(a.y - b.y), 1) + pad * 2));
+          rect.setAttribute("rx", "10");
+          hit.appendChild(rect);
+        }
+      }
+
+      function clearProgressiveLinkHighlight() {
+        svg.querySelectorAll(".flow-node.edge-source, .flow-node.edge-target").forEach(node => {
+          node.classList.remove("edge-source", "edge-target");
+        });
+        svg.querySelectorAll(".flow-node.dimmed").forEach(node => {
+          node.classList.remove("dimmed");
+        });
+        svg.querySelectorAll(".progressive-call-edge.selected-link, .progressive-call-hit.selected-link").forEach(edge => {
+          edge.classList.remove("selected-link");
+        });
+        svg.querySelectorAll(".progressive-call-edge.dimmed, .progressive-call-edge.focus-hidden, .progressive-call-hit.dimmed").forEach(edge => {
+          edge.classList.remove("dimmed", "focus-hidden");
+        });
+        svg.querySelectorAll(".progressive-call-focus.selected-link").forEach(edge => {
+          edge.classList.remove("selected-link");
+        });
+        svg.querySelectorAll(".progressive-call-label.selected-link, .progressive-call-label.dimmed").forEach(label => {
+          label.classList.remove("selected-link", "dimmed");
+        });
+      }
+
+      function selectProgressiveLink(edge, path, label, hit, focusPath) {
+        clearProgressiveLinkHighlight();
+        path.classList.add("focus-hidden");
+        if (hit) hit.classList.add("selected-link");
+        if (focusPath) focusPath.classList.add("selected-link");
+        if (label) label.classList.add("selected-link");
+        if (LC.clearHighlight) LC.clearHighlight();
+        const related = new Set([edge.source, edge.target]);
+        svg.querySelectorAll(".flow-node").forEach(node => {
+          const id = node.getAttribute("data-flow-id");
+          node.classList.toggle("dimmed", !related.has(id));
+        });
+        svg.querySelectorAll(".progressive-call-edge").forEach(item => {
+          item.classList.toggle("dimmed", item !== path);
+        });
+        svg.querySelectorAll(".progressive-call-hit").forEach(item => {
+          item.classList.toggle("dimmed", item !== hit);
+        });
+        svg.querySelectorAll(".progressive-call-label").forEach(item => {
+          item.classList.toggle("dimmed", item !== label);
+        });
+        const sourceNode = svg.querySelector(
+          '.flow-node[data-flow-id="' + CSS.escape(edge.source) + '"]'
+        );
+        const targetNode = svg.querySelector(
+          '.flow-node[data-flow-id="' + CSS.escape(edge.target) + '"]'
+        );
+        if (sourceNode) sourceNode.classList.add("edge-source");
+        if (targetNode) targetNode.classList.add("edge-target");
+        const flow = byId.get(edge.source);
+        if (flow && LC.select) {
+          LC.select({
+            scope: canvasState.expandedScope,
+            path: flow.location.path,
+            flowId: flow.id,
+            nodeId: null,
+            findingId: null,
+            edgeId: null,
+          });
+        }
+      }
+
+      function rememberRouteEdge(flowId, record) {
+        const records = currentRouteEdgeRecords.get(flowId) || [];
+        records.push(record);
+        currentRouteEdgeRecords.set(flowId, records);
+      }
+
+      function rerouteFlowNodeEdges(flowId) {
+        (currentRouteEdgeRecords.get(flowId) || []).forEach(record => {
+          const geometry = progressiveEdgeGeometry(record.edge.from, record.edge.to);
+          if (record.hit) setEdgeHitGeometry(record.hit, geometry);
+          record.path.setAttribute("d", geometry.d);
+          if (record.focusPath) record.focusPath.setAttribute("d", geometry.focusD || geometry.d);
+          if (record.label) {
+            record.label.setAttribute("transform", `translate(${geometry.labelX} ${geometry.labelY})`);
+          }
+        });
       }
 
       function edgeLabel(text, geometry) {
@@ -1026,6 +1243,25 @@
         label.textContent = value;
         group.append(bg, label);
         return group;
+      }
+
+      function progressiveEdgeGeometry(a, b) {
+        const startY = a.y + FLOW_H / 2;
+        const endY = b.y - FLOW_H / 2;
+        const midY = startY + Math.max(56, (endY - startY) * 0.42);
+        const curveY = Math.max(90, Math.abs(endY - startY) * 0.55);
+        return {
+          d: `M ${a.x} ${startY} L ${a.x} ${midY} L ${b.x} ${midY} L ${b.x} ${endY}`,
+          focusD: `M ${a.x} ${startY} C ${a.x} ${startY + curveY}, ${b.x} ${endY - curveY}, ${b.x} ${endY}`,
+          points: [
+            { x: a.x, y: startY },
+            { x: a.x, y: midY },
+            { x: b.x, y: midY },
+            { x: b.x, y: endY },
+          ],
+          labelX: a.x + (b.x - a.x) * 0.36,
+          labelY: midY - 9,
+        };
       }
 
       // --- Renderers ---------------------------------------------------------------
@@ -1089,9 +1325,9 @@
           renderL0();
           return;
         }
-        // L1 by default; an inline-expanded flow puts a decision flowchart on the canvas,
-        // so the level reads L2 (the decisions are L2 in the spec) without leaving L1.
-        setCanvasLevel(canvasState.expandedFlow ? "2" : "1");
+        // L1 by default; any inline-expanded flow puts decision flowcharts on the canvas,
+        // so the level reads L2 without leaving the progressive L1 surface.
+        setCanvasLevel(canvasState.expandedFlowIds.size ? "2" : "1");
         setEmptyMessage(defaultEmptyMessage);
         if (emptyState) emptyState.style.display = "none";
 
@@ -1120,7 +1356,7 @@
         svg.appendChild(scopeEdgeLayer);
 
         const activeScopeNode = layout.nodePos.get(scope);
-        if (activeScopeNode && detail.fileBoxes.size) {
+        if (activeScopeNode && detail.visibleIds.size) {
           const centerX = (detail.bounds.minX + detail.bounds.maxX) / 2;
           const topY = detail.bounds.minY;
           const startY = activeScopeNode.y + activeScopeNode.h / 2;
@@ -1145,36 +1381,86 @@
         });
         svg.appendChild(scopeNodeLayer);
 
-        // Intra-scope call edges among the VISIBLE set only, deduped by min|max id.
-        // Cross-scope calls remain represented by the aggregate scope edges above.
+        const rowLayer = svgEl("g");
+        detail.flowRows.forEach(row => {
+          const line = svgEl("line");
+          line.setAttribute("class", "progressive-row-rule");
+          line.setAttribute("x1", String(row.x - row.w / 2 - DETAIL_PAD));
+          line.setAttribute("x2", String(row.x + row.w / 2 + DETAIL_PAD));
+          line.setAttribute("y1", String(row.y - FLOW_META_Y));
+          line.setAttribute("y2", String(row.y - FLOW_META_Y));
+          const label = svgEl("text");
+          label.setAttribute("class", "progressive-row-label");
+          label.setAttribute("x", String(row.x - row.w / 2 - DETAIL_PAD));
+          label.setAttribute("y", String(row.y - FLOW_META_Y - 10));
+          label.textContent = row.label;
+          rowLayer.append(line, label);
+        });
+        svg.appendChild(rowLayer);
+
+        // Progressive call edges among the visible entrypoint/call-route nodes. These are
+        // not file edges: every visible relation is a universal "this flow calls that
+        // flow" connection, regardless of language, framework, or folder layout.
         const edgeLayer = svgEl("g");
+        currentRouteEdgeRecords = new Map();
         const drawn = new Set();
-        let fanIndex = 0;
-        detail.visibleIds.forEach(id => {
-          const flow = byId.get(id);
-          if (!flow) return;
-          (flow.calls || []).forEach(target => {
-            if (!detail.visibleIds.has(target)) return; // skip cross-scope / unresolved.
-            const a = detail.flowPos.get(id);
-            const b = detail.flowPos.get(target);
-            if (!a || !b) return;
-            const key = id < target ? id + "|" + target : target + "|" + id;
-            if (drawn.has(key)) return;
-            drawn.add(key);
-            const curve = ((fanIndex++ % 5) - 2) * 14; // small per-edge fan-out.
-            edgeLayer.appendChild(edgePath(straightEdge(a, b, curve), null));
+        detail.routeEdges.forEach(edge => {
+          const key = edge.source + "|" + edge.target;
+          if (drawn.has(key)) return;
+          drawn.add(key);
+          const geometry = progressiveEdgeGeometry(edge.from, edge.to);
+          const hit = edgeHitPath(geometry);
+          hit.classList.add("progressive-call-hit");
+          const path = edgePath(geometry, null);
+          path.classList.add("progressive-call-edge");
+          const focusPath = edgeFocusPath(geometry);
+          focusPath.classList.add("progressive-call-focus");
+          const labelText = `call link from ${byId.get(edge.source)?.name || edge.source} to ${byId.get(edge.target)?.name || edge.target}`;
+          hit.setAttribute("data-source-flow-id", edge.source);
+          hit.setAttribute("data-target-flow-id", edge.target);
+          path.setAttribute("tabindex", "0");
+          path.setAttribute("role", "button");
+          path.setAttribute("aria-label", labelText);
+          path.setAttribute("data-source-flow-id", edge.source);
+          path.setAttribute("data-target-flow-id", edge.target);
+          const label = edgeLabel(edge.label, geometry);
+          label.classList.add("progressive-call-label");
+          label.setAttribute("data-source-flow-id", edge.source);
+          label.setAttribute("data-target-flow-id", edge.target);
+          label.setAttribute("role", "button");
+          label.setAttribute("tabindex", "0");
+          label.setAttribute("aria-label", labelText);
+          const activate = event => {
+            event.stopPropagation();
+            selectProgressiveLink(edge, path, label, hit, focusPath);
+          };
+          hit.addEventListener("click", activate);
+          path.addEventListener("click", activate);
+          path.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              activate(event);
+            }
           });
+          label.addEventListener("click", activate);
+          label.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              activate(event);
+            }
+          });
+          const record = { edge, hit, path, focusPath, label };
+          rememberRouteEdge(edge.source, record);
+          rememberRouteEdge(edge.target, record);
+          edgeLayer.appendChild(path);
+          edgeLayer.appendChild(focusPath);
+          edgeLayer.appendChild(hit);
+          edgeLayer.appendChild(label);
         });
         svg.appendChild(edgeLayer);
 
-        // File boxes + the expanded scope's visible flow nodes. Other scopes are still in
-        // the DOM as collapsed super-nodes, but their files/flows remain lazy.
-        const fileLayer = svgEl("g");
-        detail.fileBoxes.forEach((box, path) => {
-          fileLayer.appendChild(makeFileBox(path, box));
-        });
-        svg.appendChild(fileLayer);
-
+        // The active scope's visible flow nodes. Other scopes stay collapsed context
+        // nodes, and downstream flows appear only after a user unlocks them via calls.
         const nodeLayer = svgEl("g");
         detail.visibleIds.forEach(id => {
           const flow = byId.get(id);
@@ -1185,16 +1471,17 @@
 
         // Inline L2: unfold the expanded flow's decision flowchart in place, anchored
         // under its flow node in the reserved band. Lazy: the sub-graph enters the DOM
-        // ONLY here, only while expandedFlow is set; collapse re-renders without it.
+        // ONLY here, only while at least one flow is expanded; collapse/reset re-renders
+        // without the related inline sections.
         renderInlineFlow(detail);
 
         // Fit the viewBox to the NON-INLINE L1 content only, and ONLY when no flow is
         // inline-expanded. While a flow is expanded we must NOT refit: folding the (often
-        // huge) decision band into the fit would shrink every file box / sibling flow /
-        // sibling flow to an illegible scale. Instead the inline sub-graph renders at 1x
+        // huge) decision band into the fit would shrink every sibling flow to an
+        // illegible scale. Instead the inline sub-graph renders at 1x
         // and we keep the user's current zoom/pan, nudging only enough to keep the host
         // flow node on-screen (the user pans to reach a tall/wide sub-graph).
-        if (canvasState.expandedFlow) {
+        if (canvasState.expandedFlowIds.size) {
           const hostNode = detail.flowPos.get(canvasState.expandedFlow);
           ensureNodeVisible(hostNode);
         } else {
@@ -1203,66 +1490,56 @@
         renderBreadcrumb(canvasState);
       }
 
-      // Draw the expanded flow's decisions in place using shell.js's reusable decision
-      // renderer (LC.drawFlowGraph), anchored at layout.inlineAnchor. A faint connector
-      // ties the flow node to its sub-graph. The drawn sub-graph is bound as the active
-      // inspect/highlight target so clicking a decision node still calls inspectNode and
-      // the bidirectional highlight + finding ring keep working, exactly as full screen.
+      // Draw every expanded flow's decisions in place using shell.js's reusable decision
+      // renderer (LC.drawFlowGraph). Each sub-graph stays mounted until explicitly
+      // collapsed/reset, so expanding a downstream call does not close its parent.
       function renderInlineFlow(layout) {
-        const anchor = layout.inlineAnchor;
-        if (!anchor || !LC.drawFlowGraph) return;
-        const flow = byId.get(anchor.flowId);
-        if (!flow || !flow.nodes || !flow.nodes.length) return;
+        if (!LC.drawFlowGraph) return;
+        (layout.inlineAnchors || []).forEach(anchor => {
+          const flow = byId.get(anchor.flowId);
+          if (!flow || !flow.nodes || !flow.nodes.length) return;
 
-        const wrap = svgEl("g");
-        wrap.setAttribute("class", "inline-flow");
-        wrap.setAttribute("data-inline-flow", flow.id);
-        // Stable id so the host flow node's aria-controls can reference this region.
-        wrap.setAttribute("id", inlineWrapId(flow.id));
+          const wrap = svgEl("g");
+          wrap.setAttribute("class", "inline-flow");
+          wrap.setAttribute("data-inline-flow", flow.id);
+          // Stable id so the host flow node's aria-controls can reference this region.
+          wrap.setAttribute("id", inlineWrapId(flow.id));
 
-        // Soft backing panel behind the sub-graph so it reads as a unit within L1.
-        const b = anchor.bounds;
-        const panel = svgEl("rect");
-        panel.setAttribute("class", "inline-flow-panel");
-        panel.setAttribute("x", String(b.minX));
-        panel.setAttribute("y", String(b.minY));
-        panel.setAttribute("width", String(b.maxX - b.minX));
-        panel.setAttribute("height", String(b.maxY - b.minY));
-        panel.setAttribute("rx", "18");
-        wrap.appendChild(panel);
+          // Connector from the flow node down into its decision panel.
+          const node = layout.flowPos.get(flow.id);
+          const b = anchor.bounds;
+          if (node) {
+            const link = svgEl("path");
+            link.setAttribute("class", "inline-flow-link");
+            link.setAttribute(
+              "d",
+              `M ${node.x} ${node.y + FLOW_H / 2} L ${node.x} ${b.minY}`
+            );
+            wrap.appendChild(link);
+          }
 
-        // Connector from the flow node down into its decision panel.
-        const node = layout.flowPos.get(flow.id);
-        if (node) {
-          const link = svgEl("path");
-          link.setAttribute("class", "inline-flow-link");
-          link.setAttribute(
-            "d",
-            `M ${node.x} ${node.y + FLOW_H / 2} L ${node.x} ${b.minY}`
+          const render = LC.drawFlowGraph(flow, {
+            originX: anchor.x,
+            originY: anchor.y,
+            layerClass: "inline-flow-graph",
+            omitEntry: true,
+            draggable: true,
+          });
+          wrap.addEventListener("pointerdown", () => {
+            canvasState.expandedFlow = flow.id;
+            if (LC.setCurrentRender) LC.setCurrentRender(render);
+          }, true);
+          wrap.appendChild(render.layer);
+          const hostNode = svg.querySelector(
+            '.flow-node[data-flow-id="' + CSS.escape(flow.id) + '"]'
           );
-          wrap.appendChild(link);
-        }
+          if (hostNode) hostNode.after(wrap);
+          else svg.appendChild(wrap);
 
-        const render = LC.drawFlowGraph(flow, {
-          originX: anchor.x,
-          originY: anchor.y,
-          layerClass: "inline-flow-graph",
+          if (flow.id === canvasState.expandedFlow && LC.setCurrentRender) {
+            LC.setCurrentRender(render);
+          }
         });
-        wrap.appendChild(render.layer);
-        // Insert the inline sub-graph immediately AFTER the host flow node's <g>, so Tab
-        // order is host node -> its decisions -> next sibling flow (appending to the SVG
-        // would instead walk every sibling flow node before reaching the decisions).
-        const hostNode = svg.querySelector(
-          '.flow-node[data-flow-id="' + CSS.escape(flow.id) + '"]'
-        );
-        if (hostNode) hostNode.after(wrap);
-        else svg.appendChild(wrap);
-
-        // Bind the sub-graph as the active inspect/highlight target. Do NOT prime the
-        // inspector here -- this runs on EVERY re-render, so calling inspectFlow would wipe
-        // a clicked decision node's detail back to the flow summary. expandFlowInline primes
-        // it once, when the flow is first opened.
-        if (LC.setCurrentRender) LC.setCurrentRender(render);
       }
 
       // --- Single dispatch entry ---------------------------------------------------
@@ -1275,13 +1552,11 @@
 
       // --- Mutators ----------------------------------------------------------------
 
-      // Enter L1 for `name`. File chips start collapsed; entering a DIFFERENT scope
-      // resets the expanded-file set AND any inline-expanded flow (both are scoped to the
-      // scope being left, so they cannot carry over).
+      // Enter L1 for `name`. Switching scope drops the unlocked route because route
+      // membership is contextual to the scope/map the user was exploring.
       function setScope(name) {
         if (canvasState.expandedScope !== name) {
-          canvasState.expandedFiles.clear();
-          clearInlineFlow();
+          clearRoute();
         }
         canvasState.level = 1;
         canvasState.expandedScope = name;
@@ -1311,8 +1586,7 @@
         canvasState.expandedScope = null;
         canvasState.selectedFlowId = null;
         canvasState.selectedPath = null;
-        canvasState.expandedFiles.clear();
-        clearInlineFlow();
+        clearRoute();
         setLevelHeader("Analyze a project to begin", "No flow selected");
         location.hash = "";
         // Back at L0 (the whole codebase): clear the selection so the panels show the
@@ -1320,23 +1594,6 @@
         if (LC.select) {
           LC.select({ scope: null, flowId: null, nodeId: null, findingId: null, path: null });
         }
-        renderCanvas();
-      }
-
-      // Expand/collapse one file chip at L1, materializing or removing its flow nodes.
-      // Collapsing the file that hosts the inline-expanded flow also collapses the flow
-      // (its sub-graph would otherwise be orphaned with no node to anchor under).
-      function toggleFile(path) {
-        if (canvasState.expandedFiles.has(path)) {
-          canvasState.expandedFiles.delete(path);
-          const open = canvasState.expandedFlow
-            ? byId.get(canvasState.expandedFlow)
-            : null;
-          if (open && open.location.path === path) clearInlineFlow();
-        } else {
-          canvasState.expandedFiles.add(path);
-        }
-        selectFile(path);
         renderCanvas();
       }
 
@@ -1377,42 +1634,50 @@
           return true;
         }
         setScope(scope);
-        clearInlineFlow();
-        canvasState.expandedFiles.clear();
-        if (filePaths.has(path)) canvasState.expandedFiles.add(path);
+        clearRoute();
         selectFile(path);
         if (updateHash !== false) replaceHash("path=" + encodeURIComponent(path));
         renderCanvas();
         return true;
       }
 
-      // Toggle the inline decision sub-graph for `id`. Expanding ensures the host scope +
-      // file are open so the flow node exists to anchor under; expanding a different flow
-      // replaces the previous (single inline flow for v1). Re-renders L1 in place.
+      function activateRouteFlow(id) {
+        const index = canvasState.routeFlowIds.indexOf(id);
+        if (index === -1) {
+          canvasState.routeFlowIds.push(id);
+        } else {
+          canvasState.routeFlowIds = canvasState.routeFlowIds.slice(0, index + 1);
+        }
+      }
+
+      function clearRoute() {
+        canvasState.routeFlowIds = [];
+        clearAllInlineFlows();
+      }
+
+      // Toggle the inline decision sub-graph for `id`. Expanding unlocks this flow in the
+      // visible route and reveals its direct calls as the next row of the same flowchart.
       function toggleFlow(id) {
-        if (canvasState.expandedFlow === id) {
-          collapseInlineFlow(true);
+        if (canvasState.expandedFlowIds.has(id)) {
+          collapseInlineFlow(true, id);
           return;
         }
         expandFlowInline(id);
       }
 
-      // Open `id`'s decisions inline within L1. Reveals its scope + file first (so the
-      // node is materialized), pins selection, sets the #flow= hash for deep-linkability,
-      // updates the header, primes the inspector ONCE, re-renders, and re-focuses the host
-      // flow node (renderCanvas replaced the SVG, so its <g> -- and the focus on it -- was
-      // destroyed). A flow with no decision nodes is NOT expandable: it would reserve no
-      // band and draw nothing, so we just select + inspect it without entering inline mode.
+      // Open `id`'s decisions inline within L1. The flow is added to the route first, so
+      // its direct call targets become visible even when the flow itself has no decisions.
       function expandFlowInline(id) {
+        clearProgressiveLinkHighlight();
         const flow = byId.get(id);
         if (!flow) return;
         const scope = scopeOfFlow(flow);
         if (scope && Object.prototype.hasOwnProperty.call(scopeFlows, scope)) {
-          if (canvasState.expandedScope !== scope) canvasState.expandedFiles.clear();
+          if (canvasState.expandedScope !== scope) clearRoute();
           canvasState.expandedScope = scope;
         }
         canvasState.level = 1;
-        canvasState.expandedFiles.add(flow.location.path);
+        activateRouteFlow(id);
         canvasState.selectedPath = flow.location.path;
         canvasState.selectedFlowId = id;
         LC.mode = "canvas"; // inline L2 stays on the canvas; never flips to "flow".
@@ -1420,16 +1685,19 @@
         // (shell.js's selectFlow sets it for tree clicks, but a direct node click routes
         // here without going through selectFlow).
         setFlowHeader(flow);
-        const expandable = !!(flow.nodes && flow.nodes.length);
+        const expandable = !!(
+          flow.nodes &&
+          flow.nodes.some(node => node.kind !== "entry")
+        );
         if (expandable) {
+          canvasState.expandedFlowIds.add(id);
           canvasState.expandedFlow = id;
           location.hash = "flow=" + encodeURIComponent(id);
         } else {
-          // No decisions: clear any prior inline flow, select-only, no band, no flow-open.
-          clearInlineFlow();
-          location.hash = canvasState.expandedScope
-            ? "scope=" + encodeURIComponent(canvasState.expandedScope)
-            : "";
+          // No decisions: select/unlock only, no decision band.
+          canvasState.expandedFlow = null;
+          if (LC.setCurrentRender) LC.setCurrentRender(null);
+          location.hash = "flow=" + encodeURIComponent(id);
         }
         // Prime the inspector with the flow summary ONCE, here on open -- NOT in
         // renderInlineFlow (which runs on every re-render and would wipe a clicked node's
@@ -1441,34 +1709,57 @@
         focusFlowNode(id);
       }
 
-      // Clear the inline-flow STATE only (no render). Drops the active inspect/highlight
-      // binding since the decision nodes are about to leave the DOM. Returns whether
-      // anything was open, so callers can decide whether to re-render.
-      function clearInlineFlow() {
-        if (!canvasState.expandedFlow) return false;
+      function clearAllInlineFlows() {
+        clearProgressiveLinkHighlight();
+        if (!canvasState.expandedFlowIds.size && !canvasState.expandedFlow) return false;
+        canvasState.expandedFlowIds.clear();
         canvasState.expandedFlow = null;
         if (LC.setCurrentRender) LC.setCurrentRender(null);
         return true;
       }
 
-      // Collapse the inline sub-graph, restoring the plain L1 layout. When `updateHash`,
-      // rewinds the hash to the scope so back/refresh land on L1, not L2. Restores focus to
-      // the now-collapsed host flow node (it is still in the DOM as a plain flow node) so an
-      // Esc/Enter collapse does not drop the keyboard to <body>.
-      function collapseInlineFlow(updateHash) {
-        const hostId = canvasState.expandedFlow;
-        const hostFlow = hostId ? byId.get(hostId) : null;
-        if (!clearInlineFlow()) return;
-        if (updateHash) {
-          replaceHash(canvasState.expandedScope
-            ? "scope=" + encodeURIComponent(canvasState.expandedScope)
-            : "");
+      // Clear one inline-flow STATE only (no render). Returns whether a section closed.
+      function clearInlineFlow(id) {
+        const targetId = id || canvasState.expandedFlow;
+        if (!targetId || !canvasState.expandedFlowIds.has(targetId)) return false;
+        canvasState.expandedFlowIds.delete(targetId);
+        if (canvasState.expandedFlow === targetId) {
+          canvasState.expandedFlow = canvasState.expandedFlowIds.size
+            ? [...canvasState.expandedFlowIds][canvasState.expandedFlowIds.size - 1]
+            : null;
+          if (LC.setCurrentRender) LC.setCurrentRender(null);
         }
-        const fileToSelect = hostFlow && hostFlow.location && hostFlow.location.path
-          ? hostFlow.location.path
-          : null;
-        if (fileToSelect) {
-          selectFile(fileToSelect);
+        return true;
+      }
+
+      // Collapse one inline sub-graph. When `updateHash`, rewinds the hash to the active
+      // scope or remaining active flow. Other expanded sections remain mounted.
+      function collapseInlineFlow(updateHash, id) {
+        const hostId =
+          id ||
+          canvasState.expandedFlow ||
+          [...canvasState.expandedFlowIds][canvasState.expandedFlowIds.size - 1];
+        const hostFlow = hostId ? byId.get(hostId) : null;
+        if (!clearInlineFlow(hostId)) return;
+        if (updateHash) {
+          replaceHash(canvasState.expandedFlow
+            ? "flow=" + encodeURIComponent(canvasState.expandedFlow)
+            : canvasState.expandedScope
+              ? "scope=" + encodeURIComponent(canvasState.expandedScope)
+              : "");
+        }
+        if (hostFlow) {
+          canvasState.selectedFlowId = hostFlow.id;
+          setFlowHeader(hostFlow);
+          if (LC.select) {
+            LC.select({
+              scope: canvasState.expandedScope,
+              path: hostFlow.location.path,
+              flowId: hostFlow.id,
+              nodeId: null,
+              findingId: null,
+            });
+          }
         } else if (canvasState.expandedScope) {
           canvasState.selectedPath = null;
           setLevelHeader(
@@ -1482,12 +1773,13 @@
 
       // --- Breadcrumb --------------------------------------------------------------
 
-      function crumbButton(text, onClick, current) {
+      function crumbButton(text, onClick, current, title) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "crumb" + (current ? " current" : "");
         if (current) button.setAttribute("aria-current", "page");
         button.textContent = text;
+        button.title = title || (current ? `Current level: ${text}` : `Go to ${text}`);
         if (onClick) button.addEventListener("click", onClick);
         return button;
       }
@@ -1503,8 +1795,8 @@
       // Breadcrumb levels:
       //   L0                       -> codebase
       //   L1                       -> codebase / scope
-      //   L1 + inline flow (L2)    -> codebase / scope / file / flow
-      //   standalone full-screen   -> codebase / scope / flow (no file; legacy fallback)
+      //   L1 + inline flow (L2)    -> codebase / scope / flow
+      //   path focus               -> codebase / scope / source path
       // `inFlow` is the legacy full-screen renderFlow mode; inline L2 stays "canvas" and
       // is detected via state.expandedFlow instead.
       function renderBreadcrumb(state) {
@@ -1513,7 +1805,9 @@
         const inFlow = LC.mode === "flow";
         const inlineFlow = state.expandedFlow ? byId.get(state.expandedFlow) : null;
         const atRoot = state.level === 0 && !inFlow;
-        breadcrumbEl.appendChild(crumbButton("codebase", collapseToL0, atRoot));
+        breadcrumbEl.appendChild(
+          crumbButton("codebase", collapseToL0, atRoot, "Reset to the codebase overview")
+        );
 
         if (state.level === 1 && state.expandedScope) {
           breadcrumbEl.appendChild(crumbSeparator());
@@ -1526,34 +1820,36 @@
               scope,
               () => {
                 if (inFlow || inlineFlow || canvasState.level !== 1) {
-                  clearInlineFlow();
+                  clearRoute();
                   setScope(scope);
                   location.hash = "scope=" + encodeURIComponent(scope);
                   renderCanvas();
                 }
               },
-              scopeCurrent
+              scopeCurrent,
+              scopeCurrent ? `Current scope: ${scope}` : `Return to scope ${scope}`
             )
           );
         }
 
-        // Inline L2: file crumb (collapses the inline flow, keeps the file open) + flow
-        // crumb (current). The file crumb collapses the decisions but leaves the file's
-        // sibling flows on the canvas, matching the spec's codebase/scope/file/flow path.
+        // Inline L2: the flow crumb is current. Source path stays secondary evidence in
+        // the node tag and Source panel, not a primary canvas hierarchy level.
         if (inlineFlow) {
-          const path = inlineFlow.location.path;
           breadcrumbEl.appendChild(crumbSeparator());
-          const fileCrumb = crumbButton(shortPathLabel(path), () => collapseInlineFlow(true), false);
-          fileCrumb.title = path;
-          breadcrumbEl.appendChild(fileCrumb);
-          breadcrumbEl.appendChild(crumbSeparator());
-          breadcrumbEl.appendChild(crumbButton(inlineFlow.name, null, true));
+          breadcrumbEl.appendChild(
+            crumbButton(inlineFlow.name, null, true, `Current expanded flow: ${inlineFlow.name}`)
+          );
           return;
         }
 
         if (state.level === 1 && state.selectedPath) {
           breadcrumbEl.appendChild(crumbSeparator());
-          const fileCrumb = crumbButton(shortPathLabel(state.selectedPath), null, true);
+          const fileCrumb = crumbButton(
+            shortPathLabel(state.selectedPath),
+            null,
+            true,
+            `Current source focus: ${state.selectedPath}`
+          );
           fileCrumb.title = state.selectedPath;
           breadcrumbEl.appendChild(fileCrumb);
           return;
@@ -1564,7 +1860,9 @@
           const flow = byId.get(state.selectedFlowId);
           if (flow) {
             breadcrumbEl.appendChild(crumbSeparator());
-            breadcrumbEl.appendChild(crumbButton(flow.name, null, true));
+            breadcrumbEl.appendChild(
+              crumbButton(flow.name, null, true, `Current flow: ${flow.name}`)
+            );
           }
         }
       }
@@ -1576,8 +1874,7 @@
         canvasState.expandedScope = null;
         canvasState.selectedFlowId = null;
         canvasState.selectedPath = null;
-        canvasState.expandedFiles.clear();
-        clearInlineFlow();
+        clearRoute();
         setLevelHeader("Analyze a project to begin", "No flow selected");
         if (LC.select) {
           LC.select({ scope: null, flowId: null, nodeId: null, findingId: null, path: null });
@@ -1605,12 +1902,25 @@
         if (!focusPath(path, false)) LC.showL0();
       };
       // Inline-L2 entry shell.js's selectFlow delegates to (tree click, #flow= deep link).
-      // Reveals the flow's scope + file and unfolds its decisions in place within L1.
+      // Reveals the flow's scope and unfolds its decisions in place within L1.
       LC.expandFlowInline = expandFlowInline;
+      LC.expandCallTarget = function (sourceFlowId, targetFlowId) {
+        const source = byId.get(sourceFlowId);
+        const target = byId.get(targetFlowId);
+        if (!source || !target) return;
+        const sourceIndex = canvasState.routeFlowIds.indexOf(sourceFlowId);
+        if (sourceIndex === -1) {
+          canvasState.routeFlowIds.push(sourceFlowId);
+        } else {
+          canvasState.routeFlowIds = canvasState.routeFlowIds.slice(0, sourceIndex + 1);
+        }
+        expandFlowInline(targetFlowId);
+      };
       // Tree-driven focus. Unlike LC.showScope / LC.showPath (used by hash dispatch), these
       // follow the normal user action path and update the hash.
       LC.focusScope = expandScope;
       LC.focusPath = focusPath;
+      LC.clearProgressiveLinkHighlight = clearProgressiveLinkHighlight;
       LC.refreshCanvasLayout = function () {
         layoutCache.clear();
         if (LC.mode === "canvas") renderCanvas();
@@ -1625,8 +1935,7 @@
         if (flow) {
           const scope = scopeOfFlow(flow);
           if (scope && Object.prototype.hasOwnProperty.call(scopeFlows, scope)) {
-            // Switching the pinned scope drops stale file expansions from any prior one.
-            if (canvasState.expandedScope !== scope) canvasState.expandedFiles.clear();
+            if (canvasState.expandedScope !== scope) clearRoute();
             canvasState.expandedScope = scope;
             canvasState.level = 1;
           }
@@ -1634,12 +1943,28 @@
         renderBreadcrumb(canvasState);
       };
       LC.resetCanvas = function () {
-        // resetView in canvas mode: re-fit + redraw the current level. When a flow is
-        // inline-expanded, also drop its hand-placed decision positions so the sub-graph
-        // returns to its automatic layout (mirrors the full-screen reset).
+        // Reset in canvas mode: close the progressive route/inline sections and re-fit
+        // the current scope/root. This is the user's explicit "start over" control.
         layoutCache.clear();
-        if (canvasState.expandedFlow && LC.clearFlowPositions) {
-          LC.clearFlowPositions(canvasState.expandedFlow);
+        canvasState.expandedFlowIds.forEach(id => {
+          if (LC.clearFlowPositions) LC.clearFlowPositions(id);
+        });
+        manualScopePositions.clear();
+        manualFlowPositions.clear();
+        clearRoute();
+        canvasState.selectedFlowId = null;
+        canvasState.selectedPath = null;
+        if (canvasState.expandedScope && LC.select) {
+          LC.select({
+            scope: canvasState.expandedScope,
+            path: null,
+            flowId: null,
+            nodeId: null,
+            findingId: null,
+          });
+        }
+        if (canvasState.expandedScope) {
+          replaceHash("scope=" + encodeURIComponent(canvasState.expandedScope));
         }
         renderCanvas();
       };
@@ -1654,8 +1979,14 @@
         const target = event.target;
         if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || "")) return;
         if (LC.fullscreenFallbackActive && LC.fullscreenFallbackActive()) return;
-        if (canvasState.expandedFlow) {
+        if (canvasState.expandedFlowIds.size) {
           collapseInlineFlow(true);
+        } else if (canvasState.routeFlowIds.length) {
+          clearRoute();
+          if (canvasState.expandedScope) {
+            replaceHash("scope=" + encodeURIComponent(canvasState.expandedScope));
+          }
+          renderCanvas();
         } else if (canvasState.level === 1) {
           collapseToL0();
         }

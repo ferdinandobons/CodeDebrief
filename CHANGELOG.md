@@ -6,6 +6,20 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+### Added
+
+- Added PNG and JPG export buttons for the currently visible flowchart canvas.
+- Added session-local drag positioning for scope, flow, and inline decision blocks, with
+  reset restoring the automatic progressive layout.
+
+### Changed
+
+- Reworked the viewer canvas toward a single progressive flowchart: scopes expand into
+  entrypoint/call rows, selected decision charts unfold in that same route, and selected
+  links highlight their source and target while unrelated blocks dim.
+- Unified scope nodes with the rest of the canvas block styling so top-level areas do not
+  read as a separate visual component family.
+
 ## 0.6.2 - 2026-06-16
 
 ### Changed

@@ -29,7 +29,14 @@
     // any one highlights the others. The store holds only ids; each surface maps ids to
     // its own DOM. shell.js drives the canvas highlight (its existing job); panels.js
     // renders the source + errors panels and the tree reflects the active file/flow.
-    const selection = { path: null, flowId: null, nodeId: null, findingId: null, scope: null };
+    const selection = {
+      path: null,
+      flowId: null,
+      nodeId: null,
+      findingId: null,
+      scope: null,
+      edgeId: null,
+    };
     const selectionSubscribers = [];
     // Re-entrancy guard: a subscriber that calls back into select() (e.g. a finding row
     // resolving its flow) must not recurse the notify loop; coalesce to one pass.
@@ -43,11 +50,17 @@
     // resolved selection object to subscribers.
     LC.select = function (partial) {
       partial = partial || {};
-      ["path", "flowId", "nodeId", "findingId", "scope"].forEach(key => {
+      const keys = ["path", "flowId", "nodeId", "findingId", "scope", "edgeId"];
+      const explicitEdge = Object.prototype.hasOwnProperty.call(partial, "edgeId");
+      const clearsEdge = !explicitEdge && keys.some(key =>
+        key !== "edgeId" && Object.prototype.hasOwnProperty.call(partial, key)
+      );
+      keys.forEach(key => {
         if (Object.prototype.hasOwnProperty.call(partial, key) && partial[key] !== undefined) {
           selection[key] = partial[key];
         }
       });
+      if (clearsEdge) selection.edgeId = null;
       if (notifyingSelection) return;
       notifyingSelection = true;
       try {
@@ -66,6 +79,8 @@
     const detailsClose = document.getElementById("detailsClose");
     const menuButton = document.getElementById("menuButton");
     const themeToggleBtn = document.getElementById("themeToggle");
+    const exportPngButton = document.getElementById("exportPng");
+    const exportJpgButton = document.getElementById("exportJpg");
     const railWidths = { left: 312, right: 336 };
     const railConfig = {
       left: {
@@ -296,7 +311,7 @@
     // Updates the header + the active-flow bookkeeping shared by the tree and breadcrumb.
     // Selection RENDERS via canvas.js's inline-L2 expander (LC.expandFlowInline) when it
     // is registered -- the flow's decisions unfold IN PLACE inside the L1 canvas, keeping
-    // the surrounding files/flows visible. Only when no inline expander is available (a
+    // the surrounding codebase route visible. Only when no inline expander is available (a
     // bare deep link before canvas.js boots, or a degraded shell) does it fall back to the
     // full-screen renderFlow, so #flow= and tree clicks never dead-end.
     function selectFlow(flowId) {
@@ -324,16 +339,27 @@
       if (window.LC.onFlowSelected) window.LC.onFlowSelected(flow);
     }
 
-    function layoutFlow(flow) {
-      const order = new Map(flow.nodes.map((node, index) => [node.id, index]));
-      const incoming = new Map(flow.nodes.map(node => [node.id, []]));
-      const outgoing = new Map(flow.nodes.map(node => [node.id, []]));
-      flow.edges.forEach(edge => incoming.get(edge.target)?.push(edge));
-      flow.edges.forEach(edge => outgoing.get(edge.source)?.push(edge));
+    function flowLayoutNodes(flow, opts) {
+      opts = opts || {};
+      return (flow.nodes || []).filter(node => !(opts.omitEntry && node.kind === "entry"));
+    }
+
+    function layoutFlow(flow, opts) {
+      opts = opts || {};
+      const nodes = flowLayoutNodes(flow, opts);
+      const visibleIds = new Set(nodes.map(node => node.id));
+      const order = new Map(nodes.map((node, index) => [node.id, index]));
+      const incoming = new Map(nodes.map(node => [node.id, []]));
+      const outgoing = new Map(nodes.map(node => [node.id, []]));
+      const edges = (flow.edges || []).filter(edge =>
+        visibleIds.has(edge.source) && visibleIds.has(edge.target)
+      );
+      edges.forEach(edge => incoming.get(edge.target)?.push(edge));
+      edges.forEach(edge => outgoing.get(edge.source)?.push(edge));
       const positions = new Map();
       const layerCounts = new Map();
 
-      flow.nodes.forEach((node, index) => {
+      nodes.forEach((node, index) => {
         const parents = incoming.get(node.id) || [];
         let layer = 0;
         let x = 0;
@@ -372,11 +398,14 @@
       }
 
       const values = [...positions.values()];
+      if (!values.length) {
+        return { positions, bounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 }, nodes, edges };
+      }
       const minX = Math.min(...values.map(item => item.x), 0);
       const maxX = Math.max(...values.map(item => item.x), 0);
       const minY = Math.min(...values.map(item => item.y), 0);
       const maxY = Math.max(...values.map(item => item.y), 0);
-      return { positions, bounds: { minX, maxX, minY, maxY } };
+      return { positions, bounds: { minX, maxX, minY, maxY }, nodes, edges };
     }
 
     function nodeHalfHeight(kind) {
@@ -401,12 +430,38 @@
         ? startPortY + EDGE_START_CLEARANCE
         : startPortY + verticalRoom / 2;
       const labelIsExitChip = startKind === "decision";
+      const curveY = Math.max(90, Math.abs(endPortY - startPortY) * 0.55);
       return {
         d: `M ${start.x} ${startPortY} L ${start.x} ${branchY} L ${end.x} ${branchY} L ${end.x} ${endPortY}`,
+        focusD: `M ${start.x} ${startPortY} C ${start.x} ${startPortY + curveY}, ${end.x} ${endPortY - curveY}, ${end.x} ${endPortY}`,
+        points: [
+          { x: start.x, y: startPortY },
+          { x: start.x, y: branchY },
+          { x: end.x, y: branchY },
+          { x: end.x, y: endPortY },
+        ],
         labelX: labelIsExitChip ? horizontalLabelX(start.x, end.x) : (start.x + end.x) / 2 + 7,
         labelY: branchY - 8,
         exitChip: labelIsExitChip,
       };
+    }
+
+    function setEdgeHitGeometry(hit, geometry) {
+      hit.replaceChildren();
+      const points = geometry.points || [];
+      const pad = 10;
+      for (let index = 0; index < points.length - 1; index += 1) {
+        const a = points[index];
+        const b = points[index + 1];
+        const rect = svgEl("rect");
+        rect.setAttribute("class", "edge-hit-segment");
+        rect.setAttribute("x", String(Math.min(a.x, b.x) - pad));
+        rect.setAttribute("y", String(Math.min(a.y, b.y) - pad));
+        rect.setAttribute("width", String(Math.max(Math.abs(a.x - b.x), 1) + pad * 2));
+        rect.setAttribute("height", String(Math.max(Math.abs(a.y - b.y), 1) + pad * 2));
+        rect.setAttribute("rx", "10");
+        hit.appendChild(rect);
+      }
     }
 
     function edgeLabel(text, geometry) {
@@ -465,6 +520,9 @@
         </filter>
         <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path class="arrow" d="M0,0 L8,4 L0,8 z"></path>
+        </marker>
+        <marker id="arrowFocus" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path class="arrow-focus" d="M0,0 L8,4 L0,8 z"></path>
         </marker>`;
       return defs;
     }
@@ -483,7 +541,7 @@
       opts = opts || {};
       const originX = opts.originX || 0;
       const originY = opts.originY || 0;
-      const { positions, bounds } = layoutFlow(flow);
+      const { positions, bounds, nodes, edges } = layoutFlow(flow, opts);
       const layer = svgEl("g");
       if (opts.layerClass) layer.setAttribute("class", opts.layerClass);
 
@@ -501,32 +559,81 @@
         const p = positions.get(id);
         return p ? { x: p.x + originX, y: p.y + originY } : null;
       };
-      const flowNodeById = new Map(flow.nodes.map(node => [node.id, node]));
+      const flowNodeById = new Map(nodes.map(node => [node.id, node]));
+      const edgeRecordId = edge => edge.id || `${edge.source}->${edge.target}`;
 
       // Keep edge element references per node so dragging a block re-routes its edges live,
       // and a flat list so selecting a node can highlight its incident edges.
-      const nodeEdges = new Map(flow.nodes.map(node => [node.id, []]));
+      const nodeEdges = new Map(nodes.map(node => [node.id, []]));
       const edgeRecords = [];
       const edgeLayer = svgEl("g");
       const edgePathLayer = svgEl("g");
       const edgeLabelLayer = svgEl("g");
-      flow.edges.forEach(edge => {
+      edges.forEach(edge => {
         const start = at(edge.source);
         const end = at(edge.target);
         if (!start || !end) return;
         const sourceNode = flowNodeById.get(edge.source);
         const targetNode = flowNodeById.get(edge.target);
         const geometry = edgeGeometry(start, end, sourceNode?.kind, targetNode?.kind);
+        const hit = svgEl("g");
+        hit.setAttribute("class", "edge-hit");
+        setEdgeHitGeometry(hit, geometry);
+        hit.setAttribute("data-edge-id", edgeRecordId(edge));
+        hit.setAttribute("data-source-node-id", edge.source);
+        hit.setAttribute("data-target-node-id", edge.target);
         const path = svgEl("path");
         path.setAttribute("class", "edge");
         path.setAttribute("d", geometry.d);
+        path.setAttribute("tabindex", "0");
+        path.setAttribute("role", "button");
+        path.setAttribute("aria-label", `link from ${sourceNode?.label || edge.source} to ${targetNode?.label || edge.target}`);
+        path.setAttribute("data-edge-id", edgeRecordId(edge));
+        path.setAttribute("data-source-node-id", edge.source);
+        path.setAttribute("data-target-node-id", edge.target);
         edgePathLayer.appendChild(path);
+        const focusPath = svgEl("path");
+        focusPath.setAttribute("class", "edge-focus");
+        focusPath.setAttribute("d", geometry.focusD || geometry.d);
+        edgePathLayer.appendChild(focusPath);
+        edgePathLayer.appendChild(hit);
         let label = null;
         if (edge.label) {
           label = edgeLabel(edge.label, geometry);
+          label.setAttribute("role", "button");
+          label.setAttribute("tabindex", "0");
+          label.setAttribute("aria-label", `link ${edge.label} from ${sourceNode?.label || edge.source} to ${targetNode?.label || edge.target}`);
           edgeLabelLayer.appendChild(label);
         }
-        const record = { edge, path, label };
+        const record = { edge, hit, path, focusPath, label };
+        const activateEdge = event => {
+          event.stopPropagation();
+          if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
+          LC.select({
+            flowId: flow.id,
+            path: flow.location.path,
+            nodeId: null,
+            findingId: null,
+            edgeId: edgeRecordId(edge),
+          });
+        };
+        hit.addEventListener("click", activateEdge);
+        path.addEventListener("click", activateEdge);
+        path.addEventListener("keydown", event => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            activateEdge(event);
+          }
+        });
+        if (label) {
+          label.addEventListener("click", activateEdge);
+          label.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              activateEdge(event);
+            }
+          });
+        }
         edgeRecords.push(record);
         nodeEdges.get(edge.source)?.push(record);
         nodeEdges.get(edge.target)?.push(record);
@@ -535,79 +642,113 @@
       layer.appendChild(edgeLayer);
 
       function rerouteFrom(nodeId) {
-        (nodeEdges.get(nodeId) || []).forEach(({ edge, path, label }) => {
+        (nodeEdges.get(nodeId) || []).forEach(({ edge, hit, path, focusPath, label }) => {
           const start = at(edge.source);
           const end = at(edge.target);
           if (!start || !end) return;
           const sourceNode = flowNodeById.get(edge.source);
           const targetNode = flowNodeById.get(edge.target);
           const geometry = edgeGeometry(start, end, sourceNode?.kind, targetNode?.kind);
+          setEdgeHitGeometry(hit, geometry);
           path.setAttribute("d", geometry.d);
+          if (focusPath) focusPath.setAttribute("d", geometry.focusD || geometry.d);
           if (label) label.setAttribute("transform", `translate(${geometry.labelX} ${geometry.labelY})`);
         });
       }
 
       const nodeLayer = svgEl("g");
       const nodeGroups = new Map();
-      flow.nodes.forEach(node => {
+      const nodeDraggable = opts.draggable !== false;
+      nodes.forEach(node => {
         const position = positions.get(node.id);
         // Live world-space position of this node (origin-translated). Drag mutates it.
         const place = { x: position.x + originX, y: position.y + originY };
         const group = svgEl("g");
         nodeGroups.set(node.id, group);
-        group.setAttribute("class", `node ${node.kind}${findingsByNode.has(node.id) ? " has-finding" : ""}`);
+        group.setAttribute(
+          "class",
+          `node ${node.kind}${nodeDraggable ? "" : " static"}${findingsByNode.has(node.id) ? " has-finding" : ""}`
+        );
         group.setAttribute("transform", `translate(${place.x} ${place.y})`);
         group.setAttribute("tabindex", "0");
         group.setAttribute("role", "button");
         group.setAttribute("aria-label", `${node.kind}: ${node.label}`);
-        // Drag to rearrange the block; a plain click (no real movement) opens the inspector.
-        let nodeDrag = null;
-        group.addEventListener("pointerdown", event => {
-          if (event.button !== 0) return;
-          event.stopPropagation();
-          nodeDrag = {
-            x: event.clientX,
-            y: event.clientY,
-            ox: place.x,
-            oy: place.y,
-            scaleX: view.width / svg.clientWidth,
-            scaleY: view.height / svg.clientHeight,
-            moved: 0
-          };
-          group.classList.add("dragging");
-          group.setPointerCapture(event.pointerId);
-        });
-        group.addEventListener("pointermove", event => {
-          if (!nodeDrag) return;
-          const dx = (event.clientX - nodeDrag.x) * nodeDrag.scaleX;
-          const dy = (event.clientY - nodeDrag.y) * nodeDrag.scaleY;
-          nodeDrag.moved = Math.max(nodeDrag.moved, Math.abs(dx) + Math.abs(dy));
-          place.x = nodeDrag.ox + dx;
-          place.y = nodeDrag.oy + dy;
-          // positions is origin-relative; mirror the drag back so rerouteFrom (which
-          // re-adds the origin) and any later override store both stay consistent.
-          position.x = place.x - originX;
-          position.y = place.y - originY;
-          group.setAttribute("transform", `translate(${place.x} ${place.y})`);
-          rerouteFrom(node.id);
-        });
-        const endNodeDrag = event => {
-          if (!nodeDrag) return;
-          group.classList.remove("dragging");
-          try { group.releasePointerCapture(event.pointerId); } catch (_) {}
-          if (nodeDrag.moved < 4) {
-            inspectNode(flow, node);
+        function activateNode() {
+          const targetFlow = node.kind === "call" && node.metadata
+            ? node.metadata.target_flow
+            : null;
+          if (targetFlow && byId.has(targetFlow) && LC.expandCallTarget) {
+            LC.expandCallTarget(flow.id, targetFlow, node.id);
           } else {
-            const store = manualPositions.get(flow.id) || new Map();
-            store.set(node.id, { x: position.x, y: position.y });
-            manualPositions.set(flow.id, store);
+            inspectNode(flow, node);
           }
-          nodeDrag = null;
-        };
-        group.addEventListener("pointerup", endNodeDrag);
-        group.addEventListener("pointercancel", endNodeDrag);
+        }
+        // Drag to rearrange the block in both full-screen and inline decision charts.
+        // A renderer may explicitly pass draggable:false for a read-only preview.
+        if (nodeDraggable) {
+          let nodeDrag = null;
+          const moveNodeDrag = event => {
+            if (!nodeDrag) return;
+            const dx = (event.clientX - nodeDrag.x) * nodeDrag.scaleX;
+            const dy = (event.clientY - nodeDrag.y) * nodeDrag.scaleY;
+            nodeDrag.moved = Math.max(nodeDrag.moved, Math.abs(dx) + Math.abs(dy));
+            place.x = nodeDrag.ox + dx;
+            place.y = nodeDrag.oy + dy;
+            // positions is origin-relative; mirror the drag back so rerouteFrom (which
+            // re-adds the origin) and any later override store both stay consistent.
+            position.x = place.x - originX;
+            position.y = place.y - originY;
+            group.setAttribute("transform", `translate(${place.x} ${place.y})`);
+            rerouteFrom(node.id);
+          };
+          const endNodeDrag = event => {
+            if (!nodeDrag) return;
+            group.classList.remove("dragging");
+            window.removeEventListener("pointermove", moveNodeDrag);
+            window.removeEventListener("pointerup", endNodeDrag);
+            window.removeEventListener("pointercancel", endNodeDrag);
+            try { group.releasePointerCapture(event.pointerId); } catch (_) {}
+            if (nodeDrag.moved < 4 && event.type === "pointerup") {
+              activateNode();
+            } else {
+              const store = manualPositions.get(flow.id) || new Map();
+              store.set(node.id, { x: position.x, y: position.y });
+              manualPositions.set(flow.id, store);
+            }
+            nodeDrag = null;
+          };
+          const startNodeDrag = event => {
+            if (event.button !== 0) return;
+            event.stopPropagation();
+            if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
+            nodeDrag = {
+              x: event.clientX,
+              y: event.clientY,
+              ox: place.x,
+              oy: place.y,
+              scaleX: view.width / svg.clientWidth,
+              scaleY: view.height / svg.clientHeight,
+              moved: 0
+            };
+            group.classList.add("dragging");
+            window.addEventListener("pointermove", moveNodeDrag);
+            window.addEventListener("pointerup", endNodeDrag);
+            window.addEventListener("pointercancel", endNodeDrag);
+            group.setPointerCapture(event.pointerId);
+          };
+          group.addEventListener("pointerdown", startNodeDrag);
+        } else {
+          group.addEventListener("click", event => {
+            event.stopPropagation();
+            if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
+            activateNode();
+          });
+        }
         group.addEventListener("keydown", event => {
-          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); inspectNode(flow, node); }
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            activateNode();
+          }
         });
         const shape = nodeShape(node.kind);
         shape.setAttribute("class", "shape");
@@ -678,10 +819,42 @@
 
     function clearHighlight() {
       if (!currentRender) return;
-      currentRender.nodeGroups.forEach(group => group.classList.remove("selected", "dimmed"));
+      currentRender.nodeGroups.forEach(group =>
+        group.classList.remove("selected", "dimmed", "edge-source", "edge-target")
+      );
       currentRender.edgeRecords.forEach(record => {
-        record.path.classList.remove("incident", "dimmed");
-        if (record.label) record.label.classList.remove("dimmed");
+        if (record.hit) record.hit.classList.remove("selected-link", "dimmed");
+        record.path.classList.remove("incident", "selected-link", "dimmed", "focus-hidden");
+        if (record.focusPath) record.focusPath.classList.remove("selected-link");
+        if (record.label) record.label.classList.remove("selected-link", "dimmed");
+      });
+    }
+
+    function highlightEdge(targetRecord) {
+      if (!currentRender) return;
+      currentRender.edgeRecords.forEach(record => {
+        const selected = record === targetRecord;
+        if (record.hit) {
+          record.hit.classList.toggle("selected-link", selected);
+          record.hit.classList.toggle("dimmed", !selected);
+        }
+        record.path.classList.remove("selected-link", "incident");
+        record.path.classList.toggle("focus-hidden", selected);
+        record.path.classList.toggle("dimmed", !selected);
+        if (record.focusPath) {
+          record.focusPath.classList.toggle("selected-link", selected);
+        }
+        if (record.label) {
+          record.label.classList.toggle("selected-link", selected);
+          record.label.classList.toggle("dimmed", !selected);
+        }
+      });
+      const endpoints = new Set([targetRecord.edge.source, targetRecord.edge.target]);
+      currentRender.nodeGroups.forEach((group, id) => {
+        group.classList.toggle("selected", endpoints.has(id));
+        group.classList.toggle("dimmed", !endpoints.has(id));
+        group.classList.toggle("edge-source", id === targetRecord.edge.source);
+        group.classList.toggle("edge-target", id === targetRecord.edge.target);
       });
     }
 
@@ -690,14 +863,24 @@
       const connected = new Set([nodeId]);
       currentRender.edgeRecords.forEach(record => {
         const incident = record.edge.source === nodeId || record.edge.target === nodeId;
+        if (record.hit) {
+          record.hit.classList.remove("selected-link");
+          record.hit.classList.toggle("dimmed", !incident);
+        }
+        record.path.classList.remove("selected-link", "focus-hidden");
+        if (record.focusPath) record.focusPath.classList.remove("selected-link");
         record.path.classList.toggle("incident", incident);
         record.path.classList.toggle("dimmed", !incident);
-        if (record.label) record.label.classList.toggle("dimmed", !incident);
+        if (record.label) {
+          record.label.classList.remove("selected-link");
+          record.label.classList.toggle("dimmed", !incident);
+        }
         if (incident) { connected.add(record.edge.source); connected.add(record.edge.target); }
       });
       currentRender.nodeGroups.forEach((group, id) => {
         group.classList.toggle("selected", id === nodeId);
         group.classList.toggle("dimmed", !connected.has(id));
+        group.classList.remove("edge-source", "edge-target");
       });
     }
 
@@ -722,6 +905,7 @@
     // DOM); shell.js keeps only its canvas-highlight responsibility plus publishing the
     // shared selection. nodeId is cleared so the source panel shows the whole flow snippet.
     function inspectFlow(flow) {
+      if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
       clearHighlight();
       LC.select({ flowId: flow.id, path: flow.location.path, nodeId: null, findingId: null });
     }
@@ -731,6 +915,7 @@
     // duplicated here); the source panel highlights the node's source line(s) and the
     // errors panel lists the node's findings, both via the same store.
     function inspectNode(flow, node) {
+      if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
       setRightRailOpen(true);
       LC.select({ flowId: flow.id, nodeId: node.id, path: node.location.path, findingId: null });
     }
@@ -762,6 +947,116 @@
       svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.width} ${view.height}`);
     }
 
+    function cssVar(name, fallback) {
+      const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return value || fallback;
+    }
+
+    function canvasContentBounds() {
+      const nodes = [...svg.children].filter(child => child.tagName.toLowerCase() !== "defs");
+      if (!nodes.length) {
+        return { x: view.x, y: view.y, width: view.width, height: view.height };
+      }
+      const hitboxes = [...svg.querySelectorAll(".edge-hit")];
+      const previousDisplays = hitboxes.map(node => node.style.display);
+      hitboxes.forEach(node => {
+        node.style.display = "none";
+      });
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      try {
+        nodes.forEach(node => {
+          if (node.classList && node.classList.contains("edge-hit")) return;
+          try {
+            const box = node.getBBox();
+            if (!box || !Number.isFinite(box.width) || !Number.isFinite(box.height)) return;
+            minX = Math.min(minX, box.x);
+            minY = Math.min(minY, box.y);
+            maxX = Math.max(maxX, box.x + box.width);
+            maxY = Math.max(maxY, box.y + box.height);
+          } catch (_) {}
+        });
+      } finally {
+        hitboxes.forEach((node, index) => {
+          node.style.display = previousDisplays[index] || "";
+        });
+      }
+      if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+        return { x: view.x, y: view.y, width: view.width, height: view.height };
+      }
+      const padding = 90;
+      return {
+        x: minX - padding,
+        y: minY - padding,
+        width: Math.max(1, maxX - minX + padding * 2),
+        height: Math.max(1, maxY - minY + padding * 2),
+      };
+    }
+
+    function exportCurrentCanvas(format) {
+      const bounds = canvasContentBounds();
+      const maxPixelSide = 4096;
+      const scale = Math.min(
+        2,
+        maxPixelSide / Math.max(bounds.width, bounds.height),
+      );
+      const width = Math.max(1, Math.round(bounds.width * scale));
+      const height = Math.max(1, Math.round(bounds.height * scale));
+      const clone = svg.cloneNode(true);
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      clone.setAttribute("width", String(width));
+      clone.setAttribute("height", String(height));
+      clone.setAttribute("viewBox", `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`);
+      clone.setAttribute("data-theme", document.documentElement.dataset.theme || "light");
+      clone.querySelectorAll(".edge-hit").forEach(node => node.remove());
+
+      const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+      style.textContent = document.querySelector("style")?.textContent || "";
+      clone.prepend(style);
+      const background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      background.setAttribute("x", String(bounds.x));
+      background.setAttribute("y", String(bounds.y));
+      background.setAttribute("width", String(bounds.width));
+      background.setAttribute("height", String(bounds.height));
+      background.setAttribute("fill", cssVar("--paper", "#ffffff"));
+      clone.insertBefore(background, style.nextSibling);
+
+      const serialized = new XMLSerializer().serializeToString(clone);
+      const svgBlob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
+      const imageUrl = URL.createObjectURL(svgBlob);
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          URL.revokeObjectURL(imageUrl);
+          return;
+        }
+        ctx.fillStyle = cssVar("--paper", "#ffffff");
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(image, 0, 0, width, height);
+        URL.revokeObjectURL(imageUrl);
+        const mime = format === "jpg" ? "image/jpeg" : "image/png";
+        canvas.toBlob(blob => {
+          if (!blob) return;
+          const link = document.createElement("a");
+          const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+          link.download = `logicchart-flowchart-${stamp}.${format}`;
+          link.href = URL.createObjectURL(blob);
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        }, mime, format === "jpg" ? 0.92 : undefined);
+      };
+      image.onerror = () => URL.revokeObjectURL(imageUrl);
+      image.src = imageUrl;
+    }
+
     function zoom(factor) {
       const nextWidth = view.width * factor;
       const nextHeight = view.height * factor;
@@ -774,6 +1069,12 @@
 
     document.getElementById("zoomIn").addEventListener("click", () => zoom(.82));
     document.getElementById("zoomOut").addEventListener("click", () => zoom(1.22));
+    if (exportPngButton) {
+      exportPngButton.addEventListener("click", () => exportCurrentCanvas("png"));
+    }
+    if (exportJpgButton) {
+      exportJpgButton.addEventListener("click", () => exportCurrentCanvas("jpg"));
+    }
     document.getElementById("resetView").addEventListener("click", () => {
       // Mode-aware: flow mode re-lays out the active flow; canvas mode drops the
       // current view's drag overrides and re-fits via canvas.js.
@@ -814,7 +1115,7 @@
     svg.addEventListener("pointerdown", event => {
       if (event.button !== 0) return;
       // Pan only from the empty canvas background. If the press lands on an interactive
-      // node group (scope/file/flow all carry role="button"), do not start a pan or
+      // node group (scope, flow, decision block all carry role="button"), do not start a pan or
       // capture the pointer, so the node's own click handler fires (expand/toggle).
       if (event.target.closest('[role="button"]')) return;
       drag = { x: event.clientX, y: event.clientY, vx: view.x, vy: view.y };
@@ -896,11 +1197,14 @@
     // returns bounds over node CENTERS only; inflate by the node half-extents so the
     // reserved band/panel actually contains the rendered nodes (a single-node flow then
     // measures 290x116, not 0x0) -- callers add their own DECISION_PAD breathing room.
-    LC.measureFlow = flow => {
+    LC.measureFlow = (flow, opts) => {
       if (!flow || !flow.nodes || !flow.nodes.length) {
         return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0 };
       }
-      const { bounds } = layoutFlow(flow);
+      const { bounds, nodes } = layoutFlow(flow, opts || {});
+      if (!nodes.length) {
+        return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0 };
+      }
       const inflated = {
         minX: bounds.minX - FLOW_NODE_HALF_W,
         maxX: bounds.maxX + FLOW_NODE_HALF_W,
@@ -926,7 +1230,13 @@
     // ONE accent path for the block instead of duplicating highlightNode in panels.js.
     LC.onSelection(sel => {
       if (!currentRender) return;
-      if (sel.nodeId && currentRender.nodeGroups.has(sel.nodeId)) {
+      if (sel.edgeId) {
+        const record = currentRender.edgeRecords.find(item =>
+          (item.edge.id || `${item.edge.source}->${item.edge.target}`) === sel.edgeId
+        );
+        if (record) highlightEdge(record);
+        else clearHighlight();
+      } else if (sel.nodeId && currentRender.nodeGroups.has(sel.nodeId)) {
         highlightNode(sel.nodeId);
       } else if (!sel.nodeId) {
         clearHighlight();

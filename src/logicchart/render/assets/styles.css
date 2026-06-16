@@ -298,6 +298,16 @@
     .tree-dir .tree-label { font-weight: 600; }
     .tree-dir.active-folder, .tree-file.active-file { background: var(--active); }
     .tree-dir.active-folder .tree-label, .tree-file.active-file .tree-label { color: var(--blue); }
+    .tree-file.active-parent {
+      color: var(--blue);
+      background: transparent;
+      box-shadow: inset 3px 0 0 var(--blue);
+    }
+    .tree-file.active-parent .tree-label { color: var(--blue); }
+    .tree-file.active-parent .tree-count {
+      background: var(--chip);
+      color: var(--muted);
+    }
     .tree-caret {
       flex: none;
       width: 13px;
@@ -466,6 +476,7 @@
     .legend .outcome::before { background: var(--cyan); border-radius: 50%; }
     .legend .gap::before { background: var(--coral); border-radius: 50%; }
     .node { cursor: grab; }
+    .node.static { cursor: pointer; }
     .node.dragging { cursor: grabbing; }
     .node .shape {
       fill: var(--node-fill);
@@ -481,15 +492,24 @@
     .node.error .shape { fill: var(--fill-error); stroke: var(--coral); }
     .node.has-finding .shape { stroke: var(--coral); stroke-width: 3; }
     .node:hover .shape, .node:focus-visible .shape { filter: url(#nodeLift); stroke-width: 2.6; }
-    /* Keyboard focus must be distinct from hover (which only lifts the shadow). A
-       theme-aware outline ring on the node shape reads correctly in light and dark. */
+    /* Keyboard focus remains visible without drawing rectangular CSS boxes around SVG nodes. */
     .node:focus-visible { outline: none; }
     .node:focus-visible .shape {
-      outline: 2px solid var(--blue);
-      outline-offset: 2px;
+      stroke-width: 3.2;
+      filter: url(#nodeLift);
     }
     .node.dragging .shape { filter: url(#nodeLift); }
     .node.selected .shape { stroke-width: 3.4; filter: url(#nodeLift); }
+    .node.edge-source .shape {
+      stroke: var(--amber);
+      stroke-width: 3.4;
+      filter: url(#nodeLift);
+    }
+    .node.edge-target .shape {
+      stroke: var(--cyan);
+      stroke-width: 3.4;
+      filter: url(#nodeLift);
+    }
     .node.dimmed { opacity: .26; }
     .node-kind-badge {
       pointer-events: none;
@@ -523,6 +543,7 @@
       text-transform: uppercase;
     }
     .arrow { fill: var(--edge); transition: fill .18s ease; }
+    .arrow-focus { fill: var(--violet); }
     .edge {
       fill: none;
       stroke: var(--edge);
@@ -532,9 +553,53 @@
       marker-end: url(#arrow);
       transition: stroke .18s ease, opacity .18s ease;
     }
+    .edge-hit {
+      cursor: pointer;
+      pointer-events: all;
+      outline: none;
+    }
+    .edge-hit:focus,
+    .edge-hit:focus-visible,
+    .edge-hit-segment:focus,
+    .edge-hit-segment:focus-visible { outline: none; }
+    .edge-hit-segment {
+      fill: #fff;
+      opacity: 0;
+      stroke: none;
+      pointer-events: all;
+    }
     .edge.incident { stroke: var(--blue); stroke-width: 2.6; }
+    .edge.selected-link {
+      stroke: var(--violet);
+      stroke-width: 3.2;
+      opacity: 1;
+    }
+    .edge.focus-hidden { opacity: .12; }
     .edge.dimmed { opacity: .18; }
+    .edge-focus {
+      fill: none;
+      stroke: transparent;
+      stroke-width: 0;
+      stroke-linecap: round;
+      marker-end: url(#arrowFocus);
+      pointer-events: none;
+      opacity: 0;
+      transition: stroke .18s ease, opacity .18s ease;
+    }
+    .edge-focus.selected-link {
+      stroke: var(--violet);
+      stroke-width: 3.2;
+      opacity: 1;
+    }
     .edge-label-wrap { transition: opacity .18s ease; pointer-events: none; }
+    .edge-label-wrap[role="button"] { pointer-events: auto; cursor: pointer; }
+    .edge-label-wrap.selected-link .edge-label-bg {
+      stroke: var(--violet);
+      stroke-width: 2;
+    }
+    .edge-label-wrap.selected-link .edge-label {
+      fill: var(--violet);
+    }
     .edge-label-wrap.dimmed { opacity: .18; }
     .edge-label-bg {
       fill: var(--panel);
@@ -593,22 +658,24 @@
     .crumb-sep { color: var(--muted); font-size: 11px; }
     /* Scope super-node (L0 codebase overview). */
     .scope-node { cursor: pointer; }
+    .scope-node.movable { cursor: grab; }
+    .scope-node.movable.dragging { cursor: grabbing; }
     .scope-node .shape {
-      fill: var(--fill-call);
-      stroke: var(--violet);
+      fill: var(--node-fill);
+      stroke: var(--blue);
       stroke-width: 2;
       filter: url(#nodeShadow);
       transition: filter .14s ease, stroke-width .14s ease, opacity .18s ease, fill .18s ease;
     }
     .scope-node:hover .shape, .scope-node:focus-visible .shape { filter: url(#nodeLift); stroke-width: 2.8; }
-    .scope-node.dimmed { opacity: .48; }
+    .scope-node.dimmed { opacity: .72; }
     .scope-node.expanded { opacity: 1; }
     .scope-node.expanded .shape {
-      fill: var(--fill-entry);
+      fill: var(--node-fill);
       stroke: var(--blue);
       stroke-width: 3;
     }
-    .scope-node.expanded .scope-name { fill: var(--blue); }
+    .scope-node.expanded .scope-name { fill: var(--ink); }
     .dimmed-edge { opacity: .34; }
     .scope-expansion-link {
       fill: none;
@@ -617,11 +684,26 @@
       stroke-dasharray: 6 7;
       opacity: .58;
     }
-    /* Distinct keyboard focus (not just the hover lift): a theme-aware outline ring. */
+    .progressive-row-rule {
+      stroke: var(--line);
+      stroke-width: 1;
+      stroke-dasharray: 2 10;
+      opacity: .62;
+    }
+    .progressive-row-label {
+      fill: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    /* Keyboard focus remains visible without rectangular CSS boxes around SVG nodes. */
     .scope-node:focus-visible { outline: none; }
     .scope-node:focus-visible .shape {
-      outline: 2px solid var(--blue);
-      outline-offset: 2px;
+      stroke-width: 3.2;
+      filter: url(#nodeLift);
     }
     .scope-node.has-finding .shape { stroke: var(--coral); }
     .scope-node.expanded.has-finding .shape { stroke: var(--blue); }
@@ -649,87 +731,70 @@
       text-transform: uppercase;
       pointer-events: none;
     }
-    /* File cluster box (L1). Collapsed by default it is an expandable header chip;
-       expanding materializes its flow nodes. The whole box is a keyboard toggle. */
-    .file-box { cursor: pointer; }
-    .file-frame {
-      fill: var(--panel-2);
-      stroke: var(--line);
-      stroke-width: 1.5;
-      opacity: .9;
-      transition: stroke .14s ease;
-    }
-    .file-box:hover .file-frame { stroke: var(--blue); }
-    .file-box.expanded .file-frame { stroke: var(--line-strong); }
-    .file-box.active-area .file-frame {
-      fill: var(--active);
-      stroke: var(--blue);
-      stroke-width: 2.4;
-    }
-    .file-box.has-finding .file-frame { stroke: var(--coral); }
-    /* Distinct theme-aware keyboard focus ring on the chip frame. */
-    .file-box:focus-visible { outline: none; }
-    .file-box:focus-visible .file-frame {
-      outline: 2px solid var(--blue);
-      outline-offset: 2px;
-      stroke: var(--blue);
-    }
-    .file-caret {
-      fill: none;
-      stroke: var(--muted);
-      stroke-width: 1.6;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      transition: transform .12s ease;
-      transform-box: fill-box;
-      transform-origin: center;
-      pointer-events: none;
-    }
-    .file-box.expanded .file-caret { transform: rotate(90deg); }
-    .file-label {
-      fill: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 11px;
-      font-weight: 700;
-      pointer-events: none;
-    }
-    .file-count {
-      fill: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 10px;
-      font-weight: 700;
-      pointer-events: none;
-    }
-    .file-review-dot {
-      fill: var(--coral);
-      stroke: var(--panel-2);
-      stroke-width: 2;
-      pointer-events: none;
-    }
     .tree-empty-state {
       padding: 12px 14px;
       color: var(--muted);
       font-size: 12px;
       line-height: 1.45;
     }
-    /* Flow node (L1). Reuses .node base; entry/action fills below. Canvas nodes open a
-       flow on click -- they are NOT drag-to-arrange (that is out of scope for Phase 2),
-       so the cursor is a pointer, overriding the L2-only .node{cursor:grab}. */
+    /* Flow node (L1). All visible canvas blocks can be hand-positioned; reset restores
+       the automatic progressive layout. */
     .flow-node { cursor: pointer; }
-    .flow-node.entry .shape { fill: var(--fill-entry); stroke: var(--blue); }
+    .flow-node.movable { cursor: grab; }
+    .flow-node.movable.dragging { cursor: grabbing; }
+    .flow-node.entry .shape { fill: var(--node-fill); stroke: var(--blue); }
     .flow-node.action .shape { fill: var(--node-fill); stroke: var(--blue); }
+    .flow-node.subflow .shape { rx: 8; }
+    .flow-node.route-flow .shape {
+      fill: var(--node-fill);
+      stroke: var(--cyan);
+      stroke-width: 2.6;
+    }
     .flow-node.active-area .shape { stroke-width: 2.4; }
     /* A flow node whose decision sub-graph is unfolded in place (L2 inline). */
-    .flow-node.flow-open .shape { stroke: var(--violet); stroke-width: 3; }
+    .flow-node.flow-open .shape {
+      fill: var(--node-fill);
+      stroke: var(--violet);
+      stroke-width: 3;
+    }
+    .flow-node.edge-source .shape {
+      stroke: var(--amber);
+      stroke-width: 3;
+    }
+    .flow-node.edge-target .shape {
+      stroke: var(--cyan);
+      stroke-width: 3;
+    }
+    .flow-source-tag {
+      fill: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      font-weight: 650;
+      letter-spacing: .03em;
+      pointer-events: none;
+    }
+    .flow-expand-pill rect {
+      fill: var(--tool);
+      stroke: var(--line);
+      stroke-width: 1;
+      opacity: .96;
+    }
+    .flow-expand-pill text {
+      fill: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    .flow-node.flow-open .flow-expand-pill rect,
+    .flow-node.route-flow .flow-expand-pill rect {
+      stroke: var(--violet);
+    }
 
     /* Inline L2: the expanded flow's decision flowchart, drawn under its node inside the
        L1 canvas. The backing panel groups it; the connector ties it to the flow node. */
-    .inline-flow-panel {
-      fill: var(--panel-2);
-      stroke: var(--line);
-      stroke-width: 1.5;
-      opacity: .55;
-    }
     .inline-flow-link {
       fill: none;
       stroke: var(--violet);
@@ -1033,6 +1098,17 @@
     @media (max-width: 1050px) {
       .shell { grid-template-columns: minmax(240px, min(var(--left-rail-width), 42vw)) minmax(0,1fr); }
       .rail-resizer { display: none; }
+      body[data-nav-closed] .shell {
+        grid-template-columns: 0 minmax(0, 1fr);
+      }
+      body[data-nav-closed] .left-rail {
+        border: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      body[data-nav-closed] .left-rail .rail-inner {
+        visibility: hidden;
+      }
       body[data-detail-open] main::after,
       body[data-nav-open] main::after {
         content: "";

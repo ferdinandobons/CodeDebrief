@@ -91,7 +91,7 @@ def test_render_html_has_no_leftover_placeholders(tmp_path: Path) -> None:
 
 def test_render_html_emits_codebase_canvas(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
-    # The canvas carries a level attribute (L0 by default); the Phase-2 smoke test
+    # The canvas carries a level attribute (L0 by default); the codebase-canvas smoke test
     # asserts the level seam exists so the two-level canvas cannot silently regress.
     assert "data-level" in html
     # The breadcrumb container the canvas level path renders into is wired up.
@@ -110,10 +110,46 @@ def test_render_html_emits_codebase_canvas(tmp_path: Path) -> None:
     payload = json.loads(match.group(1).replace("<\\/", "</"))
     assert isinstance(payload["scope_edges"], list)
     # A focused scope remains inside the global codebase map: sibling scopes stay visible
-    # as dimmed context nodes while the active scope's files/flows expand in place.
+    # as dimmed context nodes while the active scope expands into a progressive route.
     assert "layoutExpandedCodebase" in html
     assert "dimmed" in html
     assert "focusScope" in html
+    # The primary canvas is flow-first: scopes expand into a universal progressive
+    # entrypoint/call graph, not file boxes tuned to a particular repository shape.
+    assert "buildProgressiveLayers" in html
+    assert "routeFlowIds" in html
+    assert "expandedFlowIds" in html
+    assert "progressive-row-label" in html
+    assert "unlocked calls" in html
+    assert "flow-source-tag" in html
+    assert "flow-expand-pill" in html
+    assert "expandCallTarget" in html
+    assert "clearAllInlineFlows" in html
+    assert "omitEntry" in html
+    assert "draggable: true" in html
+    assert "flowLayoutNodes" in html
+    assert "selectProgressiveLink" in html
+    assert "progressive-call-edge" in html
+    assert "progressive-call-hit" in html
+    assert "progressive-call-label" in html
+    assert "edge-source" in html
+    assert "selected-link" in html
+    assert "edge-focus" in html
+    assert "focus-hidden" in html
+    assert "arrowFocus" in html
+    assert "edge-hit" in html
+    assert "edge-hit-segment" in html
+    assert "edgeId" in html
+    assert "manualScopePositions" in html
+    assert "manualFlowPositions" in html
+    assert "active-parent" in html
+    assert "exportCurrentCanvas" in html
+    assert "logicchart-flowchart" in html
+    assert "Export current flowchart as PNG" in html
+    assert "Export current flowchart as JPG" in html
+    assert "inline-flow-panel" not in html
+    assert "makeFileBox" not in html
+    assert "expandedFiles" not in html
 
 
 def test_render_html_wires_inline_decision_expansion(tmp_path: Path) -> None:
@@ -224,10 +260,11 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     # back to #path while the inline decision graph is open.
     assert "suppressScopeFocus" in html
 
-    # Large-codebase scan aids: scope/file finding density and tree empty state for
-    # search/filter misses should stay wired into the static viewer assets.
+    # Large-codebase scan aids: scope finding density, progressive route expansion, and
+    # tree empty state for search/filter misses should stay wired into the static viewer.
     assert "scopeStats(" in html
-    assert "findingCountForPath(" in html
+    assert "directCallTargets(" in html
+    assert "entryFlowsForScope(" in html
     assert "No matching flows" in html
 
     # Desktop rails are not static columns: each sidebar has an accessible drag separator,
@@ -240,7 +277,11 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "resizeRailFromKeyboard" in html
     assert "refreshCanvasLayout" in html
     assert "data-nav-closed" in html
+    assert "body[data-nav-closed] .shell" in html
     assert "data-detail-closed" in html
+    assert "Reset expanded sections and fit current scope" in html
+    assert "Open ${flow.name} in the progressive flowchart" in html
+    assert "Select logic block on line" in html
 
     # Canvas component polish: edge labels are readable pills and decision blocks carry a
     # compact semantic kind badge, so dense flowcharts retain their visual grammar.

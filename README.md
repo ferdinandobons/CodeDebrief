@@ -22,8 +22,9 @@ control-flow map.
 ## What You Get
 
 - A whole-codebase decision map, from one function to a large polyglot repo.
-- A local HTML viewer built for broad codebase study: expandable codebase map, file tree,
-  flow search, language filter, inline flowcharts, source panel, and prioritized findings.
+- A local HTML viewer built for broad codebase study: a progressive scope-to-flowchart
+  canvas, file tree, flow search, language filter, inline decision charts, source panel,
+  and prioritized findings.
 - A reviewable Markdown report with Mermaid flowcharts.
 - A canonical JSON model for CI, scripts, and MCP/coding-agent context.
 - Evidence labels on every finding: `VERIFIED`, `INFERRED`, or `POTENTIAL_GAP`.
@@ -89,13 +90,15 @@ LogicChart is designed for broad frontend/backend repositories, not only small s
 
 - **Scopes:** declare `backend`, `frontend`, `edge`, `services`, or any macro-part once, then
   filter `query`, `impact`, and the viewer by that scope.
+- **Shape-agnostic UI:** the viewer does not hard-code backend/frontend layouts; it renders
+  arbitrary scopes, entry points, calls, decisions, and outcomes from the generated model.
 - **Incremental updates:** changed files are content-hashed and cached under `.logicchart/`.
 - **Generated-code avoidance:** defaults skip common dependency/build trees such as
   `node_modules`, `.next`, `.turbo`, `.svelte-kit`, `dist`, `build`, `out`, `target`,
   `coverage`, `vendor`, `Pods`, generated declarations, protobuf outputs, and minified JS.
-- **Viewer scale:** the canvas opens at scope level, expands one scope to file groups, then
-  unfolds one flow's decision chart in place. It does not dump every flow node into the DOM
-  at once.
+- **Viewer scale:** the canvas opens at scope level, expands one scope into progressive
+  entrypoint/call rows, then unfolds selected decision charts in place. It does not dump
+  every flow node into the DOM at once.
 - **Bounded source payload:** the HTML embeds source snippets once per file and caps very
   large functions, so the viewer stays usable offline.
 
@@ -111,12 +114,14 @@ logicchart view
 The viewer is a single local HTML file plus a temporary local server. It shows:
 
 - A left codebase tree with flow search and language filtering.
-- A central canvas with scope-level, file-level, and flow-level navigation.
+- A central canvas with scope-level overview, progressive entrypoint/call expansion, and
+  flow-level decision charts.
 - Expand-in-place decision flowcharts, so a flow can be studied without losing its
   surrounding codebase context.
 - A synchronized source panel and logical-errors panel.
-- Finding density on scope/file nodes, useful for scanning large systems.
-- Light/dark theme, pan/zoom, reset, full-screen canvas, and responsive side panels.
+- Finding density on scope nodes and tree file rows, useful for scanning large systems.
+- Light/dark theme, pan/zoom, drag-to-arrange blocks, reset, full-screen canvas, PNG/JPG
+  export, and responsive side panels.
 
 Use `--render-only` to write `logic-flow.html` without serving it.
 
