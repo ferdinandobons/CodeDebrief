@@ -45,10 +45,9 @@ member, and labels how it knows:
 **only** finding across the bundled demo's 10-language, 3-scope codebase. The model stays
 precise as it scales. Run it yourself on [`examples/demo`](examples/demo).
 
-## Why LogicChart
+## What it's good for
 
-Your IDE answers "where is this symbol?" LogicChart is built for the questions that come up
-in review and refactoring, at any scope from one function to the whole repo:
+In review and refactoring, at any scope from one function to the whole repo:
 
 - **Catch missing cases** before code review: a `switch` / `match` / `if`-chain with no fallback.
 - **Check state handling is consistent** across sibling flows: a status one route handles
