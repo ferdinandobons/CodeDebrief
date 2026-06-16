@@ -89,6 +89,11 @@
       // depend on expanded files and the selected inline flow.
       const layoutCache = new Map();
 
+      function layoutWidthBucket() {
+        const width = (canvasEl && canvasEl.clientWidth) || 1000;
+        return Math.max(1, Math.round(width / 80));
+      }
+
       // --- Data precompute (cached on LC) ------------------------------------------
 
       // scope -> [flowId]. Provided by payload (inferred top-level dirs when no
@@ -488,7 +493,8 @@
       // --- L0 layout: scopes as a wrapped grid of super-nodes ----------------------
 
       function layoutL0(names) {
-        const cached = layoutCache.get("L0");
+        const cacheKey = "L0:" + layoutWidthBucket() + ":" + names.join("|");
+        const cached = layoutCache.get(cacheKey);
         let nodePos;
         if (cached) {
           nodePos = cached.nodePos;
@@ -510,7 +516,7 @@
               count: (scopeFlows[name] || []).length,
             });
           });
-          layoutCache.set("L0", { nodePos });
+          layoutCache.set(cacheKey, { nodePos });
         }
         return { nodePos, bounds: boundsOf([...nodePos.values()]) };
       }
@@ -1605,6 +1611,10 @@
       // follow the normal user action path and update the hash.
       LC.focusScope = expandScope;
       LC.focusPath = focusPath;
+      LC.refreshCanvasLayout = function () {
+        layoutCache.clear();
+        if (LC.mode === "canvas") renderCanvas();
+      };
       // When shell.js enters flow mode (renderFlow), refresh the breadcrumb so it
       // gains the flow crumb. A flow opened from the tree or a #flow= deep link may
       // have no scope set yet, so derive the flow's scope (first membership, mirroring
@@ -1627,6 +1637,7 @@
         // resetView in canvas mode: re-fit + redraw the current level. When a flow is
         // inline-expanded, also drop its hand-placed decision positions so the sub-graph
         // returns to its automatic layout (mirrors the full-screen reset).
+        layoutCache.clear();
         if (canvasState.expandedFlow && LC.clearFlowPositions) {
           LC.clearFlowPositions(canvasState.expandedFlow);
         }

@@ -90,6 +90,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
           <span class="gap">Review</span>
         </div>
       </div>
+      <div class="rail-resizer rail-resizer-left" id="leftRailResizer" role="separator" tabindex="0" aria-label="Resize codebase sidebar" aria-orientation="vertical" aria-valuemin="240" aria-valuemax="560" aria-valuenow="312" title="Resize codebase sidebar"></div>
     </aside>
 
     <main>
@@ -107,6 +108,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
     </main>
 
     <aside class="right-rail" id="rightRail">
+      <div class="rail-resizer rail-resizer-right" id="rightRailResizer" role="separator" tabindex="0" aria-label="Resize details sidebar" aria-orientation="vertical" aria-valuemin="280" aria-valuemax="640" aria-valuenow="336" title="Resize details sidebar"></div>
       <div class="rail-inner">
         <div class="detail-drawer-head">
           <span>Details</span>

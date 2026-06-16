@@ -34,6 +34,8 @@
       --radius: 12px;
       --radius-sm: 9px;
       --shadow: 0 20px 55px rgba(24, 40, 76, 0.16);
+      --left-rail-width: 312px;
+      --right-rail-width: 336px;
       color-scheme: light;
     }
     [data-theme="dark"] {
@@ -87,9 +89,14 @@
     }
     button, input { font: inherit; }
     button { color: inherit; }
+    body[data-rail-resizing] {
+      cursor: ew-resize;
+      user-select: none;
+    }
+    body[data-rail-resizing] * { cursor: ew-resize !important; }
     .shell {
       display: grid;
-      grid-template-columns: 312px minmax(0, 1fr) 336px;
+      grid-template-columns: var(--left-rail-width) minmax(0, 1fr) var(--right-rail-width);
       grid-template-rows: 78px minmax(0, 1fr);
       height: 100%;
     }
@@ -185,9 +192,43 @@
     aside {
       min-height: 0;
       background: var(--panel-2);
+      position: relative;
+      min-width: 0;
     }
     .left-rail { border-right: 1px solid var(--line); }
     .right-rail { border-left: 1px solid var(--line); }
+    .rail-resizer {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      z-index: 8;
+      width: 14px;
+      cursor: ew-resize;
+      touch-action: none;
+      outline: none;
+    }
+    .rail-resizer-left { right: -7px; }
+    .rail-resizer-right { left: -7px; }
+    .rail-resizer::before {
+      content: "";
+      position: absolute;
+      top: 14px;
+      bottom: 14px;
+      left: 6px;
+      width: 2px;
+      border-radius: 999px;
+      background: transparent;
+      transition: background-color .15s ease, box-shadow .15s ease;
+    }
+    .rail-resizer:hover::before,
+    .rail-resizer:focus-visible::before,
+    body[data-rail-resizing] .rail-resizer::before {
+      background: var(--blue);
+      box-shadow: 0 0 0 3px rgba(47, 99, 239, .14);
+    }
+    .rail-resizer:focus-visible {
+      box-shadow: inset 0 0 0 2px var(--blue);
+    }
     .rail-inner {
       height: 100%;
       display: flex;
@@ -379,7 +420,7 @@
       color: var(--blue);
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue), transparent 82%);
     }
-    .detail-tool { display: none; font-weight: 800; font-family: ui-serif, Georgia, serif; }
+    .detail-tool { display: grid; place-items: center; font-weight: 800; font-family: ui-serif, Georgia, serif; }
     #canvas { width: 100%; height: 100%; cursor: grab; user-select: none; -webkit-user-select: none; }
     #canvas.dragging { cursor: grabbing; }
     .empty {
@@ -953,8 +994,33 @@
       background-size: 26px 26px;
     }
 
+    @media (min-width: 1051px) {
+      body[data-nav-closed] .shell {
+        grid-template-columns: 0 minmax(0, 1fr) var(--right-rail-width);
+      }
+      body[data-detail-closed] .shell {
+        grid-template-columns: var(--left-rail-width) minmax(0, 1fr) 0;
+      }
+      body[data-nav-closed][data-detail-closed] .shell {
+        grid-template-columns: 0 minmax(0, 1fr) 0;
+      }
+      body[data-nav-closed] .left-rail,
+      body[data-detail-closed] .right-rail {
+        border: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      body[data-nav-closed] .left-rail .rail-inner,
+      body[data-nav-closed] .left-rail .rail-resizer,
+      body[data-detail-closed] .right-rail .rail-inner,
+      body[data-detail-closed] .right-rail .rail-resizer {
+        visibility: hidden;
+      }
+    }
+
     @media (max-width: 1050px) {
-      .shell { grid-template-columns: 262px minmax(0,1fr); }
+      .shell { grid-template-columns: minmax(240px, min(var(--left-rail-width), 42vw)) minmax(0,1fr); }
+      .rail-resizer { display: none; }
       body[data-detail-open] main::after,
       body[data-nav-open] main::after {
         content: "";
@@ -969,7 +1035,7 @@
         right: 0;
         top: 78px;
         bottom: 0;
-        width: min(420px, calc(100vw - 72px));
+        width: min(var(--right-rail-width), calc(100vw - 72px));
         z-index: 5;
         box-shadow: var(--shadow);
         transform: translateX(100%);
@@ -1009,7 +1075,7 @@
         left: 0;
         top: 78px;
         bottom: 0;
-        width: 286px;
+        width: min(var(--left-rail-width), calc(100vw - 48px));
         z-index: 5;
         box-shadow: var(--shadow);
         transform: translateX(-100%);

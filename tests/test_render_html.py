@@ -230,6 +230,18 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "findingCountForPath(" in html
     assert "No matching flows" in html
 
+    # Desktop rails are not static columns: each sidebar has an accessible drag separator,
+    # persistent width state, keyboard resizing, and a canvas-layout refresh hook.
+    assert 'id="leftRailResizer"' in html
+    assert 'id="rightRailResizer"' in html
+    assert 'role="separator"' in html
+    assert "logicchart-left-rail-width" in html
+    assert "logicchart-right-rail-width" in html
+    assert "resizeRailFromKeyboard" in html
+    assert "refreshCanvasLayout" in html
+    assert "data-nav-closed" in html
+    assert "data-detail-closed" in html
+
     # Canvas component polish: edge labels are readable pills and decision blocks carry a
     # compact semantic kind badge, so dense flowcharts retain their visual grammar.
     assert "edge-label-bg" in html

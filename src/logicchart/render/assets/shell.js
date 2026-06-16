@@ -66,9 +66,28 @@
     const detailsClose = document.getElementById("detailsClose");
     const menuButton = document.getElementById("menuButton");
     const themeToggleBtn = document.getElementById("themeToggle");
+    const railWidths = { left: 312, right: 336 };
+    const railConfig = {
+      left: {
+        css: "--left-rail-width",
+        storage: "logicchart-left-rail-width",
+        handle: document.getElementById("leftRailResizer"),
+        min: 240,
+        max: 560,
+      },
+      right: {
+        css: "--right-rail-width",
+        storage: "logicchart-right-rail-width",
+        handle: document.getElementById("rightRailResizer"),
+        min: 280,
+        max: 640,
+      },
+    };
     let activeFlow = null;
     let view = { x: 0, y: 0, width: 1000, height: 800 };
     let drag = null;
+    let railResize = null;
+    let railRefreshFrame = 0;
     // Per-flow hand-placed node positions: flowId -> Map(nodeId -> {x, y}). Survives
     // navigating away and back within the session.
     const manualPositions = new Map();
@@ -84,14 +103,43 @@
     function setLeftRailOpen(open) {
       leftRail.classList.toggle("open", !!open);
       document.body.toggleAttribute("data-nav-open", !!open);
+      document.body.toggleAttribute("data-nav-closed", !open);
+      syncRailControls();
+      scheduleCanvasLayoutRefresh();
     }
 
     function setRightRailOpen(open) {
       rightRail.classList.toggle("open", !!open);
       document.body.toggleAttribute("data-detail-open", !!open);
+      document.body.toggleAttribute("data-detail-closed", !open);
       if (detailButton) {
         detailButton.setAttribute("aria-pressed", open ? "true" : "false");
         detailButton.title = open ? "Hide source and findings" : "Show source and findings";
+      }
+      syncRailControls();
+      scheduleCanvasLayoutRefresh();
+    }
+
+    function leftRailOpen() {
+      if (window.innerWidth <= 700) return leftRail.classList.contains("open");
+      return !document.body.hasAttribute("data-nav-closed");
+    }
+
+    function rightRailOpen() {
+      if (window.innerWidth <= 1050) return rightRail.classList.contains("open");
+      return !document.body.hasAttribute("data-detail-closed");
+    }
+
+    function syncRailControls() {
+      const navOpen = leftRailOpen();
+      const detailOpen = rightRailOpen();
+      if (menuButton) {
+        menuButton.setAttribute("aria-pressed", navOpen ? "true" : "false");
+        menuButton.title = navOpen ? "Hide codebase tree" : "Show codebase tree";
+      }
+      if (detailButton) {
+        detailButton.setAttribute("aria-pressed", detailOpen ? "true" : "false");
+        detailButton.title = detailOpen ? "Hide source and findings" : "Show source and findings";
       }
     }
 
@@ -99,6 +147,130 @@
       const target = event.target;
       return !!(target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || ""));
     }
+
+    function railViewportMax(side) {
+      const cfg = railConfig[side];
+      if (!cfg) return 0;
+      if (window.innerWidth <= 1050) return cfg.max;
+      const other = side === "left" ? railWidths.right : railWidths.left;
+      const maxFromViewport = window.innerWidth - other - 460;
+      return Math.max(cfg.min, Math.min(cfg.max, maxFromViewport));
+    }
+
+    function clampRailWidth(side, value) {
+      const cfg = railConfig[side];
+      if (!cfg) return 0;
+      const max = railViewportMax(side);
+      return Math.min(max, Math.max(cfg.min, Math.round(value)));
+    }
+
+    function applyRailWidth(side, value, persist) {
+      const cfg = railConfig[side];
+      if (!cfg) return;
+      const width = clampRailWidth(side, value);
+      railWidths[side] = width;
+      document.documentElement.style.setProperty(cfg.css, `${width}px`);
+      if (cfg.handle) {
+        cfg.handle.setAttribute("aria-valuenow", String(width));
+        cfg.handle.setAttribute("aria-valuemax", String(railViewportMax(side)));
+      }
+      if (persist) {
+        try { localStorage.setItem(cfg.storage, String(width)); } catch (_) {}
+      }
+    }
+
+    function loadStoredRailWidths() {
+      Object.keys(railConfig).forEach(side => {
+        const cfg = railConfig[side];
+        let stored = null;
+        try { stored = localStorage.getItem(cfg.storage); } catch (_) {}
+        const parsed = stored === null ? NaN : Number(stored);
+        applyRailWidth(side, Number.isFinite(parsed) ? parsed : railWidths[side], false);
+      });
+    }
+
+    function scheduleCanvasLayoutRefresh() {
+      if (railRefreshFrame) return;
+      railRefreshFrame = requestAnimationFrame(() => {
+        railRefreshFrame = 0;
+        if (LC.refreshCanvasLayout) LC.refreshCanvasLayout();
+        else if (LC.updateViewBox) LC.updateViewBox();
+      });
+    }
+
+    function resizeRailFromPointer(event) {
+      if (!railResize) return;
+      const dx = event.clientX - railResize.startX;
+      const next = railResize.startWidth + (railResize.side === "left" ? dx : -dx);
+      applyRailWidth(railResize.side, next, true);
+      scheduleCanvasLayoutRefresh();
+      event.preventDefault();
+    }
+
+    function endRailResize() {
+      if (!railResize) return;
+      const cfg = railConfig[railResize.side];
+      if (cfg && cfg.handle) cfg.handle.removeAttribute("aria-grabbed");
+      railResize = null;
+      document.body.removeAttribute("data-rail-resizing");
+      window.removeEventListener("pointermove", resizeRailFromPointer);
+      window.removeEventListener("pointerup", endRailResize);
+      window.removeEventListener("pointercancel", endRailResize);
+      scheduleCanvasLayoutRefresh();
+    }
+
+    function beginRailResize(side, event) {
+      if (event.button !== 0) return;
+      const cfg = railConfig[side];
+      if (!cfg || !cfg.handle) return;
+      railResize = { side, startX: event.clientX, startWidth: railWidths[side] };
+      document.body.dataset.railResizing = side;
+      cfg.handle.setAttribute("aria-grabbed", "true");
+      window.addEventListener("pointermove", resizeRailFromPointer);
+      window.addEventListener("pointerup", endRailResize);
+      window.addEventListener("pointercancel", endRailResize);
+      event.preventDefault();
+    }
+
+    function resizeRailFromKeyboard(side, event) {
+      const cfg = railConfig[side];
+      if (!cfg) return;
+      let next = railWidths[side];
+      if (event.key === "Home") next = cfg.min;
+      else if (event.key === "End") next = railViewportMax(side);
+      else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        const physical = event.key === "ArrowRight" ? 1 : -1;
+        next += (side === "left" ? physical : -physical) * 24;
+      } else {
+        return;
+      }
+      applyRailWidth(side, next, true);
+      scheduleCanvasLayoutRefresh();
+      event.preventDefault();
+    }
+
+    function fitRailsToViewport() {
+      applyRailWidth("left", railWidths.left, false);
+      applyRailWidth("right", railWidths.right, false);
+    }
+
+    function initRailResizers() {
+      Object.keys(railConfig).forEach(side => {
+        const cfg = railConfig[side];
+        if (!cfg.handle) return;
+        cfg.handle.addEventListener("pointerdown", event => beginRailResize(side, event));
+        cfg.handle.addEventListener("keydown", event => resizeRailFromKeyboard(side, event));
+      });
+      window.addEventListener("resize", () => {
+        fitRailsToViewport();
+        syncRailControls();
+        scheduleCanvasLayoutRefresh();
+      });
+    }
+
+    loadStoredRailWidths();
+    initRailResizers();
+    syncRailControls();
 
     document.getElementById("flowCount").textContent = flows.length;
     document.getElementById("entryCount").textContent = flows.filter(item => item.is_entrypoint).length;
@@ -135,7 +307,9 @@
         inspectFlow(flow);
         if (window.LC.onCanvasFlow) window.LC.onCanvasFlow(flow);
       }
-      setLeftRailOpen(false);
+      // On phones the tree is a drawer, so a selection should clear the canvas. On
+      // desktop/tablet the tree is working context; keep it open unless the user closes it.
+      if (window.innerWidth <= 700) setLeftRailOpen(false);
       // Let other inlined scripts (e.g. tree.js) reflect the active flow.
       if (window.LC.onFlowSelected) window.LC.onFlowSelected(flow);
     }
@@ -565,22 +739,22 @@
       }
     });
     if (menuButton) {
-      menuButton.addEventListener("click", () => setLeftRailOpen(!leftRail.classList.contains("open")));
+      menuButton.addEventListener("click", () => setLeftRailOpen(!leftRailOpen()));
     }
     if (detailButton) {
-      detailButton.addEventListener("click", () => setRightRailOpen(!rightRail.classList.contains("open")));
+      detailButton.addEventListener("click", () => setRightRailOpen(!rightRailOpen()));
     }
     if (detailsClose) {
       detailsClose.addEventListener("click", () => setRightRailOpen(false));
     }
     document.addEventListener("keydown", event => {
       if (event.key !== "Escape" || eventTargetIsTextInput(event)) return;
-      if (rightRail.classList.contains("open")) {
+      if (rightRailOpen()) {
         setRightRailOpen(false);
         event.stopImmediatePropagation();
         return;
       }
-      if (leftRail.classList.contains("open")) {
+      if (leftRailOpen()) {
         setLeftRailOpen(false);
         event.stopImmediatePropagation();
       }
