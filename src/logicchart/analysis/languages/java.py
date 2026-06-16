@@ -52,10 +52,12 @@ def _classify(
 
 
 def _is_test(relative: str, name: str) -> bool:
-    return (
-        "/test/" in relative
-        or relative.endswith(("Test.java", "Tests.java", "IT.java"))
-        or name.startswith("test")
+    # Maven/Gradle put tests under a `test` source-set segment; the class file is
+    # *Test.java / *Tests.java / *IT.java. A bare `test`-prefixed METHOD name
+    # (`testConnection` in a production class) is a real method, so it must not classify.
+    segments = relative.split("/")
+    return any(segment == "test" for segment in segments[:-1]) or segments[-1].endswith(
+        ("Test.java", "Tests.java", "IT.java")
     )
 
 

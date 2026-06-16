@@ -766,13 +766,11 @@ def _union_string_members(value: Any, source: bytes) -> list[str]:
 
 
 def _is_test(relative: str, name: str) -> bool:
+    # Only the file path classifies a TS/JS test. A name like `testConnection`,
+    # `testimonial`, or `shouldRetry` is a real function outside a test file, so a bare
+    # name prefix must not mark it a test (and drop it from the entry-point set).
     path = Path(relative)
-    return (
-        name.startswith(("test", "it", "should"))
-        or "__tests__" in path.parts
-        or ".test." in path.name
-        or ".spec." in path.name
-    )
+    return "__tests__" in path.parts or ".test." in path.name or ".spec." in path.name
 
 
 _INERT_STATEMENTS = {"empty_statement", "comment"}

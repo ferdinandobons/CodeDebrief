@@ -60,7 +60,17 @@ def _classify(
 
 
 def _is_test(relative: str, name: str) -> bool:
-    return "test" in relative.lower() or name.startswith("test")
+    # Anchor to path SEGMENTS (a `test`/`tests` directory or a test_*.c / *_test.c file),
+    # not a substring of the whole path: `latest/` or `contest.c` must not count, and a
+    # real function named `test_harness` outside a test file must not be misclassified.
+    lowered = relative.lower()
+    segments = lowered.split("/")
+    filename = segments[-1]
+    return (
+        any(segment in {"test", "tests"} for segment in segments[:-1])
+        or filename.startswith("test_")
+        or filename.endswith(("_test.c", "_test.h"))
+    )
 
 
 C_PROFILE = LanguageProfile(

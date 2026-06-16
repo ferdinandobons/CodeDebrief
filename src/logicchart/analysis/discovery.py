@@ -29,6 +29,11 @@ def discover_source_files(root: Path, config: LogicChartConfig) -> list[Path]:
             resolved = candidate.resolve()
             if any(resolved.is_relative_to(item) for item in excluded_roots):
                 continue
+            # A symlink (or junction) whose target resolves outside the analyzed root has
+            # no project-relative path, so relpath would raise. Skip it rather than abort
+            # discovery - it isn't part of this project's tree.
+            if not resolved.is_relative_to(root.resolve()):
+                continue
             relative = relpath(candidate, root)
             if not config.is_excluded(relative):
                 files.add(candidate)

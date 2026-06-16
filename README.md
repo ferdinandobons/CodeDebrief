@@ -107,8 +107,8 @@ run against the bundled [`examples/demo`](examples/demo).
 logicchart analyze examples/demo --full
 ```
 ```text
-Analyzed 17 files: 38 flows, 1 finding.
-Incremental cache: 0 hits, 17 changed, 0 deleted.
+Analyzed 14 files: 25 flows, 1 finding.
+Incremental cache: 0 hits, 14 changed, 0 deleted.
 Wrote .../logic-flow.json
 Wrote .../logic-flow.md
 Wrote .../logic-flow.html
@@ -130,8 +130,10 @@ JSON and Markdown. Commit those two files after a substantial change.
 logicchart query "where is suspended user status handled?" --path examples/demo
 ```
 ```text
-1. POST [route] frontend/app/api/users/route.ts:4  score=25 · `user` matches the flow identity ...
-2. get_user [route] backend/users.py:23            score=16 · `suspended` appears in a decision ...
+1. POST [route] frontend/app/api/users/route.ts:4
+   score=19 · `user` appears in a decision or action; `user` appears in a review finding; `status` appears in a decision or action
+2. statusLabel [function] frontend/lib/status.js:3
+   score=13 · `suspended` appears in a decision or action; `status` matches the flow identity; `status` appears in a decision or action
 ```
 Ranks the flows most relevant to a behavior, state, or decision. Add `--json` for
 machine-readable output, or `--scope backend` to restrict the search to one macro-part:
@@ -164,7 +166,7 @@ impact set to one macro-part.
 ```bash
 logicchart view examples/demo
 ```
-Renders `logic-flow.html` and serves it at `http://127.0.0.1:8765`: one navigable model of the
+Renders `logic-flow.html` and serves it at `http://127.0.0.1:8765/logic-flow.html`: one navigable model of the
 whole codebase. The left rail is the directory tree; the center is an **expand-in-place
 canvas** (scope super-nodes unfold into a scope's flows, and a flow unfolds into its decision
 chart, in place); the right column shows the selected flow's **source** and its **logical

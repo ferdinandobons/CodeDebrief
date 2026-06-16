@@ -149,7 +149,10 @@ class TreeSitterAnalyzer:
         self.parser = Parser(Language(profile.grammar_loader()))
 
     def analyze(self, path: Path) -> FileAnalysis:
-        source = path.read_bytes()
+        # Strip a leading UTF-8 BOM so a file an editor saved as UTF-8-with-BOM parses;
+        # the byte offsets the walk reports stay correct because the BOM is dropped
+        # before parsing (it is never part of a real token).
+        source = path.read_bytes().removeprefix(b"\xef\xbb\xbf")
         relative = relpath(path, self.root)
         tree = self.parser.parse(source)
         findings: list[Finding] = []

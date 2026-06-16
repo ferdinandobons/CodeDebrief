@@ -62,7 +62,13 @@ def _upsert(existing: str, block: str) -> str:
     if START in existing and END in existing:
         before, remainder = existing.split(START, 1)
         _, after = remainder.split(END, 1)
-        return before.rstrip() + "\n\n" + block.rstrip() + "\n" + after.lstrip()
+        # When the block sits at the very top (no prose before it), don't reintroduce a
+        # leading blank line - otherwise re-running `install` on a freshly created file
+        # would keep prepending whitespace instead of reaching a fixed point.
+        prefix = before.rstrip() + "\n\n" if before.strip() else ""
+        return prefix + block.rstrip() + "\n" + after.lstrip()
     if not existing.strip():
-        return block
-    return existing.rstrip() + "\n\n" + block
+        # Match the fixed point the upsert branch produces for a block-only file, so a
+        # second `install` on a freshly created file is a true no-op.
+        return block.rstrip() + "\n"
+    return existing.rstrip() + "\n\n" + block.rstrip() + "\n"

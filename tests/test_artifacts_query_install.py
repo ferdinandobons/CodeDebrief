@@ -53,6 +53,25 @@ def get_user(user_id: str):
     assert contents.count(END) == 1
 
 
+def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
+    # A fresh plain-markdown agent file (no existing block) must reach a fixed point on
+    # the first install: the second run changes nothing and reports nothing.
+    first = install_agent_instructions(tmp_path, "all")
+    assert first  # all four targets were created
+    for target in first:
+        content = target.read_text(encoding="utf-8")
+        assert content.count(START) == 1
+        assert content.count(END) == 1
+
+    contents_after_first = {target: target.read_text(encoding="utf-8") for target in first}
+
+    second = install_agent_instructions(tmp_path, "all")
+    assert second == []  # nothing was rewritten the second time
+    for target, content in contents_after_first.items():
+        # The on-disk content is byte-identical after the no-op second run.
+        assert target.read_text(encoding="utf-8") == content
+
+
 def test_output_directory_cannot_escape_project(tmp_path: Path) -> None:
     config = LogicChartConfig(output_dir="../outside")
 

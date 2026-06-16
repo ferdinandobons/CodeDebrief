@@ -21,7 +21,13 @@ def file_sha256(path: Path) -> str:
 
 
 def read_json(path: Path) -> dict[str, Any]:
-    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
+    text = path.read_text(encoding="utf-8")
+    try:
+        return cast(dict[str, Any], json.loads(text))
+    except json.JSONDecodeError as error:
+        # Name the offending file: a bare "Expecting value: line 1 column 1" gives a
+        # caller no way to find which cache/model file is corrupt.
+        raise ValueError(f"invalid JSON in {path}: {error}") from error
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
@@ -37,11 +43,6 @@ def compact_text(value: str, limit: int = 100) -> str:
     if len(value) <= limit:
         return value
     return value[: limit - 1].rstrip() + "..."
-
-
-def slug(value: str) -> str:
-    normalized = re.sub(r"[^a-zA-Z0-9]+", "-", value).strip("-").lower()
-    return normalized or "flow"
 
 
 def relpath(path: Path, root: Path) -> str:

@@ -6,6 +6,7 @@ from typing import Any
 
 from logicchart.analysis import ProjectAnalyzer
 from logicchart.artifacts import load_model, write_artifacts
+from logicchart.model import ProjectModel
 from logicchart.query import (
     explain_finding,
     find_decisions,
@@ -18,11 +19,31 @@ from logicchart.query import (
 # Rough tokens per returned list item, used to honor an agent's token_budget cap.
 _TOKENS_PER_ITEM = 60
 
+# Errors raised while loading the on-disk model (missing file, corrupt/garbled JSON,
+# unexpected schema). Surfaced to the agent as a clean {"error": ...} instead of a raw
+# traceback, so a stale or never-built model is recoverable advice, not a crash.
+_LOAD_ERRORS = (OSError, ValueError, KeyError, TypeError)
+
 
 def _cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]:
     if token_budget <= 0:
         return items
     return items[: max(1, token_budget // _TOKENS_PER_ITEM)]
+
+
+def _try_load(project_root: Path) -> tuple[ProjectModel | None, dict[str, Any] | None]:
+    """Load the model, or return a clean error dict the tool can hand back.
+
+    Every MCP tool reads the persisted model first; without this a missing or corrupt
+    model would propagate a raw traceback to the calling agent.
+    """
+    try:
+        return load_model(project_root), None
+    except _LOAD_ERRORS as error:
+        return None, {
+            "error": f"Could not load the LogicChart model: {error}. "
+            "Run `logicchart analyze --full` (or the update_logicchart tool) first."
+        }
 
 
 def run_mcp(root: Path) -> None:
@@ -40,7 +61,10 @@ def run_mcp(root: Path) -> None:
     @server.tool()
     def list_flows(entrypoints_only: bool = True, token_budget: int = 0) -> list[dict[str, Any]]:
         """List known decision flows in the current project."""
-        model = load_model(project_root)
+        model, error = _try_load(project_root)
+        if error is not None:
+            return [error]
+        assert model is not None
         return _cap(
             [
                 {
@@ -61,7 +85,10 @@ def run_mcp(root: Path) -> None:
     @server.tool()
     def get_flow(flow_id: str, token_budget: int = 0) -> dict[str, Any]:
         """Return one complete flow, including nodes, edges, callers, and findings."""
-        model = load_model(project_root)
+        model, error = _try_load(project_root)
+        if error is not None:
+            return error
+        assert model is not None
         flow = next((item for item in model.flows if item.id == flow_id), None)
         if flow is None:
             return {"error": f"Unknown flow: {flow_id}"}
@@ -100,14 +127,20 @@ def run_mcp(root: Path) -> None:
         ``query --scope`` ranking. ``token_budget`` only ever shrinks the list below
         ``limit``; it never expands it (query_model has already truncated to ``limit``).
         """
-        model = load_model(project_root)
+        model, error = _try_load(project_root)
+        if error is not None:
+            return [error]
+        assert model is not None
         matches = query_model(model, question, limit, scope)
         return _cap([match.to_dict() for match in matches], token_budget)
 
     @server.tool()
     def get_findings(flow_id: str | None = None, token_budget: int = 0) -> list[dict[str, Any]]:
         """List potential gaps and inconsistent case handling."""
-        model = load_model(project_root)
+        model, error = _try_load(project_root)
+        if error is not None:
+            return [error]
+        assert model is not None
         return _cap(
             [
                 _finding_dict(item)
@@ -120,7 +153,11 @@ def run_mcp(root: Path) -> None:
     @server.tool()
     def logicchart_summary() -> dict[str, Any]:
         """An orientation snapshot: flow/entrypoint counts and findings by kind/severity."""
-        return model_summary(load_model(project_root))
+        model, error = _try_load(project_root)
+        if error is not None:
+            return error
+        assert model is not None
+        return model_summary(model)
 
     @server.tool()
     def explain_finding_chain(finding_id: str, token_budget: int = 0) -> dict[str, Any]:
@@ -129,7 +166,11 @@ def run_mcp(root: Path) -> None:
         Returns one small record; token_budget is accepted only to match the uniform
         query/list tool contract.
         """
-        result = explain_finding(load_model(project_root), finding_id)
+        model, error = _try_load(project_root)
+        if error is not None:
+            return error
+        assert model is not None
+        result = explain_finding(model, finding_id)
         return result if result is not None else {"error": f"Unknown finding: {finding_id}"}
 
     @server.tool()
@@ -137,7 +178,11 @@ def run_mcp(root: Path) -> None:
         domain: str, value: str | None = None, token_budget: int = 0
     ) -> list[dict[str, Any]]:
         """Every flow that branches on a domain/value-namespace, with the values it covers."""
-        return _cap(where_is_state_handled(load_model(project_root), domain, value), token_budget)
+        model, error = _try_load(project_root)
+        if error is not None:
+            return [error]
+        assert model is not None
+        return _cap(where_is_state_handled(model, domain, value), token_budget)
 
     @server.tool()
     def find_decision_nodes(
@@ -147,8 +192,12 @@ def run_mcp(root: Path) -> None:
         token_budget: int = 0,
     ) -> list[dict[str, Any]]:
         """Structured search over decision nodes (by domain/subject/missing-fallback)."""
+        model, error = _try_load(project_root)
+        if error is not None:
+            return [error]
+        assert model is not None
         decisions = find_decisions(
-            load_model(project_root),
+            model,
             domain=domain,
             subject=subject,
             missing_fallback=missing_fallback,
@@ -163,7 +212,11 @@ def run_mcp(root: Path) -> None:
 
         ``scope`` restricts to a named macro-part, matching the CLI's ``impact --scope``.
         """
-        result = impact_model(load_model(project_root), changed_files, scope)
+        model, error = _try_load(project_root)
+        if error is not None:
+            return error
+        assert model is not None
+        result = impact_model(model, changed_files, scope)
         direct = [_flow_summary(item) for item in result.directly_impacted]
         transitive = [_flow_summary(item) for item in result.transitively_impacted]
         return {

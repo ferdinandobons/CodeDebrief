@@ -58,7 +58,13 @@ def _classify(
 
 
 def _is_test(relative: str, name: str) -> bool:
-    return "test" in relative.lower() or name.startswith("test")
+    # A Rust test is a `#[test]`/`#[cfg(test)]` item or a file under the `tests/`
+    # integration directory - never a bare `test`-prefixed name (a real `test_render`
+    # helper in `src/` must stay an analyzable function). The `(relative, name)` signature
+    # can't see attributes, so anchor to the `tests/` path SEGMENT (the convention this
+    # profile can detect); attribute-gated `#[test]` items are handled where they parse.
+    segments = relative.lower().split("/")
+    return "tests" in segments[:-1] or segments[-1] == "tests.rs"
 
 
 RUST_PROFILE = LanguageProfile(

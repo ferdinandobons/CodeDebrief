@@ -8,6 +8,7 @@ import pytest
 
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.model import ProjectModel
+from logicchart.util import read_json
 
 
 def _write(path: Path, content: str) -> None:
@@ -44,6 +45,89 @@ def test_incremental_run_skips_a_newly_broken_file(tmp_path: Path) -> None:
 
     assert any(flow.name == "handler" for flow in result.model.flows)
     assert [relative for relative, _ in result.skipped_files] == ["broken.py"]
+
+
+def test_utf8_bom_python_file_parses(tmp_path: Path) -> None:
+    # A valid Python file saved as UTF-8-with-BOM must parse, not be skipped/garbled.
+    (tmp_path / "bom.py").write_bytes(b"\xef\xbb\xbf" + b"def handler(x):\n    return x\n")
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    assert any(flow.name == "handler" for flow in result.model.flows)
+    assert not result.skipped_files
+
+
+def test_utf8_bom_treesitter_file_parses(tmp_path: Path) -> None:
+    # The tree-sitter read path must strip a leading BOM too (Go here).
+    (tmp_path / "main.go").write_bytes(
+        b"\xef\xbb\xbf" + b"package main\n\nfunc main() {\n\tprintln(1)\n}\n"
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    assert any(flow.name == "main" for flow in result.model.flows)
+    assert not result.skipped_files
+
+
+def test_read_json_names_the_offending_file(tmp_path: Path) -> None:
+    bad = tmp_path / "broken.json"
+    bad.write_text("{ not json", encoding="utf-8")
+    with pytest.raises(ValueError, match=r"invalid JSON in .*broken\.json"):
+        read_json(bad)
+
+
+def test_corrupt_index_forces_a_clean_full_reanalyze(tmp_path: Path) -> None:
+    _write(tmp_path / "good.py", "def handler(x):\n    return x\n")
+    analyzer = ProjectAnalyzer(tmp_path)
+    analyzer.analyze(full=True)
+    # Corrupt the cache index: a half-written or hand-edited index.json must not crash.
+    analyzer.index_path.write_text("{ this is not json", encoding="utf-8")
+
+    result = ProjectAnalyzer(tmp_path).analyze(full=False)
+
+    # The run recovered: the corrupt index was discarded and every file re-analyzed clean.
+    assert any(flow.name == "handler" for flow in result.model.flows)
+    assert result.cache_hits == 0
+    assert "good.py" in result.changed_files
+
+
+def test_index_with_bad_entry_shapes_forces_reanalyze(tmp_path: Path) -> None:
+    _write(tmp_path / "good.py", "def handler(x):\n    return x\n")
+    analyzer = ProjectAnalyzer(tmp_path)
+    analyzer.analyze(full=True)
+    # Valid JSON but a malformed entry (missing the `sha256`/`cache` keys) must not crash.
+    analyzer.index_path.write_text(
+        '{"cache_version": "2", "files": {"good.py": {"oops": 1}}}', encoding="utf-8"
+    )
+
+    result = ProjectAnalyzer(tmp_path).analyze(full=False)
+
+    assert any(flow.name == "handler" for flow in result.model.flows)
+    assert result.cache_hits == 0
+
+
+def test_a_file_that_vanishes_mid_run_does_not_abort(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write(tmp_path / "good.py", "def handler(x):\n    return x\n")
+    _write(tmp_path / "ghost.py", "def ghost():\n    return 1\n")
+
+    import logicchart.analysis.project as project_module
+
+    real_sha256 = project_module.file_sha256
+
+    def flaky_sha256(path: Path) -> str:
+        # Simulate the file being deleted/locked between discovery and hashing: hashing
+        # ghost.py raises OSError. This used to abort the WHOLE run from outside the guard.
+        if path.name == "ghost.py":
+            raise OSError("No such file or directory")
+        return real_sha256(path)
+
+    monkeypatch.setattr(project_module, "file_sha256", flaky_sha256)
+
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+
+    # The good file still produced its flow; the unreadable one is recorded as skipped.
+    assert any(flow.name == "handler" for flow in result.model.flows)
+    skipped = {relative for relative, _ in result.skipped_files}
+    assert "ghost.py" in skipped
+    assert all(reason for _, reason in result.skipped_files)
 
 
 @pytest.mark.parametrize(

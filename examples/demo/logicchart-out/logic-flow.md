@@ -151,7 +151,7 @@ flowchart TD
   mflow_361a56fe0ff06af0_n6 --> mflow_361a56fe0ff06af0_n7
 ```
 
-### Notifier.queue_for_review
+### Notifier.queue\_for\_review
 
 `method` · `ruby` · `generic` · [`backend/notifications/notifier.rb:31`](../backend/notifications/notifier.rb#L31)
 
@@ -164,7 +164,7 @@ flowchart TD
   mflow_132416d127f7fc0d_n2 --> mflow_132416d127f7fc0d_n3
 ```
 
-### Notifier.send_email
+### Notifier.send\_email
 
 `method` · `ruby` · `generic` · [`backend/notifications/notifier.rb:19`](../backend/notifications/notifier.rb#L19)
 
@@ -177,7 +177,7 @@ flowchart TD
   mflow_a6f2cf6897eab6f4_n2 --> mflow_a6f2cf6897eab6f4_n3
 ```
 
-### Notifier.send_push
+### Notifier.send\_push
 
 `method` · `ruby` · `generic` · [`backend/notifications/notifier.rb:27`](../backend/notifications/notifier.rb#L27)
 
@@ -190,7 +190,7 @@ flowchart TD
   mflow_c093a998648019e9_n2 --> mflow_c093a998648019e9_n3
 ```
 
-### Notifier.send_sms
+### Notifier.send\_sms
 
 `method` · `ruby` · `generic` · [`backend/notifications/notifier.rb:23`](../backend/notifications/notifier.rb#L23)
 
@@ -245,7 +245,7 @@ flowchart TD
   mflow_7def16576d7663e7_n2 -->|"default"| mflow_7def16576d7663e7_n8
 ```
 
-### get_user
+### get\_user
 
 `route` · `python` · `fastapi` · [`backend/users.py:23`](../backend/users.py#L23)
 
@@ -266,7 +266,7 @@ flowchart TD
   mflow_9006888be936bd6a_n5 -->|"No"| mflow_9006888be936bd6a_n7
 ```
 
-### load_user
+### load\_user
 
 `function` · `python` · `generic` · [`backend/users.py:32`](../backend/users.py#L32)
 
@@ -303,7 +303,7 @@ flowchart TD
   mflow_081d78e37a773634_n6 --> mflow_081d78e37a773634_n7
 ```
 
-### evict_index
+### evict\_index
 
 `function` · `c` · `generic` · [`edge/cache.c:10`](../edge/cache.c#L10)
 

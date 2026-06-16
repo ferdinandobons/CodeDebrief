@@ -5,6 +5,7 @@ from __future__ import annotations
 from logicchart.model import (
     Evidence,
     Finding,
+    Flow,
     ProjectModel,
     Severity,
     SourceLocation,
@@ -12,7 +13,7 @@ from logicchart.model import (
 from logicchart.render.markdown import render_markdown
 
 
-def _finding(kind: str, evidence: Evidence, message: str) -> Finding:
+def _finding(kind: str, evidence: Evidence, message: str, path: str = "app.py") -> Finding:
     return Finding(
         id=f"id-{kind}-{evidence.value}",
         kind=kind,
@@ -20,7 +21,7 @@ def _finding(kind: str, evidence: Evidence, message: str) -> Finding:
         message=message,
         evidence=evidence,
         flow_id="f",
-        location=SourceLocation("app.py", 3, 3),
+        location=SourceLocation(path, 3, 3),
     )
 
 
@@ -64,3 +65,57 @@ def test_include_gaps_expands_the_review_section() -> None:
 def test_evidence_level_is_rendered_inline() -> None:
     out = render_markdown(_model([_finding("dead_code", Evidence.INFERRED, "x")]))
     assert "INFERRED" in out
+
+
+def test_source_path_with_metacharacters_cannot_break_the_reference() -> None:
+    # A source-derived file path with a backtick, a `)`, and angle brackets must not be
+    # able to close the inline code span or the link destination.
+    evil_path = "a`b)c<d>e.py"
+    out = render_markdown(_model([_finding("dead_code", Evidence.INFERRED, "msg", evil_path)]))
+    reference = next(line for line in out.splitlines() if "e.py:3" in line)
+    # The raw backtick never reaches the visible code span (swapped for a quote), so the
+    # span cannot be closed early and the rest interpreted as live Markdown.
+    assert "`a`b)" not in reference
+    assert "a'b)c" in reference  # the backtick became a quote inside the code span
+    # The link destination is percent-encoded, so a `)`, `<`, or `>` cannot terminate the
+    # link early or smuggle markup into the (../...) target.
+    assert "](../a`b)c" not in reference
+    assert "%29" in reference  # the `)` survived as %29 inside the destination
+    assert "%3C" in reference and "%3E" in reference  # `<` / `>` encoded in the target
+    assert "](../a%60b%29c%3Cd%3Ee.py#L3)" in reference
+
+
+def test_flow_name_with_metacharacters_is_escaped_in_the_heading() -> None:
+    flow = Flow(
+        id="f1",
+        name="weird`name](http://evil)<b>",
+        symbol="m:weird",
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=True,
+        location=SourceLocation("ok.py", 1, 1),
+    )
+    model = ProjectModel(
+        schema_version="1.1", generated_at="x", root=".", flows=[flow], findings=[]
+    )
+    out = render_markdown(model)
+    heading = next(line for line in out.splitlines() if line.startswith("### "))
+    # The flow-name heading cannot smuggle a live link or raw HTML: every metacharacter
+    # is backslash-escaped so it renders as literal text, not a link/emphasis/markup.
+    assert "](http://evil)" not in heading
+    assert "<b>" not in heading
+    assert r"\]\(http://evil\)" in heading
+
+
+def test_generated_at_and_root_cannot_break_the_header() -> None:
+    flow_model = ProjectModel(
+        schema_version="1.1",
+        generated_at="x`echo pwned`",
+        root="..`whoami`",
+        flows=[],
+        findings=[],
+    )
+    out = render_markdown(flow_model)
+    # The backtick in generated_at/root is neutralized inside its code span.
+    assert "`x`echo pwned`" not in out

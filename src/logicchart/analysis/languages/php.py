@@ -36,8 +36,13 @@ def _classify(
 
 
 def _is_test(relative: str, name: str) -> bool:
-    lowered = relative.lower()
-    return "/test" in lowered or lowered.endswith("test.php") or name.startswith("test")
+    # PHPUnit convention: a *Test.php class under a `test`/`tests` segment. Drop the old
+    # `*test.php` substring match (it caught legitimate files like `latest.php` /
+    # `request.php`) and the bare `test`-prefixed method name (a real method otherwise).
+    segments = relative.split("/")
+    return any(segment.lower() in {"test", "tests"} for segment in segments[:-1]) or segments[
+        -1
+    ].endswith("Test.php")
 
 
 def _call_name(call: Any, source: bytes) -> str:

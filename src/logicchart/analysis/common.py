@@ -160,15 +160,12 @@ MATCH = "match"
 SWITCH = "switch"
 DISPATCH_OPERATORS = frozenset({MATCH, SWITCH})
 
-# Canonical comparison operators stored in a decision node's `operator`.
-OP_EQ = "=="
+# Negative comparison operators stored in a decision node's `operator`. A negative
+# comparison (status != X / status not in {...} / x is not Y) is a guard that allows the
+# rest, not a positive value-dispatch over those members.
 OP_NE = "!="
-OP_IS = "is"
 OP_IS_NOT = "is not"
-OP_IN = "in"
 OP_NOT_IN = "not in"
-# A negative comparison (status != X / status not in {...}) is a guard that allows
-# the rest, not a positive value-dispatch over those members.
 NEGATIVE_OPERATORS = frozenset({OP_NE, OP_NOT_IN, OP_IS_NOT})
 
 DOMAIN_TERMS = ("status", "state", "role", "type", "kind", "mode", "permission")

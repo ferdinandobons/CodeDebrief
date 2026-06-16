@@ -76,8 +76,19 @@ class ProjectAnalyzer:
 
         for path in files:
             relative = relpath(path, self.root)
-            digest = file_sha256(path)
             cache_file = self.cache_dir / f"{stable_id(relative, length=24)}.json"
+            # Hashing reads the file from disk, so a file deleted or locked mid-run raises
+            # OSError. Keep the digest inside the guarded unit: one vanishing file must
+            # degrade to a skipped record, never abort the whole run.
+            digest, reason = self._safe_digest(path)
+            if reason is not None:
+                skipped_files.append((relative, reason))
+                analysis = self._degraded_file(path, relative, digest)
+                write_json(cache_file, analysis.to_dict())
+                changed_files.append(relative)
+                analyses.append(analysis)
+                new_index[relative] = {"sha256": digest, "cache": cache_file.name}
+                continue
             cached = previous_index.get(relative)
             reused = (
                 not full
@@ -127,6 +138,19 @@ class ProjectAnalyzer:
             self._analyzers[language] = analyzer
         return analyzer
 
+    def _safe_digest(self, path: Path) -> tuple[str, str | None]:
+        """Hash one file, degrading to a sentinel digest instead of aborting the run.
+
+        A file deleted or locked between discovery and hashing raises OSError here; that
+        single file must skip, not crash the whole analysis. The sentinel (path-derived,
+        prefixed so it can never collide with a real sha256) keeps the cache index well
+        formed and forces a re-hash on the next run once the file is readable again.
+        """
+        try:
+            return file_sha256(path), None
+        except OSError as error:
+            return f"unreadable:{stable_id(str(path), length=24)}", _skip_reason(error)
+
     def _safe_analyze_file(
         self, path: Path, relative: str, digest: str
     ) -> tuple[FileAnalysis, str | None]:
@@ -156,16 +180,22 @@ class ProjectAnalyzer:
     def _load_index(self) -> dict[str, dict[str, str]]:
         if not self.index_path.exists():
             return {}
-        data = read_json(self.index_path)
-        if data.get("cache_version") != CACHE_VERSION:
+        try:
+            data = read_json(self.index_path)
+            if data.get("cache_version") != CACHE_VERSION:
+                return {}
+            generated_at = data.get("generated_at")
+            self.previous_generated_at = str(generated_at) if generated_at else None
+            file_data = data.get("files", {})
+            return {
+                str(path): {"sha256": str(item["sha256"]), "cache": str(item["cache"])}
+                for path, item in file_data.items()
+            }
+        except (ValueError, KeyError, TypeError, OSError):
+            # A corrupt or unreadable index is never fatal - discard it and force a clean
+            # full re-analyze, exactly as a corrupt per-file cache entry already does.
+            self.previous_generated_at = None
             return {}
-        generated_at = data.get("generated_at")
-        self.previous_generated_at = str(generated_at) if generated_at else None
-        file_data = data.get("files", {})
-        return {
-            str(path): {"sha256": str(item["sha256"]), "cache": str(item["cache"])}
-            for path, item in file_data.items()
-        }
 
     def _combine(self, analyses: list[FileAnalysis]) -> ProjectModel:
         flows = [flow for analysis in analyses for flow in analysis.flows]

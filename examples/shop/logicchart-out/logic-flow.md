@@ -66,7 +66,7 @@ flowchart LR
 
 ## Entry Point Flows
 
-### delete_user
+### delete\_user
 
 `function` · `python` · `generic` · [`backend/api/admin_routes.py:7`](../backend/api/admin_routes.py#L7)
 
@@ -83,7 +83,7 @@ flowchart TD
   mflow_1c6b6f96cffc422d_n4 --> mflow_1c6b6f96cffc422d_n5
 ```
 
-### purge_user
+### purge\_user
 
 `function` · `python` · `generic` · [`backend/api/admin_routes.py:13`](../backend/api/admin_routes.py#L13)
 
@@ -139,7 +139,7 @@ flowchart TD
   mflow_5a5d9103f9740b43_n5 --> mflow_5a5d9103f9740b43_n6
 ```
 
-### quick_order
+### quick\_order
 
 `function` · `python` · `generic` · [`backend/api/orders_routes.py:28`](../backend/api/orders_routes.py#L28)
 
@@ -154,7 +154,7 @@ flowchart TD
   mflow_9744434307d21144_n3 --> mflow_9744434307d21144_n4
 ```
 
-### request_refund
+### request\_refund
 
 `function` · `python` · `generic` · [`backend/api/orders_routes.py:13`](../backend/api/orders_routes.py#L13)
 
@@ -173,7 +173,7 @@ flowchart TD
   mflow_663a7ab889d99781_n5 --> mflow_663a7ab889d99781_n6
 ```
 
-### change_email
+### change\_email
 
 `function` · `python` · `generic` · [`backend/api/users_routes.py:13`](../backend/api/users_routes.py#L13)
 
@@ -199,7 +199,7 @@ flowchart TD
 **Review points:**
 - `account.status == AccountStatus.SUSPENDED`: Declared AccountStatus members not handled for account.status: AccountStatus.ACTIVE, AccountStatus.PENDING\_VERIFICATION
 
-### get_profile
+### get\_profile
 
 `function` · `python` · `generic` · [`backend/api/users_routes.py:22`](../backend/api/users_routes.py#L22)
 
@@ -216,7 +216,7 @@ flowchart TD
   mflow_379ecad6e175d201_n3 -->|"No"| mflow_379ecad6e175d201_n5
 ```
 
-### reset_password
+### reset\_password
 
 `function` · `python` · `generic` · [`backend/api/users_routes.py:6`](../backend/api/users_routes.py#L6)
 
@@ -235,7 +235,7 @@ flowchart TD
   mflow_0c047baf201f45c7_n5 --> mflow_0c047baf201f45c7_n6
 ```
 
-### ensure_authenticated
+### ensure\_authenticated
 
 `function` · `python` · `generic` · [`backend/auth.py:12`](../backend/auth.py#L12)
 
@@ -252,7 +252,7 @@ flowchart TD
   mflow_43f51fb107229278_n3 -->|"No"| mflow_43f51fb107229278_n5
 ```
 
-### require_role
+### require\_role
 
 `function` · `python` · `generic` · [`backend/auth.py:6`](../backend/auth.py#L6)
 
@@ -324,7 +324,7 @@ flowchart TD
 **Review points:**
 - `Match order.status`: Declared OrderStatus members not handled for order.status: OrderStatus.CANCELLED, OrderStatus.DELIVERED, OrderStatus.REFUNDED
 
-### capture_payment
+### capture\_payment
 
 `function` · `python` · `generic` · [`backend/payments_service.py:39`](../backend/payments_service.py#L39)
 
@@ -374,7 +374,7 @@ flowchart TD
 - `Operation succeeds?`: Exception handler 'Exception' swallows the error
 - `ENABLE_DOUBLE_CHARGE_GUARD`: Guard on the constant ENABLE\_DOUBLE\_CHARGE\_GUARD is always False
 
-### handle_result
+### handle\_result
 
 `event_handler` · `python` · `generic` · [`backend/payments_service.py:9`](../backend/payments_service.py#L9)
 
@@ -402,7 +402,7 @@ flowchart TD
 **Review points:**
 - `result == PaymentResult.APPROVED`: Declared PaymentResult members not handled for result: PaymentResult.FRAUD\_REVIEW
 
-### refund_payment
+### refund\_payment
 
 `function` · `python` · `generic` · [`backend/payments_service.py:30`](../backend/payments_service.py#L30)
 
@@ -456,7 +456,7 @@ flowchart TD
   mflow_1f9ab406cb373b90_n10 -->|"No"| mflow_1f9ab406cb373b90_n12
 ```
 
-### load_profile
+### load\_profile
 
 `function` · `python` · `generic` · [`backend/users_service.py:26`](../backend/users_service.py#L26)
 

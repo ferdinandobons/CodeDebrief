@@ -52,7 +52,9 @@ class PythonAnalyzer:
         self.config = config
 
     def analyze(self, path: Path) -> FileAnalysis:
-        source = path.read_text(encoding="utf-8")
+        # utf-8-sig transparently strips a leading BOM (a valid file an editor saved as
+        # UTF-8-with-BOM), so it parses instead of choking on a stray ﻿ token.
+        source = path.read_text(encoding="utf-8-sig")
         relative = relpath(path, self.root)
         tree = ast.parse(source, filename=relative)
         module_name = _module_name(relative)

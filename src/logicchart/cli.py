@@ -116,13 +116,17 @@ def main(argv: Sequence[str] | None = None) -> int:
 
             run_mcp(Path(args.path))
             return 0
-    except (FileNotFoundError, RuntimeError, ValueError, SyntaxError) as error:
+    except (OSError, RuntimeError, ValueError, SyntaxError) as error:
+        # OSError subsumes FileNotFoundError/PermissionError, so a missing path or a
+        # permission-denied write surfaces as a clean message instead of a raw traceback.
         print(f"error: {error}", file=sys.stderr)
         return 1
     return 0
 
 
 def _analyze(root: Path, *, full: bool, include_html: bool, include_gaps: bool = False) -> int:
+    if not root.exists():
+        raise FileNotFoundError(f"path does not exist: {root}")
     root = root.resolve()
     result = ProjectAnalyzer(root).analyze(full=full)
     json_path, markdown_path, html_path = write_artifacts(

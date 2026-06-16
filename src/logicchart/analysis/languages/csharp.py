@@ -50,7 +50,14 @@ def _classify(
 
 
 def _is_test(relative: str, name: str) -> bool:
-    return "test" in relative.lower() or name.startswith("Test")
+    # Anchor to path SEGMENTS and the C# *Test.cs / *Tests.cs class-file convention, not a
+    # substring of the whole path or a bare `Test`-prefixed method name (`TestRunner`,
+    # `TestData`...) - those are real methods. The file suffix is matched case-sensitively
+    # so `Latest.cs` (a real class) does not look like a test.
+    segments = relative.split("/")
+    return any(segment.lower() in {"test", "tests"} for segment in segments[:-1]) or segments[
+        -1
+    ].endswith(("Test.cs", "Tests.cs"))
 
 
 def _switch_cases(switch_node: Any, source: bytes, profile: LanguageProfile) -> list[CaseInfo]:

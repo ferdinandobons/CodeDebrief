@@ -30,12 +30,12 @@ def _classify(
 
 
 def _is_test(relative: str, name: str) -> bool:
-    lowered = relative.lower()
-    return (
-        "/spec/" in lowered
-        or "/test/" in lowered
-        or lowered.endswith(("_spec.rb", "_test.rb"))
-        or name.startswith("test")
+    # RSpec/minitest convention: a `spec`/`test` directory segment or a *_spec.rb /
+    # *_test.rb file. Anchor to path SEGMENTS so `contest/` won't match, and drop the
+    # bare `test`-prefixed method name (`test_helper` is a real method in `lib/`).
+    segments = relative.lower().split("/")
+    return any(segment in {"spec", "test"} for segment in segments[:-1]) or segments[-1].endswith(
+        ("_spec.rb", "_test.rb")
     )
 
 
