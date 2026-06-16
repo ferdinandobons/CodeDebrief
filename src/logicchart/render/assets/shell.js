@@ -17,6 +17,10 @@
     LC.model = model;
     LC.flows = flows;
     LC.byId = byId;
+    // Ownership seam: which renderer owns the SVG right now. "canvas" (L0/L1, owned by
+    // canvas.js) or "flow" (L2 decision chart, owned by renderFlow here). EVERY entry
+    // into the SVG sets this so the two renderers never write behind each other's back.
+    LC.mode = "canvas";
 
     const svg = document.getElementById("canvas");
     const detailsEl = document.getElementById("details");
@@ -47,15 +51,18 @@
       const flow = byId.get(flowId);
       if (!flow) return;
       activeFlow = flow;
-      location.hash = encodeURIComponent(flow.id);
+      location.hash = "flow=" + encodeURIComponent(flow.id);
       document.getElementById("flowTitle").textContent = flow.name;
       document.getElementById("flowKind").textContent =
         `${flow.entry_kind} · ${flow.language} · ${flow.framework}`;
+      LC.mode = "flow"; // this is the single dispatch into the L2 renderer.
       renderFlow(flow);
       inspectFlow(flow);
       leftRail.classList.remove("open");
       // Let other inlined scripts (e.g. tree.js) reflect the active flow.
       if (window.LC.onFlowSelected) window.LC.onFlowSelected(flow);
+      // Let canvas.js refresh the breadcrumb (gains the flow crumb).
+      if (window.LC.onCanvasFlow) window.LC.onCanvasFlow(flow);
     }
 
     function layoutFlow(flow) {
@@ -116,6 +123,9 @@
 
     function renderFlow(flow) {
       svg.replaceChildren();
+      // The L2 decision chart is canvas level 2; keep the level attribute correct so a
+      // reader (or test) can tell which level is on screen (L0 scopes / L1 flows / L2).
+      svg.setAttribute("data-level", "2");
       if (!flow.nodes.length) {
         document.getElementById("emptyState").style.display = "grid";
         return;
@@ -135,10 +145,10 @@
       const defs = svgEl("defs");
       defs.innerHTML = `
         <filter id="nodeShadow" x="-30%" y="-30%" width="160%" height="180%">
-          <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#1e2e4e" flood-opacity=".10"/>
+          <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000" flood-opacity=".10"/>
         </filter>
         <filter id="nodeLift" x="-45%" y="-45%" width="190%" height="210%">
-          <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#1e2e4e" flood-opacity=".24"/>
+          <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#000" flood-opacity=".22"/>
         </filter>
         <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path class="arrow" d="M0,0 L8,4 L0,8 z"></path>
@@ -415,9 +425,15 @@
     document.getElementById("zoomIn").addEventListener("click", () => zoom(.82));
     document.getElementById("zoomOut").addEventListener("click", () => zoom(1.22));
     document.getElementById("resetView").addEventListener("click", () => {
-      if (!activeFlow) return;
-      manualPositions.delete(activeFlow.id);  // discard hand-placed positions, re-layout
-      renderFlow(activeFlow);
+      // Mode-aware: flow mode re-lays out the active flow; canvas mode drops the
+      // current view's drag overrides and re-fits via canvas.js.
+      if (LC.mode === "flow") {
+        if (!activeFlow) return;
+        manualPositions.delete(activeFlow.id);  // discard hand-placed positions, re-layout
+        renderFlow(activeFlow);
+      } else if (LC.resetCanvas) {
+        LC.resetCanvas();
+      }
     });
     document.getElementById("menuButton").addEventListener("click", () => leftRail.classList.toggle("open"));
 
@@ -461,6 +477,46 @@
     LC.selectFlow = selectFlow;
     LC.activeFlowId = () => activeFlow?.id || null;
 
-    const requested = decodeURIComponent(location.hash.slice(1));
-    const initial = byId.get(requested) || flows.find(item => item.is_entrypoint) || flows[0];
-    if (initial) selectFlow(initial.id);
+    // Viewport primitives canvas.js reuses WITHOUT redefining. The pan/zoom/wheel
+    // handlers above mutate this shared `view` object and call updateViewBox, so they
+    // work for BOTH renderers untouched (generic over `view`).
+    LC.renderFlow = renderFlow;
+    LC.svg = svg;
+    LC.setView = v => { view = v; updateViewBox(); };
+    LC.updateViewBox = updateViewBox;
+    LC.getView = () => view;
+
+    // Single hash router. Parsed once on load and on every hashchange; dispatches to
+    // the right owner so a deep link / refresh / back-button restores the level.
+    //   #flow=<id>   -> selectFlow (mode flow, L2)
+    //   #scope=<name> (name in model.scopes) -> canvas L1 for that scope
+    //   bare #<id> with byId.has(decoded) -> treated as #flow=<id> (back-compat)
+    //   empty / unrecognized -> canvas L0
+    function routeFromHash() {
+      const raw = location.hash.slice(1);
+      const eq = raw.indexOf("=");
+      const scopes = model.scopes || {};
+      if (eq !== -1) {
+        const key = raw.slice(0, eq);
+        const value = decodeURIComponent(raw.slice(eq + 1));
+        if (key === "flow" && byId.has(value)) { selectFlow(value); return; }
+        if (key === "scope" && Object.prototype.hasOwnProperty.call(scopes, value)) {
+          if (LC.showScope) LC.showScope(value);
+          return;
+        }
+      } else if (raw) {
+        const decoded = decodeURIComponent(raw);
+        if (byId.has(decoded)) { selectFlow(decoded); return; }
+      }
+      if (LC.showL0) LC.showL0();
+    }
+    LC.routeFromHash = routeFromHash;
+
+    // Boot: defer the first route until canvas.js has registered showL0/showScope.
+    // canvas.js is the very next <script>, so a microtask is enough; guard anyway.
+    function boot() {
+      if (!LC.showL0) { setTimeout(boot, 0); return; }
+      routeFromHash();
+      window.addEventListener("hashchange", routeFromHash);
+    }
+    boot();

@@ -426,7 +426,13 @@
     .node.error .shape { fill: var(--fill-error); stroke: var(--coral); }
     .node.has-finding .shape { stroke: var(--coral); stroke-width: 3; }
     .node:hover .shape, .node:focus-visible .shape { filter: url(#nodeLift); stroke-width: 2.6; }
+    /* Keyboard focus must be distinct from hover (which only lifts the shadow). A
+       theme-aware outline ring on the node shape reads correctly in light and dark. */
     .node:focus-visible { outline: none; }
+    .node:focus-visible .shape {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
     .node.dragging .shape { filter: url(#nodeLift); }
     .node.selected .shape { stroke-width: 3.4; filter: url(#nodeLift); }
     .node.dimmed { opacity: .26; }
@@ -460,6 +466,126 @@
     }
     .edge-label.dimmed { opacity: .18; }
     .decision-spine { stroke: var(--cyan); opacity: .16; stroke-width: 5; stroke-dasharray: 3 10; }
+
+    /* --- Codebase canvas (L0 scopes / L1 files+flows) ------------------------- */
+    .breadcrumb {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      max-width: calc(100% - 220px);
+      flex-wrap: wrap;
+    }
+    .crumb {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--tool);
+      color: var(--muted);
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 650;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 18px rgba(24, 40, 76, .12);
+      transition: border-color .15s ease, color .15s ease;
+    }
+    .crumb:hover { border-color: var(--blue); color: var(--ink); }
+    /* Keyboard focus must be distinct from hover: a theme-aware ring, correct in both
+       themes, instead of folding focus into the hover border. */
+    .crumb:focus-visible {
+      color: var(--ink);
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+    .crumb.current { color: var(--ink); border-color: var(--line-strong); cursor: default; }
+    .crumb-sep { color: var(--muted); font-size: 11px; }
+    /* Scope super-node (L0, and residual at L1). */
+    .scope-node { cursor: pointer; }
+    .scope-node .shape {
+      fill: var(--fill-call);
+      stroke: var(--violet);
+      stroke-width: 2;
+      filter: url(#nodeShadow);
+      transition: filter .14s ease, stroke-width .14s ease, opacity .18s ease;
+    }
+    .scope-node:hover .shape, .scope-node:focus-visible .shape { filter: url(#nodeLift); stroke-width: 2.8; }
+    /* Distinct keyboard focus (not just the hover lift): a theme-aware outline ring. */
+    .scope-node:focus-visible { outline: none; }
+    .scope-node:focus-visible .shape {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+    .scope-node.dimmed .shape { fill: var(--panel-2); stroke: var(--line-strong); opacity: .7; }
+    .scope-node.dimmed { opacity: .8; }
+    .scope-node .scope-name {
+      fill: var(--ink);
+      font-size: 15px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    .scope-node .scope-meta {
+      fill: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    /* File cluster box (L1). Collapsed by default it is an expandable header chip;
+       expanding materializes its flow nodes. The whole box is a keyboard toggle. */
+    .file-box { cursor: pointer; }
+    .file-frame {
+      fill: var(--panel-2);
+      stroke: var(--line);
+      stroke-width: 1.5;
+      opacity: .9;
+      transition: stroke .14s ease;
+    }
+    .file-box:hover .file-frame { stroke: var(--blue); }
+    .file-box.expanded .file-frame { stroke: var(--line-strong); }
+    /* Distinct theme-aware keyboard focus ring on the chip frame. */
+    .file-box:focus-visible { outline: none; }
+    .file-box:focus-visible .file-frame {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+      stroke: var(--blue);
+    }
+    .file-caret {
+      fill: none;
+      stroke: var(--muted);
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform .12s ease;
+      transform-box: fill-box;
+      transform-origin: center;
+      pointer-events: none;
+    }
+    .file-box.expanded .file-caret { transform: rotate(90deg); }
+    .file-label {
+      fill: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    .file-count {
+      fill: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    /* Flow node (L1). Reuses .node base; entry/action fills below. Canvas nodes open a
+       flow on click -- they are NOT drag-to-arrange (that is out of scope for Phase 2),
+       so the cursor is a pointer, overriding the L2-only .node{cursor:grab}. */
+    .flow-node { cursor: pointer; }
+    .flow-node.entry .shape { fill: var(--fill-entry); stroke: var(--blue); }
+    .flow-node.action .shape { fill: var(--node-fill); stroke: var(--blue); }
     @media (max-width: 1050px) {
       .shell { grid-template-columns: 262px minmax(0,1fr); }
       .right-rail {

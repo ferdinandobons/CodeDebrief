@@ -11,8 +11,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.model import ProjectModel
-from logicchart.render.payload import build_payload
+from logicchart.model import (
+    Flow,
+    ProjectModel,
+    SourceLocation,
+)
+from logicchart.render.payload import build_payload, build_scope_edges, build_scope_index
 
 
 def _analyze(tmp_path: Path) -> ProjectModel:
@@ -107,9 +111,16 @@ def test_payload_has_directory_tree_and_scopes(tmp_path: Path) -> None:
     assert handler.id in scopes["backend"]
     render = next(f for f in model.flows if f.name == "render")
     assert render.id in scopes["frontend"]
-    # The scope index covers exactly the flow ids in the model.
+    # Test flows are excluded from the scope index with the same predicate the tree,
+    # language, and scope-edge builders use, so L0/L1 agree with the tree's non-test
+    # universe. The `tests/` directory held only test flows, so no `tests` scope
+    # surfaces (it would otherwise be a super-node the tree hides), and the test
+    # flow's id appears under no scope at all.
+    assert "tests" not in scopes
+    assert test_flow.id not in {fid for ids in scopes.values() for fid in ids}
+    # The scope index covers exactly the non-test flow ids in the model.
     indexed = {fid for ids in scopes.values() for fid in ids}
-    assert indexed == {f.id for f in model.flows}
+    assert indexed == {f.id for f in model.flows if not f.metadata.get("test")}
 
     # --- languages ----------------------------------------------------------
     # Distinct non-test flow languages, sorted. The polyglot fixture has python
@@ -118,3 +129,85 @@ def test_payload_has_directory_tree_and_scopes(tmp_path: Path) -> None:
     assert languages == sorted(set(languages))
     assert "python" in languages
     assert "typescript" in languages
+
+    # --- scope_edges --------------------------------------------------------
+    # Present in the payload (the canvas L0 draws aggregated cross-scope calls).
+    assert "scope_edges" in payload
+    assert isinstance(payload["scope_edges"], list)
+
+
+def _flow(flow_id: str, *, scope: list[str], path: str, calls: list[str]) -> Flow:
+    """A minimal Flow carrying just the fields ``build_scope_edges`` reads."""
+    return Flow(
+        id=flow_id,
+        name=flow_id,
+        symbol=flow_id,
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=False,
+        location=SourceLocation(path=path, start_line=1, end_line=2),
+        calls=list(calls),
+        metadata={"scope": list(scope)},
+    )
+
+
+def test_build_scope_edges_counts_cross_scope_calls() -> None:
+    # Two flows in two scopes, one calling the other -> a single from!=to edge.
+    flows = [
+        _flow("a", scope=["backend"], path="backend/a.py", calls=["b"]),
+        _flow("b", scope=["frontend"], path="frontend/b.py", calls=[]),
+    ]
+    scope_index = build_scope_index(flows)
+    edges = build_scope_edges(flows, scope_index)
+    assert edges == [{"from": "backend", "to": "frontend", "count": 1}]
+
+
+def test_build_scope_edges_excludes_self_scope_and_unresolved() -> None:
+    # An intra-scope call and a call to an unknown id are both dropped at L0.
+    flows = [
+        _flow("a", scope=["backend"], path="backend/a.py", calls=["b", "ghost"]),
+        _flow("b", scope=["backend"], path="backend/b.py", calls=[]),
+    ]
+    scope_index = build_scope_index(flows)
+    assert build_scope_edges(flows, scope_index) == []
+
+
+def test_build_scope_edges_attributes_multi_scope_membership() -> None:
+    # A flow listed under two scopes attributes its cross-scope calls to each
+    # membership (the documented double-count convention).
+    flows = [
+        _flow("a", scope=["backend", "shared"], path="backend/a.py", calls=["b"]),
+        _flow("b", scope=["frontend"], path="frontend/b.py", calls=[]),
+    ]
+    scope_index = build_scope_index(flows)
+    edges = build_scope_edges(flows, scope_index)
+    pairs = {(e["from"], e["to"]): e["count"] for e in edges}
+    assert pairs == {("backend", "frontend"): 1, ("shared", "frontend"): 1}
+
+
+def test_build_scope_edges_excludes_test_flows() -> None:
+    # Test flows are excluded from the L0 aggregate, like the tree/language indexes.
+    caller = _flow("a", scope=["backend"], path="backend/a.py", calls=["b"])
+    caller.metadata["test"] = True
+    flows = [
+        caller,
+        _flow("b", scope=["frontend"], path="frontend/b.py", calls=[]),
+    ]
+    scope_index = build_scope_index(flows)
+    assert build_scope_edges(flows, scope_index) == []
+
+
+def test_build_scope_index_excludes_test_flows() -> None:
+    # A test flow must not contribute its scope membership to the index, so the L0
+    # scope counts and L1 nodes agree with the directory tree (which hides test
+    # flows). A scope that would contain only test flows is dropped entirely.
+    prod = _flow("a", scope=["backend"], path="backend/a.py", calls=[])
+    test_only = _flow("t", scope=["tests"], path="tests/test_a.py", calls=[])
+    test_only.metadata["test"] = True
+    index = build_scope_index([prod, test_only])
+    # The test flow's scope membership is absent from the index entirely.
+    assert "tests" not in index
+    assert "t" not in {fid for ids in index.values() for fid in ids}
+    # The surviving non-test flow is still indexed under its scope.
+    assert index == {"backend": ["a"]}

@@ -17,10 +17,12 @@ def render_html(model: ProjectModel, source_root: Path | None = None) -> str:
     )
     css = _asset("styles.css")
     js = _asset("shell.js")
+    canvas_js = _asset("canvas.js")
     tree_js = _asset("tree.js")
     return (
         _HTML_TEMPLATE.replace("__STYLES__", css)
         .replace("__SHELL_JS__", js)
+        .replace("__CANVAS_JS__", canvas_js)
         .replace("__TREE_JS__", tree_js)
         .replace("__LOGICCHART_DATA__", payload)
     )
@@ -76,13 +78,14 @@ _HTML_TEMPLATE = r"""<!doctype html>
     </aside>
 
     <main>
+      <nav id="breadcrumb" class="breadcrumb" aria-label="Canvas level"></nav>
       <div class="canvas-toolbar" aria-label="Canvas controls">
         <button class="tool" id="menuButton" title="Toggle flow list">&#9776;</button>
         <button class="tool" id="zoomOut" title="Zoom out">&minus;</button>
         <button class="tool" id="resetView" title="Reset view &amp; layout">0</button>
         <button class="tool" id="zoomIn" title="Zoom in">+</button>
       </div>
-      <svg id="canvas" role="img" aria-label="Decision flowchart"></svg>
+      <svg id="canvas" role="img" aria-label="Codebase canvas" data-level="0"></svg>
       <div class="empty" id="emptyState"><p>No matching flow was found.</p></div>
     </main>
 
@@ -100,6 +103,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
 
   <script id="logicchart-data" type="application/json">__LOGICCHART_DATA__</script>
   <script>__SHELL_JS__</script>
+  <script>__CANVAS_JS__</script>
   <script>__TREE_JS__</script>
 </body>
 </html>

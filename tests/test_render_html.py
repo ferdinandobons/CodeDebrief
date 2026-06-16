@@ -75,5 +75,33 @@ def test_render_html_emits_directory_tree(tmp_path: Path) -> None:
 
 def test_render_html_has_no_leftover_placeholders(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
-    for placeholder in ("__STYLES__", "__SHELL_JS__", "__TREE_JS__", "__LOGICCHART_DATA__"):
+    for placeholder in (
+        "__STYLES__",
+        "__SHELL_JS__",
+        "__CANVAS_JS__",
+        "__TREE_JS__",
+        "__LOGICCHART_DATA__",
+    ):
         assert placeholder not in html
+
+
+def test_render_html_emits_codebase_canvas(tmp_path: Path) -> None:
+    html = render_html(_model(tmp_path), tmp_path)
+    # The canvas carries a level attribute (L0 by default); the Phase-2 smoke test
+    # asserts the level seam exists so the two-level canvas cannot silently regress.
+    assert "data-level" in html
+    # The breadcrumb container the canvas level path renders into is wired up.
+    assert 'id="breadcrumb"' in html
+    # canvas.js is actually inlined: a structural marker unique to it (the renderL0
+    # entry) plus the data-scope attribute literal it stamps on every super-node.
+    assert "renderL0" in html
+    assert "data-scope" in html
+    # The payload carries the aggregated cross-scope edge list the L0 view draws.
+    match = re.search(
+        r'<script id="logicchart-data" type="application/json">(.*?)</script>',
+        html,
+        re.DOTALL,
+    )
+    assert match is not None
+    payload = json.loads(match.group(1).replace("<\\/", "</"))
+    assert isinstance(payload["scope_edges"], list)

@@ -11,8 +11,10 @@ def build_payload(model: ProjectModel, source_root: Path | None = None) -> dict[
     if source_root is not None:
         data["root"] = str(source_root)
     data["tree"] = build_tree(model.files, model.flows)
-    data["scopes"] = build_scope_index(model.flows)
+    scopes = build_scope_index(model.flows)
+    data["scopes"] = scopes
     data["languages"] = build_language_index(model.flows)
+    data["scope_edges"] = build_scope_edges(model.flows, scopes)
     return data
 
 
@@ -74,15 +76,67 @@ def build_scope_index(flows: list[Flow]) -> dict[str, list[str]]:
     Uses ``flow.metadata["scope"]`` (a list) when present; otherwise infers the
     scope as the top-level directory segment of ``flow.location.path`` (so it works
     with no ``[logicchart.scopes]`` declared). Never hard-codes scope names.
+
+    Test flows are excluded with the same predicate ``build_tree`` /
+    ``build_language_index`` / ``build_scope_edges`` use, so L0 scope counts and the
+    L1 nodes agree with the directory tree's non-test universe. A scope that would
+    contain only test flows (e.g. an inferred ``tests`` scope) is dropped entirely,
+    rather than surfacing a super-node the tree hides.
     """
     index: dict[str, list[str]] = {}
     for flow in flows:
+        if _is_test_flow(flow):
+            continue
         scopes = flow.metadata.get("scope")
         if not scopes:
             scopes = [_top_level_segment(flow.location.path)]
         for scope in scopes:
             index.setdefault(scope, []).append(flow.id)
     return index
+
+
+def build_scope_edges(flows: list[Flow], scope_index: dict[str, list[str]]) -> list[dict[str, Any]]:
+    """Aggregate cross-scope calls into ``[{from, to, count}]`` edges.
+
+    For each non-test flow ``f`` and each resolved call target ``t`` (a flow id in the
+    model), attribute the call to *every* (srcScope, dstScope) pair drawn from ``f``'s
+    and ``t``'s scope memberships. A flow may belong to several scopes
+    (``metadata["scope"]`` is a list), so its cross-scope calls are double-counted under
+    each membership -- the documented convention that matches ``build_scope_index``,
+    which already places a flow under every listed scope. Same-scope pairs (and calls
+    to unresolved/external ids not in the model) are dropped: L0 shows only cross-scope
+    structure. The ``canvas.js`` ``deriveScopeEdges`` fallback mirrors this exactly so
+    the viewer is robust even if this field is ever absent.
+    """
+    by_id = {flow.id: flow for flow in flows}
+    # flow id -> its scope memberships, recomputed the same way build_scope_index does.
+    flow_scopes: dict[str, list[str]] = {}
+    for scope, ids in scope_index.items():
+        for flow_id in ids:
+            flow_scopes.setdefault(flow_id, []).append(scope)
+
+    counts: dict[tuple[str, str], int] = {}
+    for flow in flows:
+        if _is_test_flow(flow):
+            continue
+        src_scopes = flow_scopes.get(flow.id, [])
+        if not src_scopes:
+            continue
+        for target in flow.calls:
+            target_flow = by_id.get(target)
+            # Mirror renderFlow's `if (!start || !end) return;` -- skip unresolved or
+            # external call targets, and never count a call into a test flow.
+            if target_flow is None or _is_test_flow(target_flow):
+                continue
+            dst_scopes = flow_scopes.get(target, [])
+            for src in src_scopes:
+                for dst in dst_scopes:
+                    if src != dst:
+                        counts[(src, dst)] = counts.get((src, dst), 0) + 1
+
+    return [
+        {"from": src, "to": dst, "count": count} for (src, dst), count in sorted(counts.items())
+    ]
 
 
 def _top_level_segment(path: str) -> str:
