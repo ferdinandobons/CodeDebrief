@@ -22,8 +22,44 @@
     // into the SVG sets this so the two renderers never write behind each other's back.
     LC.mode = "canvas";
 
+    // --- Shared selection store (Phase 4) ---------------------------------------
+    // ONE selection model, ONE accent color. Every surface -- a canvas decision block,
+    // a source line, a tree file/flow row, a logical-error row -- both PUBLISHES into
+    // this store (via LC.select) and SUBSCRIBES to it (via LC.onSelection) so selecting
+    // any one highlights the others. The store holds only ids; each surface maps ids to
+    // its own DOM. shell.js drives the canvas highlight (its existing job); panels.js
+    // renders the source + errors panels and the tree reflects the active file/flow.
+    const selection = { path: null, flowId: null, nodeId: null, findingId: null, scope: null };
+    const selectionSubscribers = [];
+    // Re-entrancy guard: a subscriber that calls back into select() (e.g. a finding row
+    // resolving its flow) must not recurse the notify loop; coalesce to one pass.
+    let notifyingSelection = false;
+    LC.selection = selection;
+    LC.onSelection = function (fn) {
+      if (typeof fn === "function") selectionSubscribers.push(fn);
+    };
+    // Merge a partial selection and notify every surface. Passing a key as `undefined`
+    // leaves it untouched; pass `null` to explicitly clear it. Always carries the full
+    // resolved selection object to subscribers.
+    LC.select = function (partial) {
+      partial = partial || {};
+      ["path", "flowId", "nodeId", "findingId", "scope"].forEach(key => {
+        if (Object.prototype.hasOwnProperty.call(partial, key) && partial[key] !== undefined) {
+          selection[key] = partial[key];
+        }
+      });
+      if (notifyingSelection) return;
+      notifyingSelection = true;
+      try {
+        selectionSubscribers.forEach(fn => {
+          try { fn(selection); } catch (_) {}
+        });
+      } finally {
+        notifyingSelection = false;
+      }
+    };
+
     const svg = document.getElementById("canvas");
-    const detailsEl = document.getElementById("details");
     const rightRail = document.getElementById("rightRail");
     const leftRail = document.getElementById("leftRail");
     const themeToggleBtn = document.getElementById("themeToggle");
@@ -395,63 +431,23 @@
       return rect;
     }
 
+    // Inspecting a flow: clear the per-node canvas highlight (no single node is active)
+    // and publish the flow selection so the Source + Logical-errors panels (panels.js)
+    // and the tree reflect it. The right column is now Source/Errors (panels.js owns the
+    // DOM); shell.js keeps only its canvas-highlight responsibility plus publishing the
+    // shared selection. nodeId is cleared so the source panel shows the whole flow snippet.
     function inspectFlow(flow) {
       clearHighlight();
-      detailsEl.replaceChildren();
-      const badge = element("span", "detail-kind", flow.is_entrypoint ? "Entry point" : "Subflow");
-      const title = element("h3", "", flow.name);
-      const description = element("p", "", `${flow.symbol} · ${flow.nodes.length} nodes · ${flow.edges.length} paths`);
-      detailsEl.append(badge, title, description, sourceLink(flow.location));
-      const related = findings.filter(item => item.flow_id === flow.id);
-      if (related.length) {
-        detailsEl.append(element("div", "section-label", "Review points"));
-        related.forEach(item => detailsEl.append(findingCard(item)));
-      }
-      if (flow.tests?.length) {
-        detailsEl.append(element("div", "section-label", "Referenced by tests"));
-        flow.tests.forEach(test => detailsEl.append(element("p", "", test)));
-      }
+      LC.select({ flowId: flow.id, path: flow.location.path, nodeId: null, findingId: null });
     }
 
+    // Inspecting a decision/call node: publish the node selection. The block highlight is
+    // applied by the single shared-selection subscriber below (one accent path, not
+    // duplicated here); the source panel highlights the node's source line(s) and the
+    // errors panel lists the node's findings, both via the same store.
     function inspectNode(flow, node) {
       rightRail.classList.add("open");
-      highlightNode(node.id);
-      detailsEl.replaceChildren();
-      detailsEl.append(
-        element("span", "detail-kind", `${node.kind} · ${node.evidence}`),
-        element("h3", "", node.label)
-      );
-      if (node.detail) detailsEl.append(element("p", "", node.detail));
-      detailsEl.append(sourceLink(node.location));
-      const nodeFindings = findingsByNode.get(node.id) || [];
-      if (nodeFindings.length) {
-        detailsEl.append(element("div", "section-label", "Review points"));
-        nodeFindings.forEach(item => detailsEl.append(findingCard(item)));
-      }
-      if (node.metadata?.target_flow && byId.has(node.metadata.target_flow)) {
-        const target = byId.get(node.metadata.target_flow);
-        const link = element("button", "subflow-link", `Open subflow → ${target.name}`);
-        link.addEventListener("click", () => selectFlow(target.id));
-        detailsEl.append(element("div", "section-label", "Internal call"), link);
-      }
-      if (node.metadata?.condition) {
-        detailsEl.append(element("div", "section-label", "Decision evidence"));
-        detailsEl.append(element("p", "", node.metadata.condition));
-      }
-    }
-
-    function findingCard(item) {
-      const card = element("div", `finding ${item.severity}`, item.message);
-      if (item.detail) card.title = item.detail;
-      return card;
-    }
-
-    function sourceLink(location) {
-      const link = element("a", "source-link", `${location.path}:${location.start_line}`);
-      const absolute = `${model.root}/${location.path}`.replaceAll("//", "/");
-      link.href = `vscode://file/${absolute}:${location.start_line}`;
-      link.title = "Open source in VS Code";
-      return link;
+      LC.select({ flowId: flow.id, nodeId: node.id, path: node.location.path, findingId: null });
     }
 
     function element(tag, className, text) {
@@ -562,6 +558,24 @@
     LC.flowDefs = flowDefs;
     LC.setCurrentRender = setCurrentRender;
     LC.inspectFlow = inspectFlow;
+    LC.inspectNode = inspectNode;
+    // Highlight surface panels.js reuses (one accent path, never duplicated): when a
+    // finding/source row resolves to a node, light up that node on the active decision
+    // graph exactly as a direct block click would, without rebuilding the inspector.
+    LC.highlightNode = highlightNode;
+    LC.clearHighlight = clearHighlight;
+    // Findings the panels read: the flat list (filtered by flow at L2, by scope/subtree at
+    // L0/L1) and the per-node index (a node's own findings). Exposed so panels.js does not
+    // re-derive the same maps and drift from shell.js.
+    LC.findings = findings;
+    LC.findingsByNode = findingsByNode;
+    // Resolve a node object by (flowId, nodeId) so a finding/source-line click can recover
+    // the FlowNode without panels.js re-walking the model.
+    LC.nodeById = (flowId, nodeId) => {
+      const flow = byId.get(flowId);
+      if (!flow || !nodeId) return null;
+      return flow.nodes.find(n => n.id === nodeId) || null;
+    };
     // Half-extents of a drawn decision node, so measureFlow (which only knows node
     // CENTERS) can inflate its bounds to the box the rendered nodes actually occupy.
     // Decision diamonds are 290 wide / 116 tall (points at +-145, +-58); the 290x86
@@ -595,6 +609,22 @@
     // Drop a flow's hand-placed decision-node positions, so the canvas reset (0) restores
     // the automatic layout of an inline-expanded sub-graph just like it does full screen.
     LC.clearFlowPositions = id => { manualPositions.delete(id); };
+
+    // Reconcile the CANVAS block highlight from the shared selection. A node selected on
+    // ANY surface (a source line, a finding row) lights up its block here, on whatever
+    // decision graph is currently drawn -- the same single highlight path a direct block
+    // click uses. Guarded by currentRender: when no decision graph is on screen (L0, or a
+    // flow whose decisions are not expanded) there is no block to light, and that is fine
+    // (the source/tree/finding highlights still apply via panels.js / tree.js). This keeps
+    // ONE accent path for the block instead of duplicating highlightNode in panels.js.
+    LC.onSelection(sel => {
+      if (!currentRender) return;
+      if (sel.nodeId && currentRender.nodeGroups.has(sel.nodeId)) {
+        highlightNode(sel.nodeId);
+      } else if (!sel.nodeId) {
+        clearHighlight();
+      }
+    });
 
     // Single hash router. Parsed once on load and on every hashchange; dispatches to
     // the right owner so a deep link / refresh / back-button restores the level.

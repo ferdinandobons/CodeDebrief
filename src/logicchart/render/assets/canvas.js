@@ -1012,6 +1012,12 @@
         if (!Object.prototype.hasOwnProperty.call(scopeFlows, name)) return;
         setScope(name);
         location.hash = "scope=" + encodeURIComponent(name);
+        // Publish the scope so the logical-errors panel scopes to this L1 subtree's
+        // findings. Clear any prior flow/node so the panels reflect the level, not a
+        // stale selection from a deeper view.
+        if (LC.select) {
+          LC.select({ scope: name, flowId: null, nodeId: null, findingId: null, path: null });
+        }
         renderCanvas();
       }
 
@@ -1021,6 +1027,11 @@
         canvasState.expandedFiles.clear();
         clearInlineFlow();
         location.hash = "";
+        // Back at L0 (the whole codebase): clear the selection so the panels show the
+        // codebase-wide findings list and the source hint.
+        if (LC.select) {
+          LC.select({ scope: null, flowId: null, nodeId: null, findingId: null, path: null });
+        }
         renderCanvas();
       }
 
@@ -1210,6 +1221,9 @@
         canvasState.expandedScope = null;
         canvasState.expandedFiles.clear();
         clearInlineFlow();
+        if (LC.select) {
+          LC.select({ scope: null, flowId: null, nodeId: null, findingId: null, path: null });
+        }
         renderCanvas();
       };
       LC.showScope = function (name) {
@@ -1218,6 +1232,9 @@
           return;
         }
         setScope(name);
+        if (LC.select) {
+          LC.select({ scope: name, flowId: null, nodeId: null, findingId: null, path: null });
+        }
         renderCanvas();
       };
       // Inline-L2 entry shell.js's selectFlow delegates to (tree click, #flow= deep link).
@@ -1252,11 +1269,15 @@
       };
 
       // Esc collapses the deepest open level: an inline flow first (back to plain L1),
-      // else an expanded scope (back to L0). Ignored while typing in a form control.
+      // else an expanded scope (back to L0). Ignored while typing in a form control. When
+      // the in-page full-screen FALLBACK is active, panels.js OWNS the Esc (it exits the
+      // fallback), so defer here -- otherwise one keypress both exits full screen AND
+      // collapses a level. The real Fullscreen API path is handled by the browser, not here.
       document.addEventListener("keydown", event => {
         if (event.key !== "Escape") return;
         const target = event.target;
         if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || "")) return;
+        if (LC.fullscreenFallbackActive && LC.fullscreenFallbackActive()) return;
         if (canvasState.expandedFlow) {
           collapseInlineFlow(true);
         } else if (canvasState.level === 1) {

@@ -80,6 +80,7 @@ def test_render_html_has_no_leftover_placeholders(tmp_path: Path) -> None:
         "__SHELL_JS__",
         "__CANVAS_JS__",
         "__TREE_JS__",
+        "__PANELS_JS__",
         "__LOGICCHART_DATA__",
     ):
         assert placeholder not in html
@@ -119,3 +120,44 @@ def test_render_html_wires_inline_decision_expansion(tmp_path: Path) -> None:
     assert "drawFlowGraph" in html
     # The reusable measure helper that reserves the inline band (so siblings never overlap).
     assert "measureFlow" in html
+
+
+def test_render_html_emits_source_and_errors_panels(tmp_path: Path) -> None:
+    html = render_html(_model(tmp_path), tmp_path)
+    # Phase 4: the right column splits into a Source panel (top) and a Logical-errors
+    # panel (bottom). Pin both container ids so the split cannot silently regress.
+    assert 'id="source"' in html
+    assert 'id="errors"' in html
+    # panels.js is actually inlined: a structural marker unique to it (the function that
+    # subscribes both panels to the shared selection store).
+    assert "renderSource" in html
+    assert "renderErrors" in html
+    # The full-screen toggle on the canvas toolbar (aria-pressed, data-action hook).
+    assert 'data-action="fullscreen"' in html
+    assert "aria-pressed" in html
+    # The shared selection store the four surfaces publish/subscribe through.
+    assert "LC.select" in html
+
+    # The visually-hidden aria-live region the panels announce selection changes into.
+    assert 'id="panelStatus"' in html
+    assert 'aria-live="polite"' in html
+
+    # The embedded payload carries the shared source-file store, and each flow holds a
+    # lightweight reference into it (not its own copy). We can only assert the payload
+    # here (no DOM), so check the reference + store rode along.
+    match = re.search(
+        r'<script id="logicchart-data" type="application/json">(.*?)</script>',
+        html,
+        re.DOTALL,
+    )
+    assert match is not None
+    payload = json.loads(match.group(1).replace("<\\/", "</"))
+    flow = payload["flows"][0]
+    ref = flow["source"]
+    assert ref is not None
+    assert ref["path"] in payload["source_files"], "flow source must reference the file store"
+    store = payload["source_files"][ref["path"]]
+    assert store["lines"], "expected embedded source lines in the file store"
+    # The code-line class panels.js stamps on each rendered snippet line is present in
+    # the inlined stylesheet/script (the hook the DOM verification asserts at runtime).
+    assert "code-line" in html

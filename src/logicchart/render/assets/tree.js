@@ -378,4 +378,24 @@
         highlightActive(flow.id);
         refreshRovingTarget();
       };
+
+      // Bidirectional highlight: a selection made on ANY surface (a canvas block, a source
+      // line, a finding row) reveals + highlights the owning file/flow row here, in the one
+      // shared accent. Block clicks publish a flowId without going through onFlowSelected,
+      // so subscribe to the store directly. revealPath + highlightActive are the same calls
+      // onFlowSelected uses, so the tree's accent never drifts from the rest of the app.
+      if (LC.onSelection) {
+        LC.onSelection(function (sel) {
+          const flowId = sel.flowId;
+          if (!flowId) return;
+          if (flowId === lastActiveFlowId) return; // already reflected.
+          const flow = byId.get(flowId);
+          if (!flow) return;
+          lastActiveFlowId = flowId;
+          if (activeLang && flow.language !== activeLang) return;
+          revealPath(flow.location.path);
+          highlightActive(flowId);
+          refreshRovingTarget();
+        });
+      }
     })();

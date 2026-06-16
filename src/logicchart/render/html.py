@@ -1,14 +1,26 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from logicchart.model import ProjectModel
 from logicchart.render.payload import build_payload
 
+# A literal ``</script`` anywhere inside an inlined ``<script>`` body terminates the script
+# element early in the HTML parser, corrupting the page (it does not matter that it sits in
+# a JS string or comment). Neutralize ONLY that exact sequence -- ``<\/script`` is identical
+# to ``</script`` inside any JS string/regex/comment, so this is behavior-preserving, and it
+# leaves other ``</...`` markup (e.g. ``</filter>`` inside an innerHTML template) untouched.
+_SCRIPT_CLOSE = re.compile(r"</(script)", re.IGNORECASE)
+
 
 def _asset(name: str) -> str:
     return (Path(__file__).parent / "assets" / name).read_text(encoding="utf-8")
+
+
+def _inline_js(name: str) -> str:
+    return _SCRIPT_CLOSE.sub(r"<\\/\1", _asset(name))
 
 
 def render_html(model: ProjectModel, source_root: Path | None = None) -> str:
@@ -16,14 +28,16 @@ def render_html(model: ProjectModel, source_root: Path | None = None) -> str:
         "</", "<\\/"
     )
     css = _asset("styles.css")
-    js = _asset("shell.js")
-    canvas_js = _asset("canvas.js")
-    tree_js = _asset("tree.js")
+    js = _inline_js("shell.js")
+    canvas_js = _inline_js("canvas.js")
+    tree_js = _inline_js("tree.js")
+    panels_js = _inline_js("panels.js")
     return (
         _HTML_TEMPLATE.replace("__STYLES__", css)
         .replace("__SHELL_JS__", js)
         .replace("__CANVAS_JS__", canvas_js)
         .replace("__TREE_JS__", tree_js)
+        .replace("__PANELS_JS__", panels_js)
         .replace("__LOGICCHART_DATA__", payload)
     )
 
@@ -84,6 +98,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <button class="tool" id="zoomOut" title="Zoom out">&minus;</button>
         <button class="tool" id="resetView" title="Reset view &amp; layout">0</button>
         <button class="tool" id="zoomIn" title="Zoom in">+</button>
+        <button class="tool" id="fullscreenToggle" data-action="fullscreen" title="Full screen (Esc to exit)" aria-label="Toggle full-screen canvas" aria-pressed="false">&#9974;</button>
       </div>
       <svg id="canvas" role="img" aria-label="Codebase canvas" data-level="0"></svg>
       <div class="empty" id="emptyState"><p>No matching flow was found.</p></div>
@@ -91,20 +106,37 @@ _HTML_TEMPLATE = r"""<!doctype html>
 
     <aside class="right-rail" id="rightRail">
       <div class="rail-inner">
-        <div class="rail-head"><h2 class="rail-title">Inspector</h2></div>
-        <div class="detail-scroll" id="details">
-          <p>Select a node to inspect its source, evidence, and related findings.</p>
-          <p>Tip: drag any block to rearrange the diagram by hand. Reset (0) restores the
-          automatic layout.</p>
-        </div>
+        <section class="panel panel-source" id="sourcePanel" aria-label="Source">
+          <div class="panel-head">
+            <h2 class="rail-title">Source</h2>
+            <span class="panel-file" id="sourceFile"></span>
+          </div>
+          <div class="panel-body source-scroll" id="source" role="region" aria-label="Source code">
+            <p class="panel-empty">Select a flow or node to view its source.</p>
+          </div>
+        </section>
+        <section class="panel panel-errors" id="errorsPanel" aria-label="Logical errors">
+          <div class="panel-head">
+            <h2 class="rail-title">Logical errors</h2>
+            <span class="panel-count" id="errorsCount" aria-hidden="true"></span>
+          </div>
+          <div class="panel-body errors-scroll" id="errors" role="list" aria-label="Findings for the current selection">
+            <p class="panel-empty">No findings for the current selection.</p>
+          </div>
+        </section>
       </div>
     </aside>
   </div>
+
+  <!-- Visually-hidden polite live region: panels.js announces the source/findings change
+       on each selection so screen-reader users are notified when the panels re-render. -->
+  <div id="panelStatus" class="sr-only" role="status" aria-live="polite"></div>
 
   <script id="logicchart-data" type="application/json">__LOGICCHART_DATA__</script>
   <script>__SHELL_JS__</script>
   <script>__CANVAS_JS__</script>
   <script>__TREE_JS__</script>
+  <script>__PANELS_JS__</script>
 </body>
 </html>
 """

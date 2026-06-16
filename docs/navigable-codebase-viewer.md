@@ -89,12 +89,18 @@ back up the levels.
 ## Source snippets (the only new data)
 
 To show real code with a highlighted line, `render_html` (which already receives
-`source_root`) embeds a **per-flow source snippet** - the lines spanning each flow, with line
-numbers - into the JSON payload. This:
+`source_root`) embeds the source the panel needs into the JSON payload. Each file's lines are
+embedded **once** in `payload["source_files"][path] = {start_line, lines}` (covering the union
+of the line ranges its flows need), and each flow carries a lightweight reference
+`flow["source"] = {path, start_line, end_line, elided?}` that slices its own window out of
+that single copy. This:
 
 - keeps the viewer self-contained (no fetch, works offline);
-- is bounded (only code that belongs to a flow, not whole trees);
-- is language-agnostic (plain text by line range, works for any of the 10 languages);
+- is **bounded two ways**: a per-flow cap of `MAX_SNIPPET_LINES` (200) keeps only the head
+  lines of a very long function and marks the tail `elided` (the panel shows an "N more lines"
+  marker), and the file-level store embeds each file's lines once instead of re-embedding them
+  per flow, so a file with many flows is not duplicated;
+- is language-agnostic (plain text by line range, works for any supported language);
 - changes only the **render payload**, not the model schema or the analyzer.
 
 A node's `location` (path + line range) maps a clicked block to the exact line(s) to

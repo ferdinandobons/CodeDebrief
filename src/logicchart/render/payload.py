@@ -15,7 +15,121 @@ def build_payload(model: ProjectModel, source_root: Path | None = None) -> dict[
     data["scopes"] = scopes
     data["languages"] = build_language_index(model.flows)
     data["scope_edges"] = build_scope_edges(model.flows, scopes)
+    # Embed the actual source lines the viewer's source panel needs to show real code
+    # offline. Each file's lines are embedded ONCE in ``data["source_files"]`` and each
+    # flow gets a lightweight reference into it (the only new data; mutates ``data``).
+    data["source_files"] = attach_source_snippets(data["flows"], source_root)
     return data
+
+
+# Per-flow cap on embedded source. A flow over a huge function (e.g. a 1000-line handler)
+# must not embed every line: keep at most this many HEAD lines and mark the tail elided, so
+# the page stays small and the panel can show an "N more lines" marker. Bounds the payload
+# regardless of function size while keeping the head (where the entry/decisions live) intact.
+MAX_SNIPPET_LINES = 200
+
+
+def attach_source_snippets(
+    flows: list[dict[str, Any]], source_root: Path | None
+) -> dict[str, dict[str, Any]]:
+    """Attach a lightweight source reference to each flow and return the shared file store.
+
+    For every flow, ``flow["source"]`` becomes either ``None`` (no source available) or a
+    reference ``{"path", "start_line", "end_line", "elided"?}`` into the returned
+    ``source_files`` map. ``source_files[path] = {"start_line": int, "lines": [str, ...]}``
+    embeds, ONCE per file, the union of the (capped) line ranges every non-test flow needs
+    in that file -- so a file with many flows is embedded a single time, not once per flow.
+
+    Bounding (two layers, both general over function/file size):
+
+    * **Per-flow cap.** A flow spanning more than :data:`MAX_SNIPPET_LINES` lines keeps only
+      its first ``MAX_SNIPPET_LINES`` lines; its reference carries ``"elided": True`` and the
+      ``end_line`` is the original (uncapped) end so the panel can show how many lines were
+      dropped. The file store only ever embeds the capped (head) range.
+    * **File-level de-dup.** Each file's lines are read and stored once, covering the union
+      of the capped ranges its flows need -- never the same lines twice, never whole trees.
+
+    Self-contained (no fetch), language-agnostic (line slices work for any supported
+    language), and deliberately tolerant so it stays general for any codebase: a flow whose
+    file is missing, outside ``source_root``, binary, or otherwise unreadable gets
+    ``flow["source"] = None`` and never raises. Each file is read at most once.
+
+    ``flows`` is the JSON-serializable dict form (post ``model.to_dict()``); the reference is
+    added to each dict so it rides along in the embedded payload.
+    """
+    if source_root is None:
+        for flow in flows:
+            flow["source"] = None
+        return {}
+
+    root = source_root
+    # path -> list[str] of the file's lines (newline-stripped), or None when unreadable.
+    file_cache: dict[str, list[str] | None] = {}
+
+    def lines_for(path: str) -> list[str] | None:
+        if path in file_cache:
+            return file_cache[path]
+        result: list[str] | None
+        try:
+            # Resolve under the source root and guard against path escapes (a flow whose
+            # location.path is absolute or climbs out of the tree gets no snippet).
+            target = (root / path).resolve()
+            root_resolved = root.resolve()
+            if root_resolved != target and root_resolved not in target.parents:
+                result = None
+            else:
+                result = target.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError, ValueError):
+            result = None
+        file_cache[path] = result
+        return result
+
+    # First pass: resolve each flow's (clamped, capped) reference and remember the line
+    # range each file must cover. ``needed[path]`` = (min start, max end) over its flows'
+    # clamped+capped ranges, so the file is embedded once across the union.
+    needed: dict[str, tuple[int, int]] = {}
+    for flow in flows:
+        location = flow.get("location") or {}
+        path = location.get("path")
+        start = location.get("start_line")
+        end = location.get("end_line")
+        if not path or not isinstance(start, int) or not isinstance(end, int):
+            flow["source"] = None
+            continue
+        file_lines = lines_for(path)
+        if file_lines is None:
+            flow["source"] = None
+            continue
+        # Lines are 1-based and inclusive; clamp to the file so an out-of-range end never
+        # over-reads and a degenerate range still yields whatever overlaps the file.
+        lo = max(1, start)
+        hi = min(len(file_lines), end)
+        if hi < lo:
+            flow["source"] = None
+            continue
+        # Per-flow cap: keep at most MAX_SNIPPET_LINES head lines; mark the rest elided.
+        capped_hi = min(hi, lo + MAX_SNIPPET_LINES - 1)
+        elided = capped_hi < hi
+        ref: dict[str, Any] = {"path": path, "start_line": lo, "end_line": hi}
+        if elided:
+            ref["elided"] = True
+        flow["source"] = ref
+        # The file store only needs the capped (embedded) range for each flow.
+        prev = needed.get(path)
+        if prev is None:
+            needed[path] = (lo, capped_hi)
+        else:
+            needed[path] = (min(prev[0], lo), max(prev[1], capped_hi))
+
+    # Second pass: embed each file once, covering the union of the capped ranges. The flow
+    # references slice their own (capped) window out of this on the client.
+    source_files: dict[str, dict[str, Any]] = {}
+    for path, (lo, hi) in needed.items():
+        file_lines = lines_for(path)
+        if file_lines is None:
+            continue
+        source_files[path] = {"start_line": lo, "lines": file_lines[lo - 1 : hi]}
+    return source_files
 
 
 def _is_test_flow(flow: Flow) -> bool:

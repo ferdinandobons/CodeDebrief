@@ -16,7 +16,12 @@ from logicchart.model import (
     ProjectModel,
     SourceLocation,
 )
-from logicchart.render.payload import build_payload, build_scope_edges, build_scope_index
+from logicchart.render.payload import (
+    attach_source_snippets,
+    build_payload,
+    build_scope_edges,
+    build_scope_index,
+)
 
 
 def _analyze(tmp_path: Path) -> ProjectModel:
@@ -196,6 +201,105 @@ def test_build_scope_edges_excludes_test_flows() -> None:
     ]
     scope_index = build_scope_index(flows)
     assert build_scope_edges(flows, scope_index) == []
+
+
+def _resolve_flow_lines(payload: dict, flow: dict) -> list[str]:
+    """Resolve a flow's embedded source the way the viewer does: slice its window out of
+    the shared ``source_files`` store (the file is embedded once, the flow holds a ref)."""
+    ref = flow["source"]
+    file = payload["source_files"][ref["path"]]
+    offset = ref["start_line"] - file["start_line"]
+    return file["lines"][offset : offset + (ref["end_line"] - ref["start_line"] + 1)]
+
+
+def test_payload_embeds_source_via_file_store(tmp_path: Path) -> None:
+    # A flow carries a lightweight reference into the shared source_files store, not its
+    # own copy of the lines; resolving the reference yields exactly the flow's line range.
+    (tmp_path / "a.py").write_text(
+        "def f(x):\n    if x:\n        return 1\n    return 0\n",
+        encoding="utf-8",
+    )
+    model = _analyze(tmp_path)
+    payload = build_payload(model, tmp_path)
+    flow = payload["flows"][0]
+    ref = flow["source"]
+    assert ref["path"] == flow["location"]["path"]
+    # The clamped start (lo=max(1,start)) is stored, so gutter line numbers are correct.
+    assert ref["start_line"] == max(1, flow["location"]["start_line"])
+    lines = _resolve_flow_lines(payload, flow)
+    expected = ref["end_line"] - ref["start_line"] + 1
+    assert len(lines) == expected
+    assert any("if x" in line for line in lines)
+    # Lines are stored verbatim (no trailing newline kept, plain text).
+    assert all("\n" not in line for line in lines)
+
+
+def test_attach_source_snippets_tolerates_missing_file(tmp_path: Path) -> None:
+    # A flow whose file is absent under source_root gets source=None, never crashes,
+    # while a sibling flow with a real file still gets its reference + embedded lines.
+    (tmp_path / "real.py").write_text("def g():\n    return 1\n", encoding="utf-8")
+    flow_dicts: list[dict] = [
+        {"location": {"path": "real.py", "start_line": 1, "end_line": 2}},
+        {"location": {"path": "ghost.py", "start_line": 1, "end_line": 3}},
+    ]
+    source_files = attach_source_snippets(flow_dicts, tmp_path)
+    assert flow_dicts[0]["source"] == {"path": "real.py", "start_line": 1, "end_line": 2}
+    assert source_files["real.py"] == {"start_line": 1, "lines": ["def g():", "    return 1"]}
+    assert flow_dicts[1]["source"] is None
+    assert "ghost.py" not in source_files
+
+
+def test_attach_source_snippets_tolerates_binary_file(tmp_path: Path) -> None:
+    # A binary/undecodable file yields source=None, not a crash.
+    (tmp_path / "blob.py").write_bytes(b"\x00\x01\x02\xff\xfe\n")
+    flow_dicts: list[dict] = [
+        {"location": {"path": "blob.py", "start_line": 1, "end_line": 1}},
+    ]
+    source_files = attach_source_snippets(flow_dicts, tmp_path)
+    assert flow_dicts[0]["source"] is None
+    assert source_files == {}
+
+
+def test_attach_source_snippets_caps_long_flow(tmp_path: Path) -> None:
+    # A flow over a function longer than MAX_SNIPPET_LINES embeds only the head lines and
+    # marks the tail elided -- the embedded span is bounded regardless of function size.
+    from logicchart.render.payload import MAX_SNIPPET_LINES
+
+    total = MAX_SNIPPET_LINES + 120
+    big = "def f():\n" + "".join(f"    x{i} = {i}\n" for i in range(total))
+    (tmp_path / "big.py").write_text(big, encoding="utf-8")
+    flow_dicts: list[dict] = [
+        {"location": {"path": "big.py", "start_line": 1, "end_line": total + 1}},
+    ]
+    source_files = attach_source_snippets(flow_dicts, tmp_path)
+    ref = flow_dicts[0]["source"]
+    assert ref["elided"] is True
+    # The reference keeps the full (uncapped) end so the panel can show "N more lines".
+    assert ref["end_line"] == total + 1
+    # The file store only embeds the capped head window, never the whole function.
+    assert len(source_files["big.py"]["lines"]) == MAX_SNIPPET_LINES
+
+
+def test_attach_source_snippets_dedupes_file_across_flows(tmp_path: Path) -> None:
+    # Two flows in the same file embed that file's lines ONCE (a single source_files entry
+    # covering the union of their ranges), not once per flow.
+    (tmp_path / "two.py").write_text(
+        "def a():\n    return 1\n\n\ndef b():\n    return 2\n",
+        encoding="utf-8",
+    )
+    flow_dicts: list[dict] = [
+        {"location": {"path": "two.py", "start_line": 1, "end_line": 2}},
+        {"location": {"path": "two.py", "start_line": 5, "end_line": 6}},
+    ]
+    source_files = attach_source_snippets(flow_dicts, tmp_path)
+    # One file entry shared by both flows; both references point at the same path.
+    assert list(source_files.keys()) == ["two.py"]
+    assert flow_dicts[0]["source"]["path"] == "two.py"
+    assert flow_dicts[1]["source"]["path"] == "two.py"
+    # The union range covers line 1 through line 6 (no gap dropped, no duplication).
+    entry = source_files["two.py"]
+    assert entry["start_line"] == 1
+    assert len(entry["lines"]) == 6
 
 
 def test_build_scope_index_excludes_test_flows() -> None:
