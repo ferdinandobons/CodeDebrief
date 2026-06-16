@@ -6,6 +6,8 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.6.0 - 2026-06-16
+
 ### Added
 
 - Added C++ control-flow support for `.cc`, `.cpp`, `.cxx`, `.hh`, `.hpp`, `.hxx`, `.ipp`,
