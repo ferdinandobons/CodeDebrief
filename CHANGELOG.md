@@ -6,6 +6,20 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.5.0 - 2026-06-16
+
+### Added
+
+- Added `logicchart doctor` to check the active installation, parser grammar imports, and
+  repair command for stale editable installs.
+
+### Fixed
+
+- Fixed analysis robustness when a lazy language grammar is missing from the active Python
+  environment: affected files are now reported as skipped instead of aborting the whole run.
+- Fixed `logicchart --version` so it follows installed package metadata instead of a stale
+  duplicated constant.
+
 ## 0.4.1 - 2026-06-16
 
 ### Fixed

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -92,3 +93,11 @@ def test_cli_install_can_write_mcp_config(
 
     assert main(["install", str(tmp_path), "--platform", "codex", "--mcp-config", "codex"]) == 0
     assert "already up to date" in capsys.readouterr().out
+
+
+def test_cli_doctor_reports_active_install(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["doctor", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["package_version"] != "not installed"
+    assert payload["missing_dependencies"] == []

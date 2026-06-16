@@ -13,6 +13,7 @@ from logicchart import __version__
 from logicchart.analysis import ProjectAnalyzer
 from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import BUILTIN_PROFILES, LogicChartConfig
+from logicchart.doctor import doctor_report, render_doctor, render_doctor_json
 from logicchart.install import install_all
 from logicchart.query import (
     git_changed_files,
@@ -109,6 +110,10 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--json", action="store_true", dest="json_output")
     _add_profile_argument(validate)
 
+    doctor = subparsers.add_parser("doctor", help="Check the active LogicChart installation.")
+    doctor.add_argument("path", nargs="?", default=".")
+    doctor.add_argument("--json", action="store_true", dest="json_output")
+
     mcp = subparsers.add_parser("mcp", help="Start the LogicChart MCP server over stdio.")
     mcp.add_argument("path", nargs="?", default=".")
     _add_profile_argument(mcp)
@@ -173,6 +178,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _init(Path(args.path))
         if args.command == "validate":
             return _validate(Path(args.path), args.check_sync, args.json_output, args.profile)
+        if args.command == "doctor":
+            return _doctor(Path(args.path), args.json_output)
         if args.command == "mcp":
             from logicchart.mcp_server import run_mcp
 
@@ -354,6 +361,12 @@ def _install(root: Path, platform: str, mcp_config: str = "none") -> int:
     for path in changed:
         print(f"Updated {path}")
     return 0
+
+
+def _doctor(root: Path, json_output: bool) -> int:
+    report = doctor_report(root)
+    print(render_doctor_json(report) if json_output else render_doctor(report))
+    return 0 if report.ok else 1
 
 
 def _init(root: Path) -> int:

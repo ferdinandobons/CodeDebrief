@@ -130,6 +130,31 @@ def test_a_file_that_vanishes_mid_run_does_not_abort(
     assert all(reason for _, reason in result.skipped_files)
 
 
+def test_missing_lazy_language_dependency_does_not_abort(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write(tmp_path / "good.py", "def handler(x):\n    return x\n")
+    _write(tmp_path / "legacy.cs", "class Legacy { void Handle() {} }\n")
+
+    import logicchart.analysis.project as project_module
+
+    real_spec_for_language = project_module.spec_for_language
+
+    def flaky_spec_for_language(language: str):
+        if language == "csharp":
+            raise ModuleNotFoundError("No module named 'tree_sitter_c_sharp'")
+        return real_spec_for_language(language)
+
+    monkeypatch.setattr(project_module, "spec_for_language", flaky_spec_for_language)
+
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+
+    assert any(flow.name == "handler" for flow in result.model.flows)
+    assert result.skipped_files == [("legacy.cs", "No module named 'tree_sitter_c_sharp'")]
+    recorded = {record.path for record in result.model.files}
+    assert {"good.py", "legacy.cs"} <= recorded
+
+
 @pytest.mark.parametrize(
     "payload",
     [

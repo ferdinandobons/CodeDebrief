@@ -21,7 +21,7 @@ coding agents alike. Every finding is tagged by confidence (`VERIFIED`, `INFERRE
 > **Status:** early alpha. The logical model is versioned, but its schema may still evolve
 > before 1.0.
 >
-> **Latest release:** [v0.4.1](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.4.1) ·
+> **Latest release:** [v0.5.0](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.5.0) ·
 > [Changelog](CHANGELOG.md)
 
 ## See it in 30 seconds
@@ -197,6 +197,16 @@ logicchart validate --check-sync
 
 Validates `logic-flow.json` against the bundled schema and the current analyzer registry.
 `--check-sync` re-analyzes sources and fails if the committed model is stale.
+
+### `doctor`: check the active install
+
+```bash
+logicchart doctor
+```
+
+Checks that the `logicchart` command you are running can import every runtime parser
+dependency. This catches stale editable installs after dependency changes and prints the
+repair command for the active Python interpreter.
 
 ### `init` / `install` / `mcp`
 

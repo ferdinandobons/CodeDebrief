@@ -37,10 +37,11 @@ from logicchart.util import (
 
 CACHE_VERSION = "2"
 
-# One bad file (mid-edit syntax error, non-UTF-8 bytes, a merge-conflict marker)
-# must never abort the whole run - the tool's promise is to stay in sync on every
-# commit. These are the errors the analyzers raise while ingesting one file.
-_INGEST_ERRORS = (SyntaxError, UnicodeDecodeError, ValueError, OSError)
+# One bad file (mid-edit syntax error, non-UTF-8 bytes, a merge-conflict marker,
+# or a missing lazy language grammar in the current Python environment) must never
+# abort the whole run - the tool's promise is to stay in sync on every commit.
+# These are the errors the analyzers raise while ingesting one file.
+_INGEST_ERRORS = (SyntaxError, UnicodeDecodeError, ValueError, OSError, ImportError)
 
 
 @dataclass(slots=True)
