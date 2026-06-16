@@ -1,52 +1,61 @@
 # LogicChart
 
-**Map the decisions in your Python and TypeScript code as navigable flowcharts - deterministically, with no API key.**
+**Map the decisions across your whole codebase as navigable flowcharts - in 11 languages, deterministically, with no API key.**
 
-LogicChart reads a source folder and, for each entry point, extracts the control flow it can
-verify from syntax: the `if` / `switch` / `match` branches, the exception paths, what each
-branch does (return early, raise, redirect, persist data), and the internal calls that link
-one flow to the next. It does **not** run your code or attempt full symbolic execution - it
-reasons about structure. The result is a committed, versioned model plus reviewable
-flowcharts and an interactive viewer, so change impact is easy to reason about - for humans
-and for coding agents.
+LogicChart reads a source tree - one service or an entire polyglot monorepo - and, for each
+entry point, extracts the control flow it can verify from syntax: the `if` / `switch` /
+`match` branches, the exception paths, what each branch does (return early, raise, redirect,
+persist data), and the internal calls that link one flow to the next. For Terraform it maps
+the resource dependency graph instead. It does **not** run your code or attempt full symbolic
+execution - it reasons about structure. The result is a committed, versioned model plus
+reviewable flowcharts and an interactive viewer, so change impact is easy to reason about -
+for humans and for coding agents.
+
+It represents **a single function, a macro-part (all of `backend/`, `frontend/`, `infra/`),
+or the whole codebase** from one model, so you can zoom from one decision out to the entire
+system and back.
 
 Every finding is labeled by **how it was derived** - `VERIFIED`, `INFERRED`, or
 `POTENTIAL_GAP` - so the report never blurs a fact with a guess. (Optional LLM integrations
 may enrich labels in the future, but they are never required to build the verified graph.)
 
-> **Status:** early alpha (v0.2.0). The logical model is versioned, but its schema may still
-> evolve before 1.0.
+> **Status:** early alpha. The logical model is versioned, but its schema may still evolve
+> before 1.0.
 
 ## See it in 30 seconds
 
-This Next.js route handler switches on `user.status` but forgets a case:
+This Next.js route handler switches on `user.status` but forgets a case the `UserStatus`
+enum declares:
 
 ```ts
-switch (user.status) {
+switch (user.status) {            // user.status: UserStatus { ACTIVE, SUSPENDED, DELETED }
   case UserStatus.ACTIVE:    return Response.json(user);
   case UserStatus.SUSPENDED: return new Response("Blocked", { status: 403 });
-  // no default - DELETED (and any future status) silently falls through
+  // no default - and DELETED is never handled
 }
 ```
 
-`logicchart analyze` writes this line to the committed report, and labels how sure it is:
+`logicchart analyze` writes this line to the committed report, names the exact missing
+member, and labels how it knows:
 
 ```text
-- **WARNING · POTENTIAL_GAP · missing_branch** Decision has no explicit fallback: switch user.status
+- **WARNING · INFERRED · enum_exhaustiveness** Declared UserStatus members not handled for user.status: UserStatus.DELETED
 ```
 
-`POTENTIAL_GAP` means "a review candidate, not a confirmed bug." Run it yourself on
-[`examples/demo`](examples/demo).
+`INFERRED` means a deterministic heuristic over the declared enum, not a guess. That is the
+**only** finding across the bundled demo's 11-language, 4-scope codebase - the model stays
+precise as it scales. Run it yourself on [`examples/demo`](examples/demo).
 
 ## Why LogicChart
 
 Your IDE answers "where is this symbol?" LogicChart is built for the questions that come up
-in review and refactoring:
+in review and refactoring, at any scope from one function to the whole repo:
 
 - **Catch missing cases** before code review - a `switch` / `match` / `if`-chain with no fallback.
 - **Check state handling is consistent** across sibling flows - a status one route handles
-  but another silently drops.
+  but another silently drops - even across files and languages.
 - **See change impact** - which entry points are reachable from the service you're about to edit.
+- **Reason about a whole codebase or one macro-part** - backend, frontend, or Terraform infra - from a single model.
 - **Give coding agents a deterministic control-flow map** they can query instead of re-reading files.
 
 ## Install
@@ -100,7 +109,8 @@ run against the bundled [`examples/demo`](examples/demo).
 logicchart analyze examples/demo --full
 ```
 ```text
-Analyzed 4 files: 6 flows, 1 review findings.
+Analyzed 17 files: 38 flows, 1 finding.
+Incremental cache: 0 hits, 17 changed, 0 deleted.
 Wrote .../logic-flow.json
 Wrote .../logic-flow.md
 Wrote .../logic-flow.html
@@ -122,11 +132,15 @@ JSON and Markdown. Commit those two files after a substantial change.
 logicchart query "where is suspended user status handled?" --path examples/demo
 ```
 ```text
-1. POST [route] frontend/app/api/users/route.ts:1  score=21 · `user` matches the flow identity ...
+1. POST [route] frontend/app/api/users/route.ts:4  score=25 · `user` matches the flow identity ...
 2. get_user [route] backend/users.py:23            score=16 · `suspended` appears in a decision ...
 ```
 Ranks the flows most relevant to a behavior, state, or decision. Add `--json` for
-machine-readable output.
+machine-readable output, or `--scope backend` to restrict the search to one macro-part:
+
+```bash
+logicchart query "order status" --path examples/demo --scope backend
+```
 
 ### `impact` - what does a change touch?
 
@@ -137,12 +151,15 @@ logicchart impact backend/users.py --path examples/demo
 Changed files: 1
 Directly impacted flows: 3
 Transitively impacted flows: 0
+Related review findings: 0
+
 Direct impact:
 - Repository.fetch (backend/users.py:9)
 - get_user (backend/users.py:23)
 - load_user (backend/users.py:32)
 ```
-With no file arguments it uses `git diff` to infer what changed.
+With no file arguments it uses `git diff` to infer what changed. `--scope <name>` limits the
+impact set to one macro-part.
 
 ### `view` - interactive flowchart
 
@@ -181,17 +198,54 @@ logicchart install          # install agent instructions (see Advanced)
 logicchart mcp .            # start the MCP server (see Advanced)
 ```
 
+## Whole codebase and scopes
+
+One model can hold an entire polyglot repo. Declare the macro-parts once, and every command
+(and the viewer) can be restricted to one of them:
+
+```toml
+[logicchart.scopes]
+backend  = ["backend/**", "services/**"]
+frontend = ["frontend/**", "web/**"]
+infra    = ["infra/**", "terraform/**"]
+```
+
+With no `[logicchart.scopes]` block, the top-level directory is the inferred scope, so a
+codebase splits into backend/frontend/infra-style parts out of the box. Pass `--scope
+<name>` to `query` and `impact`, and use the scope and language filters in the viewer, to
+reason about one part at a time or the whole system at once. Every flow records the scope(s)
+it belongs to, and the Markdown header summarizes the breakdown (e.g. `backend (16) · edge
+(3) · frontend (6) · infra (13)`).
+
 ## Supported Code
 
-**Languages - any Python or TypeScript/TSX:** functions, methods, arrow functions,
-`if` / `elif` / `else`, `switch` / `match`, exceptions, returns, and internal calls.
+**Languages - 10 for control flow, plus Terraform (11 in all).** Control flow (functions,
+methods, `if` / `else`, `switch` / `match`, exceptions, returns, and the internal calls that
+link flows) is extracted from:
+
+| | |
+|---|---|
+| **Python** (`.py`) | full AST analyzer |
+| **TypeScript / TSX** (`.ts`, `.tsx`) and **JavaScript** (`.js`, `.jsx`, `.mjs`, `.cjs`) | tree-sitter analyzer |
+| **Go** (`.go`), **Java** (`.java`), **C#** (`.cs`), **PHP** (`.php`), **C** (`.c`, `.h`), **Rust** (`.rs`), **Ruby** (`.rb`) | profile-driven tree-sitter engine |
+
+A new control-flow language is a small *profile* (grammar vocabulary + a few extractors), not
+a bespoke analyzer, so coverage grows without forking the pipeline. Language-specific
+correctness is respected - e.g. a Rust `match` is compiler-exhaustive, so it is never flagged
+for a missing `default`.
+
+**Terraform / HCL** (`.tf`) is declarative, so instead of control flow LogicChart maps the
+**resource dependency graph**: each `resource` / `module` / `data` / `variable` / `output`
+block becomes a flow, and each reference (`aws_vpc.main.id`, `depends_on`) becomes a
+dependency edge - viewable for the whole infrastructure, one scope, or one resource's
+dependencies.
 
 **Framework-aware entry points:**
 
 - FastAPI routes
 - Next.js route handlers, middleware, server actions, pages, and layouts
 - Shallow React components, hooks, and event handlers
-- Public/exported functions, CLI commands, and tests
+- Public/exported functions, package-level functions and methods, CLI commands, and tests
 
 **Limitations (by design):** LogicChart does not run your code, trace runtime behavior, do
 full symbolic execution, or reconstruct deep React state. "Shallow" React means it reads the
@@ -241,6 +295,12 @@ gated_detectors = false
 [logicchart.entrypoints]
 include = []
 exclude = []
+
+# Named macro-parts of the codebase (otherwise the top-level directory is the scope):
+# [logicchart.scopes]
+# backend = ["backend/**", "services/**"]
+# frontend = ["frontend/**", "web/**"]
+# infra = ["infra/**", "**/*.tf"]
 ```
 
 `gated_detectors` (default `false`) enables opt-in, review-tier detectors such as
