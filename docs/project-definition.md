@@ -7,16 +7,16 @@
 
 ---
 
-**Status & repository.** The repository is **private for now**. Whether LogicChart ships
-as open source or as a paid product is **deliberately deferred** - that decision will be
-made later, based on how the built product turns out. The design keeps both doors open: it
-stays local-first and self-contained (no mandatory hosted backend), while nothing in the
-architecture precludes a future hosted or commercial layer. Read "reference-quality OSS"
-anywhere below as the intended *quality bar*, not a committed licensing decision.
+**Status & repository.** The repository is **private for now**, and LogicChart is released
+under the **Apache License 2.0** (free and open, with a `NOTICE` file for attribution). The
+design stays local-first and self-contained (no mandatory hosted backend), so nothing in the
+architecture precludes a future hosted layer, but the tool itself is free. Read
+"reference-quality OSS" anywhere below as the intended *quality bar*.
 
 ## 1. What it is
 
-LogicChart is a local **static-analysis tool** that turns a folder of
+In the AI era it is easy to lose track of what your own code does. LogicChart restores that
+understanding: a local **static-analysis tool** that turns a folder of
 source code into **one model and three artifacts derived from it**:
 
 - **`logic-flow.json`** - the canonical data model (the single source of truth).

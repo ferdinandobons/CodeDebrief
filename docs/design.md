@@ -2,9 +2,10 @@
 
 ## Product
 
-LogicChart turns a source folder into navigable decision flowcharts. Its primary job is
-to help humans and coding agents understand what a project can do, identify behavior that
-was handled in one path but forgotten in another, and evaluate the impact of a change.
+In the AI era it is easy to lose track of what your own code does. LogicChart turns a source
+folder into navigable decision flowcharts so you can understand it again. Its primary job is
+to help humans and coding agents see what a project can do, identify behavior that was handled
+in one path but forgotten in another, and evaluate the impact of a change.
 
 Language support spans 10 languages (Python, TypeScript/JavaScript, Go, Java, C#, PHP, C,
 Rust, Ruby); see
