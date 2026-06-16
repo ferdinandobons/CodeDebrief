@@ -69,9 +69,16 @@ def dead_code_finding(flow: Flow, location: SourceLocation, detail: str) -> Find
 def _missing_branch(flow: Flow) -> list[Finding]:
     decisions = {node.id: node for node in flow.nodes if node.kind is NodeKind.DECISION}
     findings: list[Finding] = []
-    # match/switch with no explicit default (preserves the established behavior).
+    # match/switch with no explicit default, gated by _state_like just like the if/elif
+    # path below: a state/role/type enum dispatch is worth flagging, but a non-state ladder
+    # (a tokenizer `match token: case '(' ...`, an opcode/char dispatch) is exhaustive by
+    # construction and must not be flagged.
     for node in decisions.values():
-        if node.metadata.get("operator") in DISPATCH_OPERATORS and _has_implicit(node):
+        if (
+            node.metadata.get("operator") in DISPATCH_OPERATORS
+            and _has_implicit(node)
+            and _state_like(node)
+        ):
             condition = f"{node.metadata.get('operator', '')} {node.metadata.get('subject', '')}"
             findings.append(_missing_branch_finding(flow, node, condition.strip()))
     findings.extend(_missing_else_in_chain(flow, decisions))

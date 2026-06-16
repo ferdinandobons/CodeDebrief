@@ -209,6 +209,51 @@ def test_unresolvable_call_records_no_link(tmp_path: Path) -> None:
     assert run.calls == []
 
 
+def test_short_name_fallback_never_links_across_languages(tmp_path: Path) -> None:
+    # A TS flow calls a local `charge(request)` whose qualified target is missing;
+    # a same-named PYTHON `charge` exists. Module/symbol namespaces never span
+    # languages, so the short-name fallback must not bind the TS call to the Python
+    # flow (or vice versa).
+    (tmp_path / "payments.py").write_text(
+        "def charge(account, order):\n    return account\n", encoding="utf-8"
+    )
+    (tmp_path / "checkout.ts").write_text(
+        "export async function processCheckout(request: Request) {\n"
+        "  return await charge(request);\n}\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    process = next(f for f in model.flows if f.name == "processCheckout")
+    py_charge = next(f for f in model.flows if f.name == "charge" and f.language == "python")
+
+    # No edge at all: the TS caller's only `charge` candidate is a Python flow, which
+    # is now filtered out by language, leaving nothing to link.
+    assert py_charge.id not in process.calls
+    assert process.id not in py_charge.called_by
+    call = _call_node(process)
+    assert call.metadata.get("target_flow") != py_charge.id
+
+
+def test_short_name_fallback_links_within_one_language(tmp_path: Path) -> None:
+    # The control for the cross-language guard: a same-language short-name fallback
+    # must still resolve.
+    (tmp_path / "a.py").write_text("def run(obj):\n    return obj.helper()\n", encoding="utf-8")
+    (tmp_path / "b.py").write_text("def helper(x):\n    return x\n", encoding="utf-8")
+    # A TS decoy of the same leaf name must not interfere with the Python resolution.
+    (tmp_path / "decoy.ts").write_text(
+        "export function helper(x: string) {\n  return x;\n}\n", encoding="utf-8"
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    run = next(f for f in model.flows if f.name == "run")
+    target = next(f for f in model.flows if f.name == "helper" and f.language == "python")
+    call = _call_node(run)
+
+    assert call.metadata["link_confidence"] == "medium"
+    assert call.metadata["target_flow"] == target.id
+
+
 def test_typescript_default_import_resolves_via_marker(tmp_path: Path) -> None:
     (tmp_path / "widget.ts").write_text(
         "export default function renderWidget(props: unknown) {\n  return props;\n}\n",

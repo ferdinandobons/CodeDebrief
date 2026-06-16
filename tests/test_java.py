@@ -10,19 +10,19 @@ from logicchart.model import NodeKind, ProjectModel
 _SVC = """package com.svc;
 
 public class Svc {
-  public String handle(Status s) {
-    if (s == Status.ACTIVE) {
+  public String handle(Status status) {
+    if (status == Status.ACTIVE) {
       return "ok";
     }
-    switch (s) {
+    switch (status) {
       case ACTIVE: return "a";
       case SUSPENDED: return "s";
     }
-    return persist(s);
+    return persist(status);
   }
 
-  private String persist(Status s) {
-    return store(s);
+  private String persist(Status status) {
+    return store(status);
   }
 
   public void run() {

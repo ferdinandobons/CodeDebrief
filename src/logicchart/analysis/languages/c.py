@@ -76,6 +76,7 @@ C_PROFILE = LanguageProfile(
     switch_value_field="condition",
     case_types=frozenset({"case_statement"}),
     default_when_no_value=True,
+    case_fall_through=True,
     loop_types=frozenset({"for_statement", "while_statement", "do_statement"}),
     assignment_types=frozenset({"declaration"}),
 )

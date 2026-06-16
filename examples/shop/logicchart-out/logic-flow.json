@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-15T22:51:03.841401+00:00",
+  "generated_at": "2026-06-16T09:53:07.649210+00:00",
   "root": ".",
   "flows": [
     {
@@ -2834,9 +2834,7 @@
         }
       ],
       "calls": [],
-      "called_by": [
-        "flow-77b21193aa0c1d4d"
-      ],
+      "called_by": [],
       "tests": [],
       "metadata": {
         "async": false,
@@ -4165,13 +4163,7 @@
             "reaches_terminal": true,
             "qualified_calls": [
               "frontend.app.api.checkout.route:charge"
-            ],
-            "link_confidence": "medium",
-            "call_candidates": [
-              "flow-50e684eafc6a8ce3"
-            ],
-            "target_flow": "flow-50e684eafc6a8ce3",
-            "target_symbol": "backend.payments_service:charge"
+            ]
           }
         },
         {
@@ -4260,9 +4252,7 @@
           "evidence": "VERIFIED"
         }
       ],
-      "calls": [
-        "flow-50e684eafc6a8ce3"
-      ],
+      "calls": [],
       "called_by": [],
       "tests": [],
       "metadata": {

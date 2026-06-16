@@ -60,6 +60,7 @@ PHP_PROFILE = LanguageProfile(
     switch_value_field="condition",
     case_types=frozenset({"case_statement"}),
     default_types=frozenset({"default_statement"}),
+    case_fall_through=True,
     loop_types=frozenset({"for_statement", "while_statement", "foreach_statement", "do_statement"}),
     call_types=frozenset(
         {"function_call_expression", "member_call_expression", "scoped_call_expression"}

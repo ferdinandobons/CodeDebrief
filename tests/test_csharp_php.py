@@ -9,25 +9,25 @@ from logicchart.model import NodeKind, ProjectModel
 
 _CS = """namespace App {
   public class Svc {
-    public int Handle(int s) {
-      if (s == 1) { return 0; }
-      switch (s) { case 1: return 1; case 2: return 2; }
+    public int Handle(int status) {
+      if (status == 1) { return 0; }
+      switch (status) { case 1: return 1; case 2: return 2; }
       try { Risky(); } catch (Exception e) { Log(e); }
-      return Persist(s);
+      return Persist(status);
     }
-    private int Persist(int s) { return Store(s); }
+    private int Persist(int status) { return Store(status); }
   }
 }
 """
 
 _PHP = """<?php
 class Svc {
-  public function handle($s) {
-    if ($s == "a") { return "ok"; }
-    switch ($s) { case "a": return 1; case "b": return 2; }
-    return $this->persist($s);
+  public function handle($status) {
+    if ($status == "a") { return "ok"; }
+    switch ($status) { case "a": return 1; case "b": return 2; }
+    return $this->persist($status);
   }
-  private function persist($s) { return store($s); }
+  private function persist($status) { return store($status); }
 }
 """
 

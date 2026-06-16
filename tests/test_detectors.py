@@ -214,6 +214,42 @@ def route(account):
     assert "missing_branch" not in _kinds(findings)
 
 
+def test_missing_branch_silent_on_non_state_match(tmp_path: Path) -> None:
+    # A tokenizer-style dispatch (non-state subject, char/opcode ladder) is exhaustive by
+    # construction: the DISPATCH path must be _state_like-gated just like if/elif, so a
+    # `match token: case '(' ...` is NOT flagged for a missing default.
+    findings = _py_findings(
+        tmp_path,
+        """
+def tokenize(token):
+    match token:
+        case '(':
+            return LPAREN
+        case ')':
+            return RPAREN
+        case '+':
+            return PLUS
+""",
+    )
+    assert "missing_branch" not in _kinds(findings)
+
+
+def test_missing_branch_fires_on_state_like_match(tmp_path: Path) -> None:
+    # The control: a state-like dispatch (a Status enum ladder) with no default IS flagged.
+    findings = _py_findings(
+        tmp_path,
+        """
+def route(account):
+    match account.status:
+        case Status.ACTIVE:
+            return ok()
+        case Status.SUSPENDED:
+            return blocked()
+""",
+    )
+    assert "missing_branch" in _kinds(findings)
+
+
 def test_no_dead_code_after_match_without_default(tmp_path: Path) -> None:
     # Code after a no-default match runs when the value matches nothing.
     findings = _py_findings(

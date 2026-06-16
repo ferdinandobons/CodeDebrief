@@ -8,21 +8,21 @@ from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.model import NodeKind, ProjectModel
 
 _SVC = """class Svc
-  def handle(s)
-    if s == :active
+  def handle(status)
+    if status == :active
       return "ok"
     else
-      log(s)
+      log(status)
     end
-    case s
+    case status
     when :active then "a"
     when :suspended then "s"
     end
-    persist(s)
+    persist(status)
   end
 
-  def persist(s)
-    store(s)
+  def persist(status)
+    store(status)
   end
 end
 """
@@ -46,7 +46,7 @@ def test_ruby_if_else_case_and_calls(tmp_path: Path) -> None:
     assert all(f.language == "ruby" for f in model.flows)
     handle = _flow(model, "Svc.handle")
     labels = {n.label for n in handle.nodes if n.kind is NodeKind.DECISION}
-    assert "s == :active" in labels and "Switch on s" in labels
+    assert "status == :active" in labels and "Switch on status" in labels
     case = next(
         n for n in handle.nodes if n.kind is NodeKind.DECISION and n.label.startswith("Switch")
     )

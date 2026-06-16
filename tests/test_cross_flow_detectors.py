@@ -73,6 +73,61 @@ def test_enum_exhaustiveness_silent_on_negative_guard(tmp_path: Path) -> None:
     assert "enum_exhaustiveness" not in _kinds_for(model, "handle")
 
 
+def test_enum_exhaustiveness_silent_on_membership_predicate_with_fallthrough(
+    tmp_path: Path,
+) -> None:
+    # A complete membership predicate: `if result in (A, B): return True\n return False`.
+    # This is ONE case (a guard over a subset) whose complement is handled by the
+    # reachable `return False`, not a multi-case dispatch - it must NOT be flagged for
+    # the unlisted members C/D.
+    (tmp_path / "domain.py").write_text(_ENUM, encoding="utf-8")
+    (tmp_path / "svc.py").write_text(
+        "def handle(result):\n"
+        "    if result in (Result.A, Result.B):\n        return True\n"
+        "    return False\n",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    assert "enum_exhaustiveness" not in _kinds_for(model, "handle")
+
+
+def test_enum_exhaustiveness_silent_on_two_independent_guards(tmp_path: Path) -> None:
+    # Two INDEPENDENT same-subject `if` guards (each leaves an implicit "No" wired to the
+    # next `if`, not an `elif` else). They are not one if/elif chain, so they must not be
+    # fused into a notional dispatch and flagged for the omitted members.
+    (tmp_path / "domain.py").write_text(_ENUM, encoding="utf-8")
+    (tmp_path / "svc.py").write_text(
+        "def handle(result):\n"
+        "    if result == Result.A:\n        do_a()\n"
+        "    if result == Result.B:\n        do_b()\n",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    assert "enum_exhaustiveness" not in _kinds_for(model, "handle")
+
+
+def test_enum_exhaustiveness_still_flags_single_if_elif_dispatch(tmp_path: Path) -> None:
+    # The genuine single-dispatch case must still fire: one if/elif chain handling >=2
+    # members of the declared enum with no else, omitting D.
+    (tmp_path / "domain.py").write_text(_ENUM, encoding="utf-8")
+    (tmp_path / "svc.py").write_text(
+        "def handle(result):\n"
+        "    if result == Result.A:\n        return 1\n"
+        "    elif result == Result.B:\n        return 2\n"
+        "    elif result == Result.C:\n        return 3\n",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    flagged = [
+        f
+        for f in model.findings
+        if f.kind == "enum_exhaustiveness"
+        and f.flow_id == next(x for x in model.flows if x.name == "handle").id
+    ]
+    assert flagged
+    assert "Result.D" in flagged[0].metadata["missing"]
+
+
 def test_enum_exhaustiveness_silent_without_declared_enum(tmp_path: Path) -> None:
     # No declared enum for Result -> the declared-set detector does not apply.
     (tmp_path / "svc.py").write_text(

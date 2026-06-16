@@ -35,6 +35,52 @@ export async function POST(request: Request) {
     assert any(item.kind == "missing_branch" for item in analysis.findings)
 
 
+def _reaches(flow, start_id: str) -> set[str]:
+    out: dict[str, list[str]] = {}
+    for edge in flow.edges:
+        out.setdefault(edge.source, []).append(edge.target)
+    seen: set[str] = set()
+    stack = [start_id]
+    while stack:
+        cur = stack.pop()
+        for nxt in out.get(cur, ()):
+            if nxt not in seen:
+                seen.add(nxt)
+                stack.append(nxt)
+    return seen
+
+
+def test_empty_case_falls_through_to_next_case(tmp_path: Path) -> None:
+    # `case 'a': case 'b': return X` - the empty case 'a' must reach case 'b''s return,
+    # not dangle onto the post-switch terminal.
+    source = tmp_path / "ft.ts"
+    source.write_text(
+        "export function classify(x: string) {\n"
+        "  switch (x) {\n"
+        "    case 'a':\n"
+        "    case 'b':\n"
+        "      return 10;\n"
+        "    case 'c':\n"
+        "      return 30;\n"
+        "    default:\n"
+        "      return 0;\n"
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    analysis = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = analysis.flows[0]
+    switch = next(n for n in flow.nodes if n.label.startswith("Switch"))
+    case_a = next(e.target for e in flow.edges if e.source == switch.id and e.label == "'a'")
+    reached = _reaches(flow, case_a) | {case_a}
+    return_10 = next(n.id for n in flow.nodes if n.label.strip() == "Return 10")
+    complete = next(
+        (n.id for n in flow.nodes if n.kind is NodeKind.TERMINAL and "Complete" in n.label), None
+    )
+    assert return_10 in reached
+    assert complete is None or complete not in reached
+
+
 def test_exported_react_component_is_an_entrypoint(tmp_path: Path) -> None:
     source = tmp_path / "UserPanel.tsx"
     source.write_text(

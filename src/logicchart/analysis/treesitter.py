@@ -100,6 +100,10 @@ class LanguageProfile:
     # The switch/match is compiler-exhaustive (e.g. Rust `match`): no explicit default does
     # not mean an unhandled case, so it must not be flagged as a missing fallback.
     exhaustive_switch: bool = False
+    # C-style fall-through: a case whose body does not break/return/raise/continue runs on
+    # into the next case (C/PHP/TS/JS/Java colon labels). Go/Ruby/Rust/Python implicitly
+    # terminate each case, so an empty body must NOT chain into the next case there.
+    case_fall_through: bool = False
     loop_types: frozenset[str] = frozenset()
     return_type: str = "return_statement"
     return_keyword: str = "return"
@@ -426,7 +430,12 @@ class TreeSitterAnalyzer:
         values: list[str] = []
         has_default = False
         branches: list[dict[str, Any]] = []
-        for case in cases:
+        # C-style fall-through: when a case body neither breaks nor returns/raises and is
+        # NOT the last case, its endpoints chain into the NEXT case's body rather than
+        # onto the post-switch join. Without this, `case A: case B: return X` would dangle
+        # A's endpoint onto "Complete", fabricating a path the real switch never takes.
+        carried: list[PendingEdge] = []
+        for index, case in enumerate(cases):
             if case.is_default:
                 label = DEFAULT_LABEL
                 has_default = True
@@ -434,11 +443,23 @@ class TreeSitterAnalyzer:
                 label = case.label
                 values.extend(case.values)
             branches.append(branch(label, self._branch_outcome(case.body)))
-            endpoints.extend(
-                self._walk_statements(
-                    case.body, [PendingEdge(node.id, label)], builder, findings, source, relative
-                )
+            case_endpoints = self._walk_statements(
+                case.body,
+                [PendingEdge(node.id, label), *carried],
+                builder,
+                findings,
+                source,
+                relative,
             )
+            carried = []
+            if (
+                profile.case_fall_through
+                and index + 1 < len(cases)
+                and self._case_falls_through(case.body)
+            ):
+                carried = case_endpoints
+            else:
+                endpoints.extend(case_endpoints)
         node.metadata["values"] = sorted(set(values))
         node.metadata["value_namespace"] = value_namespace(sorted(set(values)))
         if not has_default and not profile.exhaustive_switch:
@@ -467,7 +488,10 @@ class TreeSitterAnalyzer:
             if is_default:
                 cases.append(CaseInfo(DEFAULT_LABEL, True, [], body))
             elif case.type in profile.case_types:
-                cases.append(CaseInfo(label or "case", False, [label] if label else [], body))
+                # A multi-value case (`case A, B:` in Go) groups several values under one
+                # label; split them so each counts toward enum coverage individually.
+                values = _split_case_values(case_value, label, source)
+                cases.append(CaseInfo(label or "case", False, values, body))
         return cases
 
     def _case_body(self, case: Any, case_value: Any) -> list[Any]:
@@ -552,6 +576,29 @@ class TreeSitterAnalyzer:
             if child.type in self.profile.block_types:
                 return child
         return node
+
+    def _case_falls_through(self, statements: list[Any]) -> bool:
+        """Whether a C-style switch case runs on into the next case.
+
+        A case falls through unless it explicitly leaves the switch: a break exits to
+        the post-switch join, and a return/raise/continue leaves the function or loop.
+        An empty case (`case A: case B: ...`) and a case that simply runs off its end
+        both fall through. We require the *terminator to be reached on the straight-line
+        body*, so a break/return nested only inside an `if` does not count as an
+        unconditional exit (control can still fall through the else side).
+        """
+        profile = self.profile
+        for statement in statements:
+            if statement.type in profile.inert_types:
+                continue
+            if (
+                statement.type == profile.return_type
+                or statement.type in profile.throw_types
+                or statement.type in profile.continue_types
+                or statement.type in profile.break_types
+            ):
+                return False
+        return True
 
     def _branch_outcome(self, statements: list[Any]) -> str:
         profile = self.profile
@@ -671,6 +718,43 @@ def _strip_parentheses(value: str) -> str:
     while value.startswith("(") and value.endswith(")"):
         value = value[1:-1].strip()
     return value
+
+
+def _split_case_values(case_value: Any, label: str, source: bytes) -> list[str]:
+    """The individual values of a (possibly multi-value) case label.
+
+    A grammar that groups several values under one case (Go `case A, B:` parses to an
+    `expression_list` whose named children are the values) is split into its members.
+    Falls back to a top-level comma split of the label text (commas inside (), [], {}
+    are not boundaries, so a call/tuple value stays whole). A single-value case yields
+    just its label.
+    """
+    if case_value is None:
+        return []
+    members = [_text(child, source).strip() for child in case_value.children if child.is_named]
+    grammar_split = [text for text in members if text]
+    if len(grammar_split) >= 2:
+        return grammar_split
+    return [piece for piece in _split_top_level(label) if piece] or ([label] if label else [])
+
+
+def _split_top_level(text: str) -> list[str]:
+    """Split on top-level commas, ignoring commas nested in (), [], or {}."""
+    parts: list[str] = []
+    depth = 0
+    current: list[str] = []
+    for char in text:
+        if char in "([{":
+            depth += 1
+        elif char in ")]}":
+            depth = max(0, depth - 1)
+        if char == "," and depth == 0:
+            parts.append("".join(current).strip())
+            current = []
+        else:
+            current.append(char)
+    parts.append("".join(current).strip())
+    return parts
 
 
 def _terminates(outcome: str) -> bool:

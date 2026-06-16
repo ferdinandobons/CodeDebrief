@@ -40,7 +40,10 @@ def test_is_not_none_does_not_capture_bogus_value() -> None:
     assert meta["values"] == ["None"]
 
 
-def test_set_membership_dispatch_fires_enum_exhaustiveness(tmp_path: Path) -> None:
+def test_set_membership_predicate_does_not_fire_enum_exhaustiveness(tmp_path: Path) -> None:
+    # A single membership predicate (`if status in {A, B, C}: return 1\n return 0`) is ONE
+    # case whose complement (status not in the set) is handled by the reachable `return 0`
+    # fall-through - not a multi-case dispatch. It must NOT be flagged for the omitted D.
     body = (
         "def handle(status):\n"
         "    if status in {Status.A, Status.B, Status.C}:\n"
@@ -49,7 +52,7 @@ def test_set_membership_dispatch_fires_enum_exhaustiveness(tmp_path: Path) -> No
     )
     (tmp_path / "mod.py").write_text(_ENUM + body, encoding="utf-8")
     model = ProjectAnalyzer(tmp_path).analyze(full=True).model
-    assert "enum_exhaustiveness" in _kinds(model, "handle")
+    assert "enum_exhaustiveness" not in _kinds(model, "handle")
 
 
 # --- outcome_inconsistency symbolic vs literal HTTP status (#6) --------------

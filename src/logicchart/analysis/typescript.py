@@ -364,16 +364,19 @@ class TypeScriptAnalyzer:
         values: list[str] = []
         has_default = False
         branches: list[dict[str, Any]] = []
-        for case in _named_children(body):
+        cases = [c for c in _named_children(body) if c.type in ("switch_case", "switch_default")]
+        # C-style fall-through: a case body that neither breaks nor returns/raises runs on
+        # into the NEXT case (`case 'a': case 'b': return X` makes 'a' reach X), so chain
+        # its endpoints into that case instead of onto the post-switch join.
+        carried: list[PendingEdge] = []
+        for index, case in enumerate(cases):
             value_node = case.child_by_field_name("value")
             if case.type == "switch_default":
                 label = DEFAULT
                 has_default = True
-            elif case.type == "switch_case":
+            else:
                 label = _text(value_node, source) or "case"
                 values.append(label)
-            else:
-                continue
             children = [
                 child
                 for child in _named_children(case)
@@ -384,16 +387,19 @@ class TypeScriptAnalyzer:
                 )
             ]
             branches.append(branch(label, _branch_outcome(children)))
-            endpoints.extend(
-                self._walk_statements(
-                    children,
-                    [PendingEdge(node.id, label)],
-                    builder,
-                    findings,
-                    source,
-                    relative,
-                )
+            case_endpoints = self._walk_statements(
+                children,
+                [PendingEdge(node.id, label), *carried],
+                builder,
+                findings,
+                source,
+                relative,
             )
+            carried = []
+            if index + 1 < len(cases) and _case_falls_through(children):
+                carried = case_endpoints
+            else:
+                endpoints.extend(case_endpoints)
         node.metadata["values"] = sorted(set(values))
         node.metadata["value_namespace"] = value_namespace(sorted(set(values)))
         if not has_default:
@@ -797,6 +803,27 @@ def _branch_outcome(statements: list[Any]) -> str:
                 if _terminates(then_outcome) and _terminates(else_outcome):
                     return then_outcome if then_outcome == else_outcome else RETURNS
     return FALLS_THROUGH
+
+
+def _case_falls_through(statements: list[Any]) -> bool:
+    """Whether a switch case runs on into the next case.
+
+    A case leaves the switch only via an explicit break (to the post-switch join) or a
+    return/raise/continue (out of the function/loop). An empty case and a case that runs
+    off its end both fall through. Only straight-line terminators count, so a break or
+    return nested inside an `if` is not treated as an unconditional exit.
+    """
+    for stmt in statements:
+        if stmt.type in _INERT_STATEMENTS:
+            continue
+        if stmt.type in (
+            "return_statement",
+            "throw_statement",
+            "continue_statement",
+            "break_statement",
+        ):
+            return False
+    return True
 
 
 def _terminates(outcome: str) -> bool:

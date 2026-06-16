@@ -226,21 +226,30 @@ class ProjectAnalyzer:
         # Key on the flow symbol as-is (``module:qualified``) so a module-path boundary
         # never collides with an attribute boundary; a default-export flow also answers
         # to the module's default marker.
-        by_qualified: dict[str, list[Flow]] = {}
-        by_name: dict[str, list[Flow]] = {}
+        #
+        # Both tables are partitioned by language: module/symbol namespaces never span
+        # languages, so a TS `charge(request)` whose qualified target is missing must
+        # not fall back onto a same-named PYTHON `charge`. (Every cross-flow detector and
+        # the enum table already bucket by language for the same reason.)
+        by_qualified: dict[str, dict[str, list[Flow]]] = {}
+        by_name: dict[str, dict[str, list[Flow]]] = {}
         for flow in flows:
-            by_qualified.setdefault(flow.symbol, []).append(flow)
+            qualified = by_qualified.setdefault(flow.language, {})
+            named = by_name.setdefault(flow.language, {})
+            qualified.setdefault(flow.symbol, []).append(flow)
             if flow.metadata.get("default_export"):
                 module = flow.symbol.split(":", 1)[0]
-                by_qualified.setdefault(f"{module}:{DEFAULT_EXPORT_MARKER}", []).append(flow)
+                qualified.setdefault(f"{module}:{DEFAULT_EXPORT_MARKER}", []).append(flow)
             short = flow.symbol.split(":", 1)[-1].split(".")[-1]
-            by_name.setdefault(short, []).append(flow)
+            named.setdefault(short, []).append(flow)
 
         for flow in flows:
+            lang_qualified = by_qualified.get(flow.language, {})
+            lang_name = by_name.get(flow.language, {})
             for node in flow.nodes:
                 if node.kind is not NodeKind.CALL:
                     continue
-                candidates, confidence = self._resolve_call(flow, node, by_qualified, by_name)
+                candidates, confidence = self._resolve_call(flow, node, lang_qualified, lang_name)
                 if not candidates:
                     continue
                 node.metadata["link_confidence"] = confidence
@@ -261,6 +270,9 @@ class ProjectAnalyzer:
         by_qualified: dict[str, list[Flow]],
         by_name: dict[str, list[Flow]],
     ) -> tuple[dict[str, Flow], str]:
+        # `by_qualified` / `by_name` are already scoped to the caller flow's language
+        # (see `_link_calls`), so every candidate here shares the caller's language and
+        # no cross-language edge can be created.
         qualified: dict[str, Flow] = {}
         for name in node.metadata.get("qualified_calls", []):
             for candidate in by_qualified.get(str(name), []):

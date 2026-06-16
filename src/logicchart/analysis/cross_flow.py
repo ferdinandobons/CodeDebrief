@@ -12,10 +12,13 @@ from __future__ import annotations
 import re
 from collections import Counter
 from dataclasses import dataclass
+from typing import Any
 
 from logicchart.analysis.common import (
+    DISPATCH_OPERATORS,
     FALLBACK_LABELS,
     NEGATIVE_OPERATORS,
+    NO,
     YES,
 )
 from logicchart.model import (
@@ -109,38 +112,118 @@ def _enum_exhaustiveness(
     # but omits other declared members with no explicit default is likely
     # non-exhaustive. Uses the declared closed set, so unlike the quorum check it
     # needs no sibling flows.
+    #
+    # Exhaustiveness is anchored to a SINGLE dispatch: handled members must come from
+    # one match/switch node, or from >=2 mutually-exclusive cases of one if/elif chain
+    # (reconstructed via explicit-else "No" links). This is what keeps two INDEPENDENT
+    # same-subject `if` guards from being fused into a notional dispatch, and a lone
+    # membership predicate (`if status in (A, B): ... return False`, a single case whose
+    # complement is a reachable fall-through) from being flagged for the unlisted member.
     findings: list[Finding] = []
     for flow in flows:
         if flow.metadata.get("test"):
             continue
-        coverage: dict[tuple[str, str], _Coverage] = {}
-        for node in flow.nodes:
-            if node.kind is not NodeKind.DECISION:
-                continue
-            subject = str(node.metadata.get("subject", ""))
-            namespace = str(node.metadata.get("value_namespace", ""))
-            values = {str(item) for item in node.metadata.get("values", []) if str(item)}
-            if not subject or not values or not _is_positive_dispatch(node):
-                continue
-            if not enums.get(flow.language, {}).get(namespace):
-                continue
-            existing = coverage.get((subject, namespace))
-            if existing is None:
-                coverage[(subject, namespace)] = _Coverage(flow, node, set(values))
-            else:
-                existing.handled |= values
-
-        for (subject, namespace), cov in coverage.items():
+        for group in _dispatch_groups(flow, enums.get(flow.language, {})):
+            namespace = group.namespace
             declared = enums[flow.language][namespace]
             declared_set = set(declared)
-            if len(cov.handled & declared_set) < 2:
+            if len(group.handled & declared_set) < 2:
                 continue
-            if _has_subject_default(flow, subject, namespace):
+            if _has_subject_default(flow, group.subject, namespace):
                 continue
-            missing = sorted(declared_set - cov.handled)
+            missing = sorted(declared_set - group.handled)
             if missing:
-                findings.append(_enum_finding(cov, subject, namespace, missing, declared))
+                cov = _Coverage(flow, group.head, set(group.handled))
+                findings.append(_enum_finding(cov, group.subject, namespace, missing, declared))
     return findings
+
+
+@dataclass(slots=True)
+class _Dispatch:
+    """One enum dispatch in a flow: its anchor node, subject/namespace, handled set."""
+
+    head: FlowNode
+    subject: str
+    namespace: str
+    handled: set[str]
+
+
+def _dispatch_groups(flow: Flow, declared_enums: dict[str, list[str]]) -> list[_Dispatch]:
+    """Group a flow's enum decision nodes into single dispatches.
+
+    A match/switch node is its own dispatch (its cases are mutually exclusive arms of
+    one construct). Sequential `if`/`elif` comparisons on the same (subject, namespace)
+    are fused into one dispatch ONLY across genuine `elif` links - a parent whose "No"
+    branch is an explicit else, not an implicit fall-through to the next `if`. A single
+    `if` (one case, e.g. a membership `in` predicate) is therefore never an exhaustive
+    dispatch on its own.
+    """
+    decisions = {
+        node.id: node
+        for node in flow.nodes
+        if node.kind is NodeKind.DECISION
+        and _is_positive_dispatch(node)
+        and str(node.metadata.get("subject", ""))
+        and {str(v) for v in node.metadata.get("values", []) if str(v)}
+        and declared_enums.get(str(node.metadata.get("value_namespace", "")))
+    }
+
+    # An explicit-else "No" link to the next same-(subject, namespace) decision: the
+    # elif chain. Implicit "No" branches (two sequential plain `if`s) do not link.
+    elif_next: dict[str, str] = {}
+    for edge in flow.edges:
+        if edge.label != NO or edge.source not in decisions or edge.target not in decisions:
+            continue
+        parent, child = decisions[edge.source], decisions[edge.target]
+        if not _same_dispatch(parent, child):
+            continue
+        no_branch = _branch_record(parent, NO)
+        if no_branch is not None and not no_branch.get("implicit"):
+            elif_next[edge.source] = edge.target
+
+    chained_children = set(elif_next.values())
+    groups: list[_Dispatch] = []
+    seen: set[str] = set()
+    for node_id, head in decisions.items():
+        if node_id in seen or node_id in chained_children:
+            continue
+        operator = head.metadata.get("operator")
+        subject = str(head.metadata.get("subject", ""))
+        namespace = str(head.metadata.get("value_namespace", ""))
+        if operator in DISPATCH_OPERATORS:
+            # A single match/switch construct: its value arms are the mutually-exclusive
+            # cases, so it is a multi-case dispatch on its own.
+            handled = {str(v) for v in head.metadata.get("values", []) if str(v)}
+            seen.add(node_id)
+            groups.append(_Dispatch(head, subject, namespace, handled))
+            continue
+        chain = [head]
+        cursor = node_id
+        while cursor in elif_next:
+            cursor = elif_next[cursor]
+            chain.append(decisions[cursor])
+        seen.update(node.id for node in chain)
+        # An if/elif chain is a genuine multi-case dispatch only with >=2 linked cases;
+        # a lone `if` (chain of 1) is a guard, not an exhaustive dispatch.
+        if len(chain) < 2:
+            continue
+        handled = {str(v) for node in chain for v in node.metadata.get("values", []) if str(v)}
+        groups.append(_Dispatch(head, subject, namespace, handled))
+    return groups
+
+
+def _same_dispatch(parent: FlowNode, child: FlowNode) -> bool:
+    return bool(parent.metadata.get("subject")) and (
+        parent.metadata.get("subject") == child.metadata.get("subject")
+        and parent.metadata.get("value_namespace") == child.metadata.get("value_namespace")
+    )
+
+
+def _branch_record(node: FlowNode, label: str) -> dict[str, Any] | None:
+    for entry in node.metadata.get("branches", []):
+        if isinstance(entry, dict) and entry.get("label") == label:
+            return entry
+    return None
 
 
 def _outcome_inconsistency(flows: list[Flow]) -> list[Finding]:
