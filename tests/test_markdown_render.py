@@ -5,6 +5,7 @@ from __future__ import annotations
 from logicchart.model import (
     Evidence,
     Finding,
+    FindingKind,
     Flow,
     ProjectModel,
     Severity,
@@ -13,7 +14,9 @@ from logicchart.model import (
 from logicchart.render.markdown import render_markdown
 
 
-def _finding(kind: str, evidence: Evidence, message: str, path: str = "app.py") -> Finding:
+def _finding(
+    kind: str | FindingKind, evidence: Evidence, message: str, path: str = "app.py"
+) -> Finding:
     return Finding(
         id=f"id-{kind}-{evidence.value}",
         kind=kind,
@@ -65,6 +68,14 @@ def test_include_gaps_expands_the_review_section() -> None:
 def test_evidence_level_is_rendered_inline() -> None:
     out = render_markdown(_model([_finding("dead_code", Evidence.INFERRED, "x")]))
     assert "INFERRED" in out
+
+
+def test_finding_kind_enum_is_rendered_as_public_wire_value() -> None:
+    out = render_markdown(
+        _model([_finding(FindingKind.MISSING_BRANCH, Evidence.POTENTIAL_GAP, "x")])
+    )
+    assert "missing_branch" in out
+    assert "FindingKind.MISSING_BRANCH" not in out
 
 
 def test_source_path_with_metacharacters_cannot_break_the_reference() -> None:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from enum import Enum
 from urllib.parse import quote
 
 from logicchart.model import Evidence, Finding, Flow, FlowNode, NodeKind, ProjectModel
@@ -130,8 +131,14 @@ def _finding_line(finding: Finding) -> str:
     source = _source_reference(finding.location.path, finding.location.start_line)
     return (
         f"- **{finding.severity.value.upper()} · {finding.evidence.value} · "
-        f"{finding.kind}** {_md_inline(finding.message)} ({source})"
+        f"{_enum_value(finding.kind)}** {_md_inline(finding.message)} ({source})"
     )
+
+
+def _enum_value(value: object) -> str:
+    if isinstance(value, Enum):
+        return str(value.value)
+    return str(value)
 
 
 def _render_node(node: FlowNode) -> str:
