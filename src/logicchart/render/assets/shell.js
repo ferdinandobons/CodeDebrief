@@ -93,6 +93,16 @@
     const manualPositions = new Map();
     // Element references for the currently rendered flow, for selection highlighting.
     let currentRender = null;
+    const FLOW_NODE_HALF_W = 145;
+    const FLOW_RECT_HALF_H = 43;
+    const FLOW_DECISION_HALF_H = 58;
+    const FLOW_META_BOTTOM = 78;
+    const FLOW_NODE_HALF_H = 92;
+    const FLOW_LAYER_Y = 230;
+    const FLOW_SIBLING_X = 360;
+    const FLOW_MIN_X_GAP = 330;
+    const EDGE_START_CLEARANCE = 30;
+    const EDGE_END_CLEARANCE = 10;
 
     function setCanvasLevel(level) {
       const value = String(level);
@@ -317,7 +327,9 @@
     function layoutFlow(flow) {
       const order = new Map(flow.nodes.map((node, index) => [node.id, index]));
       const incoming = new Map(flow.nodes.map(node => [node.id, []]));
+      const outgoing = new Map(flow.nodes.map(node => [node.id, []]));
       flow.edges.forEach(edge => incoming.get(edge.target)?.push(edge));
+      flow.edges.forEach(edge => outgoing.get(edge.source)?.push(edge));
       const positions = new Map();
       const layerCounts = new Map();
 
@@ -329,15 +341,25 @@
           layer = Math.max(...parents.map(edge => (positions.get(edge.source)?.layer || 0) + 1));
           const parentXs = parents.map(edge => positions.get(edge.source)?.x || 0);
           x = parentXs.reduce((sum, value) => sum + value, 0) / parentXs.length;
-          const branch = parents[0]?.label?.toLowerCase();
-          if (["yes", "success"].includes(branch)) x -= 165;
-          if (["no", "error"].includes(branch)) x += 165;
+          if (parents.length === 1) {
+            const parentEdge = parents[0];
+            const siblings = outgoing.get(parentEdge.source) || [];
+            if (siblings.length > 1) {
+              const siblingIndex = siblings.findIndex(edge => edge.target === node.id);
+              const centeredIndex = siblingIndex - (siblings.length - 1) / 2;
+              x = (positions.get(parentEdge.source)?.x || 0) + centeredIndex * FLOW_SIBLING_X;
+            } else {
+              const branch = parentEdge.label?.toLowerCase();
+              if (["yes", "success"].includes(branch)) x -= FLOW_SIBLING_X / 2;
+              if (["no", "error"].includes(branch)) x += FLOW_SIBLING_X / 2;
+            }
+          }
         }
         const occupied = layerCounts.get(layer) || [];
-        while (occupied.some(value => Math.abs(value - x) < 210)) x += 230;
+        while (occupied.some(value => Math.abs(value - x) < FLOW_MIN_X_GAP)) x += FLOW_SIBLING_X;
         occupied.push(x);
         layerCounts.set(layer, occupied);
-        positions.set(node.id, { x, y: layer * 150, layer, order: index });
+        positions.set(node.id, { x, y: layer * FLOW_LAYER_Y, layer, order: index });
       });
 
       // Apply any hand-placed overrides for this flow before measuring bounds.
@@ -357,11 +379,15 @@
       return { positions, bounds: { minX, maxX, minY, maxY } };
     }
 
+    function nodeHalfHeight(kind) {
+      return kind === "decision" ? FLOW_DECISION_HALF_H : FLOW_RECT_HALF_H;
+    }
+
     // Single source for an edge's curved path + label anchor, reused on first render and
     // live during a node drag so connected edges follow.
-    function edgeGeometry(start, end) {
-      const startY = start.y + 43;
-      const endY = end.y - 43;
+    function edgeGeometry(start, end, startKind, endKind) {
+      const startY = start.y + nodeHalfHeight(startKind) + EDGE_START_CLEARANCE;
+      const endY = end.y - nodeHalfHeight(endKind) - EDGE_END_CLEARANCE;
       const middleY = (startY + endY) / 2;
       return {
         d: `M ${start.x} ${startY} C ${start.x} ${middleY}, ${end.x} ${middleY}, ${end.x} ${endY}`,
@@ -462,31 +488,37 @@
         const p = positions.get(id);
         return p ? { x: p.x + originX, y: p.y + originY } : null;
       };
+      const flowNodeById = new Map(flow.nodes.map(node => [node.id, node]));
 
       // Keep edge element references per node so dragging a block re-routes its edges live,
       // and a flat list so selecting a node can highlight its incident edges.
       const nodeEdges = new Map(flow.nodes.map(node => [node.id, []]));
       const edgeRecords = [];
       const edgeLayer = svgEl("g");
+      const edgePathLayer = svgEl("g");
+      const edgeLabelLayer = svgEl("g");
       flow.edges.forEach(edge => {
         const start = at(edge.source);
         const end = at(edge.target);
         if (!start || !end) return;
-        const geometry = edgeGeometry(start, end);
+        const sourceNode = flowNodeById.get(edge.source);
+        const targetNode = flowNodeById.get(edge.target);
+        const geometry = edgeGeometry(start, end, sourceNode?.kind, targetNode?.kind);
         const path = svgEl("path");
         path.setAttribute("class", "edge");
         path.setAttribute("d", geometry.d);
-        edgeLayer.appendChild(path);
+        edgePathLayer.appendChild(path);
         let label = null;
         if (edge.label) {
           label = edgeLabel(edge.label, geometry);
-          edgeLayer.appendChild(label);
+          edgeLabelLayer.appendChild(label);
         }
         const record = { edge, path, label };
         edgeRecords.push(record);
         nodeEdges.get(edge.source)?.push(record);
         nodeEdges.get(edge.target)?.push(record);
       });
+      edgeLayer.append(edgePathLayer, edgeLabelLayer);
       layer.appendChild(edgeLayer);
 
       function rerouteFrom(nodeId) {
@@ -494,7 +526,9 @@
           const start = at(edge.source);
           const end = at(edge.target);
           if (!start || !end) return;
-          const geometry = edgeGeometry(start, end);
+          const sourceNode = flowNodeById.get(edge.source);
+          const targetNode = flowNodeById.get(edge.target);
+          const geometry = edgeGeometry(start, end, sourceNode?.kind, targetNode?.kind);
           path.setAttribute("d", geometry.d);
           if (label) label.setAttribute("transform", `translate(${geometry.labelX} ${geometry.labelY})`);
         });
@@ -577,7 +611,7 @@
         const meta = svgEl("text");
         meta.setAttribute("class", "meta");
         meta.setAttribute("text-anchor", "middle");
-        meta.setAttribute("y", "62");
+        meta.setAttribute("y", String(node.kind === "decision" ? FLOW_META_BOTTOM : 62));
         meta.textContent = `${node.location.path}:${node.location.start_line}`;
         group.appendChild(meta);
         nodeLayer.appendChild(group);
@@ -586,10 +620,10 @@
 
       // World-space bounds of the drawn sub-graph, so the caller can reserve room / fit.
       const worldBounds = {
-        minX: bounds.minX + originX,
-        maxX: bounds.maxX + originX,
-        minY: bounds.minY + originY,
-        maxY: bounds.maxY + originY,
+        minX: bounds.minX + originX - FLOW_NODE_HALF_W,
+        maxX: bounds.maxX + originX + FLOW_NODE_HALF_W,
+        minY: bounds.minY + originY - FLOW_NODE_HALF_H,
+        maxY: bounds.maxY + originY + FLOW_NODE_HALF_H,
       };
       return { layer, nodeGroups, edgeRecords, bounds: worldBounds };
     }
@@ -840,12 +874,8 @@
       if (!flow || !nodeId) return null;
       return flow.nodes.find(n => n.id === nodeId) || null;
     };
-    // Half-extents of a drawn decision node, so measureFlow (which only knows node
-    // CENTERS) can inflate its bounds to the box the rendered nodes actually occupy.
-    // Decision diamonds are 290 wide / 116 tall (points at +-145, +-58); the 290x86
-    // rects are narrower but never taller, so 145/58 bound every node kind.
-    const NODE_HALF_W = 145;
-    const NODE_HALF_H = 58;
+    // Half-extents of a drawn decision node plus badges/source labels, so measureFlow
+    // can inflate center-only bounds to the visual box the rendered nodes occupy.
     // Origin-relative bounds of a flow's decision layout, so canvas.js can RESERVE the
     // band an inline-expanded sub-graph will occupy BEFORE drawing it (layout then draw),
     // keeping siblings from overlapping. Same layoutFlow the renderer uses, so the
@@ -859,10 +889,10 @@
       }
       const { bounds } = layoutFlow(flow);
       const inflated = {
-        minX: bounds.minX - NODE_HALF_W,
-        maxX: bounds.maxX + NODE_HALF_W,
-        minY: bounds.minY - NODE_HALF_H,
-        maxY: bounds.maxY + NODE_HALF_H,
+        minX: bounds.minX - FLOW_NODE_HALF_W,
+        maxX: bounds.maxX + FLOW_NODE_HALF_W,
+        minY: bounds.minY - FLOW_NODE_HALF_H,
+        maxY: bounds.maxY + FLOW_NODE_HALF_H,
       };
       return {
         ...inflated,

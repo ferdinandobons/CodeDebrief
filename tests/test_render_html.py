@@ -245,4 +245,8 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     # Canvas component polish: edge labels are readable pills and decision blocks carry a
     # compact semantic kind badge, so dense flowcharts retain their visual grammar.
     assert "edge-label-bg" in html
+    assert "edgePathLayer" in html
+    assert "edgeLabelLayer" in html
+    assert "FLOW_LAYER_Y" in html
+    assert "FLOW_SIBLING_X" in html
     assert "node-kind-badge" in html
