@@ -93,7 +93,7 @@ or a named macro-part.
 - **Tagging.** Every flow records the scope(s) it belongs to (`flow.metadata.scope`), derived
   from its path against the scope globs.
 - **Surfaces.**
-  - `analyze` / `view` / `query` / `impact` / `diff` accept `--scope <name>` to restrict to a
+  - `analyze` / `view` / `query` / `impact` accept `--scope <name>` to restrict to a
     macro-part, and a codebase-wide default that groups by scope.
   - The Markdown and HTML render a **codebase map**: scopes as clusters, entry-point counts and
     findings per scope, and cross-scope call edges where they resolve. Drilling into a scope
@@ -136,7 +136,7 @@ and a code-quality review; automated gates green; the demo precision SLA holds).
 - **Stage C - Popular control-flow languages.** Java, C#, Ruby, PHP, Rust, C/C++, plain JS/JSX,
   Kotlin, Swift, Bash as profiles, each with fixtures, entry-point and test detection.
 - **Stage E - Scope / macro-parts.** Config scopes, per-flow tagging, `--scope` across the CLI,
-  scope-grouped render/query/diff, the codebase map.
+  scope-grouped render/query, the codebase map.
 - **Stage F - Whole-codebase scale.** Parallel analysis; viewer clustering/scope filtering and
   lazy rendering; performance and memory for entire codebases.
 - **Stage G - Complex-code hardening.** Per-language complex fixtures and a correctness pass.

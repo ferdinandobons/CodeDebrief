@@ -42,7 +42,6 @@ def authorize(user):
                     "explain_finding_chain",
                     "where_state_handled",
                     "find_decision_nodes",
-                    "diff_findings",
                 } <= names
 
                 # Spec §5.2: every query/list tool exposes a token_budget cap.
@@ -52,7 +51,6 @@ def authorize(user):
                     "query_logic",
                     "explain_finding_chain",
                     "analyze_impact",
-                    "diff_findings",
                 ):
                     properties = schema_by_name[budget_tool].get("properties", {})
                     assert "token_budget" in properties, budget_tool

@@ -169,25 +169,6 @@ filter flows, click a block to inspect its source and findings, and **drag block
 rearrange the diagram by hand** (the connectors follow; the reset button restores the
 automatic layout). Add `--render-only` to write the HTML without serving.
 
-### `diff`: gate a change in CI
-
-```bash
-logicchart diff base/logic-flow.json logicchart-out/logic-flow.json \
-  --sarif logicchart.sarif --fail-on-introduced
-```
-Compares two models by stable finding id, prints a GitHub-Markdown summary of findings
-introduced / resolved / persisting, optionally writes SARIF, and exits non-zero when a
-finding is introduced.
-
-### `hook`: keep the committed model fresh
-
-```bash
-logicchart hook install     # post-commit / post-checkout hooks + a union merge driver
-logicchart hook status
-logicchart hook uninstall
-```
-Automates `update` so the committed `logic-flow.json` does not drift between commits.
-
 ### `init` / `install` / `mcp`
 
 ```bash
@@ -305,7 +286,7 @@ never polluted by the tool scanning its own internals.
 
 Use `.logicchartignore` for generated files or directories that should not be analyzed.
 
-## Advanced: agents, MCP, and CI
+## Advanced: agents and MCP
 
 > Optional: start with Quick Start above. These wire LogicChart into coding agents and tooling.
 
@@ -365,11 +346,20 @@ Available tools:
 - `where_state_handled`: every flow branching on a domain/value-namespace and the values it covers
 - `find_decision_nodes`: structured search over decision nodes (domain/subject/missing-fallback)
 - `analyze_impact`
-- `diff_findings`: compare the current model against a baseline (the CI primitive)
 - `update_logicchart`
 
 Every query/list tool accepts a `token_budget` cap so an agent can bound how much context a
 single call returns.
+
+## Roadmap
+
+Planned future evolutions, premature for an early, solo-maintained project but a natural fit
+once a team is using LogicChart in earnest:
+
+- **CI diff gate**: compare two `logic-flow.json` snapshots and fail a pull request when a
+  finding is newly introduced (with SARIF output for code scanning).
+- **Git auto-sync hooks**: managed post-commit and post-checkout hooks (plus a union merge
+  driver for `logic-flow.json`) that keep the committed model fresh automatically.
 
 ## Development
 

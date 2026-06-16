@@ -6,8 +6,6 @@ from typing import Any
 
 from logicchart.analysis import ProjectAnalyzer
 from logicchart.artifacts import load_model, write_artifacts
-from logicchart.diff import diff_models
-from logicchart.model import ProjectModel
 from logicchart.query import (
     explain_finding,
     find_decisions,
@@ -16,7 +14,6 @@ from logicchart.query import (
     query_model,
     where_is_state_handled,
 )
-from logicchart.util import read_json
 
 # Rough tokens per returned list item, used to honor an agent's token_budget cap.
 _TOKENS_PER_ITEM = 60
@@ -157,17 +154,6 @@ def run_mcp(root: Path) -> None:
             missing_fallback=missing_fallback,
         )
         return _cap(decisions, token_budget)
-
-    @server.tool()
-    def diff_findings(base_path: str, token_budget: int = 0) -> dict[str, Any]:
-        """Compare the current model against a baseline logic-flow.json (the CI primitive)."""
-        base = ProjectModel.from_dict(read_json(Path(base_path)))
-        diff = diff_models(base, load_model(project_root))
-        return {
-            "introduced": _cap([_finding_dict(item) for item in diff.introduced], token_budget),
-            "resolved": _cap([_finding_dict(item) for item in diff.resolved], token_budget),
-            "persisting": len(diff.persisting),
-        }
 
     @server.tool()
     def analyze_impact(

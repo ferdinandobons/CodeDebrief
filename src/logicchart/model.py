@@ -168,9 +168,9 @@ class ProjectModel:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProjectModel:
-        # `diff` / `diff_findings` deserialize untrusted JSON, so a malformed shape must
-        # surface as a clean ValueError, not a raw KeyError / TypeError traceback leaking
-        # to the CLI or the MCP transport.
+        # Loading a committed `logic-flow.json` deserializes untrusted JSON, so a malformed
+        # shape must surface as a clean ValueError, not a raw KeyError / TypeError traceback
+        # leaking to the CLI or the MCP transport.
         if not isinstance(data, dict):
             raise ValueError("malformed logic-flow.json: expected a JSON object at the top level")
         try:

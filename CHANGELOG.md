@@ -9,6 +9,7 @@ The project follows Semantic Versioning once public releases begin.
 ### Removed
 
 - Removed Terraform/HCL support.
+- Removed the `diff` (CI gate) and `hook` (git auto-sync) commands; both are tracked as planned future evolutions.
 
 ## 0.3.0
 

@@ -5,8 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.diff import ModelDiff, render_sarif
-from logicchart.model import Evidence, Finding, ProjectModel, Severity, SourceLocation
+from logicchart.model import ProjectModel
 from logicchart.query import impact_model, where_is_state_handled
 
 
@@ -26,18 +25,3 @@ def test_where_state_handled_empty_domain_is_not_a_wildcard(tmp_path: Path) -> N
     model = ProjectAnalyzer(tmp_path).analyze(full=True).model
     assert where_is_state_handled(model, "") == []
     assert where_is_state_handled(model, "role")  # a real domain still matches
-
-
-def test_sarif_start_line_is_clamped_to_one() -> None:
-    finding = Finding(
-        id="x",
-        kind="dead_code",
-        severity=Severity.WARNING,
-        message="m",
-        evidence=Evidence.INFERRED,
-        flow_id="f",
-        location=SourceLocation("a.py", 0, 0),
-    )
-    sarif = render_sarif(ModelDiff(introduced=[finding], resolved=[], persisting=[]))
-    region = sarif["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["region"]
-    assert region["startLine"] == 1

@@ -155,10 +155,10 @@ reasoning; copy-paste decision drift.
 ### 5.2 Surfaces
 
 - **CLI**: `init`, `analyze`, `update`, `impact`, `query`, `view`, `install`, `mcp`,
-  `hook` (install/uninstall/status the git auto-sync hook), `watch` (debounced rebuild on
-  save), `install --hook` (opt-in Claude Code PreToolUse nudge), a `--deep`/audit mode (lowers
-  the deterministic confidence threshold and enables higher-FP detectors - never an LLM pass),
-  plus confidence-threshold and evidence-filter flags.
+  `watch` (debounced rebuild on save), a `--deep`/audit mode (lowers the deterministic
+  confidence threshold and enables higher-FP detectors - never an LLM pass), plus
+  confidence-threshold and evidence-filter flags. (A managed git auto-sync hook and an
+  opt-in Claude Code PreToolUse nudge are planned future evolutions.)
 - **MCP tools**:
   - `logicchart_summary` - a small orientation snapshot (counts of flows, entrypoints,
     findings by kind/severity/evidence, domains, languages).
@@ -175,8 +175,8 @@ reasoning; copy-paste decision drift.
     evidence).
   - `explain_impact(changed_files)` - reachability-aware impact with caller paths to
     entrypoints and findings on the impacted subgraph.
-  - `diff_models(base, head)` - the CI primitive: findings introduced/resolved/persisting by
-    stable id; emit SARIF + GitHub markdown + non-zero exit.
+  - A model-comparison primitive (a planned future evolution) - findings introduced/resolved/
+    persisting by stable id; emit SARIF + GitHub markdown + non-zero exit.
   - `what_conflicts_with(domain, new_value)` and `trace_path(from, to)` - later; do not ship
     the tool name before its underlying data exists.
   - Every query/list tool takes a `token_budget` (and depth/projection) parameter so an agent
@@ -191,12 +191,13 @@ reasoning; copy-paste decision drift.
     cross-flow findings; a decision **case-matrix** (rows = flows, columns = values, cells =
     handled/missing/has-fallback); caller/callee navigation; configurable jump-to-source
     (VS Code / JetBrains / GitHub blob); deep-linkable URL state; an entrypoint overview map;
-    keyboard-driven triage; a **diff mode** overlaying two `logic-flow.json` files.
+    keyboard-driven triage; a **snapshot-comparison mode** overlaying two `logic-flow.json`
+    files (a planned future evolution).
 - **Markdown**: signal/noise split - above-threshold findings in the main section,
   heuristic/low-confidence ones under a collapsible "review-only" subheading; per-node
   review points.
-- **CI**: `diff_models` gate (SARIF + PR markdown + exit codes) flagging introduced findings
-  and logic regressions (removed branch, coverage shrink).
+- **CI** (a planned future evolution): a model-comparison gate (SARIF + PR markdown + exit
+  codes) flagging introduced findings and logic regressions (removed branch, coverage shrink).
 
 ### 5.3 Data model (IR) capabilities
 
@@ -237,14 +238,14 @@ deterministic-core constraint):
 
 Mechanics that keep the loop in sync, all on the deterministic (no-API) path:
 
-- **`logicchart hook install`** - a post-commit (and post-checkout) git hook that runs the
-  deterministic `update` on every commit, so the committed model never drifts; plus a git
-  **union merge-driver** for `logic-flow.json` so teammates don't conflict on it.
+- **Managed git auto-sync** (a planned future evolution) - post-commit (and post-checkout)
+  git hooks that run the deterministic `update` on every commit, so the committed model never
+  drifts; plus a git union merge-driver for `logic-flow.json` so teammates don't conflict on it.
 - **`logicchart watch`** - a debounced background watcher that re-runs the deterministic pass
   and refreshes `logic-flow.json` on save, for parallel agent-swarm editing. Never invokes the
   enrichment layer.
-- **`logicchart install --hook`** - opt-in: registers a Claude Code PreToolUse hook on
-  Read/Grep/Glob that nudges the agent to run `logicchart query` first when a model exists,
+- **Opt-in Claude Code PreToolUse nudge** (a planned future evolution) - registered on
+  Read/Grep/Glob to nudge the agent to run `logicchart query` first when a model exists,
   enforcing (not merely suggesting) the "query before file-by-file search" rule.
 - **Agent-navigable index** - a derived `index.md` (alongside `logic-flow.md`) so an agent can
   browse the model by reading files instead of parsing JSON. Derived artifact, never a source
@@ -253,8 +254,8 @@ Mechanics that keep the loop in sync, all on the deterministic (no-API) path:
   memory store for reuse, but it is **never merged into `logic-flow.json`, never `VERIFIED`**,
   and toggling it never changes the verified model's content hash.
 - **`update` shows a flow-diff** - new/closed findings and added/removed entry points since the
-  last run (the local sibling of the `diff_models` CI primitive), keyed on the structural
-  stable finding ids.
+  last run (the local sibling of the planned CI model-comparison primitive), keyed on the
+  structural stable finding ids.
 
 ## 6. Architecture & constraints
 
@@ -400,8 +401,9 @@ default-semantic inconsistency; logging asymmetry; feature-flag asymmetry; retur
 divergence.
 
 **Stage 6 - Consumption upgrades.**
-The richer MCP tools (`where_is_state_handled`, `explain_impact`, `find_decisions`,
-`diff_models`); the viewer features beyond the inbox + filter; the CI diff gate.
+The richer MCP tools (`where_is_state_handled`, `explain_impact`, `find_decisions`); the
+viewer features beyond the inbox + filter. The CI model-comparison gate is a planned future
+evolution.
 
 **Stage 7 - Gated and later.**
 Auth/validation divergence (opt-in, after the resolver fix + widened auth lexicon); the
@@ -411,8 +413,9 @@ analyzers via the pluggable layer.
 
 **Not yet implemented (explicitly deferred).** Some surfaces named in §5.2/§5.4 are not in
 the current CLI and are deferred rather than dropped, so the gap is documented, not silent:
-the `watch` debounced rebuild; `install --hook` (the Claude Code PreToolUse nudge - distinct
-from the delivered `hook install` git auto-sync); the `--deep`/audit mode; and the
+the `watch` debounced rebuild; the opt-in Claude Code PreToolUse nudge; the managed git
+auto-sync (post-commit/post-checkout hooks plus a union merge driver) and the CI
+model-comparison gate, both planned future evolutions; the `--deep`/audit mode; and the
 confidence-threshold / evidence-filter query flags. The signal/noise split and `--include-gaps`
 gating (§5.2/§7) and the §5.3 query tools that exist today are delivered.
 
