@@ -2,6 +2,14 @@
 
 **LogicChart reads your code and draws its decision logic as flowcharts - across 11 languages, with no API key.**
 
+![Before AI you built code by hand and understood it; with AI no one knows how it works; with AI plus LogicChart you understand it again.](docs/assets/why-logicchart.svg)
+
+In the AI era it is easy to lose track of what your own code does. You ship fast, but end up
+unsure how a feature works or how the pieces fit together - until, eventually, no one really
+knows. LogicChart turns the code back into something you can see and reason about: a navigable
+map of its decisions, so you can understand what was built, hold it in your head again, and
+spot exactly what to change or where the gaps are.
+
 Code is full of decisions: `if` this, `switch` on that, handle one case, raise an error on
 another. That branching logic is what matters most when you review or change code, yet it is
 scattered across files and hard to see at a glance. LogicChart reads your source and turns it

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 380" width="820" height="380" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Before AI you built code by hand and understood it; with AI no one knows how it works; with AI plus LogicChart you understand it again.">
+  <rect x="0" y="0" width="820" height="380" rx="16" fill="#ffffff"/>
+
+  <!-- titles -->
+  <text x="145" y="44" text-anchor="middle" font-size="19" font-weight="600" fill="#1b1f24">Before AI</text>
+  <text x="410" y="44" text-anchor="middle" font-size="19" font-weight="600" fill="#1b1f24">With AI</text>
+  <text x="675" y="44" text-anchor="middle" font-size="19" font-weight="600" fill="#1b1f24">With AI + LogicChart</text>
+
+  <!-- column cards -->
+  <rect x="30" y="64" width="230" height="286" rx="12" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <rect x="295" y="64" width="230" height="286" rx="12" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <rect x="560" y="64" width="230" height="286" rx="12" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+
+  <!-- column 1: colored squares connected -->
+  <g stroke="#8a8f98" stroke-width="2" stroke-linecap="round">
+    <line x1="92" y1="137" x2="192" y2="172"/>
+    <line x1="92" y1="137" x2="82" y2="232"/>
+    <line x1="192" y1="172" x2="182" y2="272"/>
+    <line x1="82" y1="232" x2="182" y2="272"/>
+    <line x1="182" y1="272" x2="127" y2="322"/>
+    <line x1="82" y1="232" x2="127" y2="322"/>
+  </g>
+  <g>
+    <rect x="75" y="120" width="34" height="34" rx="7" fill="#2f63ef"/>
+    <rect x="175" y="155" width="34" height="34" rx="7" fill="#1d9e75"/>
+    <rect x="65" y="215" width="34" height="34" rx="7" fill="#df9a12"/>
+    <rect x="165" y="255" width="34" height="34" rx="7" fill="#7458dc"/>
+    <rect x="110" y="305" width="34" height="34" rx="7" fill="#639922"/>
+  </g>
+
+  <!-- column 2: unknown -->
+  <text x="410" y="245" text-anchor="middle" font-size="128" font-weight="700" fill="#c2c7ce">?</text>
+  <text x="410" y="300" text-anchor="middle" font-size="17" font-weight="500" fill="#6a6f76">No one knows</text>
+
+  <!-- column 3: colored squares connected (same as column 1) -->
+  <g stroke="#8a8f98" stroke-width="2" stroke-linecap="round">
+    <line x1="622" y1="137" x2="722" y2="172"/>
+    <line x1="622" y1="137" x2="612" y2="232"/>
+    <line x1="722" y1="172" x2="712" y2="272"/>
+    <line x1="612" y1="232" x2="712" y2="272"/>
+    <line x1="712" y1="272" x2="657" y2="322"/>
+    <line x1="612" y1="232" x2="657" y2="322"/>
+  </g>
+  <g>
+    <rect x="605" y="120" width="34" height="34" rx="7" fill="#2f63ef"/>
+    <rect x="705" y="155" width="34" height="34" rx="7" fill="#1d9e75"/>
+    <rect x="595" y="215" width="34" height="34" rx="7" fill="#df9a12"/>
+    <rect x="695" y="255" width="34" height="34" rx="7" fill="#7458dc"/>
+    <rect x="640" y="305" width="34" height="34" rx="7" fill="#639922"/>
+  </g>
+</svg>
