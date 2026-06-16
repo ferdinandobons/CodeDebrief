@@ -557,9 +557,10 @@ wheels = [
 
 [[package]]
 name = "logicchart"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
+    { name = "jsonschema" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "tree-sitter" },
     { name = "tree-sitter-c" },
@@ -574,7 +575,6 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
-    { name = "jsonschema" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -587,7 +587,7 @@ mcp = [
 
 [package.metadata]
 requires-dist = [
-    { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.23" },
+    { name = "jsonschema", specifier = ">=4.23" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.27,<2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.15" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },

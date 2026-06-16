@@ -236,6 +236,10 @@ def test_query_match_to_dict_shape() -> None:
     assert payload == {
         "flow_id": "f1",
         "name": "widget",
+        "language": "python",
+        "entry_kind": "function",
+        "framework": "generic",
+        "scope": [],
         "score": 6,
         "reasons": ["`widget` matches the flow identity"],
         "source": "app.py:1",
@@ -294,5 +298,15 @@ def test_cli_json_matches_query_match_to_dict(tmp_path: Path, capsys: object) ->
     payload = json.loads(out.out)
     assert payload
     for row in payload:
-        assert set(row) == {"flow_id", "name", "score", "reasons", "source"}
+        assert set(row) == {
+            "flow_id",
+            "name",
+            "language",
+            "entry_kind",
+            "framework",
+            "scope",
+            "score",
+            "reasons",
+            "source",
+        }
         assert ":" in row["source"]

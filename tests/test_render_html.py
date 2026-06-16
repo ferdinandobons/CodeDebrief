@@ -47,10 +47,13 @@ def test_render_html_emits_directory_tree(tmp_path: Path) -> None:
     assert 'id="tree"' in html
     # The language dropdown above the tree is present (hidden until >1 language).
     assert 'id="langFilter"' in html
+    # Search-driven navigation is wired into the same tree surface.
+    assert 'id="globalSearch"' in html
     # tree.js is actually inlined into the page (a function unique to it). Asserting a
     # runtime-only DOM attribute like data-flow-id would pass vacuously just because the
     # script source mentions it, so we pin a structural marker instead.
     assert "refreshRovingTarget" in html
+    assert "flowMatchesQuery" in html
 
     # The embedded JSON payload carries a non-empty directory tree (file leaves with
     # flow ids), not just the literal key. Parse the data <script> and check it.
@@ -128,10 +131,12 @@ def test_render_html_emits_source_and_errors_panels(tmp_path: Path) -> None:
     # panel (bottom). Pin both container ids so the split cannot silently regress.
     assert 'id="source"' in html
     assert 'id="errors"' in html
+    assert 'id="reviewQueueToggle"' in html
     # panels.js is actually inlined: a structural marker unique to it (the function that
     # subscribes both panels to the shared selection store).
     assert "renderSource" in html
     assert "renderErrors" in html
+    assert "prioritizedFindings" in html
     # The full-screen toggle on the canvas toolbar (aria-pressed, data-action hook).
     assert 'data-action="fullscreen"' in html
     assert "aria-pressed" in html

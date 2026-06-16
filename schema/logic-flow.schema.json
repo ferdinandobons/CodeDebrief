@@ -152,7 +152,18 @@
           "type": "string"
         },
         "language": {
-          "enum": ["python", "typescript"]
+          "enum": [
+            "python",
+            "typescript",
+            "javascript",
+            "go",
+            "java",
+            "csharp",
+            "php",
+            "c",
+            "rust",
+            "ruby"
+          ]
         },
         "framework": {
           "type": "string"
@@ -257,7 +268,18 @@
           "type": "string"
         },
         "language": {
-          "enum": ["python", "typescript"]
+          "enum": [
+            "python",
+            "typescript",
+            "javascript",
+            "go",
+            "java",
+            "csharp",
+            "php",
+            "c",
+            "rust",
+            "ruby"
+          ]
         },
         "sha256": {
           "type": "string",

@@ -48,3 +48,47 @@ def authorize(user):
     assert (tmp_path / "logicchart-out" / "logic-flow.json").exists()
     assert main(["query", "admin authorization", "--path", str(tmp_path)]) == 0
     assert main(["view", str(tmp_path), "--render-only"]) == 0
+
+
+def test_cli_validate_and_profiles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    source = tmp_path / "src" / "logicchart" / "main.py"
+    source.parent.mkdir(parents=True)
+    source.write_text(
+        "def analyze_source(path):\n    if path:\n        return path\n    return None\n",
+        encoding="utf-8",
+    )
+
+    assert main(["analyze", str(tmp_path), "--profile", "self", "--full", "--no-html"]) == 0
+    assert (tmp_path / "logicchart-out" / "self" / "logic-flow.json").exists()
+
+    assert main(["validate", str(tmp_path), "--profile", "self"]) == 0
+    assert "validation OK" in capsys.readouterr().out
+
+    assert (
+        main(
+            [
+                "query",
+                "logicchart analyze source",
+                "--path",
+                str(tmp_path),
+                "--profile",
+                "self",
+                "--language",
+                "python",
+            ]
+        )
+        == 0
+    )
+    assert "analyze_source" in capsys.readouterr().out
+
+
+def test_cli_install_can_write_mcp_config(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["install", str(tmp_path), "--platform", "codex", "--mcp-config", "codex"]) == 0
+    assert (tmp_path / "AGENTS.md").exists()
+    assert (tmp_path / ".codex" / "config.toml").exists()
+    assert "Updated" in capsys.readouterr().out
+
+    assert main(["install", str(tmp_path), "--platform", "codex", "--mcp-config", "codex"]) == 0
+    assert "already up to date" in capsys.readouterr().out

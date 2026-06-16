@@ -80,6 +80,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
       <div class="rail-inner">
         <div class="rail-head">
           <h2 class="rail-title">Codebase</h2>
+          <input class="filter" id="globalSearch" type="search" placeholder="Search flows" aria-label="Search flows">
           <select class="filter" id="langFilter" aria-label="Filter by language" style="display:none"></select>
         </div>
         <div class="tree" id="tree" role="tree" aria-label="Directory tree"></div>
@@ -118,6 +119,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <section class="panel panel-errors" id="errorsPanel" aria-label="Logical errors">
           <div class="panel-head">
             <h2 class="rail-title">Logical errors</h2>
+            <button class="panel-action" id="reviewQueueToggle" type="button" aria-pressed="false" title="Show prioritized review queue">Queue</button>
             <span class="panel-count" id="errorsCount" aria-hidden="true"></span>
           </div>
           <div class="panel-body errors-scroll" id="errors" role="list" aria-label="Findings for the current selection">

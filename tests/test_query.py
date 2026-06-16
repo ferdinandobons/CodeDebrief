@@ -10,6 +10,7 @@ from logicchart.query import (
     explain_finding,
     find_decisions,
     model_summary,
+    query_model,
     where_is_state_handled,
 )
 
@@ -69,3 +70,24 @@ def test_find_decisions_subject_is_equality_not_substring(tmp_path: Path) -> Non
     assert find_decisions(model, subject=subject), "exact subject must match"
     # A strict substring of that subject must NOT match.
     assert find_decisions(model, subject=subject[:-1]) == []
+
+
+def test_query_matches_structure_and_metadata(tmp_path: Path) -> None:
+    model = _model(
+        tmp_path,
+        "def get_profile(user):\n"
+        "    user = repository.fetch(user.id)\n"
+        "    if user.status == AccountStatus.ACTIVE:\n"
+        "        return user\n"
+        "    return None\n",
+    )
+
+    matches = query_model(model, "python accountstatus active profile", language="python")
+
+    assert matches
+    top = matches[0]
+    assert top.flow.name == "get_profile"
+    assert any("structure" in reason or "metadata" in reason for reason in top.reasons)
+    payload = top.to_dict()
+    assert payload["language"] == "python"
+    assert payload["entry_kind"] == "function"

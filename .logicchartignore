@@ -1,6 +1,10 @@
 .git/
 .venv/
 .logicchart/
+.claude/
+.codex/config.toml
+.mcp.json
+.cursor/mcp.json
 logicchart-out/
 node_modules/
 .next/
@@ -8,6 +12,8 @@ dist/
 build/
 coverage/
 __pycache__/
+.DS_Store
+*.log
 *.min.js
 *.generated.*
 *.d.ts

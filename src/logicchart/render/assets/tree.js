@@ -16,13 +16,23 @@
       const byId = LC.byId || new Map();
       const treeEl = document.getElementById("tree");
       const langFilterEl = document.getElementById("langFilter");
+      const searchEl = document.getElementById("globalSearch");
       if (!treeEl || !fullTree) return;
 
       const sortFlows = LC.sortFlows || (list => [...list]);
       // The languages dropdown only appears for polyglot repos (>1 language), mirroring
       // the old rail's visibility rule. "" means "All languages".
       const languages = Array.isArray(model.languages) ? model.languages : [];
+      const findings = LC.findings || model.findings || [];
+      const findingsByFlow = new Map();
+      findings.forEach(finding => {
+        if (!finding.flow_id) return;
+        const list = findingsByFlow.get(finding.flow_id) || [];
+        list.push(finding);
+        findingsByFlow.set(finding.flow_id, list);
+      });
       let activeLang = "";
+      let activeQuery = "";
 
       // Per-render lookup maps, rebuilt every time the tree is (re)rendered so a language
       // change cleanly replaces them.
@@ -70,8 +80,30 @@
       // Resolve a file node's flow ids to flows, pruned to the active language.
       function flowsForFile(file) {
         const flows = (file.flow_ids || []).map(id => byId.get(id)).filter(Boolean);
-        const visible = activeLang ? flows.filter(f => f.language === activeLang) : flows;
+        const byLanguage = activeLang ? flows.filter(f => f.language === activeLang) : flows;
+        const visible = activeQuery ? byLanguage.filter(flowMatchesQuery) : byLanguage;
         return sortFlows(visible);
+      }
+
+      function flowMatchesQuery(flow) {
+        if (!activeQuery) return true;
+        const findingsText = (findingsByFlow.get(flow.id) || [])
+          .map(finding => `${finding.kind || ""} ${finding.message || ""} ${finding.evidence || ""}`)
+          .join(" ");
+        const scope = flow.metadata && Array.isArray(flow.metadata.scope)
+          ? flow.metadata.scope.join(" ")
+          : "";
+        const haystack = [
+          flow.name,
+          flow.symbol,
+          flow.language,
+          flow.framework,
+          flow.entry_kind,
+          scope,
+          flow.location && flow.location.path,
+          findingsText,
+        ].join(" ").toLowerCase();
+        return activeQuery.split(/\s+/).every(term => haystack.includes(term));
       }
 
       // Whether a node has at least one flow that survives the active-language filter.
@@ -421,6 +453,16 @@
         });
       }
 
+      function setupSearch() {
+        if (!searchEl) return;
+        searchEl.addEventListener("input", () => {
+          activeQuery = searchEl.value.trim().toLowerCase();
+          render();
+          clearCanvasSelectionForLanguageFilter();
+        });
+      }
+
+      setupSearch();
       setupLanguageFilter();
       render();
 

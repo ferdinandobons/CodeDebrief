@@ -9,6 +9,14 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+.DS_Store
+*.log
+
+# Local agent/client configuration
+.claude/
+.codex/config.toml
+.mcp.json
+.cursor/mcp.json
 
 # Local analysis state and generated browser view
 .logicchart/

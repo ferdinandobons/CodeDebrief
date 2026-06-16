@@ -13,6 +13,8 @@ from logicchart.model import Finding, FindingKind, Flow, NodeKind, ProjectModel
 IDENTITY_WEIGHT = 6
 NODE_WEIGHT = 3
 FINDING_WEIGHT = 4
+STRUCTURE_WEIGHT = 5
+METADATA_WEIGHT = 2
 # Tie-breaker only: nudges an entrypoint above an otherwise-equal non-entrypoint. Added
 # only when the term-overlap score is already > 0, so it never manufactures a match.
 ENTRYPOINT_BONUS = 1
@@ -30,6 +32,10 @@ class QueryMatch:
         payload: dict[str, Any] = {
             "flow_id": self.flow.id,
             "name": self.flow.name,
+            "language": self.flow.language,
+            "entry_kind": self.flow.entry_kind,
+            "framework": self.flow.framework,
+            "scope": self.flow.metadata.get("scope", []),
             "score": self.score,
             "reasons": self.reasons,
         }
@@ -54,7 +60,12 @@ class ImpactResult:
 
 
 def query_model(
-    model: ProjectModel, question: str, limit: int = 10, scope: str | None = None
+    model: ProjectModel,
+    question: str,
+    limit: int = 10,
+    scope: str | None = None,
+    language: str | None = None,
+    finding_kind: str | None = None,
 ) -> list[QueryMatch]:
     terms = _terms(question)
     if not terms:
@@ -74,13 +85,34 @@ def query_model(
     for flow in model.flows:
         if not flow_in_scope(flow, scope):
             continue
+        if language is not None and flow.language != language:
+            continue
         # Match on tokens, not substrings: "order" must not match inside "reordering".
-        # entry_kind / framework are an internal vocabulary ("route", "function", ...),
-        # not user-authored content, so they are excluded from the identity bucket.
         name_tokens = _tokenize(f"{flow.name} {flow.symbol}")
         node_tokens = _tokenize(" ".join(node.label for node in flow.nodes))
+        structure_tokens = _tokenize(
+            " ".join(
+                [
+                    flow.location.path,
+                    flow.language,
+                    " ".join(str(item) for item in flow.metadata.get("scope", [])),
+                ]
+            )
+        )
+        metadata_tokens = _flow_metadata_tokens(flow)
+        flow_findings = [
+            finding
+            for finding in findings_by_flow.get(flow.id, [])
+            if finding_kind is None or finding.kind == finding_kind
+        ]
+        if finding_kind is not None and not flow_findings:
+            continue
         finding_tokens = _tokenize(
-            " ".join(finding.message for finding in findings_by_flow.get(flow.id, []))
+            " ".join(
+                f"{finding.kind} {finding.evidence.value} {finding.severity.value} "
+                f"{finding.message} {_metadata_text(finding.metadata)}"
+                for finding in flow_findings
+            )
         )
         score = 0
         reasons: list[str] = []
@@ -91,6 +123,12 @@ def query_model(
             if term in node_tokens:
                 score += NODE_WEIGHT
                 reasons.append(f"`{term}` appears in a decision or action")
+            if term in structure_tokens:
+                score += STRUCTURE_WEIGHT
+                reasons.append(f"`{term}` matches flow structure")
+            if term in metadata_tokens:
+                score += METADATA_WEIGHT
+                reasons.append(f"`{term}` appears in decision metadata")
             if term in finding_tokens:
                 score += FINDING_WEIGHT
                 reasons.append(f"`{term}` appears in a review finding")
@@ -370,6 +408,29 @@ def _tokenize(text: str) -> set[str]:
     """The field-side tokenizer that mirrors ``_terms`` (unicode \\w words, lowercased),
     so query terms are matched against whole tokens rather than substrings."""
     return set(re.findall(r"\w+", text.lower()))
+
+
+def _flow_metadata_tokens(flow: Flow) -> set[str]:
+    values: list[str] = []
+    for node in flow.nodes:
+        values.extend(
+            str(node.metadata.get(key, ""))
+            for key in ("domain", "subject", "value_namespace", "operator")
+        )
+        values.extend(str(item) for item in node.metadata.get("values", []))
+        values.extend(str(item) for item in node.metadata.get("effects", []))
+        for branch in node.metadata.get("branches", []):
+            if isinstance(branch, dict):
+                values.extend(str(branch.get(key, "")) for key in ("label", "outcome"))
+    return _tokenize(" ".join(values))
+
+
+def _metadata_text(value: Any) -> str:
+    if isinstance(value, dict):
+        return " ".join(f"{key} {_metadata_text(item)}" for key, item in value.items())
+    if isinstance(value, (list, tuple, set)):
+        return " ".join(_metadata_text(item) for item in value)
+    return str(value)
 
 
 def _normalize_path(value: str) -> str:

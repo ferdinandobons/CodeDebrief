@@ -1,6 +1,6 @@
 # LogicChart
 
-**LogicChart reads your code and draws its decision logic as flowcharts in 10 languages, with no API key.**
+**Local-first static analyzer that turns code into navigable decision flowcharts for humans and coding agents. Deterministic, 10 languages, no API key.**
 
 ![Before AI you built code by hand and understood it; with AI no one knows how it works; with AI plus LogicChart you understand it again.](docs/assets/why-logicchart.svg)
 
@@ -20,6 +20,9 @@ coding agents alike. Every finding is tagged by confidence (`VERIFIED`, `INFERRE
 
 > **Status:** early alpha. The logical model is versioned, but its schema may still evolve
 > before 1.0.
+>
+> **Latest release:** [v0.4.0](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.4.0) ·
+> [Changelog](CHANGELOG.md)
 
 ## See it in 30 seconds
 
@@ -79,10 +82,13 @@ uv run logicchart --help     # prefix commands with `uv run`
 From the project you want to analyze:
 
 ```bash
-logicchart init             # write a starter logicchart.toml (once)
-logicchart analyze --full   # build the model + flowcharts
-logicchart view             # open the interactive viewer in your browser
+logicchart analyze --full
+logicchart view
 ```
+
+No `init` step is required. LogicChart has useful defaults and analyzes the current
+directory (`.`) unless you pass another path. Add configuration only when you need custom
+roots, excludes, scopes, entrypoints, output directories, or gated detectors.
 
 You get three files under `logicchart-out/`:
 
@@ -114,7 +120,9 @@ Wrote .../logic-flow.md
 Wrote .../logic-flow.html
 ```
 `--full` ignores the incremental cache; `--no-html` skips the viewer; `--include-gaps`
-expands the review-only findings in the Markdown.
+expands the review-only findings in the Markdown. Use `--profile demo`, `--profile self`, or
+`--profile project` when you want the public example artifact, a dogfood map of LogicChart's
+own internals, or a whole-checkout map written to separate output directories.
 
 ### `update`: incrementally refresh
 
@@ -136,10 +144,13 @@ logicchart query "where is suspended user status handled?" --path examples/demo
    score=13 · `suspended` appears in a decision or action; `status` matches the flow identity; `status` appears in a decision or action
 ```
 Ranks the flows most relevant to a behavior, state, or decision. Add `--json` for
-machine-readable output, or `--scope backend` to restrict the search to one macro-part:
+machine-readable output. Query ranking uses flow identity, path/scope/language structure,
+decision metadata, and finding text, so agent-style questions can target more than just
+labels. Restrict with `--scope`, `--language`, or `--finding-kind`:
 
 ```bash
 logicchart query "order status" --path examples/demo --scope backend
+logicchart query "enum exhaustiveness" --path examples/demo --finding-kind enum_exhaustiveness
 ```
 
 ### `impact`: what does a change touch?
@@ -170,18 +181,32 @@ Renders `logic-flow.html` and serves it at `http://127.0.0.1:8765/logic-flow.htm
 whole codebase. The left rail is the directory tree; the center is an **expand-in-place
 canvas** (scope super-nodes unfold into a scope's flows, and a flow unfolds into its decision
 chart, in place); the right column shows the selected flow's **source** and its **logical
-errors**. Selecting a block, a source line, a tree file, or a finding highlights the others,
-and a full-screen toggle maximizes the canvas. Add `--render-only` to write the HTML without
-serving.
+errors**. The left rail includes flow search and language filtering; the errors panel includes
+a prioritized review queue. Selecting a block, a source line, a tree file, or a finding
+highlights the others, and a full-screen toggle maximizes the canvas. Add `--render-only` to
+write the HTML without serving.
 
 ![LogicChart interactive viewer showing the codebase tree, expandable canvas, selected flow, and synchronized source/finding panels.](docs/assets/logicchart-viewer.png)
 
-### `init` / `install` / `mcp`
+### `validate`: check the artifact contract
 
 ```bash
-logicchart init             # write a starter logicchart.toml
-logicchart install          # install agent instructions (see Advanced)
-logicchart mcp .            # start the MCP server (see Advanced)
+logicchart validate
+logicchart validate --check-sync
+```
+
+Validates `logic-flow.json` against the bundled schema and the current analyzer registry.
+`--check-sync` re-analyzes sources and fails if the committed model is stale.
+
+### `init` / `install` / `mcp`
+
+These commands are optional. Use them after the first successful analysis when you want
+project configuration, persistent agent instructions, or MCP integration.
+
+```bash
+logicchart init
+logicchart install
+logicchart mcp .
 ```
 
 ## Whole codebase and scopes
@@ -260,7 +285,8 @@ Cross-flow (compare sibling flows):
 
 ## Configuration
 
-`logicchart init` creates:
+LogicChart works without a config file. Run `logicchart init` only when the defaults are not
+enough; it creates:
 
 ```toml
 [logicchart]
@@ -293,9 +319,19 @@ never polluted by the tool scanning its own internals.
 
 Use `.logicchartignore` for generated files or directories that should not be analyzed.
 
+Built-in profiles are shortcuts layered on top of config and ignore rules:
+
+| Profile | Source roots | Output directory | Use |
+|---|---|---|---|
+| `demo` | `examples` | `logicchart-out/` | public demo artifact |
+| `self` | `src/logicchart` | `logicchart-out/self/` | dogfood map for LogicChart internals |
+| `project` | `src`, `tests`, `examples` | `logicchart-out/project/` | whole-checkout map for agents |
+
 ## Advanced: agents and MCP
 
 > Optional: start with Quick Start above. These wire LogicChart into coding agents and tooling.
+> The recommended architecture is CLI-first, MCP-enhanced: use commands for the explicit
+> artifact lifecycle and MCP for agent-native, token-bounded context retrieval.
 
 ### Agent instructions
 
@@ -303,6 +339,7 @@ Install persistent instructions that tell coding agents to consult and refresh L
 
 ```bash
 logicchart install
+logicchart install --mcp-config codex  # optional: also write project-scoped MCP config
 ```
 
 This updates supported project-level files:
@@ -313,6 +350,8 @@ This updates supported project-level files:
 - `.cursor/rules/logicchart.mdc` for Cursor
 
 Use `--platform codex`, `claude`, `gemini`, or `cursor` to install one target only.
+Use `--mcp-config codex`, `claude`, `cursor`, or `all` when you also want project-scoped
+MCP configuration generated for clients that support it.
 
 ### MCP server
 
@@ -329,7 +368,8 @@ Start the stdio server in the analyzed project:
 logicchart mcp .
 ```
 
-Example MCP configuration:
+`logicchart install --mcp-config ...` can generate this for supported clients. The underlying
+stdio shape is:
 
 ```json
 {
@@ -353,6 +393,9 @@ Available tools:
 - `where_state_handled`: every flow branching on a domain/value-namespace and the values it covers
 - `find_decision_nodes`: structured search over decision nodes (domain/subject/missing-fallback)
 - `analyze_impact`
+- `review_queue`: prioritized findings for the current scope or whole model
+- `context_pack`: compact summary + query + impact + review context for an agent turn
+- `validate_artifacts`
 - `update_logicchart`
 
 Every query/list tool accepts a `token_budget` cap so an agent can bound how much context a
@@ -377,8 +420,8 @@ uv run mypy
 uv run pytest --cov
 ```
 
-See [docs/design.md](docs/design.md) for the architecture and scope. The canonical artifact
-format is documented by [schema/logic-flow.schema.json](schema/logic-flow.schema.json).
+The canonical artifact format is documented by
+[schema/logic-flow.schema.json](schema/logic-flow.schema.json).
 
 ## License
 

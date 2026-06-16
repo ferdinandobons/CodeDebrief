@@ -103,6 +103,17 @@ def supported_suffixes() -> frozenset[str]:
     return frozenset(_BY_SUFFIX)
 
 
+def supported_language_ids() -> tuple[str, ...]:
+    ids = []
+    for spec in LANGUAGES:
+        ids.append(spec.id)
+        # JavaScript files are parsed by the TypeScript grammar, but the IR labels
+        # plain JS files as "javascript" so consumers can distinguish them.
+        if spec.id == "typescript":
+            ids.append("javascript")
+    return tuple(ids)
+
+
 def spec_for_path(path: Path) -> LanguageSpec | None:
     return _BY_SUFFIX.get(path.suffix.lower())
 

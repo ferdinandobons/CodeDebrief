@@ -9,6 +9,7 @@ from mcp.client.stdio import stdio_client
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.artifacts import load_model, write_artifacts
 from logicchart.cli import main as cli_main
+from logicchart.mcp_server import MCP_INSTRUCTIONS
 
 
 def test_mcp_lists_and_queries_flows(tmp_path: Path) -> None:
@@ -33,7 +34,8 @@ def authorize(user):
         async with stdio_client(parameters) as streams:
             read_stream, write_stream = streams
             async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
+                init = await session.initialize()
+                assert init.instructions == MCP_INSTRUCTIONS
                 tools = await session.list_tools()
                 names = {tool.name for tool in tools.tools}
                 assert {"list_flows", "get_flow", "query_logic", "update_logicchart"} <= names
@@ -42,6 +44,9 @@ def authorize(user):
                     "explain_finding_chain",
                     "where_state_handled",
                     "find_decision_nodes",
+                    "review_queue",
+                    "context_pack",
+                    "validate_artifacts",
                 } <= names
 
                 # Spec §5.2: every query/list tool exposes a token_budget cap.
@@ -51,6 +56,8 @@ def authorize(user):
                     "query_logic",
                     "explain_finding_chain",
                     "analyze_impact",
+                    "review_queue",
+                    "context_pack",
                 ):
                     properties = schema_by_name[budget_tool].get("properties", {})
                     assert "token_budget" in properties, budget_tool
@@ -65,6 +72,17 @@ def authorize(user):
                 summary = await session.call_tool("logicchart_summary", {})
                 assert not summary.isError
                 assert "flows" in str(summary.content)
+
+                context = await session.call_tool(
+                    "context_pack",
+                    {"question": "admin authorization", "changed_files": ["app.py"]},
+                )
+                assert not context.isError
+                assert "impact" in str(context.content)
+
+                validation = await session.call_tool("validate_artifacts", {})
+                assert not validation.isError
+                assert "ok" in str(validation.content)
 
                 state = await session.call_tool("where_state_handled", {"domain": "role"})
                 assert not state.isError
@@ -113,7 +131,52 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
     assert cli_rows == mcp_rows
     assert cli_rows
     for row in cli_rows:
-        assert set(row) == {"flow_id", "name", "score", "reasons", "source"}
+        assert set(row) == {
+            "flow_id",
+            "name",
+            "language",
+            "entry_kind",
+            "framework",
+            "scope",
+            "score",
+            "reasons",
+            "source",
+        }
+
+
+def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
+    source = tmp_path / "app.py"
+    source.write_text(
+        "def dispatch(order):\n"
+        "    if order.status == Status.OPEN:\n"
+        "        return 'open'\n"
+        "    elif order.status == Status.CLOSED:\n"
+        "        return 'closed'\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    write_artifacts(tmp_path, result.model)
+
+    captured: list[dict[str, object]] = []
+
+    async def call_review_queue() -> None:
+        parameters = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", "logicchart.cli", "mcp", str(tmp_path)],
+        )
+        async with stdio_client(parameters) as streams:
+            read_stream, write_stream = streams
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                response = await session.call_tool("review_queue", {"token_budget": 120})
+                assert not response.isError
+                captured.extend(response.structuredContent["result"])  # type: ignore[index]
+
+    asyncio.run(call_review_queue())
+
+    assert captured
+    assert captured[0]["kind"] == "missing_branch"
+    assert "flow" in captured[0]
 
 
 def test_get_flow_subgraph_is_internally_consistent(tmp_path: Path) -> None:

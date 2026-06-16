@@ -215,6 +215,7 @@
       outline: none;
       cursor: pointer;
     }
+    input.filter { cursor: text; }
     .filter:focus { border-color: var(--blue); }
     .tree { overflow: auto; min-height: 0; }
     /* Directory tree (left rail). Rows indent by --depth; folders/files toggle, flow
@@ -654,6 +655,29 @@
       font-weight: 700;
       text-align: center;
     }
+    .panel-action {
+      margin-left: auto;
+      flex: none;
+      min-height: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--panel);
+      color: var(--muted);
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .panel-action:hover,
+    .panel-action:focus-visible,
+    .panel-action.active {
+      border-color: var(--blue);
+      color: var(--blue);
+      outline: none;
+    }
+    .panel-head .panel-action + .panel-count { margin-left: 0; }
     .panel-body { overflow: auto; min-height: 0; flex: 1 1 auto; padding: 14px 16px; }
     .panel-empty { color: var(--muted); font-size: 12px; line-height: 1.55; margin: 6px 0; }
 

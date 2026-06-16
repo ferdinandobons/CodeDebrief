@@ -2,9 +2,35 @@
 
 All notable changes to LogicChart will be documented in this file.
 
-The project follows Semantic Versioning once public releases begin.
+The project follows Semantic Versioning.
 
 ## Unreleased
+
+## 0.4.0 - 2026-06-16
+
+### Added
+
+- Added built-in analysis profiles for the public demo artifact, LogicChart self-analysis,
+  and a whole-checkout project map without overwriting each other.
+- Added `logicchart validate`, artifact/schema registry validation, and optional full
+  source sync checks for local CI and agent workflows.
+- Added richer query filters and ranking signals (`--language`, `--finding-kind`, scope,
+  language, path, decision metadata, and finding text).
+- Added MCP agent tools for prioritized review queues, compact context packs, and artifact
+  validation.
+- Added optional `logicchart install --mcp-config ...` project MCP config generation and
+  server instructions for agent workflow guidance.
+- Added viewer flow search and a prioritized review queue in the findings panel.
+- Clarified the CLI-first, MCP-enhanced agent workflow in the README.
+
+### Changed
+
+- Simplified the README Quick Start to the two commands needed for first success:
+  `logicchart analyze --full` and `logicchart view`.
+- Updated public/package positioning around local-first decision flowcharts for humans and
+  coding agents.
+- Removed internal planning/design documents from `docs/`, keeping the public repository
+  focused on end-user documentation and README assets.
 
 ### Removed
 

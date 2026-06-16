@@ -26,6 +26,8 @@ DEFAULT_EXCLUDES = [
     "**/*.d.ts",
 ]
 
+BUILTIN_PROFILES = ("demo", "self", "project")
+
 
 @dataclass(slots=True)
 class LogicChartConfig:
@@ -42,7 +44,7 @@ class LogicChartConfig:
     scopes: dict[str, list[str]] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, root: Path) -> LogicChartConfig:
+    def load(cls, root: Path, profile: str | None = None) -> LogicChartConfig:
         config = cls()
         config_path = root / "logicchart.toml"
         if config_path.exists():
@@ -64,6 +66,9 @@ class LogicChartConfig:
                 str(name): [str(pattern) for pattern in patterns]
                 for name, patterns in section.get("scopes", {}).items()
             }
+
+        if profile is not None:
+            config = _apply_profile(config, profile)
 
         ignore_path = root / ".logicchartignore"
         if ignore_path.exists():
@@ -105,6 +110,32 @@ class LogicChartConfig:
             )
         head, sep, _ = normalized.partition("/")
         return [head] if sep else []
+
+
+def _apply_profile(config: LogicChartConfig, profile: str) -> LogicChartConfig:
+    """Apply one built-in analysis profile on top of the project config.
+
+    Profiles keep the normal config/ignore semantics, but give agents explicit choices:
+    demo artifacts for public examples, self artifacts for LogicChart internals, and project
+    artifacts for the whole checkout. Each non-default profile writes to its own output dir
+    so the public demo model and dogfood model do not overwrite one another.
+    """
+    if profile not in BUILTIN_PROFILES:
+        known = ", ".join(BUILTIN_PROFILES)
+        raise ValueError(f"unknown LogicChart profile {profile!r}; known profiles: {known}")
+    if profile == "demo":
+        config.source_roots = ["examples"]
+        config.self_exclude = True
+        config.output_dir = "logicchart-out"
+    elif profile == "self":
+        config.source_roots = ["src/logicchart"]
+        config.self_exclude = False
+        config.output_dir = "logicchart-out/self"
+    elif profile == "project":
+        config.source_roots = ["src", "tests", "examples"]
+        config.self_exclude = False
+        config.output_dir = "logicchart-out/project"
+    return config
 
 
 def _normalize_pattern(pattern: str) -> str:

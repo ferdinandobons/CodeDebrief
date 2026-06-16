@@ -39,7 +39,9 @@
       const sourceFileEl = document.getElementById("sourceFile");
       const errorsBody = document.getElementById("errors");
       const errorsCountEl = document.getElementById("errorsCount");
+      const reviewQueueBtn = document.getElementById("reviewQueueToggle");
       const liveRegion = document.getElementById("panelStatus");
+      let reviewQueueMode = false;
 
       // aria-live announcer: screen readers are not notified when the panels rebuild on a
       // selection change. Each panel records its own status ("source: file:line", "<n>
@@ -137,12 +139,27 @@
       // Findings to list for a selection. A selected node narrows to that node's findings;
       // otherwise the relevant flow set's findings, deduped and stable-ordered.
       function findingsForSelection(sel) {
+        if (reviewQueueMode) return prioritizedFindings(findings.slice());
         if (sel.nodeId) {
           return (findingsByNode.get(sel.nodeId) || []).slice();
         }
         const ids = relevantFlowIds(sel);
         if (ids === null) return findings.slice();
         return findings.filter(f => ids.has(f.flow_id));
+      }
+
+      function findingPriority(finding) {
+        const severity = { error: 0, warning: 1, info: 2 };
+        const evidence = { VERIFIED: 0, INFERRED: 1, POTENTIAL_GAP: 2 };
+        return (severity[finding.severity] ?? 3) * 10 + (evidence[finding.evidence] ?? 3);
+      }
+
+      function prioritizedFindings(list) {
+        return list.sort((a, b) =>
+          findingPriority(a) - findingPriority(b) ||
+          String(a.location && a.location.path || "").localeCompare(String(b.location && b.location.path || "")) ||
+          String(a.message || "").localeCompare(String(b.message || ""))
+        );
       }
 
       // --- Logical-errors panel ----------------------------------------------------
@@ -254,6 +271,15 @@
         // A node selection is exact -- show all of its (few) findings. A broad selection
         // (nothing / L0 / a scope / a path) can match thousands; show a compact summary
         // instead of an unbounded list, so the panel stays bounded at the top level.
+        if (reviewQueueMode && list.length > MAX_FINDING_ROWS) {
+          list.slice(0, MAX_FINDING_ROWS).forEach(finding => {
+            errorsBody.appendChild(findingRow(finding));
+          });
+          errorsBody.appendChild(
+            el("p", "panel-empty", String(list.length - MAX_FINDING_ROWS) + " more findings not shown.")
+          );
+          return;
+        }
         const exact = !!sel.nodeId;
         if (!exact && list.length > MAX_FINDING_ROWS) {
           errorsBody.appendChild(findingSummary(list));
@@ -495,6 +521,15 @@
       if (LC.onSelection) LC.onSelection(onSelection);
       // Prime once with the initial (empty) selection so the panels show their hints.
       onSelection(LC.selection || {});
+
+      if (reviewQueueBtn) {
+        reviewQueueBtn.addEventListener("click", () => {
+          reviewQueueMode = !reviewQueueMode;
+          reviewQueueBtn.setAttribute("aria-pressed", reviewQueueMode ? "true" : "false");
+          reviewQueueBtn.classList.toggle("active", reviewQueueMode);
+          onSelection(LC.selection || {});
+        });
+      }
 
       // --- Full-screen canvas (Phase 4.5) -----------------------------------------
       // Maximizes the canvas and hides the side panels. Uses the browser Fullscreen API
