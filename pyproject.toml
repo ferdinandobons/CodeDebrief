@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logicchart"
-version = "0.6.0"
+version = "0.6.1"
 description = "Local-first static analyzer that turns code into navigable decision flowcharts for humans and coding agents. Deterministic, 11 languages, no API key."
 readme = "README.md"
 requires-python = ">=3.10"

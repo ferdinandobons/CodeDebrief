@@ -6,6 +6,13 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.6.1 - 2026-06-16
+
+### Fixed
+
+- Fixed Markdown report rendering for enum-backed finding kinds so reports show public
+  values such as `missing_branch` instead of Python enum names.
+
 ## 0.6.0 - 2026-06-16
 
 ### Added
