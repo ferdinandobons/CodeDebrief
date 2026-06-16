@@ -97,6 +97,9 @@ class LanguageProfile:
     default_when_no_value: bool = False
     # Case values that mean "match anything" (a match `_` arm acts as the default).
     wildcard_values: frozenset[str] = frozenset()
+    # The switch/match is compiler-exhaustive (e.g. Rust `match`): no explicit default does
+    # not mean an unhandled case, so it must not be flagged as a missing fallback.
+    exhaustive_switch: bool = False
     loop_types: frozenset[str] = frozenset()
     return_type: str = "return_statement"
     return_keyword: str = "return"
@@ -438,7 +441,7 @@ class TreeSitterAnalyzer:
             )
         node.metadata["values"] = sorted(set(values))
         node.metadata["value_namespace"] = value_namespace(sorted(set(values)))
-        if not has_default:
+        if not has_default and not profile.exhaustive_switch:
             branches.append(branch(DEFAULT_LABEL, FALLS_THROUGH, implicit=True))
             endpoints.append(PendingEdge(node.id, DEFAULT_LABEL))
         node.metadata["branches"] = branches

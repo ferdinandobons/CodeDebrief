@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from logicchart.analysis.common import DEFAULT
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.model import NodeKind, ProjectModel
 
@@ -61,8 +62,11 @@ def test_rust_if_match_and_visibility(tmp_path: Path) -> None:
         n for n in handle.nodes if n.kind is NodeKind.DECISION and n.label.startswith("Switch")
     )
     assert {"Status::Active", "Status::Suspended"} <= set(match.metadata["values"])
-    # no wildcard arm -> missing_branch
-    assert "missing_branch" in {f.kind for f in model.findings if f.flow_id == handle.id}
+    # Rust `match` is compiler-exhaustive: a missing `_` arm is enforced by the
+    # compiler, not a runtime gap, so it must not be flagged and no synthetic
+    # fallthrough branch is added.
+    assert "missing_branch" not in {f.kind for f in model.findings if f.flow_id == handle.id}
+    assert not any(b["implicit"] for b in match.metadata["branches"])
 
 
 def test_rust_wildcard_arm_is_default(tmp_path: Path) -> None:
@@ -73,5 +77,9 @@ def test_rust_wildcard_arm_is_default(tmp_path: Path) -> None:
         "    Status::Active => 1,\n    _ => 0,\n  }\n}\n",
     )
     pick = _flow(model, "pick")
-    # the `_` arm is the default, so the match is exhaustive: no missing_branch
+    # the `_` arm is recognized as the explicit default, not a synthetic fallthrough
     assert "missing_branch" not in {f.kind for f in model.findings if f.flow_id == pick.id}
+    match = next(
+        n for n in pick.nodes if n.kind is NodeKind.DECISION and n.label.startswith("Switch")
+    )
+    assert any(b["label"] == DEFAULT and not b["implicit"] for b in match.metadata["branches"])

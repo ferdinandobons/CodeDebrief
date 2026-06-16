@@ -77,6 +77,7 @@ RUST_PROFILE = LanguageProfile(
     case_types=frozenset({"match_arm"}),
     case_value_field="pattern",
     wildcard_values=frozenset({"_"}),
+    exhaustive_switch=True,
     loop_types=frozenset({"loop_expression", "while_expression", "for_expression"}),
     call_types=frozenset({"call_expression"}),
     assignment_types=frozenset({"let_declaration"}),
