@@ -90,7 +90,7 @@ You get three files under `logicchart-out/`:
 |---|---|
 | `logic-flow.json` | canonical model, consumed by the CLI and MCP; **commit it** |
 | `logic-flow.md` | reviewable Mermaid flowcharts + a findings list; **commit it** |
-| `logic-flow.html` | interactive local viewer (drag blocks to rearrange); regenerated, git-ignored |
+| `logic-flow.html` | navigable local viewer (tree + expand-in-place canvas + source/findings); regenerated, git-ignored |
 
 In the Markdown report, `VERIFIED` / `INFERRED` findings sit in the main section and
 `POTENTIAL_GAP` review candidates are folded under a collapsible block (`--include-gaps`
@@ -159,15 +159,18 @@ Direct impact:
 With no file arguments it uses `git diff` to infer what changed. `--scope <name>` limits the
 impact set to one macro-part.
 
-### `view`: interactive flowchart
+### `view`: navigable codebase viewer
 
 ```bash
 logicchart view examples/demo
 ```
-Renders `logic-flow.html` and serves it at `http://127.0.0.1:8765`. In the viewer you can
-filter flows, click a block to inspect its source and findings, and **drag blocks to
-rearrange the diagram by hand** (the connectors follow; the reset button restores the
-automatic layout). Add `--render-only` to write the HTML without serving.
+Renders `logic-flow.html` and serves it at `http://127.0.0.1:8765`: one navigable model of the
+whole codebase. The left rail is the directory tree; the center is an **expand-in-place
+canvas** (scope super-nodes unfold into a scope's flows, and a flow unfolds into its decision
+chart, in place); the right column shows the selected flow's **source** and its **logical
+errors**. Selecting a block, a source line, a tree file, or a finding highlights the others,
+and a full-screen toggle maximizes the canvas. Add `--render-only` to write the HTML without
+serving.
 
 ### `init` / `install` / `mcp`
 

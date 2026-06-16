@@ -1,6 +1,7 @@
 # Navigable codebase viewer (design)
 
-Status: design / brainstorming output (2026-06-16). Not yet implemented.
+Status: implemented (Phases 0 to 4). This document is the original design; the shipped
+viewer follows it, with per-flow source snippets capped and de-duplicated at the file level.
 
 ## Goal
 
