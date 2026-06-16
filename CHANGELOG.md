@@ -6,6 +6,8 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.7.0 - 2026-06-16
+
 ### Added
 
 - Added PNG and JPG export buttons for the currently visible flowchart canvas.

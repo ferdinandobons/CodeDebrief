@@ -16,7 +16,7 @@ control-flow map.
 > **Status:** early alpha. The logical model is versioned, but the schema may evolve before
 > 1.0.
 >
-> **Latest release:** [v0.6.2](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.6.2) ·
+> **Latest release:** [v0.7.0](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.7.0) ·
 > [Changelog](CHANGELOG.md)
 
 ## What You Get
