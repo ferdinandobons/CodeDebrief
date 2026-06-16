@@ -4,14 +4,47 @@ All notable changes to LogicChart will be documented in this file.
 
 The project follows Semantic Versioning once public releases begin.
 
-## Unreleased
+## 0.3.0
 
-- Viewer UI refresh: a new logo - a blue entry-node circle, a violet connector, and an
-  amber decision diamond in three solid colors with clear spacing (and a matching favicon);
-  a light/dark theme
-  toggle (remembered across sessions); refined palette; node hover and shadow states;
-  selecting a block now highlights it and its connected edges while dimming the rest; and
-  the legend now includes the cyan "outcome" (terminal) node color it was missing.
+Major capability expansion: from a Python/TypeScript analyzer to a polyglot,
+whole-codebase one - 10 control-flow languages plus Terraform, organized by macro-part.
+
+### Languages
+
+- Profile-driven tree-sitter engine: a new control-flow language is a `LanguageProfile`
+  (grammar vocabulary + a few extractors), not a bespoke analyzer.
+- Added Go, Java, C#, PHP, C, Rust, and Ruby alongside the existing Python and
+  TypeScript/JavaScript analyzers - 10 control-flow languages in all.
+- Terraform/HCL support: each `resource` / `module` / `data` / `variable` / `output` block
+  becomes a flow and each reference (`aws_vpc.main.id`, `depends_on`) becomes a dependency
+  edge, so the IR carries a resource dependency graph.
+- Pluggable language registry keyed by file suffix, with lazy grammar loading.
+- Rust `match` is treated as compiler-exhaustive: a missing `_` arm is no longer flagged as
+  a missing fallback.
+
+### Whole codebase and scopes
+
+- Macro-part scopes: declare `[logicchart.scopes]` (or fall back to the inferred top-level
+  directory) so one model can be viewed whole or restricted to backend/frontend/infra.
+- `--scope` on `query` and `impact`; scope and language filters in the viewer.
+- Every flow records the scope(s) it belongs to; the Markdown header summarizes the
+  per-scope breakdown.
+
+### Viewer
+
+- UI refresh: a new logo - a blue entry-node circle, a violet connector, and an amber
+  decision diamond in three solid colors with clear spacing (and a matching favicon); a
+  light/dark theme toggle (remembered across sessions); refined palette; node hover and
+  shadow states; selecting a block now highlights it and its connected edges while dimming
+  the rest; and the legend now includes the cyan "outcome" (terminal) node color it was
+  missing.
+
+### Examples & fixes
+
+- `examples/demo` is now a polyglot "users & orders" platform spanning all 11 languages
+  across backend/frontend/edge/infra scopes, with Terraform infrastructure.
+- `analyze` summary wording: "{n} finding(s)" instead of the ungrammatical, misleading
+  "{n} review findings".
 
 ## 0.2.1
 
