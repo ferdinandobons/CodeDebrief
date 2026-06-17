@@ -6,6 +6,8 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.8.0 - 2026-06-17
+
 ### Added
 
 - Added dedicated viewer documentation covering the progressive flowchart product shape,
