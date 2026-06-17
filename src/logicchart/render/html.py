@@ -23,6 +23,13 @@ def _inline_js(name: str) -> str:
     return _SCRIPT_CLOSE.sub(r"<\\/\1", _asset(name))
 
 
+def _optional_inline_js(name: str) -> str:
+    path = Path(__file__).parent / "assets" / name
+    if not path.exists():
+        return ""
+    return _SCRIPT_CLOSE.sub(r"<\\/\1", path.read_text(encoding="utf-8"))
+
+
 def render_html(model: ProjectModel, source_root: Path | None = None) -> str:
     payload = json.dumps(build_payload(model, source_root), ensure_ascii=False).replace(
         "</", "<\\/"
@@ -32,12 +39,14 @@ def render_html(model: ProjectModel, source_root: Path | None = None) -> str:
     canvas_js = _inline_js("canvas.js")
     tree_js = _inline_js("tree.js")
     panels_js = _inline_js("panels.js")
+    viewer_runtime_js = _optional_inline_js("generated/logicchart-viewer-runtime.iife.js")
     return (
         _HTML_TEMPLATE.replace("__STYLES__", css)
         .replace("__SHELL_JS__", js)
         .replace("__CANVAS_JS__", canvas_js)
         .replace("__TREE_JS__", tree_js)
         .replace("__PANELS_JS__", panels_js)
+        .replace("__VIEWER_RUNTIME_JS__", viewer_runtime_js)
         .replace("__LOGICCHART_DATA__", payload)
     )
 
@@ -106,6 +115,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <button class="tool" id="fullscreenToggle" data-action="fullscreen" title="Full screen (Esc to exit)" aria-label="Toggle full-screen canvas" aria-pressed="false">&#9974;</button>
       </div>
       <svg id="canvas" role="img" aria-label="Codebase canvas" data-level="0"></svg>
+      <div id="typedViewerHost" class="typed-viewer-host" hidden aria-label="Framework-backed flowchart"></div>
       <div class="empty" id="emptyState"><p>No matching flow was found.</p></div>
     </main>
 
@@ -148,6 +158,27 @@ _HTML_TEMPLATE = r"""<!doctype html>
   <script>__CANVAS_JS__</script>
   <script>__TREE_JS__</script>
   <script>__PANELS_JS__</script>
+  <script>__VIEWER_RUNTIME_JS__</script>
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("runtime") !== "react") return;
+      const runtime = window.LogicChartViewer;
+      const host = document.getElementById("typedViewerHost");
+      const data = document.getElementById("logicchart-data");
+      if (!runtime || !host || !data || !runtime.mountStandaloneLogicChartViewer) return;
+      document.body.dataset.runtime = "react";
+      host.hidden = false;
+      try {
+        const payload = JSON.parse(data.textContent || "{}");
+        window.logicchartTypedViewer = runtime.mountStandaloneLogicChartViewer(host, payload);
+      } catch (error) {
+        host.hidden = true;
+        document.body.dataset.runtime = "static";
+        console.error("Unable to start React viewer runtime", error);
+      }
+    })();
+  </script>
 </body>
 </html>
 """

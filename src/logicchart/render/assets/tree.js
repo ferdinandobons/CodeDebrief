@@ -285,9 +285,12 @@
       function clearCanvasSelectionForLanguageFilter() {
         const sel = LC.selection || {};
         if (!(sel.flowId || sel.nodeId || sel.path || sel.scope)) return;
+        const scope = sel.scope || (sel.path ? sel.path.split("/").filter(Boolean)[0] : null);
         lastActiveFlowId = null;
         highlightActive(null);
-        if (LC.showL0) {
+        if (scope && LC.showScope) {
+          LC.showScope(scope);
+        } else if (LC.showL0) {
           LC.showL0();
         } else if (LC.select) {
           LC.select({ scope: null, path: null, flowId: null, nodeId: null, findingId: null });

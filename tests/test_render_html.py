@@ -132,6 +132,10 @@ def test_render_html_emits_codebase_canvas(tmp_path: Path) -> None:
     assert "progressive-call-edge" in html
     assert "progressive-call-hit" in html
     assert "progressive-call-label" in html
+    assert "scope-entry-link" in html
+    assert "scopeEntryGeometry" in html
+    assert "rowWidthForLayer" in html
+    assert "scope-expansion-link" not in html
     assert "edge-source" in html
     assert "selected-link" in html
     assert "edge-focus" in html
@@ -142,6 +146,11 @@ def test_render_html_emits_codebase_canvas(tmp_path: Path) -> None:
     assert "edgeId" in html
     assert "manualScopePositions" in html
     assert "manualFlowPositions" in html
+    assert "cssEscape(" in html
+    assert 'typeof window.CSS.escape === "function"' in html
+    assert '"node entry scope-node movable"' in html
+    assert ".scope-node .shape" not in html
+    assert ".scope-node .scope-name" not in html
     assert "active-parent" in html
     assert "exportCurrentCanvas" in html
     assert "logicchart-flowchart" in html
@@ -249,6 +258,7 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     # Language filtering is tree-local; changing it while a deep canvas selection is active
     # must clear the deep selection instead of leaving tree/canvas on different worlds.
     assert "clearCanvasSelectionForLanguageFilter" in html
+    assert "sel.scope || (sel.path ? sel.path.split" in html
 
     # Opening a tree directory/file should focus that area on the integrated canvas,
     # including nested folders via the path hash route.
@@ -290,6 +300,29 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "edgeLabelLayer" in html
     assert "branch-exit-chip" in html
     assert "horizontalLabelX" in html
+    assert "flowLayers(" in html
     assert "FLOW_LAYER_Y" in html
     assert "FLOW_SIBLING_X" in html
     assert "node-kind-badge" in html
+    assert "safeDecodeHashValue" in html
+    assert "manualPositions.clear()" in html
+    assert "clearCanvasFocus" in html
+    assert "openDetails" in html
+    assert ".edge-hit, .edge-hit-segment, .edge-label-wrap" in html
+    assert "bindEdgeActivationParts" in html
+    assert "setEdgeHitGeometry(hit, geometry, activate" in html
+    assert "routeEdgeRecordFromElement" in html
+    assert "decisionEdgeRecordFromElement" in html
+
+
+def test_render_html_wires_framework_viewer_runtime(tmp_path: Path) -> None:
+    html = render_html(_model(tmp_path), tmp_path)
+    # The default artifact remains static/offline, but a framework-backed runtime can be
+    # activated with ?runtime=react. This pins the bridge so the typed frontend cannot
+    # drift into an unused side project while the mature static viewer remains the default.
+    assert 'id="typedViewerHost"' in html
+    assert 'data-runtime = "react"' not in html
+    assert 'dataset.runtime = "react"' in html
+    assert 'params.get("runtime") !== "react"' in html
+    assert "mountStandaloneLogicChartViewer" in html
+    assert "logicchartTypedViewer" in html

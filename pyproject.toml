@@ -83,8 +83,11 @@ packages = ["src/logicchart"]
 include = [
   "/src",
   "/tests",
+  "/frontend",
   "/docs",
   "/schema",
+  "/package.json",
+  "/package-lock.json",
   "/README.md",
   "/LICENSE",
   "/CHANGELOG.md",

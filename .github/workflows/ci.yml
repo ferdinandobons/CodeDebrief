@@ -26,3 +26,18 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
       - run: uv run pytest --cov
+
+  viewer:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run viewer:typecheck
+      - run: npm run viewer:test
+      - run: npm run viewer:build
+      - run: npm audit --audit-level=high

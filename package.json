@@ -1,0 +1,26 @@
+{
+  "name": "logicchart-viewer-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "viewer:build": "vite build --config frontend/vite.config.ts",
+    "viewer:test": "vitest run --config frontend/vite.config.ts",
+    "viewer:typecheck": "tsc -p frontend/tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "jsdom": "^27.3.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.0.15"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.10.0",
+    "elkjs": "^0.11.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "zustand": "^5.0.9"
+  }
+}

@@ -75,6 +75,7 @@
         expandedScope: null,
         selectedPath: null,
         selectedFlowId: null,
+        selectedRouteEdge: null,
         routeFlowIds: [],
         // L2: all flow ids whose decision flowcharts are unfolded IN PLACE inside L1.
         // `expandedFlow` is only the active/last-selected one for hash, focus, and reset.
@@ -226,6 +227,18 @@
 
       function svgEl(tag) {
         return document.createElementNS("http://www.w3.org/2000/svg", tag);
+      }
+
+      function cssEscape(value) {
+        const text = String(value);
+        if (window.CSS && typeof window.CSS.escape === "function") {
+          return window.CSS.escape(text);
+        }
+        return text
+          .replace(/\\/g, "\\\\")
+          .replace(/"/g, "\\\"")
+          .replace(/\n/g, "\\A ")
+          .replace(/\r/g, "\\D ");
       }
 
       function setCanvasLevel(level) {
@@ -407,7 +420,7 @@
       function focusFlowNode(id) {
         if (!id) return;
         const node = svg.querySelector(
-          '.flow-node[data-flow-id="' + CSS.escape(id) + '"]'
+          '.flow-node[data-flow-id="' + cssEscape(id) + '"]'
         );
         if (node && typeof node.focus === "function") node.focus();
       }
@@ -703,6 +716,14 @@
         return Math.max(FLOW_W, count * FLOW_W + Math.max(0, count - 1) * GAP_X);
       }
 
+      function rowWidthForLayer(layer, reserveWidths) {
+        const reserved = layer.reduce(
+          (sum, flow) => sum + (reserveWidths.get(flow.id) || FLOW_W),
+          0
+        );
+        return Math.max(FLOW_W, reserved + Math.max(0, layer.length - 1) * GAP_X);
+      }
+
       function layoutL1(scope) {
         const layers = buildProgressiveLayers(scope);
         const flowPos = new Map();
@@ -710,13 +731,34 @@
         const visibleIds = new Set();
         const allNodes = [];
         const routeEdges = [];
-        const maxWidth = Math.max(...layers.map(layer => rowWidth(layer.length)), FLOW_W);
+        const expandedMeasures = new Map();
+        const reserveWidths = new Map();
+        layers.forEach(layer => {
+          layer.forEach(flow => {
+            const measure =
+              canvasState.expandedFlowIds.has(flow.id) &&
+              flow.nodes &&
+              flow.nodes.length &&
+              LC.measureFlow
+                ? LC.measureFlow(flow, { omitEntry: true })
+                : null;
+            if (measure) expandedMeasures.set(flow.id, measure);
+            reserveWidths.set(
+              flow.id,
+              Math.max(FLOW_W, measure ? measure.width + DECISION_PAD * 2 : FLOW_W)
+            );
+          });
+        });
+        const maxWidth = Math.max(
+          ...layers.map(layer => rowWidthForLayer(layer, reserveWidths)),
+          FLOW_W
+        );
         const inlineAnchors = [];
 
         let y = 0;
         layers.forEach((layer, layerIndex) => {
-          const width = rowWidth(layer.length);
-          const startX = (maxWidth - width) / 2 + FLOW_W / 2;
+          const width = rowWidthForLayer(layer, reserveWidths);
+          let cursorX = (maxWidth - width) / 2;
           flowRows.push({
             x: maxWidth / 2,
             y,
@@ -726,7 +768,9 @@
           });
 
           layer.forEach((flow, index) => {
-            const x = startX + index * (FLOW_W + GAP_X);
+            const reserveW = reserveWidths.get(flow.id) || FLOW_W;
+            const x = cursorX + reserveW / 2;
+            cursorX += reserveW + GAP_X;
             const pos = { x, y, w: FLOW_W, h: FLOW_H, layer: layerIndex };
             const manual = manualFlowPositions.get(flow.id);
             if (manual) {
@@ -739,15 +783,10 @@
           });
 
           const expandedInRow = layer
-            .filter(flow => canvasState.expandedFlowIds.has(flow.id))
+            .filter(flow => expandedMeasures.has(flow.id))
             .map(flow => ({
               flow,
-              measure:
-                flow.nodes &&
-                flow.nodes.length &&
-                LC.measureFlow
-                  ? LC.measureFlow(flow, { omitEntry: true })
-                  : null,
+              measure: expandedMeasures.get(flow.id),
             }))
             .filter(item => item.measure);
 
@@ -806,6 +845,7 @@
           visibleIds,
           routeEdges,
           inlineAnchors,
+          entryFlowIds: layers[0] ? layers[0].map(flow => flow.id) : [],
           inlineBounds: inlineAnchors.length
             ? mergeBounds(inlineAnchors.map(anchor => anchor.bounds))
             : null,
@@ -846,7 +886,7 @@
         const group = svgEl("g");
         group.setAttribute(
           "class",
-          "node scope-node movable" +
+          "node entry scope-node movable" +
             (opts.expanded ? " expanded" : "") +
             (opts.dimmed ? " dimmed" : "") +
             (stats.review ? " has-finding" : "")
@@ -871,7 +911,6 @@
         if (isTruncated(name, 18, 2)) addTitle(group, name);
         nameLines.forEach((line, index) => {
           const text = svgEl("text");
-          text.setAttribute("class", "scope-name");
           text.setAttribute("text-anchor", "middle");
           text.setAttribute(
             "y",
@@ -881,7 +920,7 @@
           group.appendChild(text);
         });
         const meta = svgEl("text");
-        meta.setAttribute("class", "scope-meta");
+        meta.setAttribute("class", "meta");
         meta.setAttribute("text-anchor", "middle");
         meta.setAttribute("y", String(pos.h / 2 - (stats.review ? 28 : 14)));
         const langText = `${stats.languages} lang${stats.languages === 1 ? "" : "s"}`;
@@ -889,7 +928,7 @@
         group.appendChild(meta);
         if (stats.review) {
           const review = svgEl("text");
-          review.setAttribute("class", "scope-review");
+          review.setAttribute("class", "meta");
           review.setAttribute("text-anchor", "middle");
           review.setAttribute("y", String(pos.h / 2 - 11));
           review.textContent = `${stats.review} review`;
@@ -1117,14 +1156,21 @@
         return path;
       }
 
-      function edgeHitPath(geometry) {
+      function bindEdgeActivationParts(group, activate) {
+        if (!group || !activate) return;
+        group.querySelectorAll("*").forEach(part => {
+          part.addEventListener("click", activate);
+        });
+      }
+
+      function edgeHitPath(geometry, activate) {
         const hit = svgEl("g");
         hit.setAttribute("class", "edge-hit");
-        setEdgeHitGeometry(hit, geometry);
+        setEdgeHitGeometry(hit, geometry, activate);
         return hit;
       }
 
-      function setEdgeHitGeometry(hit, geometry) {
+      function setEdgeHitGeometry(hit, geometry, activate) {
         hit.replaceChildren();
         const points = geometry.points || [];
         const pad = 10;
@@ -1138,60 +1184,72 @@
           rect.setAttribute("width", String(Math.max(Math.abs(a.x - b.x), 1) + pad * 2));
           rect.setAttribute("height", String(Math.max(Math.abs(a.y - b.y), 1) + pad * 2));
           rect.setAttribute("rx", "10");
+          if (activate) rect.addEventListener("click", activate);
           hit.appendChild(rect);
         }
       }
 
-      function clearProgressiveLinkHighlight() {
-        svg.querySelectorAll(".flow-node.edge-source, .flow-node.edge-target").forEach(node => {
+      function clearProgressiveLinkHighlight(options) {
+        if (!options || !options.preserveSelection) {
+          canvasState.selectedRouteEdge = null;
+        }
+        svg.querySelectorAll(".node.edge-source, .node.edge-target").forEach(node => {
           node.classList.remove("edge-source", "edge-target");
         });
-        svg.querySelectorAll(".flow-node.dimmed").forEach(node => {
+        svg.querySelectorAll(".node.dimmed").forEach(node => {
           node.classList.remove("dimmed");
         });
-        svg.querySelectorAll(".progressive-call-edge.selected-link, .progressive-call-hit.selected-link").forEach(edge => {
+        svg.querySelectorAll(".edge.selected-link, .edge-hit.selected-link").forEach(edge => {
           edge.classList.remove("selected-link");
         });
-        svg.querySelectorAll(".progressive-call-edge.dimmed, .progressive-call-edge.focus-hidden, .progressive-call-hit.dimmed").forEach(edge => {
+        svg.querySelectorAll(".edge.dimmed, .edge.focus-hidden, .edge-hit.dimmed").forEach(edge => {
           edge.classList.remove("dimmed", "focus-hidden");
         });
-        svg.querySelectorAll(".progressive-call-focus.selected-link").forEach(edge => {
+        svg.querySelectorAll(".edge-focus.selected-link").forEach(edge => {
           edge.classList.remove("selected-link");
         });
-        svg.querySelectorAll(".progressive-call-label.selected-link, .progressive-call-label.dimmed").forEach(label => {
+        svg.querySelectorAll(".edge-label-wrap.selected-link, .edge-label-wrap.dimmed").forEach(label => {
           label.classList.remove("selected-link", "dimmed");
         });
       }
 
-      function selectProgressiveLink(edge, path, label, hit, focusPath) {
-        clearProgressiveLinkHighlight();
+      function applyProgressiveLinkClasses(edge, path, label, hit, focusPath) {
+        if (!edge || !path) return;
+        clearProgressiveLinkHighlight({ preserveSelection: true });
         path.classList.add("focus-hidden");
         if (hit) hit.classList.add("selected-link");
         if (focusPath) focusPath.classList.add("selected-link");
         if (label) label.classList.add("selected-link");
-        if (LC.clearHighlight) LC.clearHighlight();
         const related = new Set([edge.source, edge.target]);
-        svg.querySelectorAll(".flow-node").forEach(node => {
+        svg.querySelectorAll(".node").forEach(node => {
           const id = node.getAttribute("data-flow-id");
           node.classList.toggle("dimmed", !related.has(id));
         });
-        svg.querySelectorAll(".progressive-call-edge").forEach(item => {
+        svg.querySelectorAll(".edge").forEach(item => {
           item.classList.toggle("dimmed", item !== path);
         });
-        svg.querySelectorAll(".progressive-call-hit").forEach(item => {
+        svg.querySelectorAll(".edge-hit").forEach(item => {
           item.classList.toggle("dimmed", item !== hit);
         });
-        svg.querySelectorAll(".progressive-call-label").forEach(item => {
+        svg.querySelectorAll(".edge-label-wrap").forEach(item => {
           item.classList.toggle("dimmed", item !== label);
         });
         const sourceNode = svg.querySelector(
-          '.flow-node[data-flow-id="' + CSS.escape(edge.source) + '"]'
+          '.flow-node[data-flow-id="' + cssEscape(edge.source) + '"]'
         );
         const targetNode = svg.querySelector(
-          '.flow-node[data-flow-id="' + CSS.escape(edge.target) + '"]'
+          '.flow-node[data-flow-id="' + cssEscape(edge.target) + '"]'
         );
         if (sourceNode) sourceNode.classList.add("edge-source");
         if (targetNode) targetNode.classList.add("edge-target");
+      }
+
+      function selectProgressiveLink(edge, path, label, hit, focusPath) {
+        if (!edge || !path) return;
+        canvasState.selectedRouteEdge = { kind: "progressive-call", source: edge.source, target: edge.target };
+        applyProgressiveLinkClasses(edge, path, label, hit, focusPath);
+        if (LC.clearHighlight) LC.clearHighlight();
+        if (LC.openDetails) LC.openDetails();
         const flow = byId.get(edge.source);
         if (flow && LC.select) {
           LC.select({
@@ -1205,16 +1263,162 @@
         }
       }
 
+      function applyScopeEntryLinkClasses(edge, path, hit, focusPath) {
+        if (!edge || !path) return;
+        clearProgressiveLinkHighlight({ preserveSelection: true });
+        path.classList.add("focus-hidden");
+        if (hit) hit.classList.add("selected-link");
+        if (focusPath) focusPath.classList.add("selected-link");
+        svg.querySelectorAll(".node").forEach(node => {
+          const flowId = node.getAttribute("data-flow-id");
+          const scopeName = node.getAttribute("data-scope");
+          node.classList.toggle(
+            "dimmed",
+            !(scopeName === edge.scope || flowId === edge.target)
+          );
+        });
+        svg.querySelectorAll(".edge").forEach(item => {
+          item.classList.toggle("dimmed", item !== path);
+        });
+        svg.querySelectorAll(".edge-hit").forEach(item => {
+          item.classList.toggle("dimmed", item !== hit);
+        });
+        svg.querySelectorAll(".edge-label-wrap").forEach(item => {
+          item.classList.add("dimmed");
+        });
+        const scopeNode = svg.querySelector(
+          '.scope-node[data-scope="' + cssEscape(edge.scope) + '"]'
+        );
+        const targetNode = svg.querySelector(
+          '.flow-node[data-flow-id="' + cssEscape(edge.target) + '"]'
+        );
+        if (scopeNode) scopeNode.classList.add("edge-source");
+        if (targetNode) targetNode.classList.add("edge-target");
+      }
+
+      function selectScopeEntryLink(edge, path, hit, focusPath) {
+        if (!edge || !path) return;
+        canvasState.selectedRouteEdge = {
+          kind: "scope-entry",
+          scope: edge.scope,
+          target: edge.target,
+        };
+        applyScopeEntryLinkClasses(edge, path, hit, focusPath);
+        if (LC.clearHighlight) LC.clearHighlight();
+        if (LC.openDetails) LC.openDetails();
+        const flow = byId.get(edge.target);
+        if (flow && LC.select) {
+          LC.select({
+            scope: edge.scope,
+            path: flow.location.path,
+            flowId: flow.id,
+            nodeId: null,
+            findingId: null,
+            edgeId: null,
+          });
+        }
+      }
+
+      function restoreSelectedProgressiveLink() {
+        const selected = canvasState.selectedRouteEdge;
+        if (!selected) return;
+        if (selected.kind === "scope-entry") {
+          const sourceSelector = '[data-source-scope="' + cssEscape(selected.scope) + '"]';
+          const targetSelector = '[data-target-flow-id="' + cssEscape(selected.target) + '"]';
+          const path = svg.querySelector(".scope-entry-link" + sourceSelector + targetSelector);
+          if (!path) return;
+          const hit = svg.querySelector(".scope-entry-hit" + sourceSelector + targetSelector);
+          const focusPath = svg.querySelector(".scope-entry-focus" + sourceSelector + targetSelector);
+          applyScopeEntryLinkClasses(
+            { scope: selected.scope, target: selected.target },
+            path,
+            hit,
+            focusPath
+          );
+          return;
+        }
+        const sourceSelector = '[data-source-flow-id="' + cssEscape(selected.source) + '"]';
+        const targetSelector = '[data-target-flow-id="' + cssEscape(selected.target) + '"]';
+        const label = svg.querySelector(".progressive-call-label" + sourceSelector + targetSelector);
+        const path = svg.querySelector(".progressive-call-edge" + sourceSelector + targetSelector);
+        if (!label || !path) return;
+        const hit = svg.querySelector(".progressive-call-hit" + sourceSelector + targetSelector);
+        const focusPath = svg.querySelector(".progressive-call-focus" + sourceSelector + targetSelector);
+        applyProgressiveLinkClasses(
+          { source: selected.source, target: selected.target },
+          path,
+          label,
+          hit,
+          focusPath
+        );
+      }
+
       function rememberRouteEdge(flowId, record) {
         const records = currentRouteEdgeRecords.get(flowId) || [];
         records.push(record);
         currentRouteEdgeRecords.set(flowId, records);
       }
 
+      function routeEdgeRecordFromElement(element) {
+        if (!element || !element.closest) return null;
+        const target = element.closest(
+          ".progressive-call-hit, .progressive-call-edge, .progressive-call-label"
+        );
+        if (!target) return null;
+        const source = target.getAttribute("data-source-flow-id");
+        const destination = target.getAttribute("data-target-flow-id");
+        if (!source || !destination) return null;
+        const records = currentRouteEdgeRecords.get(source) || [];
+        const record = records.find(item =>
+          item.edge.source === source && item.edge.target === destination
+        );
+        if (record) return record;
+        const sourceSelector = '[data-source-flow-id="' + cssEscape(source) + '"]';
+        const targetSelector = '[data-target-flow-id="' + cssEscape(destination) + '"]';
+        return {
+          edge: { source, target: destination },
+          hit: svg.querySelector(".progressive-call-hit" + sourceSelector + targetSelector),
+          path: svg.querySelector(".progressive-call-edge" + sourceSelector + targetSelector),
+          focusPath: svg.querySelector(".progressive-call-focus" + sourceSelector + targetSelector),
+          label: svg.querySelector(".progressive-call-label" + sourceSelector + targetSelector),
+        };
+      }
+
+      function scopeEntryRecordFromElement(element) {
+        if (!element || !element.closest) return null;
+        const target = element.closest(".scope-entry-hit, .scope-entry-link");
+        if (!target) return null;
+        const scope = target.getAttribute("data-source-scope");
+        const flowId = target.getAttribute("data-target-flow-id");
+        if (!scope || !flowId) return null;
+        const sourceSelector = '[data-source-scope="' + cssEscape(scope) + '"]';
+        const targetSelector = '[data-target-flow-id="' + cssEscape(flowId) + '"]';
+        return {
+          kind: "scope-entry",
+          edge: { scope, target: flowId },
+          hit: svg.querySelector(".scope-entry-hit" + sourceSelector + targetSelector),
+          path: svg.querySelector(".scope-entry-link" + sourceSelector + targetSelector),
+          focusPath: svg.querySelector(".scope-entry-focus" + sourceSelector + targetSelector),
+        };
+      }
+
+      function activateRouteEdgeRecord(event) {
+        const record = scopeEntryRecordFromElement(event.target) ||
+          routeEdgeRecordFromElement(event.target);
+        if (!record) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (record.kind === "scope-entry") {
+          selectScopeEntryLink(record.edge, record.path, record.hit, record.focusPath);
+          return;
+        }
+        selectProgressiveLink(record.edge, record.path, record.label, record.hit, record.focusPath);
+      }
+
       function rerouteFlowNodeEdges(flowId) {
         (currentRouteEdgeRecords.get(flowId) || []).forEach(record => {
           const geometry = progressiveEdgeGeometry(record.edge.from, record.edge.to);
-          if (record.hit) setEdgeHitGeometry(record.hit, geometry);
+          if (record.hit) setEdgeHitGeometry(record.hit, geometry, record.activate);
           record.path.setAttribute("d", geometry.d);
           if (record.focusPath) record.focusPath.setAttribute("d", geometry.focusD || geometry.d);
           if (record.label) {
@@ -1261,6 +1465,26 @@
           ],
           labelX: a.x + (b.x - a.x) * 0.36,
           labelY: midY - 9,
+        };
+      }
+
+      function scopeEntryGeometry(scopeNode, flowPos, index, total) {
+        const startY = scopeNode.y + scopeNode.h / 2;
+        const endY = flowPos.y - FLOW_H / 2;
+        const available = Math.max(80, endY - startY);
+        const fanoutOffset = (index - (total - 1) / 2) * 10;
+        const startX = scopeNode.x + fanoutOffset;
+        const laneY = startY + clamp(42, available * 0.42, Math.max(42, available - 46));
+        const curveY = Math.max(70, available * 0.55);
+        return {
+          d: `M ${startX} ${startY} L ${startX} ${laneY} L ${flowPos.x} ${laneY} L ${flowPos.x} ${endY}`,
+          focusD: `M ${startX} ${startY} C ${startX} ${startY + curveY}, ${flowPos.x} ${endY - curveY}, ${flowPos.x} ${endY}`,
+          points: [
+            { x: startX, y: startY },
+            { x: startX, y: laneY },
+            { x: flowPos.x, y: laneY },
+            { x: flowPos.x, y: endY },
+          ],
         };
       }
 
@@ -1356,17 +1580,54 @@
         svg.appendChild(scopeEdgeLayer);
 
         const activeScopeNode = layout.nodePos.get(scope);
-        if (activeScopeNode && detail.visibleIds.size) {
-          const centerX = (detail.bounds.minX + detail.bounds.maxX) / 2;
-          const topY = detail.bounds.minY;
-          const startY = activeScopeNode.y + activeScopeNode.h / 2;
-          const link = svgEl("path");
-          link.setAttribute("class", "scope-expansion-link");
-          link.setAttribute(
-            "d",
-            `M ${activeScopeNode.x} ${startY} C ${activeScopeNode.x} ${startY + 34}, ${centerX} ${topY - 34}, ${centerX} ${topY}`
-          );
-          svg.appendChild(link);
+        if (activeScopeNode && detail.entryFlowIds.length) {
+          const scopeEntryLayer = svgEl("g");
+          detail.entryFlowIds.forEach((flowId, index) => {
+            const pos = detail.flowPos.get(flowId);
+            if (!pos) return;
+            const geometry = scopeEntryGeometry(
+              activeScopeNode,
+              pos,
+              index,
+              detail.entryFlowIds.length
+            );
+            const linkEdge = { scope, target: flowId };
+            let hit = null;
+            let path = null;
+            let focusPath = null;
+            const activate = event => {
+              event.stopPropagation();
+              selectScopeEntryLink(linkEdge, path, hit, focusPath);
+            };
+            hit = edgeHitPath(geometry, activate);
+            hit.classList.add("scope-entry-hit");
+            path = edgePath(geometry, null);
+            path.classList.add("scope-entry-link");
+            focusPath = edgeFocusPath(geometry);
+            focusPath.classList.add("scope-entry-focus");
+            [hit, path, focusPath].forEach(item => {
+              item.setAttribute("data-source-scope", scope);
+              item.setAttribute("data-target-flow-id", flowId);
+            });
+            path.setAttribute("tabindex", "0");
+            path.setAttribute("role", "button");
+            path.setAttribute(
+              "aria-label",
+              `entry link from ${scope} to ${byId.get(flowId)?.name || flowId}`
+            );
+            hit.addEventListener("click", activate);
+            path.addEventListener("click", activate);
+            path.addEventListener("keydown", event => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                activate(event);
+              }
+            });
+            scopeEntryLayer.appendChild(path);
+            scopeEntryLayer.appendChild(focusPath);
+            scopeEntryLayer.appendChild(hit);
+          });
+          svg.appendChild(scopeEntryLayer);
         }
 
         const scopeNodeLayer = svgEl("g");
@@ -1409,31 +1670,37 @@
           if (drawn.has(key)) return;
           drawn.add(key);
           const geometry = progressiveEdgeGeometry(edge.from, edge.to);
-          const hit = edgeHitPath(geometry);
-          hit.classList.add("progressive-call-hit");
-          const path = edgePath(geometry, null);
-          path.classList.add("progressive-call-edge");
-          const focusPath = edgeFocusPath(geometry);
-          focusPath.classList.add("progressive-call-focus");
+          let hit = null;
+          let path = null;
+          let focusPath = null;
+          let label = null;
           const labelText = `call link from ${byId.get(edge.source)?.name || edge.source} to ${byId.get(edge.target)?.name || edge.target}`;
+          const activate = event => {
+            event.stopPropagation();
+            selectProgressiveLink(edge, path, label, hit, focusPath);
+          };
+          hit = edgeHitPath(geometry, activate);
+          hit.classList.add("progressive-call-hit");
+          path = edgePath(geometry, null);
+          path.classList.add("progressive-call-edge");
+          focusPath = edgeFocusPath(geometry);
+          focusPath.classList.add("progressive-call-focus");
           hit.setAttribute("data-source-flow-id", edge.source);
           hit.setAttribute("data-target-flow-id", edge.target);
+          focusPath.setAttribute("data-source-flow-id", edge.source);
+          focusPath.setAttribute("data-target-flow-id", edge.target);
           path.setAttribute("tabindex", "0");
           path.setAttribute("role", "button");
           path.setAttribute("aria-label", labelText);
           path.setAttribute("data-source-flow-id", edge.source);
           path.setAttribute("data-target-flow-id", edge.target);
-          const label = edgeLabel(edge.label, geometry);
+          label = edgeLabel(edge.label, geometry);
           label.classList.add("progressive-call-label");
           label.setAttribute("data-source-flow-id", edge.source);
           label.setAttribute("data-target-flow-id", edge.target);
           label.setAttribute("role", "button");
           label.setAttribute("tabindex", "0");
           label.setAttribute("aria-label", labelText);
-          const activate = event => {
-            event.stopPropagation();
-            selectProgressiveLink(edge, path, label, hit, focusPath);
-          };
           hit.addEventListener("click", activate);
           path.addEventListener("click", activate);
           path.addEventListener("keydown", event => {
@@ -1443,13 +1710,14 @@
             }
           });
           label.addEventListener("click", activate);
+          bindEdgeActivationParts(label, activate);
           label.addEventListener("keydown", event => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
               activate(event);
             }
           });
-          const record = { edge, hit, path, focusPath, label };
+          const record = { edge, hit, path, focusPath, label, activate };
           rememberRouteEdge(edge.source, record);
           rememberRouteEdge(edge.target, record);
           edgeLayer.appendChild(path);
@@ -1474,6 +1742,7 @@
         // ONLY here, only while at least one flow is expanded; collapse/reset re-renders
         // without the related inline sections.
         renderInlineFlow(detail);
+        restoreSelectedProgressiveLink();
 
         // Fit the viewBox to the NON-INLINE L1 content only, and ONLY when no flow is
         // inline-expanded. While a flow is expanded we must NOT refit: folding the (often
@@ -1531,7 +1800,7 @@
           }, true);
           wrap.appendChild(render.layer);
           const hostNode = svg.querySelector(
-            '.flow-node[data-flow-id="' + CSS.escape(flow.id) + '"]'
+            '.flow-node[data-flow-id="' + cssEscape(flow.id) + '"]'
           );
           if (hostNode) hostNode.after(wrap);
           else svg.appendChild(wrap);
@@ -1578,6 +1847,7 @@
         if (LC.select) {
           LC.select({ scope: name, flowId: null, nodeId: null, findingId: null, path: null });
         }
+        if (LC.openDetails) LC.openDetails();
         renderCanvas();
       }
 
@@ -1624,6 +1894,7 @@
             findingId: null,
           });
         }
+        if (LC.openDetails) LC.openDetails();
       }
 
       function focusPath(path, updateHash) {
@@ -1921,6 +2192,26 @@
       LC.focusScope = expandScope;
       LC.focusPath = focusPath;
       LC.clearProgressiveLinkHighlight = clearProgressiveLinkHighlight;
+      LC.clearCanvasFocus = function () {
+        clearProgressiveLinkHighlight();
+        if (LC.clearHighlight) LC.clearHighlight();
+        svg.querySelectorAll(".flow-node.selected").forEach(node => {
+          node.classList.remove("selected");
+        });
+        canvasState.selectedFlowId = null;
+        canvasState.selectedPath = null;
+        if (LC.select) {
+          LC.select({
+            scope: canvasState.expandedScope,
+            path: null,
+            flowId: null,
+            nodeId: null,
+            findingId: null,
+            edgeId: null,
+          });
+        }
+        renderBreadcrumb(canvasState);
+      };
       LC.refreshCanvasLayout = function () {
         layoutCache.clear();
         if (LC.mode === "canvas") renderCanvas();
@@ -1946,9 +2237,7 @@
         // Reset in canvas mode: close the progressive route/inline sections and re-fit
         // the current scope/root. This is the user's explicit "start over" control.
         layoutCache.clear();
-        canvasState.expandedFlowIds.forEach(id => {
-          if (LC.clearFlowPositions) LC.clearFlowPositions(id);
-        });
+        if (LC.clearFlowPositions) LC.clearFlowPositions();
         manualScopePositions.clear();
         manualFlowPositions.clear();
         clearRoute();
@@ -1968,6 +2257,27 @@
         }
         renderCanvas();
       };
+
+      svg.addEventListener("pointerdown", activateRouteEdgeRecord, true);
+      svg.addEventListener("mousedown", activateRouteEdgeRecord, true);
+      svg.addEventListener("click", activateRouteEdgeRecord, true);
+      document.addEventListener("pointerdown", activateRouteEdgeRecord, true);
+      document.addEventListener("mousedown", activateRouteEdgeRecord, true);
+      document.addEventListener("click", activateRouteEdgeRecord, true);
+      svg.addEventListener("keydown", event => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const record = routeEdgeRecordFromElement(event.target);
+        if (!record) return;
+        event.preventDefault();
+        activateRouteEdgeRecord(event);
+      }, true);
+      document.addEventListener("keydown", event => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const record = routeEdgeRecordFromElement(event.target);
+        if (!record) return;
+        event.preventDefault();
+        activateRouteEdgeRecord(event);
+      }, true);
 
       // Esc collapses the deepest open level: an inline flow first (back to plain L1),
       // else an expanded scope (back to L0). Ignored while typing in a form control. When

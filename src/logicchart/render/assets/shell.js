@@ -78,6 +78,7 @@
     const detailButton = document.getElementById("detailButton");
     const detailsClose = document.getElementById("detailsClose");
     const menuButton = document.getElementById("menuButton");
+    const typedViewerHost = document.getElementById("typedViewerHost");
     const themeToggleBtn = document.getElementById("themeToggle");
     const exportPngButton = document.getElementById("exportPng");
     const exportJpgButton = document.getElementById("exportJpg");
@@ -321,6 +322,10 @@
       document.getElementById("flowTitle").textContent = flow.name;
       document.getElementById("flowKind").textContent =
         `${flow.entry_kind} · ${flow.language} · ${flow.framework}`;
+      const typed = activeTypedViewer();
+      if (typed && typeof typed.selectFlow === "function") {
+        typed.selectFlow(flow.id);
+      }
       if (window.LC.expandFlowInline) {
         // canvas.js owns the SVG (mode stays "canvas"); it sets the hash, draws the
         // inline sub-graph, refreshes the breadcrumb, and calls inspectFlow itself.
@@ -344,6 +349,52 @@
       return (flow.nodes || []).filter(node => !(opts.omitEntry && node.kind === "entry"));
     }
 
+    function flowLayers(nodes, edges, incoming, outgoing, order) {
+      const nodeById = new Map(nodes.map(node => [node.id, node]));
+      const indegree = new Map(nodes.map(node => [node.id, 0]));
+      const layerById = new Map(nodes.map(node => [node.id, 0]));
+      edges.forEach(edge => {
+        if (edge.source === edge.target) return;
+        indegree.set(edge.target, (indegree.get(edge.target) || 0) + 1);
+      });
+
+      const queue = nodes
+        .filter(node => (indegree.get(node.id) || 0) === 0)
+        .sort((a, b) => order.get(a.id) - order.get(b.id));
+      const visited = new Set();
+
+      while (queue.length) {
+        const node = queue.shift();
+        if (!node || visited.has(node.id)) continue;
+        visited.add(node.id);
+        (outgoing.get(node.id) || []).forEach(edge => {
+          const nextLayer = (layerById.get(node.id) || 0) + 1;
+          layerById.set(edge.target, Math.max(layerById.get(edge.target) || 0, nextLayer));
+          indegree.set(edge.target, (indegree.get(edge.target) || 0) - 1);
+          if ((indegree.get(edge.target) || 0) === 0) {
+            const target = nodeById.get(edge.target);
+            if (target) queue.push(target);
+          }
+        });
+        queue.sort((a, b) => order.get(a.id) - order.get(b.id));
+      }
+
+      // Cycles/backedges are valid in real control flow. Keep those nodes visible by
+      // assigning a stable fallback layer from any already-known parents instead of assuming
+      // the payload was topologically sorted.
+      nodes.forEach(node => {
+        if (visited.has(node.id)) return;
+        const parentLayers = (incoming.get(node.id) || [])
+          .map(edge => layerById.get(edge.source))
+          .filter(value => Number.isFinite(value));
+        if (parentLayers.length) {
+          layerById.set(node.id, Math.max(layerById.get(node.id) || 0, Math.max(...parentLayers) + 1));
+        }
+      });
+
+      return layerById;
+    }
+
     function layoutFlow(flow, opts) {
       opts = opts || {};
       const nodes = flowLayoutNodes(flow, opts);
@@ -356,37 +407,42 @@
       );
       edges.forEach(edge => incoming.get(edge.target)?.push(edge));
       edges.forEach(edge => outgoing.get(edge.source)?.push(edge));
+      const layerById = flowLayers(nodes, edges, incoming, outgoing, order);
       const positions = new Map();
       const layerCounts = new Map();
 
-      nodes.forEach((node, index) => {
-        const parents = incoming.get(node.id) || [];
-        let layer = 0;
-        let x = 0;
-        if (parents.length) {
-          layer = Math.max(...parents.map(edge => (positions.get(edge.source)?.layer || 0) + 1));
-          const parentXs = parents.map(edge => positions.get(edge.source)?.x || 0);
-          x = parentXs.reduce((sum, value) => sum + value, 0) / parentXs.length;
-          if (parents.length === 1) {
-            const parentEdge = parents[0];
-            const siblings = outgoing.get(parentEdge.source) || [];
-            if (siblings.length > 1) {
-              const siblingIndex = siblings.findIndex(edge => edge.target === node.id);
-              const centeredIndex = siblingIndex - (siblings.length - 1) / 2;
-              x = (positions.get(parentEdge.source)?.x || 0) + centeredIndex * FLOW_SIBLING_X;
-            } else {
-              const branch = parentEdge.label?.toLowerCase();
-              if (["yes", "success"].includes(branch)) x -= FLOW_SIBLING_X / 2;
-              if (["no", "error"].includes(branch)) x += FLOW_SIBLING_X / 2;
+      [...nodes]
+        .sort((a, b) =>
+          (layerById.get(a.id) || 0) - (layerById.get(b.id) || 0) ||
+          order.get(a.id) - order.get(b.id)
+        )
+        .forEach(node => {
+          const parents = (incoming.get(node.id) || []).filter(edge => positions.has(edge.source));
+          const layer = layerById.get(node.id) || 0;
+          let x = 0;
+          if (parents.length) {
+            const parentXs = parents.map(edge => positions.get(edge.source)?.x || 0);
+            x = parentXs.reduce((sum, value) => sum + value, 0) / parentXs.length;
+            if (parents.length === 1) {
+              const parentEdge = parents[0];
+              const siblings = outgoing.get(parentEdge.source) || [];
+              if (siblings.length > 1) {
+                const siblingIndex = siblings.findIndex(edge => edge.target === node.id);
+                const centeredIndex = siblingIndex - (siblings.length - 1) / 2;
+                x = (positions.get(parentEdge.source)?.x || 0) + centeredIndex * FLOW_SIBLING_X;
+              } else {
+                const branch = parentEdge.label?.toLowerCase();
+                if (["yes", "success"].includes(branch)) x -= FLOW_SIBLING_X / 2;
+                if (["no", "error"].includes(branch)) x += FLOW_SIBLING_X / 2;
+              }
             }
           }
-        }
-        const occupied = layerCounts.get(layer) || [];
-        while (occupied.some(value => Math.abs(value - x) < FLOW_MIN_X_GAP)) x += FLOW_SIBLING_X;
-        occupied.push(x);
-        layerCounts.set(layer, occupied);
-        positions.set(node.id, { x, y: layer * FLOW_LAYER_Y, layer, order: index });
-      });
+          const occupied = layerCounts.get(layer) || [];
+          while (occupied.some(value => Math.abs(value - x) < FLOW_MIN_X_GAP)) x += FLOW_SIBLING_X;
+          occupied.push(x);
+          layerCounts.set(layer, occupied);
+          positions.set(node.id, { x, y: layer * FLOW_LAYER_Y, layer, order: order.get(node.id) || 0 });
+        });
 
       // Apply any hand-placed overrides for this flow before measuring bounds.
       const overrides = manualPositions.get(flow.id);
@@ -446,7 +502,14 @@
       };
     }
 
-    function setEdgeHitGeometry(hit, geometry) {
+    function bindEdgeActivationParts(group, activate) {
+      if (!group || !activate) return;
+      group.querySelectorAll("*").forEach(part => {
+        part.addEventListener("click", activate);
+      });
+    }
+
+    function setEdgeHitGeometry(hit, geometry, activate) {
       hit.replaceChildren();
       const points = geometry.points || [];
       const pad = 10;
@@ -460,6 +523,7 @@
         rect.setAttribute("width", String(Math.max(Math.abs(a.x - b.x), 1) + pad * 2));
         rect.setAttribute("height", String(Math.max(Math.abs(a.y - b.y), 1) + pad * 2));
         rect.setAttribute("rx", "10");
+        if (activate) rect.addEventListener("click", activate);
         hit.appendChild(rect);
       }
     }
@@ -576,9 +640,22 @@
         const sourceNode = flowNodeById.get(edge.source);
         const targetNode = flowNodeById.get(edge.target);
         const geometry = edgeGeometry(start, end, sourceNode?.kind, targetNode?.kind);
-        const hit = svgEl("g");
+        let hit = svgEl("g");
+        let label = null;
+        const activateEdge = event => {
+          event.stopPropagation();
+          if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
+          if (LC.openDetails) LC.openDetails();
+          LC.select({
+            flowId: flow.id,
+            path: flow.location.path,
+            nodeId: null,
+            findingId: null,
+            edgeId: edgeRecordId(edge),
+          });
+        };
         hit.setAttribute("class", "edge-hit");
-        setEdgeHitGeometry(hit, geometry);
+        setEdgeHitGeometry(hit, geometry, activateEdge);
         hit.setAttribute("data-edge-id", edgeRecordId(edge));
         hit.setAttribute("data-source-node-id", edge.source);
         hit.setAttribute("data-target-node-id", edge.target);
@@ -597,26 +674,17 @@
         focusPath.setAttribute("d", geometry.focusD || geometry.d);
         edgePathLayer.appendChild(focusPath);
         edgePathLayer.appendChild(hit);
-        let label = null;
         if (edge.label) {
           label = edgeLabel(edge.label, geometry);
           label.setAttribute("role", "button");
           label.setAttribute("tabindex", "0");
+          label.setAttribute("data-edge-id", edgeRecordId(edge));
+          label.setAttribute("data-source-node-id", edge.source);
+          label.setAttribute("data-target-node-id", edge.target);
           label.setAttribute("aria-label", `link ${edge.label} from ${sourceNode?.label || edge.source} to ${targetNode?.label || edge.target}`);
           edgeLabelLayer.appendChild(label);
         }
-        const record = { edge, hit, path, focusPath, label };
-        const activateEdge = event => {
-          event.stopPropagation();
-          if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
-          LC.select({
-            flowId: flow.id,
-            path: flow.location.path,
-            nodeId: null,
-            findingId: null,
-            edgeId: edgeRecordId(edge),
-          });
-        };
+        const record = { edge, flow, hit, path, focusPath, label, activateEdge };
         hit.addEventListener("click", activateEdge);
         path.addEventListener("click", activateEdge);
         path.addEventListener("keydown", event => {
@@ -627,6 +695,7 @@
         });
         if (label) {
           label.addEventListener("click", activateEdge);
+          bindEdgeActivationParts(label, activateEdge);
           label.addEventListener("keydown", event => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
@@ -642,14 +711,14 @@
       layer.appendChild(edgeLayer);
 
       function rerouteFrom(nodeId) {
-        (nodeEdges.get(nodeId) || []).forEach(({ edge, hit, path, focusPath, label }) => {
+        (nodeEdges.get(nodeId) || []).forEach(({ edge, hit, path, focusPath, label, activateEdge }) => {
           const start = at(edge.source);
           const end = at(edge.target);
           if (!start || !end) return;
           const sourceNode = flowNodeById.get(edge.source);
           const targetNode = flowNodeById.get(edge.target);
           const geometry = edgeGeometry(start, end, sourceNode?.kind, targetNode?.kind);
-          setEdgeHitGeometry(hit, geometry);
+          setEdgeHitGeometry(hit, geometry, activateEdge);
           path.setAttribute("d", geometry.d);
           if (focusPath) focusPath.setAttribute("d", geometry.focusD || geometry.d);
           if (label) label.setAttribute("transform", `translate(${geometry.labelX} ${geometry.labelY})`);
@@ -884,6 +953,39 @@
       });
     }
 
+    function decisionEdgeRecordFromElement(element) {
+      if (!currentRender || !element || !element.closest) return null;
+      if (element.closest(".progressive-call-hit, .progressive-call-edge, .progressive-call-label")) {
+        return null;
+      }
+      const target = element.closest(".edge-hit, .edge, .edge-label-wrap");
+      if (!target) return null;
+      const id = target.getAttribute("data-edge-id");
+      const source = target.getAttribute("data-source-node-id");
+      const destination = target.getAttribute("data-target-node-id");
+      return currentRender.edgeRecords.find(item => {
+        const recordId = item.edge.id || `${item.edge.source}->${item.edge.target}`;
+        return (id && recordId === id) ||
+          (source && destination && item.edge.source === source && item.edge.target === destination);
+      }) || null;
+    }
+
+    function activateDecisionEdgeRecord(event) {
+      const record = decisionEdgeRecordFromElement(event.target);
+      if (!record || !record.flow) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
+      if (LC.openDetails) LC.openDetails();
+      LC.select({
+        flowId: record.flow.id,
+        path: record.flow.location.path,
+        nodeId: null,
+        findingId: null,
+        edgeId: record.edge.id || `${record.edge.source}->${record.edge.target}`,
+      });
+    }
+
     function nodeShape(kind) {
       if (kind === "decision") {
         const polygon = svgEl("polygon");
@@ -907,6 +1009,7 @@
     function inspectFlow(flow) {
       if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
       clearHighlight();
+      setRightRailOpen(true);
       LC.select({ flowId: flow.id, path: flow.location.path, nodeId: null, findingId: null });
     }
 
@@ -931,6 +1034,14 @@
       return document.createElementNS("http://www.w3.org/2000/svg", tag);
     }
 
+    function safeDecodeHashValue(value) {
+      try {
+        return decodeURIComponent(value);
+      } catch (_) {
+        return null;
+      }
+    }
+
     function wrapLabel(value, width) {
       const words = value.split(/\s+/);
       const lines = [];
@@ -945,6 +1056,12 @@
 
     function updateViewBox() {
       svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.width} ${view.height}`);
+    }
+
+    function activeTypedViewer() {
+      if (document.body.dataset.runtime !== "react") return null;
+      const viewer = window.logicchartTypedViewer;
+      return viewer && typeof viewer === "object" ? viewer : null;
     }
 
     function cssVar(name, fallback) {
@@ -996,6 +1113,11 @@
     }
 
     function exportCurrentCanvas(format) {
+      const typed = activeTypedViewer();
+      if (typed && typeof typed.exportImage === "function") {
+        typed.exportImage(format);
+        return;
+      }
       const bounds = canvasContentBounds();
       const maxPixelSide = 4096;
       const scale = Math.min(
@@ -1058,6 +1180,11 @@
     }
 
     function zoom(factor) {
+      const typed = activeTypedViewer();
+      if (typed && typeof typed.zoom === "function") {
+        typed.zoom(factor);
+        return;
+      }
       const nextWidth = view.width * factor;
       const nextHeight = view.height * factor;
       view.x += (view.width - nextWidth) / 2;
@@ -1076,6 +1203,11 @@
       exportJpgButton.addEventListener("click", () => exportCurrentCanvas("jpg"));
     }
     document.getElementById("resetView").addEventListener("click", () => {
+      const typed = activeTypedViewer();
+      if (typed && typeof typed.resetView === "function") {
+        typed.resetView();
+        return;
+      }
       // Mode-aware: flow mode re-lays out the active flow; canvas mode drops the
       // current view's drag overrides and re-fits via canvas.js.
       if (LC.mode === "flow") {
@@ -1112,13 +1244,41 @@
       event.preventDefault();
       zoom(event.deltaY > 0 ? 1.08 : .92);
     }, { passive: false });
+    if (typedViewerHost) {
+      typedViewerHost.addEventListener("wheel", event => {
+        const typed = activeTypedViewer();
+        if (!typed || typeof typed.zoom !== "function") return;
+        event.preventDefault();
+        typed.zoom(event.deltaY > 0 ? 1.08 : .92);
+      }, { passive: false });
+    }
+    svg.addEventListener("pointerdown", activateDecisionEdgeRecord, true);
+    svg.addEventListener("mousedown", activateDecisionEdgeRecord, true);
+    svg.addEventListener("click", activateDecisionEdgeRecord, true);
+    document.addEventListener("pointerdown", activateDecisionEdgeRecord, true);
+    document.addEventListener("mousedown", activateDecisionEdgeRecord, true);
+    document.addEventListener("click", activateDecisionEdgeRecord, true);
+    svg.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const record = decisionEdgeRecordFromElement(event.target);
+      if (!record) return;
+      event.preventDefault();
+      activateDecisionEdgeRecord(event);
+    }, true);
+    document.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const record = decisionEdgeRecordFromElement(event.target);
+      if (!record) return;
+      event.preventDefault();
+      activateDecisionEdgeRecord(event);
+    }, true);
     svg.addEventListener("pointerdown", event => {
       if (event.button !== 0) return;
       // Pan only from the empty canvas background. If the press lands on an interactive
       // node group (scope, flow, decision block all carry role="button"), do not start a pan or
       // capture the pointer, so the node's own click handler fires (expand/toggle).
-      if (event.target.closest('[role="button"]')) return;
-      drag = { x: event.clientX, y: event.clientY, vx: view.x, vy: view.y };
+      if (event.target.closest('[role="button"], .edge-hit, .edge-hit-segment, .edge-label-wrap')) return;
+      drag = { x: event.clientX, y: event.clientY, vx: view.x, vy: view.y, moved: 0 };
       svg.classList.add("dragging");
       svg.setPointerCapture(event.pointerId);
     });
@@ -1126,11 +1286,25 @@
       if (!drag) return;
       const scaleX = view.width / svg.clientWidth;
       const scaleY = view.height / svg.clientHeight;
+      drag.moved = Math.max(
+        drag.moved,
+        Math.abs(event.clientX - drag.x) + Math.abs(event.clientY - drag.y)
+      );
       view.x = drag.vx - (event.clientX - drag.x) * scaleX;
       view.y = drag.vy - (event.clientY - drag.y) * scaleY;
       updateViewBox();
     });
-    svg.addEventListener("pointerup", () => { drag = null; svg.classList.remove("dragging"); });
+    svg.addEventListener("pointerup", () => {
+      if (drag && drag.moved < 4) {
+        if (LC.clearCanvasFocus) LC.clearCanvasFocus();
+        else {
+          if (LC.clearProgressiveLinkHighlight) LC.clearProgressiveLinkHighlight();
+          clearHighlight();
+        }
+      }
+      drag = null;
+      svg.classList.remove("dragging");
+    });
 
     const THEME_KEY = "logicchart-theme";
     function applyTheme(theme) {
@@ -1158,6 +1332,7 @@
     // work for BOTH renderers untouched (generic over `view`).
     LC.renderFlow = renderFlow;
     LC.svg = svg;
+    LC.openDetails = () => setRightRailOpen(true);
     LC.setCanvasLevel = setCanvasLevel;
     LC.setView = v => { view = v; updateViewBox(); };
     LC.updateViewBox = updateViewBox;
@@ -1219,7 +1394,10 @@
     };
     // Drop a flow's hand-placed decision-node positions, so the canvas reset (0) restores
     // the automatic layout of an inline-expanded sub-graph just like it does full screen.
-    LC.clearFlowPositions = id => { manualPositions.delete(id); };
+    LC.clearFlowPositions = id => {
+      if (id == null) manualPositions.clear();
+      else manualPositions.delete(id);
+    };
 
     // Reconcile the CANVAS block highlight from the shared selection. A node selected on
     // ANY surface (a source line, a finding row) lights up its block here, on whatever
@@ -1256,7 +1434,8 @@
       const scopes = model.scopes || {};
       if (eq !== -1) {
         const key = raw.slice(0, eq);
-        const value = decodeURIComponent(raw.slice(eq + 1));
+        const value = safeDecodeHashValue(raw.slice(eq + 1));
+        if (value == null) { if (LC.showL0) LC.showL0(); return; }
         if (key === "flow" && byId.has(value)) { selectFlow(value); return; }
         if (key === "scope" && Object.prototype.hasOwnProperty.call(scopes, value)) {
           if (LC.showScope) LC.showScope(value);
@@ -1267,7 +1446,8 @@
           return;
         }
       } else if (raw) {
-        const decoded = decodeURIComponent(raw);
+        const decoded = safeDecodeHashValue(raw);
+        if (decoded == null) { if (LC.showL0) LC.showL0(); return; }
         if (byId.has(decoded)) { selectFlow(decoded); return; }
       }
       if (LC.showL0) LC.showL0();

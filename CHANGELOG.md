@@ -6,6 +6,22 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+### Added
+
+- Added dedicated viewer documentation covering the progressive flowchart product shape,
+  the static and React runtime split, layout invariants, and browser verification loop.
+- Added React-viewer viewport panning with reset coverage in the frontend test suite.
+
+### Changed
+
+- Clarified README and contributor instructions for the framework-backed viewer runtime,
+  generated runtime bundle, cache-busted browser checks, and viewer-specific gates.
+
+### Fixed
+
+- Fixed the React viewer so clicking empty canvas space clears selected connections, and
+  dimmed scope-entry links now fade consistently with dimmed canvas nodes.
+
 ## 0.7.0 - 2026-06-16
 
 ### Added

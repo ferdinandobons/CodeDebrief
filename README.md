@@ -111,19 +111,40 @@ paths.
 logicchart view
 ```
 
-The viewer is a single local HTML file plus a temporary local server. It shows:
+The viewer is a local HTML artifact plus a temporary local server. It is built for
+large-codebase study, not just one isolated function. It shows:
 
 - A left codebase tree with flow search and language filtering.
-- A central canvas with scope-level overview, progressive entrypoint/call expansion, and
-  flow-level decision charts.
-- Expand-in-place decision flowcharts, so a flow can be studied without losing its
+- A central canvas that starts from top-level scopes such as `backend`, `frontend`, and
+  `edge`; each scope connects directly to every visible entrypoint underneath it.
+- Progressive entrypoint/call expansion: select a scope, then an entrypoint, then follow
+  unlocked calls without leaving the same flowchart.
+- Expand-in-place decision charts, so a selected flow can be studied without losing its
   surrounding codebase context.
+- Link selection that highlights the source node, target node, and selected connection
+  while dimming unrelated blocks.
 - A synchronized source panel and logical-errors panel.
 - Finding density on scope nodes and tree file rows, useful for scanning large systems.
 - Light/dark theme, pan/zoom, drag-to-arrange blocks, reset, full-screen canvas, PNG/JPG
   export, and responsive side panels.
 
 Use `--render-only` to write `logic-flow.html` without serving it.
+
+The shipped viewer remains a static artifact, and it now embeds an optional typed frontend
+runtime built from `frontend/` with Vite, React, Zustand, Vitest, and an XYFlow adapter.
+Open a generated viewer with `?runtime=react` to exercise the framework-backed canvas
+without changing the default static runtime:
+
+```text
+logic-flow.html?runtime=react#scope=frontend
+logic-flow.html?runtime=react#flow=<flow-id>
+```
+
+The React runtime owns the progressive scope-to-entrypoint canvas, edge selection,
+flow-detail expansion, viewport zoom/pan/reset, and PNG/JPG export path. The surrounding
+HTML shell still owns the tree, source, findings, theme, fullscreen, and side rails while
+the migration continues. See [docs/viewer.md](docs/viewer.md) for the UI architecture and
+verification loop.
 
 ## Supported Code
 
@@ -362,6 +383,22 @@ uv run mypy
 uv run pytest --cov
 uv build
 ```
+
+Viewer UI work also requires the frontend workspace:
+
+```bash
+npm install
+npm run viewer:typecheck
+npm run viewer:test
+npm run viewer:build
+UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run logicchart update
+UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run logicchart view examples/demo --render-only --no-open
+```
+
+`npm run viewer:build` writes
+`src/logicchart/render/assets/generated/logicchart-viewer-runtime.iife.js`, which is
+embedded in generated HTML artifacts. Use a cache-buster query string when checking viewer
+changes in the browser.
 
 The canonical artifact format is documented by
 [schema/logic-flow.schema.json](schema/logic-flow.schema.json).
