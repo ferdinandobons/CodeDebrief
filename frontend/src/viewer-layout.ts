@@ -425,7 +425,13 @@ export function createViewerLayout(input: ViewerLayoutInput): ViewerLayout {
     flowPositions,
     inlineAnchors,
   );
-  const rootEdges = rootScopeEdges(rootNode, scopeNodes, topLevelObstacles);
+  const topLevelRoutingObstacles = layoutBoxesFromParts(
+    rootNode,
+    scopeNodes,
+    flowPositions,
+    [],
+  );
+  const rootEdges = rootScopeEdges(rootNode, scopeNodes, topLevelRoutingObstacles);
   const entryEdges = scopeNodes.flatMap(scopeNode =>
     (entryFlowIdsByScope.get(scopeNode.scope) ?? []).length
       ? routedScopeEntryEdges(
@@ -434,7 +440,7 @@ export function createViewerLayout(input: ViewerLayoutInput): ViewerLayout {
             .map(id => flowPositions.get(id))
             .filter(isLayoutNodePosition),
           progressiveOptions.flowHeight,
-          topLevelObstacles,
+          topLevelRoutingObstacles,
         )
       : [],
   );
@@ -2194,7 +2200,7 @@ export function topLevelLayoutObstacleHits(
   layout: ViewerLayout,
   gap = FLOW_CALL_OBSTACLE_GAP,
 ): ViewerLayoutEdgeObstacleHit[] {
-  const boxes = viewerLayoutBoxes(layout);
+  const boxes = viewerLayoutBoxes(layout).filter(box => box.kind !== "detail");
   const rootHits = layout.rootEdges.flatMap(edge =>
     edgeObstacleHits(
       `${layout.rootNode.id}->${edge.scope}`,

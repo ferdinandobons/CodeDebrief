@@ -53,7 +53,7 @@ describe("progressive flowchart layout", () => {
     expect(layout.bounds.maxX - layout.bounds.minX).toBeGreaterThan(1000);
   });
 
-  it("connects a scope node to every visible entrypoint with deterministic fan-out edges", () => {
+  it("connects a scope node to every visible entrypoint with a shared flowchart trunk", () => {
     const layout = layoutProgressiveRows(
       [[{ id: "api-route" }, { id: "worker" }, { id: "cron" }]],
       baseOptions,
@@ -67,7 +67,8 @@ describe("progressive flowchart layout", () => {
 
     expect(edges).toHaveLength(3);
     expect(edges.map(edge => edge.target)).toEqual(["api-route", "worker", "cron"]);
-    expect(new Set(edges.map(edge => edge.points[0].x)).size).toBe(3);
+    expect(new Set(edges.map(edge => edge.points[0].x))).toEqual(new Set([500]));
+    expect(new Set(edges.map(edge => edge.points[2].x)).size).toBe(3);
     edges.forEach(edge => {
       expect(edge.scope).toBe("backend");
       expect(edge.d).toContain(" L ");

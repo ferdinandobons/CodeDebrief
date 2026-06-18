@@ -336,6 +336,40 @@ describe("viewer layout composition", () => {
     expect(viewerLayoutStructureIssues(layout)).toEqual([]);
   });
 
+  it("keeps scope-entry scaffold edges from wrapping around expanded detail regions", () => {
+    const layout = createViewerLayout({
+      expandedMeasures: new Map([
+        [
+          "orders-route",
+          {
+            height: 760,
+            maxX: 260,
+            maxY: 760,
+            minX: -260,
+            minY: 0,
+            width: 520,
+          },
+        ],
+      ]),
+      payload,
+      routeFlowIds: ["orders-route"],
+      scope: "frontend",
+    });
+
+    layout.entryEdges.forEach(edge => {
+      const scopeNode = layout.scopeNodes.find(node => node.scope === edge.scope);
+      const target = layout.flowPositions.get(edge.target);
+      if (!scopeNode || !target) throw new Error("expected scope and target");
+      const lowerScaffoldEdge = target.y - target.height / 2 + 80;
+      const highestScaffoldEdge = scopeNode.y + scopeNode.height / 2 - 20;
+      const ys = edge.points.map(point => point.y);
+
+      expect(Math.max(...ys)).toBeLessThanOrEqual(lowerScaffoldEdge);
+      expect(Math.min(...ys)).toBeGreaterThanOrEqual(highestScaffoldEdge);
+    });
+    expect(topLevelLayoutObstacleHits(layout)).toEqual([]);
+  });
+
   it("keeps directly opened internal flowcharts reachable from the codebase root", () => {
     const callChainPayload: LogicChartPayload = {
       flows: [

@@ -241,8 +241,7 @@ export function scopeEntryEdges(
     const startY = scopeNode.y + scopeNode.height / 2;
     const endY = entry.y - flowHeight / 2;
     const available = Math.max(80, endY - startY);
-    const fanoutOffset = (index - (entries.length - 1) / 2) * 10;
-    const startX = scopeNode.x + fanoutOffset;
+    const startX = scopeNode.x;
     const laneY = startY + clamp(42, available * 0.42, Math.max(42, available - 46));
     const curveY = Math.max(70, available * 0.55);
     return {
