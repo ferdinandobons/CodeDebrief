@@ -26,6 +26,9 @@ LogicChart is in a strong alpha state.
   the following flow, while skipping that path when the `try` body already terminates.
 - Python loops now expose decisions and calls inside `for`, `async for`, `while`, and loop
   `else` bodies before reconnecting to post-loop flow.
+- Python flow extraction now keeps nested local functions, classes, and lambdas out of the
+  parent flow's call and decision attribution, reducing false edges on large service
+  functions with local helpers.
 - TypeScript/JavaScript and profile-driven tree-sitter analyzers now expose loop-body
   decisions and calls with conservative `Iteration`/`Done` paths and explicit
   `break`/`continue` handling.
@@ -644,6 +647,8 @@ Before the next release:
   fall-through.
 - Done: model Python loop bodies and loop `else` blocks so useful internal decisions/calls
   are no longer hidden behind a single loop action node.
+- Done: keep Python local helper scopes from polluting parent-flow calls, decisions, and
+  constant-shadow metadata.
 - Done: model TypeScript/JavaScript and profile-driven tree-sitter loop bodies with
   explicit `break`/`continue` control nodes.
 - Done: surface TypeScript/JavaScript and profile-driven tree-sitter parse errors as

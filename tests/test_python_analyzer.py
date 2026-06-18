@@ -58,6 +58,83 @@ def get_profile(user_id: str):
     assert "load_user" in call_node.metadata["calls"]
 
 
+def test_local_function_body_does_not_pollute_outer_flow(tmp_path: Path) -> None:
+    source = tmp_path / "service.py"
+    source.write_text(
+        """
+def process(order):
+    def helper():
+        if order.status == OrderStatus.OPEN:
+            return persist(order)
+        return reject(order)
+    return ok(order)
+""",
+        encoding="utf-8",
+    )
+
+    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = next(item for item in analysis.flows if item.name == "process")
+    labels = {node.label for node in flow.nodes}
+
+    assert "Define local function helper" in labels
+    assert "Call ok()" in labels
+    assert "order.status == OrderStatus.OPEN" not in labels
+    assert "Call persist()" not in labels
+    assert "Call reject()" not in labels
+
+    call_names = {
+        call
+        for node in flow.nodes
+        for call in node.metadata.get("calls", [])
+        if isinstance(call, str)
+    }
+    assert call_names == {"ok"}
+
+
+def test_local_function_body_does_not_make_parent_if_functional(tmp_path: Path) -> None:
+    source = tmp_path / "service.py"
+    source.write_text(
+        """
+def process(flag):
+    if flag:
+        def helper():
+            return persist()
+    return done()
+""",
+        encoding="utf-8",
+    )
+
+    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = next(item for item in analysis.flows if item.name == "process")
+    labels = {node.label for node in flow.nodes}
+
+    assert "Handle internal condition: flag" in labels
+    assert "flag" not in labels
+    assert "Call persist()" not in labels
+    assert "Call done()" in labels
+
+
+def test_local_function_assignment_does_not_shadow_parent_constants(tmp_path: Path) -> None:
+    source = tmp_path / "service.py"
+    source.write_text(
+        """
+FLAG = False
+
+def process():
+    def helper():
+        FLAG = True
+        return FLAG
+    return ready()
+""",
+        encoding="utf-8",
+    )
+
+    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = next(item for item in analysis.flows if item.name == "process")
+
+    assert "shadows_constants" not in flow.metadata
+
+
 def test_try_else_body_is_modeled_on_success_path(tmp_path: Path) -> None:
     source = tmp_path / "service.py"
     source.write_text(

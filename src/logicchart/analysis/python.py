@@ -197,12 +197,7 @@ class PythonAnalyzer:
                 )
             elif isinstance(statement, ast.Return):
                 value = _safe_unparse(statement.value) if statement.value else ""
-                calls = [
-                    _call_name(item.func)
-                    for item in ast.walk(statement)
-                    if isinstance(item, ast.Call)
-                ]
-                calls = [item for item in calls if item]
+                calls = _call_names(statement)
                 if calls:
                     call_node = builder.add_node(
                         NodeKind.CALL,
@@ -319,7 +314,7 @@ class PythonAnalyzer:
         relative: str,
     ) -> list[PendingEdge]:
         condition = _safe_unparse(statement.test)
-        branch_source = " ".join(_source_segment(source, item) for item in statement.body)
+        branch_source = _branch_behavior_source(statement.body, source)
         functional = is_functional_condition(condition, branch_source)
         if not functional:
             node = builder.add_node(
@@ -508,13 +503,11 @@ def _assigned_names(definition: ast.FunctionDef | ast.AsyncFunctionDef) -> set[s
     A name in Store context (or a parameter) shadows a module-level constant of the same
     name, making a guard on it runtime-dependent rather than statically dead.
     """
-    names: set[str] = set()
-    for node in ast.walk(definition):
-        if isinstance(node, ast.arg):
-            names.add(node.arg)
-        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-            names.add(node.id)
-    return names
+    visitor = _AssignedNameVisitor()
+    visitor.names.update(_argument_names(definition.args))
+    for statement in definition.body:
+        visitor.visit(statement)
+    return visitor.names
 
 
 def _match_values(pattern: ast.pattern) -> list[str]:
@@ -566,8 +559,11 @@ def _classify_entrypoint(
 
 
 def _statement_summary(statement: ast.stmt) -> tuple[NodeKind, str, list[str]]:
-    calls = [_call_name(item.func) for item in ast.walk(statement) if isinstance(item, ast.Call)]
-    calls = [item for item in calls if item]
+    if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return NodeKind.ACTION, f"Define local function {statement.name}", []
+    if isinstance(statement, ast.ClassDef):
+        return NodeKind.ACTION, f"Define local class {statement.name}", []
+    calls = _call_names(statement)
     boundary = next((item for item in calls if call_is_boundary(item)), "")
     if boundary:
         return NodeKind.CALL, f"Call {boundary}()", calls
@@ -623,6 +619,77 @@ def _call_name(node: ast.expr) -> str:
         prefix = _call_name(node.value)
         return f"{prefix}.{node.attr}" if prefix else node.attr
     return ""
+
+
+def _call_names(node: ast.AST) -> list[str]:
+    visitor = _CallNameVisitor()
+    visitor.visit(node)
+    return visitor.calls
+
+
+class _CallNameVisitor(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def visit_Call(self, node: ast.Call) -> None:
+        name = _call_name(node.func)
+        if name:
+            self.calls.append(name)
+        self.generic_visit(node)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        return None
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        return None
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        return None
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        return None
+
+
+class _AssignedNameVisitor(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.names: set[str] = set()
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if isinstance(node.ctx, ast.Store):
+            self.names.add(node.id)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self.names.add(node.name)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self.names.add(node.name)
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self.names.add(node.name)
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        return None
+
+
+def _argument_names(arguments: ast.arguments) -> set[str]:
+    names: set[str] = set()
+    for arg in (
+        list(arguments.posonlyargs)
+        + list(arguments.args)
+        + list(arguments.kwonlyargs)
+        + ([arguments.vararg] if arguments.vararg else [])
+        + ([arguments.kwarg] if arguments.kwarg else [])
+    ):
+        names.add(arg.arg)
+    return names
+
+
+def _branch_behavior_source(stmts: list[ast.stmt], source: str) -> str:
+    return " ".join(
+        _source_segment(source, statement)
+        for statement in stmts
+        if not isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    )
 
 
 def _loop_label(statement: ast.For | ast.AsyncFor | ast.While) -> str:
