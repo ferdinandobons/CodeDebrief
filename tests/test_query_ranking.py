@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from logicchart.artifacts import load_model
 from logicchart.cli import main
 from logicchart.model import (
     Evidence,
@@ -29,6 +30,7 @@ from logicchart.query import (
     NODE_WEIGHT,
     QueryMatch,
     finding_context,
+    impact_model,
     query_model,
 )
 
@@ -348,6 +350,60 @@ def test_finding_context_collects_related_subject_subgraph() -> None:
     assert context["next_tools"]["visual_snapshot"]["tool"] == "get_finding_snapshot"
 
 
+def test_impact_model_accepts_flow_symbol_and_finding_targets() -> None:
+    target = _flow("target", "target", symbol="pkg:target")
+    caller = _flow("caller", "caller", symbol="pkg:caller")
+    caller.calls = ["target"]
+    target.called_by = ["caller"]
+    unrelated = _flow("other", "other", symbol="pkg:other")
+    finding = Finding(
+        id="target-find",
+        kind="missing_branch",
+        severity=Severity.WARNING,
+        message="Decision has no explicit fallback",
+        evidence=Evidence.POTENTIAL_GAP,
+        flow_id="target",
+        location=_loc("target.py", 3),
+    )
+    model = _model([target, caller, unrelated], [finding])
+
+    result = impact_model(
+        model,
+        [],
+        flow_ids=["target", "missing-flow"],
+        symbols=["caller", "missing-symbol"],
+        finding_ids=["target-find", "missing-finding"],
+    )
+
+    assert result.changed_files == []
+    assert result.target_flow_ids == ["target", "missing-flow"]
+    assert result.target_symbols == ["caller", "missing-symbol"]
+    assert result.target_finding_ids == ["target-find", "missing-finding"]
+    assert {flow.id for flow in result.directly_impacted} == {"target", "caller"}
+    assert result.subgraph_flow_ids == ["caller", "target"]
+    assert result.subgraph_finding_ids == ["target-find"]
+    assert {item["value"]: item["reason"] for item in result.unresolved_targets} == {
+        "missing-flow": "not_found",
+        "missing-symbol": "not_found",
+        "missing-finding": "not_found",
+    }
+
+
+def test_impact_model_marks_scope_filtered_targets() -> None:
+    backend = _flow("backend", "backend", symbol="svc:backend")
+    backend.metadata["scope"] = ["backend"]
+    frontend = _flow("frontend", "frontend", symbol="web:frontend")
+    frontend.metadata["scope"] = ["frontend"]
+    model = _model([backend, frontend])
+
+    result = impact_model(model, [], scope="frontend", flow_ids=["backend"])
+
+    assert result.directly_impacted == []
+    assert result.unresolved_targets == [
+        {"type": "flow", "value": "backend", "reason": "scope_filtered"}
+    ]
+
+
 def _demo_source(tmp_path: Path) -> Path:
     source = tmp_path / "app.py"
     source.write_text(
@@ -411,3 +467,21 @@ def test_cli_json_matches_query_match_to_dict(tmp_path: Path, capsys: object) ->
             "source",
         }
         assert ":" in row["source"]
+
+
+def test_cli_impact_json_accepts_flow_target_without_changed_files(
+    tmp_path: Path, capsys: object
+) -> None:
+    root = _demo_source(tmp_path)
+    assert main(["analyze", str(root), "--full"]) == 0
+    capsys.readouterr()  # type: ignore[attr-defined]
+    flow = load_model(root).flows[0]
+
+    assert main(["impact", "--path", str(root), "--flow", flow.id, "--json"]) == 0
+    out = capsys.readouterr()  # type: ignore[attr-defined]
+    payload = json.loads(out.out)
+
+    assert payload["changed_files"] == []
+    assert payload["target_flow_ids"] == [flow.id]
+    assert payload["directly_impacted"] == [flow.id]
+    assert payload["subgraph_flow_ids"] == [flow.id]

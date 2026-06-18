@@ -231,14 +231,21 @@ Use `--json` for machine-readable output.
 
 ### `impact`
 
-See which flows a change touches:
+Show flows affected by changed files or explicit model targets:
 
 ```bash
 logicchart impact backend/users.py
 logicchart impact --scope frontend
+logicchart impact --flow orders-route --json
+logicchart impact --symbol api.orders:handle_order
+logicchart impact --finding orders-route-missing-branch
 ```
 
-With no file arguments, `impact` uses `git diff` to infer changed files.
+With no file arguments and no explicit targets, `impact` uses `git diff` to infer changed
+files. Explicit targets are deterministic and local: `--flow` matches a flow id,
+`--symbol` matches an exact flow symbol or flow name, and `--finding` starts from a
+finding id. JSON output includes `subgraph_flow_ids`, `subgraph_finding_ids`, and any
+`unresolved_targets` so agents can chain into flow navigation or snapshots.
 
 ### `validate`
 

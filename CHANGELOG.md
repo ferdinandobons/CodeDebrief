@@ -28,6 +28,8 @@ The project follows Semantic Versioning.
   hints for token-bounded agent workflows.
 - Added MCP finding-context packs with focus flow, related evidence nodes, related flows,
   evidence guardrails, and next-tool hints for logical-error review.
+- Added deterministic impact targets for flow ids, symbols, and finding ids across CLI and
+  MCP, with subgraph ids and unresolved-target reporting.
 - Added deterministic accessibility summaries to viewer flow nodes for broad-canvas
   scanning.
 - Added a local optional `logic-annotations.json` sidecar schema, validation, viewer

@@ -377,7 +377,8 @@ This should appear in docs and in `logicchart doctor` or `logicchart validate --
 ### Current status
 
 `query` ranks by lexical overlap across identity, nodes, structure, metadata, and findings.
-`impact` follows file-level direct impact and caller relationships.
+`impact` follows file-level direct impact, explicit flow/symbol/finding targets, and caller
+relationships.
 
 ### Improvement
 
@@ -389,6 +390,19 @@ Add richer query and impact modes while preserving deterministic behavior:
 - impact by flow id, symbol, finding id, and dependency path;
 - explain why each result was selected;
 - include visual subgraph ids in the result.
+
+Current checkpoint:
+
+- `logicchart impact` accepts `--flow`, `--symbol`, and `--finding` in addition to changed
+  file paths, while preserving Git-diff defaults when no target is provided.
+- MCP `analyze_impact` and `get_impact_snapshot` accept the same target types.
+- JSON/MCP impact responses include target lists, unresolved targets, subgraph flow ids,
+  and subgraph finding ids.
+
+Still open:
+
+- Add explicit source-path and state-domain query filters.
+- Add dependency-path impact once call/dependency edges carry enough precision.
 
 Optional LLM query reformulation could help map natural language to deterministic query
 fields, but final retrieval should still be model-backed.

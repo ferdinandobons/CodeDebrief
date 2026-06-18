@@ -56,6 +56,19 @@ def build_parser() -> argparse.ArgumentParser:
     impact.add_argument("files", nargs="*")
     impact.add_argument("--path", default=".")
     impact.add_argument("--scope", default=None, help="Restrict to a named macro-part.")
+    impact.add_argument("--flow", action="append", default=[], help="Seed impact from a flow id.")
+    impact.add_argument(
+        "--symbol",
+        action="append",
+        default=[],
+        help="Seed impact from an exact flow symbol or flow name.",
+    )
+    impact.add_argument(
+        "--finding",
+        action="append",
+        default=[],
+        help="Seed impact from a finding id.",
+    )
     _add_profile_argument(impact)
     impact.add_argument("--json", action="store_true", dest="json_output")
 
@@ -178,7 +191,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 profile=args.profile,
             )
         if args.command == "impact":
-            return _impact(Path(args.path), args.files, args.json_output, args.scope, args.profile)
+            return _impact(
+                Path(args.path),
+                args.files,
+                args.json_output,
+                args.scope,
+                args.profile,
+                args.flow,
+                args.symbol,
+                args.finding,
+            )
         if args.command == "query":
             return _query(
                 Path(args.path),
@@ -274,19 +296,36 @@ def _impact(
     json_output: bool,
     scope: str | None = None,
     profile: str | None = None,
+    flow_ids: list[str] | None = None,
+    symbols: list[str] | None = None,
+    finding_ids: list[str] | None = None,
 ) -> int:
     root = root.resolve()
     config = LogicChartConfig.load(root, profile=profile)
-    changed = files or git_changed_files(root)
-    result = impact_model(load_model(root, config), changed, scope)
+    has_targets = bool(flow_ids or symbols or finding_ids)
+    changed = files if files or has_targets else git_changed_files(root)
+    result = impact_model(
+        load_model(root, config),
+        changed,
+        scope,
+        flow_ids=flow_ids,
+        symbols=symbols,
+        finding_ids=finding_ids,
+    )
     if json_output:
         print(
             json.dumps(
                 {
                     "changed_files": result.changed_files,
+                    "target_flow_ids": result.target_flow_ids,
+                    "target_symbols": result.target_symbols,
+                    "target_finding_ids": result.target_finding_ids,
+                    "unresolved_targets": result.unresolved_targets,
                     "directly_impacted": [item.id for item in result.directly_impacted],
                     "transitively_impacted": [item.id for item in result.transitively_impacted],
                     "findings": [item.id for item in result.findings],
+                    "subgraph_flow_ids": result.subgraph_flow_ids,
+                    "subgraph_finding_ids": result.subgraph_finding_ids,
                 },
                 indent=2,
             )

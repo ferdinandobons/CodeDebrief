@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +53,10 @@ class ImpactResult:
     directly_impacted: list[Flow]
     transitively_impacted: list[Flow]
     findings: list[Finding]
+    target_flow_ids: list[str] = field(default_factory=list)
+    target_symbols: list[str] = field(default_factory=list)
+    target_finding_ids: list[str] = field(default_factory=list)
+    unresolved_targets: list[dict[str, str]] = field(default_factory=list)
 
     @property
     def all_flows(self) -> list[Flow]:
@@ -60,6 +64,14 @@ class ImpactResult:
         for flow in self.directly_impacted + self.transitively_impacted:
             seen[flow.id] = flow
         return list(seen.values())
+
+    @property
+    def subgraph_flow_ids(self) -> list[str]:
+        return [flow.id for flow in self.all_flows]
+
+    @property
+    def subgraph_finding_ids(self) -> list[str]:
+        return [finding.id for finding in self.findings]
 
 
 def query_model(
@@ -150,13 +162,66 @@ def query_model(
 
 
 def impact_model(
-    model: ProjectModel, changed_files: list[str], scope: str | None = None
+    model: ProjectModel,
+    changed_files: list[str],
+    scope: str | None = None,
+    *,
+    flow_ids: list[str] | None = None,
+    symbols: list[str] | None = None,
+    finding_ids: list[str] | None = None,
 ) -> ImpactResult:
     normalized = {_normalize_path(item) for item in changed_files}
     flows = [flow for flow in model.flows if flow_in_scope(flow, scope)]
     direct = [flow for flow in flows if _normalize_path(flow.location.path) in normalized]
     by_id = {flow.id: flow for flow in model.flows}
-    impacted_ids = {flow.id for flow in direct}
+    scoped_ids = {flow.id for flow in flows}
+    target_flow_ids = _unique(flow_ids or [])
+    target_symbols = _unique(symbols or [])
+    target_finding_ids = _unique(finding_ids or [])
+    unresolved_targets: list[dict[str, str]] = []
+    direct_by_id = {flow.id: flow for flow in direct}
+
+    def add_flow(flow: Flow, target_type: str, value: str) -> None:
+        if flow.id not in scoped_ids:
+            unresolved_targets.append(
+                {"type": target_type, "value": value, "reason": "scope_filtered"}
+            )
+            return
+        direct_by_id[flow.id] = flow
+
+    for flow_id in target_flow_ids:
+        flow = by_id.get(flow_id)
+        if flow is None:
+            unresolved_targets.append({"type": "flow", "value": flow_id, "reason": "not_found"})
+            continue
+        add_flow(flow, "flow", flow_id)
+
+    for symbol in target_symbols:
+        matches = [flow for flow in model.flows if flow.symbol == symbol or flow.name == symbol]
+        if not matches:
+            unresolved_targets.append({"type": "symbol", "value": symbol, "reason": "not_found"})
+            continue
+        for flow in matches:
+            add_flow(flow, "symbol", symbol)
+
+    findings_by_id = {finding.id: finding for finding in model.findings}
+    for finding_id in target_finding_ids:
+        finding = findings_by_id.get(finding_id)
+        if finding is None:
+            unresolved_targets.append(
+                {"type": "finding", "value": finding_id, "reason": "not_found"}
+            )
+            continue
+        flow = by_id.get(finding.flow_id)
+        if flow is None:
+            unresolved_targets.append(
+                {"type": "finding", "value": finding_id, "reason": "flow_not_found"}
+            )
+            continue
+        add_flow(flow, "finding", finding_id)
+
+    direct = list(direct_by_id.values())
+    impacted_ids = set(direct_by_id)
     queue = list(impacted_ids)
     transitive: list[Flow] = []
     while queue:
@@ -180,6 +245,10 @@ def impact_model(
         directly_impacted=sorted(direct, key=lambda item: item.name),
         transitively_impacted=sorted(transitive, key=lambda item: item.name),
         findings=findings,
+        target_flow_ids=target_flow_ids,
+        target_symbols=target_symbols,
+        target_finding_ids=target_finding_ids,
+        unresolved_targets=unresolved_targets,
     )
 
 
@@ -198,12 +267,24 @@ def render_query(matches: list[QueryMatch]) -> str:
 
 
 def render_impact(result: ImpactResult) -> str:
+    target_count = (
+        len(result.target_flow_ids) + len(result.target_symbols) + len(result.target_finding_ids)
+    )
     lines = [
         f"Changed files: {len(result.changed_files)}",
+        f"Explicit targets: {target_count}",
         f"Directly impacted flows: {len(result.directly_impacted)}",
         f"Transitively impacted flows: {len(result.transitively_impacted)}",
         f"Related review findings: {len(result.findings)}",
     ]
+    if result.target_flow_ids or result.target_symbols or result.target_finding_ids:
+        lines.append("\nTargets:")
+        if result.target_flow_ids:
+            lines.append(f"- flows: {', '.join(result.target_flow_ids)}")
+        if result.target_symbols:
+            lines.append(f"- symbols: {', '.join(result.target_symbols)}")
+        if result.target_finding_ids:
+            lines.append(f"- findings: {', '.join(result.target_finding_ids)}")
     if result.directly_impacted:
         lines.append("\nDirect impact:")
         lines.extend(
@@ -219,6 +300,12 @@ def render_impact(result: ImpactResult) -> str:
     if result.findings:
         lines.append("\nReview before changing:")
         lines.extend(f"- {finding.message}" for finding in result.findings)
+    if result.unresolved_targets:
+        lines.append("\nUnresolved targets:")
+        lines.extend(
+            f"- {item['type']} {item['value']}: {item['reason']}"
+            for item in result.unresolved_targets
+        )
     return "\n".join(lines)
 
 
@@ -346,6 +433,10 @@ def finding_context(
             "visual_snapshot": {
                 "tool": "get_finding_snapshot",
                 "arguments": {"finding_id": finding.id, "format": "svg"},
+            },
+            "impact": {
+                "tool": "analyze_impact",
+                "arguments": {"finding_ids": [finding.id]},
             },
             "flow_navigation": {
                 "tool": "get_flow_navigation",
@@ -667,6 +758,10 @@ def git_changed_files(root: Path) -> list[str]:
         if result.returncode == 0:
             files.update(line.strip() for line in result.stdout.splitlines() if line.strip())
     return sorted(files)
+
+
+def _unique(values: list[str]) -> list[str]:
+    return list(dict.fromkeys(item for item in values if item))
 
 
 def _terms(question: str) -> list[str]:

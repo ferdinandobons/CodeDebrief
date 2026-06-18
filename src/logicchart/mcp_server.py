@@ -64,6 +64,19 @@ def _snapshot_flow_budget(token_budget: int) -> int | None:
     return max(1, token_budget // 120)
 
 
+def _impact_changed_files(
+    project_root: Path,
+    changed_files: list[str] | None,
+    flow_ids: list[str] | None,
+    symbols: list[str] | None,
+    finding_ids: list[str] | None,
+) -> list[str]:
+    has_targets = bool(flow_ids or symbols or finding_ids)
+    if changed_files is not None:
+        return changed_files
+    return [] if has_targets else git_changed_files(project_root)
+
+
 def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
     try:
         from mcp.server.fastmcp import FastMCP
@@ -311,9 +324,14 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
 
     @server.tool()
     def analyze_impact(
-        changed_files: list[str], scope: str | None = None, token_budget: int = 0
+        changed_files: list[str] | None = None,
+        scope: str | None = None,
+        flow_ids: list[str] | None = None,
+        symbols: list[str] | None = None,
+        finding_ids: list[str] | None = None,
+        token_budget: int = 0,
     ) -> dict[str, Any]:
-        """Find direct and transitive decision flows affected by changed source files.
+        """Find direct and transitive decision flows affected by files or explicit targets.
 
         ``scope`` restricts to a named macro-part, matching the CLI's ``impact --scope``.
         """
@@ -321,22 +339,39 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return error
         assert model is not None
-        result = impact_model(model, changed_files, scope)
+        changes = _impact_changed_files(project_root, changed_files, flow_ids, symbols, finding_ids)
+        result = impact_model(
+            model,
+            changes,
+            scope,
+            flow_ids=flow_ids,
+            symbols=symbols,
+            finding_ids=finding_ids,
+        )
         direct = [_flow_summary(item) for item in result.directly_impacted]
         transitive = [_flow_summary(item) for item in result.transitively_impacted]
         return {
             "changed_files": result.changed_files,
+            "target_flow_ids": result.target_flow_ids,
+            "target_symbols": result.target_symbols,
+            "target_finding_ids": result.target_finding_ids,
+            "unresolved_targets": result.unresolved_targets,
             "direct": _cap(direct, token_budget),
             "transitive": _cap(transitive, token_budget),
             "findings": _cap(
                 [_finding_dict(item, model) for item in result.findings], token_budget
             ),
+            "subgraph_flow_ids": result.subgraph_flow_ids,
+            "subgraph_finding_ids": result.subgraph_finding_ids,
         }
 
     @server.tool()
     def get_impact_snapshot(
-        changed_files: list[str],
+        changed_files: list[str] | None = None,
         scope: str | None = None,
+        flow_ids: list[str] | None = None,
+        symbols: list[str] | None = None,
+        finding_ids: list[str] | None = None,
         format: str = "svg",
         token_budget: int = 0,
     ) -> dict[str, Any]:
@@ -347,7 +382,15 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return error
         assert model is not None
-        result = impact_model(model, changed_files, scope)
+        changes = _impact_changed_files(project_root, changed_files, flow_ids, symbols, finding_ids)
+        result = impact_model(
+            model,
+            changes,
+            scope,
+            flow_ids=flow_ids,
+            symbols=symbols,
+            finding_ids=finding_ids,
+        )
         return render_impact_snapshot(
             changed_files=result.changed_files,
             direct=result.directly_impacted,
