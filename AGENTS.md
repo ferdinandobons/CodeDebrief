@@ -8,6 +8,7 @@ For codebase questions about behavior, decisions, missing cases, or change impac
 1. Prefer `logicchart query "<question>"` before broad file-by-file searches.
 2. Use `logicchart impact [changed files...]` before implementing a substantial change.
 3. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` findings.
+4. Use `logicchart explain <finding-id>` before treating a logical finding as actionable.
 
 After a substantial code change:
 

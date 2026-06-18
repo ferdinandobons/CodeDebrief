@@ -149,6 +149,7 @@ def test_cli_install_can_write_mcp_config(
     assert main(["install", str(tmp_path), "--platform", "codex", "--mcp-config", "codex"]) == 0
     assert (tmp_path / "AGENTS.md").exists()
     assert (tmp_path / ".codex" / "config.toml").exists()
+    assert "logicchart explain <finding-id>" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     assert "Updated" in capsys.readouterr().out
 
     assert main(["install", str(tmp_path), "--platform", "codex", "--mcp-config", "codex"]) == 0
