@@ -127,8 +127,9 @@ large-codebase study, not just one isolated function. It shows:
   while dimming unrelated blocks.
 - A synchronized source panel and logical-errors panel.
 - Finding density on scope nodes and tree file rows, useful for scanning large systems.
-- Light/dark theme, pan/zoom, fit-to-content, drag-to-arrange blocks, reset, full-screen canvas, PNG/JPG
-  export, and responsive side panels.
+- Light/dark theme, pan/zoom, an aggregate scrollable minimap, fit-to-content,
+  drag-to-arrange blocks, reset, full-screen canvas, PNG/JPG export, and responsive
+  side panels.
 
 Use `--render-only` to write `logic-flow.html` without serving it.
 

@@ -494,11 +494,12 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
       overview.hidden = true;
       return;
     }
+    const mapBounds = overviewMapBounds(contentBounds, viewBox);
     overview.hidden = false;
     syncCanvasLevelOfDetail(svg, viewBox, contentBounds);
     overviewSvg.setAttribute(
       "viewBox",
-      `${contentBounds.x} ${contentBounds.y} ${contentBounds.width} ${contentBounds.height}`,
+      `${mapBounds.x} ${mapBounds.y} ${mapBounds.width} ${mapBounds.height}`,
     );
     setRectAttributes(contentRect, contentBounds);
     setRectAttributes(viewportRect, viewBox);
@@ -512,21 +513,16 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
   const panOverview = (event: WheelEvent) => {
     if (!contentBounds) return;
     const current = readViewBox(svg);
-    const scale = overviewMapScale(overviewSvg, contentBounds);
+    const mapBounds = current ? overviewMapBounds(contentBounds, current) : null;
+    const scale = mapBounds ? overviewMapScale(overviewSvg, mapBounds) : null;
     if (!current || !scale) return;
     const deltaX = event.deltaX || (event.shiftKey ? event.deltaY : 0);
     const deltaY = event.shiftKey ? 0 : event.deltaY;
-    writeViewBox(
-      svg,
-      constrainViewBoxToBounds(
-        {
-          ...current,
-          x: current.x + deltaX / scale,
-          y: current.y + deltaY / scale,
-        },
-        contentBounds,
-      ),
-    );
+    writeViewBox(svg, {
+      ...current,
+      x: current.x + deltaX / scale,
+      y: current.y + deltaY / scale,
+    });
     event.preventDefault();
     event.stopPropagation();
   };
@@ -544,7 +540,7 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
     if (event.key === "ArrowDown") next = { ...current, y: current.y + stepY };
     if (event.key === "Home") next = contentBounds;
     if (!next) return;
-    writeViewBox(svg, constrainViewBoxToBounds(next, contentBounds));
+    writeViewBox(svg, next);
     event.preventDefault();
     event.stopPropagation();
   };
@@ -579,22 +575,6 @@ function setRectAttributes(rect: SVGRectElement, box: ViewBox) {
   rect.setAttribute("height", String(box.height));
 }
 
-function constrainViewBoxToBounds(viewBox: ViewBox, bounds: ViewBox): ViewBox {
-  const maxX = bounds.x + bounds.width - viewBox.width;
-  const maxY = bounds.y + bounds.height - viewBox.height;
-  return {
-    ...viewBox,
-    x:
-      viewBox.width >= bounds.width
-        ? bounds.x + (bounds.width - viewBox.width) / 2
-        : clamp(viewBox.x, bounds.x, maxX),
-    y:
-      viewBox.height >= bounds.height
-        ? bounds.y + (bounds.height - viewBox.height) / 2
-        : clamp(viewBox.y, bounds.y, maxY),
-  };
-}
-
 function syncCanvasLevelOfDetail(
   svg: SVGSVGElement,
   viewBox: ViewBox,
@@ -607,22 +587,34 @@ function syncCanvasLevelOfDetail(
   svg.setAttribute("data-lod", lod);
 }
 
+function overviewMapBounds(contentBounds: ViewBox, viewport: ViewBox): ViewBox {
+  const minX = Math.min(contentBounds.x, viewport.x);
+  const minY = Math.min(contentBounds.y, viewport.y);
+  const maxX = Math.max(contentBounds.x + contentBounds.width, viewport.x + viewport.width);
+  const maxY = Math.max(contentBounds.y + contentBounds.height, viewport.y + viewport.height);
+  const width = Math.max(1, maxX - minX);
+  const height = Math.max(1, maxY - minY);
+  const padding = Math.max(12, Math.min(96, Math.max(width, height) * 0.035));
+  return {
+    x: minX - padding,
+    y: minY - padding,
+    width: width + padding * 2,
+    height: height + padding * 2,
+  };
+}
+
 function overviewMapScale(
   overviewSvg: SVGSVGElement,
-  contentBounds: ViewBox,
+  mapBounds: ViewBox,
 ): number | null {
   const rect = overviewSvg.getBoundingClientRect();
   if (!rect.width || !rect.height) return null;
   const scale = Math.min(
-    rect.width / Math.max(1, contentBounds.width),
-    rect.height / Math.max(1, contentBounds.height),
+    rect.width / Math.max(1, mapBounds.width),
+    rect.height / Math.max(1, mapBounds.height),
   );
   if (!Number.isFinite(scale) || scale <= 0) return null;
   return scale;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }
 
 function cssVar(name: string, fallback: string): string {

@@ -78,6 +78,9 @@ The viewer layout should preserve these invariants:
   free pan is unbounded, and Reset returns to the collapsed baseline view.
 - Wheel and trackpad zoom must stay anchored to the cursor in the active runtime and must
   not bubble into the static shell fallback as a second zoom operation.
+- The minimap is an aggregate navigator, not a second tiny node renderer: it shows the
+  graph bounds and current viewport, scrolls to pan the canvas, double-clicks to fit, and
+  keeps the viewport visible even when free pan moves outside the graph bounds.
 - Large entrypoint rows wrap instead of forcing unbounded horizontal overflow.
 
 The frontend tests expose reusable layout checks through `viewerLayoutBoxes`,
@@ -134,7 +137,8 @@ High-value browser checks:
 - Clicking blank canvas clears connection focus.
 - Clicking an entrypoint from the canvas and from the tree opens the same flow detail.
 - The source panel shows the selected flow's file and line range.
-- Wheel zoom, pan, fit, reset, PNG export, and JPG export route through the active runtime.
+- Wheel zoom, canvas pan, minimap scroll pan, fit, reset, PNG export, and JPG export route
+  through the active runtime.
 - SVG hit paths remain invisible in screenshots and exports.
 
 ## Documentation discipline

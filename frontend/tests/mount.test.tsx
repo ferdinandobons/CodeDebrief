@@ -293,6 +293,29 @@ describe("mountLogicChartViewer", () => {
     expect(scrollEvent.defaultPrevented).toBe(true);
 
     await act(async () => {
+      overview.dispatchEvent(
+        new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: 3000,
+          deltaY: 2800,
+        }),
+      );
+    });
+    const farViewBox = parseViewBox(svg);
+    const overviewBounds = parseViewBox(overviewMap);
+    expect(farViewBox[0]).toBeGreaterThan(590);
+    expect(farViewBox[1]).toBeGreaterThan(470);
+    expect(overviewBounds[0]).toBeLessThanOrEqual(-10);
+    expect(overviewBounds[1]).toBeLessThanOrEqual(30);
+    expect(overviewBounds[0] + overviewBounds[2]).toBeGreaterThanOrEqual(
+      farViewBox[0] + farViewBox[2],
+    );
+    expect(overviewBounds[1] + overviewBounds[3]).toBeGreaterThanOrEqual(
+      farViewBox[1] + farViewBox[3],
+    );
+
+    await act(async () => {
       overview.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     });
     expect(svg.getAttribute("viewBox")).toBe("-10 30 600 440");
