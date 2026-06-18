@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from html import escape
 from typing import Any
 
@@ -8,6 +9,15 @@ from logicchart.model import Finding, Flow, FlowNode, NodeKind, ProjectModel
 
 SNAPSHOT_FORMATS = ("svg",)
 MAX_FLOW_NODES = 44
+MAX_SUBGRAPH_FLOWS = 8
+
+
+@dataclass(slots=True)
+class _RenderedSubgraphFlow:
+    flow: Flow
+    findings: list[Finding]
+    highlighted: set[str]
+    nodes: list[FlowNode]
 
 
 def unsupported_snapshot_format(requested: str) -> dict[str, Any]:
@@ -135,6 +145,30 @@ def _snapshot_request_error(
     return payload
 
 
+def _subgraph_empty_error() -> dict[str, Any]:
+    return {
+        "error": "Subgraph snapshot requires at least one flow_id or finding_id.",
+        "error_code": "snapshot_subgraph_empty",
+        "target_type": "subgraph",
+        "recoverable": True,
+        "guardrail": (
+            "This reports an empty visual snapshot request; it is not a source-code "
+            "logical finding."
+        ),
+    }
+
+
+def _unique(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        result.append(item)
+        seen.add(item)
+    return result
+
+
 def render_impact_snapshot(
     *,
     changed_files: list[str],
@@ -209,6 +243,104 @@ def render_impact_snapshot(
     }
 
 
+def render_subgraph_snapshot(
+    model: ProjectModel,
+    *,
+    flow_ids: list[str] | None = None,
+    finding_ids: list[str] | None = None,
+    max_flows: int | None = None,
+    max_nodes: int | None = None,
+) -> dict[str, Any]:
+    """Render a deterministic SVG for an explicit flow/finding subgraph."""
+    requested_flow_ids = _unique(flow_ids or [])
+    requested_finding_ids = _unique(finding_ids or [])
+    if not requested_flow_ids and not requested_finding_ids:
+        return _subgraph_empty_error()
+
+    flows_by_id = {flow.id: flow for flow in model.flows}
+    findings_by_id = {finding.id: finding for finding in model.findings}
+    unresolved_targets: list[dict[str, str]] = []
+    selected_flow_ids: list[str] = []
+    selected_finding_ids: list[str] = []
+    highlighted_node_ids: set[str] = set()
+
+    for flow_id in requested_flow_ids:
+        if flow_id in flows_by_id:
+            selected_flow_ids.append(flow_id)
+        else:
+            unresolved_targets.append({"type": "flow", "value": flow_id, "reason": "not_found"})
+
+    for finding_id in requested_finding_ids:
+        finding = findings_by_id.get(finding_id)
+        if finding is None:
+            unresolved_targets.append(
+                {"type": "finding", "value": finding_id, "reason": "not_found"}
+            )
+            continue
+        selected_finding_ids.append(finding.id)
+        if finding.node_id:
+            highlighted_node_ids.add(finding.node_id)
+        if finding.flow_id not in selected_flow_ids:
+            selected_flow_ids.append(finding.flow_id)
+
+    selected_flows = [
+        flows_by_id[flow_id] for flow_id in selected_flow_ids if flow_id in flows_by_id
+    ]
+    flow_limit = _effective_limit(max_flows, MAX_SUBGRAPH_FLOWS)
+    rendered_flows = selected_flows[:flow_limit]
+    rendered = [
+        _RenderedSubgraphFlow(
+            flow=flow,
+            findings=[finding for finding in model.findings if finding.flow_id == flow.id],
+            highlighted={
+                finding.node_id
+                for finding in model.findings
+                if finding.id in selected_finding_ids
+                and finding.flow_id == flow.id
+                and finding.node_id
+            },
+            nodes=_select_flow_nodes(
+                flow,
+                {
+                    finding.node_id
+                    for finding in model.findings
+                    if finding.id in selected_finding_ids
+                    and finding.flow_id == flow.id
+                    and finding.node_id
+                },
+                max_nodes,
+            ),
+        )
+        for flow in rendered_flows
+    ]
+    layout = _subgraph_layout(rendered, unresolved_targets)
+    svg = _subgraph_svg(
+        rendered,
+        unresolved_targets=unresolved_targets,
+        layout=layout,
+        selected_flow_count=len(selected_flows),
+    )
+    rendered_node_count = sum(len(item.nodes) for item in rendered)
+    node_count = sum(len(flow.nodes) for flow in selected_flows)
+    return {
+        "format": "svg",
+        "title": "Subgraph snapshot",
+        "requested_flow_ids": requested_flow_ids,
+        "requested_finding_ids": requested_finding_ids,
+        "unresolved_targets": unresolved_targets,
+        "flow_ids": [flow.id for flow in selected_flows],
+        "finding_ids": selected_finding_ids,
+        "rendered_flow_ids": [flow.id for flow in rendered_flows],
+        "omitted_flow_count": max(0, len(selected_flows) - len(rendered_flows)),
+        "highlighted_node_ids": sorted(highlighted_node_ids),
+        "node_count": node_count,
+        "rendered_node_count": rendered_node_count,
+        "omitted_node_count": max(0, node_count - rendered_node_count),
+        "layout": _subgraph_layout_payload(selected_flows, rendered, layout),
+        "svg": svg,
+    }
+
+
 def _flow_svg(
     flow: Flow,
     findings: list[Finding],
@@ -277,6 +409,100 @@ def _flow_svg(
         )
     if panel:
         parts.append(str(panel["svg"]))
+    parts.append("</svg>")
+    return "\n".join(parts)
+
+
+def _subgraph_svg(
+    rendered: list[_RenderedSubgraphFlow],
+    *,
+    unresolved_targets: list[dict[str, str]],
+    layout: dict[str, Any],
+    selected_flow_count: int,
+) -> str:
+    width = int(layout["width"])
+    height = int(layout["height"])
+    node_width = int(layout["node_width"])
+    node_height = int(layout["node_height"])
+    positions = layout["positions"]
+    parts = [
+        _svg_open(width, height, "LogicChart subgraph snapshot"),
+        _style(),
+        f'<rect class="background" x="0" y="0" width="{width}" height="{height}" />',
+        _text(28, 34, "Subgraph snapshot", "title"),
+        _text(
+            28,
+            58,
+            f"{selected_flow_count} flows - {layout['selected_node_count']} nodes - "
+            f"{len(unresolved_targets)} unresolved targets",
+            "subtitle",
+        ),
+    ]
+    if unresolved_targets:
+        unresolved_label = ", ".join(_unresolved_target_label(item) for item in unresolved_targets)
+        parts.append(
+            _text(28, 84, _compact(f"Unresolved targets: {unresolved_label}", 125), "meta")
+        )
+    if not rendered:
+        parts.append(_text(52, 132, "No valid flows matched the requested subgraph.", "meta"))
+        parts.append("</svg>")
+        return "\n".join(parts)
+
+    for section, item in zip(layout["sections"], rendered, strict=True):
+        flow = item.flow
+        findings = item.findings
+        nodes = item.nodes
+        highlighted = item.highlighted
+        section_y = int(section["y"])
+        parts.extend(
+            [
+                f'<rect class="subgraph-section" x="28" y="{section_y}" '
+                f'width="{width - 56}" height="{section["height"]}" rx="14" />',
+                _text(52, section_y + 28, flow.name, "column"),
+                _text(
+                    52,
+                    section_y + 50,
+                    _compact(
+                        f"{flow.entry_kind} - {flow.language} - "
+                        f"{flow.location.path}:{flow.location.start_line}",
+                        100,
+                    ),
+                    "meta",
+                ),
+            ]
+        )
+        flow_positions = {node.id: positions[node.id] for node in nodes if node.id in positions}
+        for edge in flow.edges:
+            if edge.source not in flow_positions or edge.target not in flow_positions:
+                continue
+            parts.append(
+                _edge(edge.source, edge.target, flow_positions, node_width, node_height, edge.label)
+            )
+        for node in nodes:
+            node_findings = [finding for finding in findings if finding.node_id == node.id]
+            parts.append(
+                _flow_node(
+                    node,
+                    positions[node.id],
+                    node_width,
+                    node_height,
+                    highlighted=node.id in highlighted,
+                    finding_count=len(node_findings),
+                )
+            )
+        omitted = max(0, len(flow.nodes) - len(nodes))
+        if omitted:
+            parts.append(
+                _text(
+                    52,
+                    section_y + int(section["height"]) - 18,
+                    f"{omitted} additional nodes omitted from this compact flow.",
+                    "meta",
+                )
+            )
+    omitted_flows = max(0, selected_flow_count - len(rendered))
+    if omitted_flows:
+        parts.append(_text(28, height - 34, f"{omitted_flows} additional flows omitted.", "meta"))
     parts.append("</svg>")
     return "\n".join(parts)
 
@@ -554,6 +780,131 @@ def _impact_layout_payload(
     }
 
 
+def _subgraph_layout(
+    rendered: list[_RenderedSubgraphFlow],
+    unresolved_targets: list[dict[str, str]],
+) -> dict[str, Any]:
+    width = 1060
+    header_height = 116 + (24 if unresolved_targets else 0)
+    section_gap = 28
+    section_header_height = 70
+    node_width = 340
+    node_height = 76
+    row_gap = 34
+    x = 360
+    y = header_height
+    sections: list[dict[str, Any]] = []
+    positions: dict[str, tuple[int, int]] = {}
+    rendered_edge_count = 0
+    total_edge_count = 0
+    selected_node_count = 0
+    rendered_node_count = 0
+
+    for item in rendered:
+        flow = item.flow
+        nodes = item.nodes
+        node_rows = max(1, len(nodes))
+        section_height = section_header_height + node_rows * (node_height + row_gap) + 24
+        node_start_y = y + section_header_height
+        for index, node in enumerate(nodes):
+            positions[node.id] = (x, node_start_y + index * (node_height + row_gap))
+        edge_count = sum(
+            edge.source in positions and edge.target in positions for edge in flow.edges
+        )
+        sections.append(
+            {
+                "flow_id": flow.id,
+                "x": 28,
+                "y": y,
+                "width": width - 56,
+                "height": section_height,
+                "node_start_y": node_start_y,
+                "rendered_node_count": len(nodes),
+                "omitted_node_count": max(0, len(flow.nodes) - len(nodes)),
+                "rendered_edge_count": edge_count,
+                "omitted_edge_count": max(0, len(flow.edges) - edge_count),
+            }
+        )
+        selected_node_count += len(flow.nodes)
+        rendered_node_count += len(nodes)
+        total_edge_count += len(flow.edges)
+        rendered_edge_count += edge_count
+        y += section_height + section_gap
+
+    if not rendered:
+        y = header_height + 86
+    height = y + 44
+    return {
+        "engine": "static-subgraph-snapshot-v1",
+        "direction": "stacked_flows",
+        "width": width,
+        "height": height,
+        "header_height": header_height,
+        "section_gap": section_gap,
+        "section_header_height": section_header_height,
+        "node_width": node_width,
+        "node_height": node_height,
+        "row_gap": row_gap,
+        "x": x,
+        "positions": positions,
+        "sections": sections,
+        "selected_node_count": selected_node_count,
+        "rendered_node_count": rendered_node_count,
+        "rendered_edge_count": rendered_edge_count,
+        "omitted_edge_count": max(0, total_edge_count - rendered_edge_count),
+        "unresolved_target_count": len(unresolved_targets),
+    }
+
+
+def _subgraph_layout_payload(
+    selected_flows: list[Flow],
+    rendered: list[_RenderedSubgraphFlow],
+    layout: dict[str, Any],
+) -> dict[str, Any]:
+    positions: dict[str, tuple[int, int]] = layout["positions"]
+    rendered_nodes = [node for item in rendered for node in item.nodes]
+    return {
+        "engine": layout["engine"],
+        "direction": layout["direction"],
+        "canvas": {"width": layout["width"], "height": layout["height"]},
+        "node": {
+            "width": layout["node_width"],
+            "height": layout["node_height"],
+            "row_gap": layout["row_gap"],
+        },
+        "sections": [
+            {
+                "flow_id": section["flow_id"],
+                "x": section["x"],
+                "y": section["y"],
+                "width": section["width"],
+                "height": section["height"],
+                "rendered_node_count": section["rendered_node_count"],
+                "omitted_node_count": section["omitted_node_count"],
+                "rendered_edge_count": section["rendered_edge_count"],
+                "omitted_edge_count": section["omitted_edge_count"],
+            }
+            for section in layout["sections"]
+        ],
+        "rendered_edge_count": layout["rendered_edge_count"],
+        "omitted_edge_count": layout["omitted_edge_count"],
+        "compact": (
+            len(rendered) < len(selected_flows)
+            or any(section["omitted_node_count"] for section in layout["sections"])
+        ),
+        "node_positions": [
+            {
+                "id": node.id,
+                "x": positions[node.id][0],
+                "y": positions[node.id][1],
+                "width": layout["node_width"],
+                "height": layout["node_height"],
+            }
+            for node in rendered_nodes
+        ],
+    }
+
+
 def _select_flow_nodes(
     flow: Flow,
     highlight_node_ids: set[str],
@@ -797,6 +1148,7 @@ def _style() -> str:
   .subtitle { fill: #334155; font: 13px system-ui, sans-serif; }
   .meta { fill: #64748b; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
   .column { fill: #334155; font: 700 13px system-ui, sans-serif; }
+  .subgraph-section { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; }
   .node, .impact-node { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.4; }
   .kind-decision { fill: #fff7ed; stroke: #f97316; }
   .kind-call { fill: #ecfeff; stroke: #0891b2; }

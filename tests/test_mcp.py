@@ -60,6 +60,7 @@ def authorize(user):
                     "get_flow_navigation",
                     "get_flow_snapshot",
                     "get_finding_snapshot",
+                    "get_subgraph_snapshot",
                     "get_impact_snapshot",
                     "where_state_handled",
                     "find_decision_nodes",
@@ -77,6 +78,7 @@ def authorize(user):
                     "get_flow_navigation",
                     "get_flow_snapshot",
                     "get_finding_snapshot",
+                    "get_subgraph_snapshot",
                     "get_impact_snapshot",
                     "query_logic",
                     "analysis_quality",
@@ -184,6 +186,18 @@ def authorize(user):
                 )
                 assert not flow_snapshot.isError
                 assert "<svg" in str(flow_snapshot.content)
+                subgraph_snapshot = await session.call_tool(
+                    "get_subgraph_snapshot",
+                    {"flow_ids": [flow.id], "token_budget": 120},
+                )
+                assert not subgraph_snapshot.isError
+                subgraph_payload = subgraph_snapshot.structuredContent  # type: ignore[assignment]
+                assert subgraph_payload["rendered_flow_ids"] == [flow.id]  # type: ignore[index]
+                assert (
+                    subgraph_payload["layout"]["engine"]  # type: ignore[index]
+                    == "static-subgraph-snapshot-v1"
+                )
+                assert "Subgraph snapshot" in str(subgraph_snapshot.content)
                 missing_flow = await session.call_tool("get_flow", {"flow_id": "missing-flow"})
                 assert not missing_flow.isError
                 missing_flow_payload = missing_flow.structuredContent  # type: ignore[assignment]
@@ -211,6 +225,15 @@ def authorize(user):
                 assert (  # type: ignore[index]
                     missing_flow_snapshot_payload["error_code"] == "snapshot_flow_not_found"
                 )
+                missing_subgraph_snapshot = await session.call_tool(
+                    "get_subgraph_snapshot",
+                    {"flow_ids": ["missing-flow"]},
+                )
+                assert not missing_subgraph_snapshot.isError
+                missing_subgraph_payload = missing_subgraph_snapshot.structuredContent  # type: ignore[assignment]
+                assert missing_subgraph_payload["unresolved_targets"] == [  # type: ignore[index]
+                    {"type": "flow", "value": "missing-flow", "reason": "not_found"}
+                ]
 
                 impact_snapshot = await session.call_tool(
                     "get_impact_snapshot",
@@ -320,6 +343,10 @@ def authorize(user):
                     "impact_snapshot"
                 ]["arguments"]
                 assert impact_next_args["flow_ids"] == [flow.id]
+                subgraph_next_args = targeted_context_payload["visual_context"]["next_tools"][  # type: ignore[index]
+                    "subgraph_snapshot"
+                ]["arguments"]
+                assert subgraph_next_args["flow_ids"] == [flow.id]
                 targeted_navigation = targeted_context_payload["navigation"]  # type: ignore[index]
                 assert targeted_navigation["flow_budget"] == 1
                 assert targeted_navigation["per_flow_token_budget"] == 120
@@ -632,6 +659,14 @@ def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
                 )
                 assert not snapshot.isError
                 assert "<svg" in str(snapshot.content)
+                subgraph_snapshot = await session.call_tool(
+                    "get_subgraph_snapshot",
+                    {"finding_ids": [captured[0]["id"]], "token_budget": 160},
+                )
+                assert not subgraph_snapshot.isError
+                subgraph_payload = subgraph_snapshot.structuredContent  # type: ignore[assignment]
+                assert subgraph_payload["finding_ids"] == [captured[0]["id"]]  # type: ignore[index]
+                assert subgraph_payload["highlighted_node_ids"]  # type: ignore[index]
                 context = await session.call_tool(
                     "get_finding_context",
                     {"finding_id": captured[0]["id"], "token_budget": 160},
@@ -645,6 +680,10 @@ def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
                 assert (
                     payload["next_tools"]["visual_snapshot"]["tool"]  # type: ignore[index]
                     == "get_finding_snapshot"
+                )
+                assert (
+                    payload["next_tools"]["subgraph_snapshot"]["tool"]  # type: ignore[index]
+                    == "get_subgraph_snapshot"
                 )
                 explanation = await session.call_tool(
                     "explain_finding_chain",
@@ -701,6 +740,10 @@ def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
                 assert (
                     capped_visual["next_tools"]["impact_snapshot"]["tool"]  # type: ignore[index]
                     == "get_impact_snapshot"
+                )
+                assert (
+                    capped_visual["next_tools"]["subgraph_snapshot"]["tool"]  # type: ignore[index]
+                    == "get_subgraph_snapshot"
                 )
 
     asyncio.run(call_review_queue())

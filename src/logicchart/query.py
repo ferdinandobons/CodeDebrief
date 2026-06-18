@@ -527,6 +527,10 @@ def flow_navigation(
                 "tool": "get_flow_snapshot",
                 "arguments": {"flow_id": flow.id, "format": "svg"},
             },
+            "subgraph_snapshot": {
+                "tool": "get_subgraph_snapshot",
+                "arguments": {"flow_ids": [flow.id], "format": "svg"},
+            },
             "source_impact": {
                 "tool": "analyze_impact",
                 "arguments": {"changed_files": [flow.location.path]},
@@ -787,6 +791,14 @@ def _finding_next_tools(finding: Finding) -> dict[str, dict[str, Any]]:
             "tool": "get_finding_snapshot",
             "arguments": {"finding_id": finding.id, "format": "svg"},
         },
+        "subgraph_snapshot": {
+            "tool": "get_subgraph_snapshot",
+            "arguments": {
+                "flow_ids": [finding.flow_id],
+                "finding_ids": [finding.id],
+                "format": "svg",
+            },
+        },
         "flow_navigation": {
             "tool": "get_flow_navigation",
             "arguments": {"flow_id": finding.flow_id},
@@ -977,6 +989,14 @@ def finding_context(
             "visual_snapshot": {
                 "tool": "get_finding_snapshot",
                 "arguments": {"finding_id": finding.id, "format": "svg"},
+            },
+            "subgraph_snapshot": {
+                "tool": "get_subgraph_snapshot",
+                "arguments": {
+                    "flow_ids": [finding.flow_id],
+                    "finding_ids": [finding.id],
+                    "format": "svg",
+                },
             },
             "impact": {
                 "tool": "analyze_impact",

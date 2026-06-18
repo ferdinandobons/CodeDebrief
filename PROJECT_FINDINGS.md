@@ -335,10 +335,11 @@ from SVG as an optional rasterization layer.
 
 Current checkpoint:
 
-- MCP exposes `get_flow_snapshot`, `get_finding_snapshot`, and `get_impact_snapshot`.
+- MCP exposes `get_flow_snapshot`, `get_finding_snapshot`, `get_impact_snapshot`, and
+  `get_subgraph_snapshot`.
 - Snapshots are generated from the deterministic model and returned as inline SVG.
-- `logicchart snapshot flow|finding|impact` exposes the same deterministic SVG snapshots
-  over the CLI for agents that are not connected to MCP.
+- `logicchart snapshot flow|finding|impact|subgraph` exposes the same deterministic SVG
+  snapshots over the CLI for agents that are not connected to MCP.
 - Finding snapshots include a compact diagnostic side panel with evidence tier,
   confidence, review prompt, and evidence-chain summaries next to the highlighted flow.
 - Unsupported raster formats return an explicit supported-format response instead of
@@ -351,6 +352,9 @@ Current checkpoint:
 - Flow, finding, and impact snapshot payloads now include deterministic layout metadata:
   canvas size, rendered positions, node/column dimensions, compact flags, and omitted
   edge/flow counts for large subgraph review.
+- Subgraph snapshots render explicit flow/finding id sets from query, impact, finding
+  context, or context-pack results, highlight selected finding nodes, report unresolved
+  targets, and include deterministic section/node layout metadata.
 - MCP exposes `get_flow_navigation` for token-bounded caller/callee, decision, finding,
   and next-tool orientation before an agent pulls the complete graph.
 - `logicchart navigate <flow-id>` exposes the same bounded flow-navigation contract over
@@ -640,6 +644,8 @@ Before the next release:
   large-subgraph review.
 - Done: cap inline `context_pack` SVG payload size with `visual_byte_budget` while keeping
   omitted visuals available through follow-up snapshot tools.
+- Done: add explicit flow/finding subgraph snapshots across MCP and CLI so agents can
+  render the `subgraph_flow_ids`/`subgraph_finding_ids` they already receive.
 - Next: add optional raster outputs if a local renderer path is worth the dependency.
 
 ### Phase 3: LLM Enrichment

@@ -21,9 +21,10 @@ The project follows Semantic Versioning.
   Markdown findings list.
 - Added a shared finding-rule registry to generated model metadata and exposed it through
   MCP with a new `finding_rules` tool.
-- Added deterministic SVG MCP snapshot tools for flow, finding, and impact visual context.
-- Added `logicchart snapshot flow|finding|impact` for deterministic SVG visual context
-  without requiring MCP or a browser.
+- Added deterministic SVG MCP snapshot tools for flow, finding, impact, and explicit
+  flow/finding subgraph visual context.
+- Added `logicchart snapshot flow|finding|impact|subgraph` for deterministic SVG visual
+  context without requiring MCP or a browser.
 - Added structured, recoverable MCP artifact-load errors with error codes, artifact paths,
   guardrails, and next-tool/CLI recovery actions.
 - Added MCP artifact workflow hints for update/validate/review sequencing, including stale
@@ -36,6 +37,8 @@ The project follows Semantic Versioning.
   payloads across CLI and MCP.
 - Added deterministic layout metadata to flow, finding, and impact snapshot payloads,
   including canvas size, rendered positions, compact flags, and omitted edge/flow counts.
+- Added deterministic layout metadata to subgraph snapshot payloads, including flow
+  sections, rendered node positions, compact flags, and unresolved target reporting.
 - Added a compact diagnostic panel to MCP finding SVG snapshots with evidence tier,
   confidence, review prompt, and evidence-chain summaries.
 - Added deterministic model-quality metrics, exposed through generated metadata,

@@ -79,7 +79,9 @@ not a confirmed bug.
 The deterministic MCP finding snapshot uses the same diagnostic metadata in a compact SVG
 side panel, so agents can inspect the highlighted flow node together with evidence tier,
 confidence, review prompt, and bounded evidence-chain summaries without opening the full
-browser viewer.
+browser viewer. Agents can also request a deterministic subgraph snapshot from explicit
+flow and finding ids, which renders the same focused review slice with highlighted finding
+nodes and unresolved-target metadata.
 
 ## Project Quality Panel
 

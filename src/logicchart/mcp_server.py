@@ -27,6 +27,7 @@ from logicchart.render.snapshot import (
     render_finding_snapshot,
     render_flow_snapshot,
     render_impact_snapshot,
+    render_subgraph_snapshot,
     unsupported_snapshot_format,
 )
 from logicchart.validation import validate_logicchart
@@ -250,6 +251,28 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         return render_finding_snapshot(
             model,
             finding_id,
+            max_nodes=_snapshot_node_budget(token_budget),
+        )
+
+    @server.tool()
+    def get_subgraph_snapshot(
+        flow_ids: list[str] | None = None,
+        finding_ids: list[str] | None = None,
+        format: str = "svg",
+        token_budget: int = 0,
+    ) -> dict[str, Any]:
+        """Return a deterministic visual SVG snapshot for explicit flows/findings."""
+        if format not in SNAPSHOT_FORMATS:
+            return unsupported_snapshot_format(format)
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        return render_subgraph_snapshot(
+            model,
+            flow_ids=flow_ids,
+            finding_ids=finding_ids,
+            max_flows=_snapshot_flow_budget(token_budget),
             max_nodes=_snapshot_node_budget(token_budget),
         )
 
@@ -689,6 +712,8 @@ def _context_visual_pack(
         }
         for finding in finding_candidates[:finding_limit]
     ]
+    subgraph_flow_ids = [flow.id for flow in flow_candidates[:flow_limit]]
+    subgraph_finding_ids = [finding.id for finding in finding_candidates[:finding_limit]]
     impact_arguments: dict[str, Any] = {
         "changed_files": impact.changed_files,
         "format": "svg",
@@ -722,6 +747,15 @@ def _context_visual_pack(
             },
             "flow_snapshots": flow_tool_args,
             "finding_snapshots": finding_tool_args,
+            "subgraph_snapshot": {
+                "tool": "get_subgraph_snapshot",
+                "arguments": {
+                    "flow_ids": subgraph_flow_ids,
+                    "finding_ids": subgraph_finding_ids,
+                    "format": "svg",
+                    "token_budget": token_budget,
+                },
+            },
         },
         "omitted_flow_snapshot_count": max(0, len(flow_candidates) - flow_limit),
         "omitted_finding_snapshot_count": max(0, len(finding_candidates) - finding_limit),
@@ -1156,6 +1190,14 @@ def _finding_next_tools(finding: Any) -> dict[str, dict[str, Any]]:
         "visual_snapshot": {
             "tool": "get_finding_snapshot",
             "arguments": {"finding_id": finding.id, "format": "svg"},
+        },
+        "subgraph_snapshot": {
+            "tool": "get_subgraph_snapshot",
+            "arguments": {
+                "flow_ids": [finding.flow_id],
+                "finding_ids": [finding.id],
+                "format": "svg",
+            },
         },
         "flow_navigation": {
             "tool": "get_flow_navigation",

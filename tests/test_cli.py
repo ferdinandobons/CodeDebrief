@@ -170,6 +170,29 @@ def handle(status):
     assert finding_payload["finding_id"] == finding.id
     assert "Finding context" in finding_payload["svg"]
 
+    assert (
+        main(
+            [
+                "snapshot",
+                "subgraph",
+                "--path",
+                str(tmp_path),
+                "--flow",
+                flow.id,
+                "--finding",
+                finding.id,
+                "--json",
+            ]
+        )
+        == 0
+    )
+    subgraph_payload = json.loads(capsys.readouterr().out)
+    assert subgraph_payload["flow_ids"] == [flow.id]
+    assert subgraph_payload["finding_ids"] == [finding.id]
+    assert finding.node_id in subgraph_payload["highlighted_node_ids"]
+    assert subgraph_payload["layout"]["engine"] == "static-subgraph-snapshot-v1"
+    assert "Subgraph snapshot" in subgraph_payload["svg"]
+
     output = tmp_path / "impact.svg"
     assert (
         main(
@@ -210,6 +233,26 @@ def handle(status):
         {"type": "flow", "value": "missing-flow", "reason": "not_found"}
     ]
     assert "Unresolved targets: flow:missing-flow" in missing_payload["svg"]
+
+    assert (
+        main(
+            [
+                "snapshot",
+                "subgraph",
+                "--path",
+                str(tmp_path),
+                "--flow",
+                "missing-flow",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    missing_subgraph = json.loads(capsys.readouterr().out)
+    assert missing_subgraph["unresolved_targets"] == [
+        {"type": "flow", "value": "missing-flow", "reason": "not_found"}
+    ]
+    assert "No valid flows matched" in missing_subgraph["svg"]
 
     assert main(["snapshot", "flow", flow.id, "--path", str(tmp_path), "--format", "png"]) == 1
     assert "Unsupported snapshot format: png" in capsys.readouterr().err

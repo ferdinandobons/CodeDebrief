@@ -275,12 +275,15 @@ logicchart snapshot flow flow-id > flow.svg
 logicchart snapshot finding finding-id --json
 logicchart snapshot impact --flow flow-id --output impact.svg
 logicchart snapshot impact --dependency-path backend/payments --json
+logicchart snapshot subgraph --flow flow-id --finding finding-id --json
 ```
 
 Snapshots are generated from the committed model artifact, not from browser screenshots.
-`flow`, `finding`, and `impact` support `--token-budget`; `impact` accepts the same
-`--flow`, `--symbol`, `--finding`, `--dependency-path`, `--scope`, and changed-file
-targets as `impact`.
+`flow`, `finding`, `impact`, and `subgraph` support `--token-budget`; `impact` accepts
+the same `--flow`, `--symbol`, `--finding`, `--dependency-path`, `--scope`, and
+changed-file targets as `impact`. `subgraph` renders explicit flow/finding ids, resolves
+finding targets back to their flows, highlights finding nodes, and reports unresolved
+targets without requiring agents to synthesize a fake impact request.
 Impact snapshot JSON includes the same target, unresolved-target, impact-reason, and
 subgraph fields as `impact --json`, so agents can detect mistyped targets without parsing
 the SVG. Snapshot JSON also includes deterministic layout metadata: canvas size, node or
@@ -488,8 +491,9 @@ logicchart mcp .
 Available MCP tools include summary, analysis-quality reports, flow listing, flow
 retrieval, flow-navigation packs, query, findings, finding-rule contracts, finding-chain
 explanation, finding-context subgraphs, state-handling lookup, decision-node search,
-impact analysis, token-bounded deterministic SVG snapshots for flows/findings/impact
-sets, review queue, context pack, artifact validation, and artifact update. Artifact
+impact analysis, token-bounded deterministic SVG snapshots for flows, findings, impact
+sets, and explicit flow/finding subgraphs, review queue, context pack, artifact
+validation, and artifact update. Artifact
 validation and update responses include guardrails plus `next_tools`/`next_cli` hints for
 the update -> validate -> review sequence, so agents can recover from stale generated
 models without guessing the workflow. Finding snapshots include a compact diagnostic panel
@@ -504,6 +508,9 @@ impact targets as `analyze_impact`.
 It also includes bounded flow-navigation packs for relevant flows, so agents can inspect
 callers, callees, decisions, findings, annotations, and follow-up tools before deciding
 whether to request a complete flow or visual snapshot.
+The `get_subgraph_snapshot` tool and `logicchart snapshot subgraph` CLI command are the
+bridge from query/impact/context results into one bounded SVG: pass returned `flow_ids`
+and `finding_ids` directly to render the focused model slice.
 If the generated model is missing or malformed, model-reading MCP tools return structured
 recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
 actions instead of surfacing a raw traceback. Unknown flow/finding targets and invalid

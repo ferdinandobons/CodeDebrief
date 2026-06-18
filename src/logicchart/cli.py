@@ -32,6 +32,7 @@ from logicchart.render.snapshot import (
     render_finding_snapshot,
     render_flow_snapshot,
     render_impact_snapshot,
+    render_subgraph_snapshot,
     unsupported_snapshot_format,
 )
 from logicchart.validation import validate_logicchart
@@ -147,6 +148,13 @@ def build_parser() -> argparse.ArgumentParser:
     snapshot_impact.add_argument("--finding", action="append", default=[])
     snapshot_impact.add_argument("--dependency-path", action="append", default=[])
     _add_snapshot_arguments(snapshot_impact)
+
+    snapshot_subgraph = snapshot_subparsers.add_parser(
+        "subgraph", help="Render an explicit flow/finding subgraph snapshot."
+    )
+    snapshot_subgraph.add_argument("--flow", action="append", default=[])
+    snapshot_subgraph.add_argument("--finding", action="append", default=[])
+    _add_snapshot_arguments(snapshot_subgraph)
 
     view = subparsers.add_parser("view", help="Generate and serve the interactive flowchart.")
     view.add_argument("path", nargs="?", default=".")
@@ -365,6 +373,14 @@ def _snapshot(args: argparse.Namespace) -> int:
         payload = render_finding_snapshot(
             model,
             args.finding_id,
+            max_nodes=_snapshot_node_budget(args.token_budget),
+        )
+    elif args.snapshot_kind == "subgraph":
+        payload = render_subgraph_snapshot(
+            model,
+            flow_ids=args.flow,
+            finding_ids=args.finding,
+            max_flows=_snapshot_flow_budget(args.token_budget),
             max_nodes=_snapshot_node_budget(args.token_budget),
         )
     else:
