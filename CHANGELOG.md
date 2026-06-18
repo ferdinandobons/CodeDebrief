@@ -43,6 +43,8 @@ The project follows Semantic Versioning.
   sections, rendered node positions, compact flags, and unresolved target reporting.
 - Added snapshot `layout_quality` summaries across CLI and MCP visual payloads, reporting
   complete versus compact rendering plus key omission counts for agents.
+- Added snapshot `layout_quality.clarity` signals for rendered-box overlaps, edge
+  obstacles, canvas overflow, and minimum box gaps in CLI and MCP visual payloads.
 - Added a compact diagnostic panel to MCP finding SVG snapshots with evidence tier,
   confidence, review prompt, and evidence-chain summaries.
 - Added deterministic model-quality metrics, exposed through generated metadata,

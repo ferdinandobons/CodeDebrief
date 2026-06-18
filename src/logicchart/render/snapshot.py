@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from html import escape
 from typing import Any
@@ -18,6 +19,36 @@ class _RenderedSubgraphFlow:
     findings: list[Finding]
     highlighted: set[str]
     nodes: list[FlowNode]
+
+
+@dataclass(frozen=True, slots=True)
+class _LayoutBox:
+    id: str
+    x: float
+    y: float
+    width: float
+    height: float
+    kind: str
+
+    @property
+    def right(self) -> float:
+        return self.x + self.width
+
+    @property
+    def bottom(self) -> float:
+        return self.y + self.height
+
+
+@dataclass(frozen=True, slots=True)
+class _LayoutEdge:
+    source: str
+    target: str
+    label: str
+
+
+DIAGNOSTIC_PANEL_X = 646
+DIAGNOSTIC_PANEL_Y = 116
+DIAGNOSTIC_PANEL_WIDTH = 246
 
 
 def unsupported_snapshot_format(requested: str) -> dict[str, Any]:
@@ -731,6 +762,17 @@ def _flow_layout_quality(
 ) -> dict[str, Any]:
     omitted_nodes = max(0, len(flow.nodes) - len(rendered_nodes))
     omitted_edges = int(layout["omitted_edge_count"])
+    rendered_node_ids = {node.id for node in rendered_nodes}
+    clarity = _layout_clarity(
+        _flow_layout_boxes(rendered_nodes, layout),
+        canvas_width=float(layout["width"]),
+        canvas_height=float(layout["height"]),
+        edges=[
+            _LayoutEdge(edge.source, edge.target, edge.label)
+            for edge in flow.edges
+            if edge.source in rendered_node_ids and edge.target in rendered_node_ids
+        ],
+    )
     return _snapshot_layout_quality(
         compact=omitted_nodes > 0 or omitted_edges > 0,
         counts={
@@ -741,6 +783,7 @@ def _flow_layout_quality(
             "rendered_edge_count": int(layout["rendered_edge_count"]),
             "omitted_edge_count": omitted_edges,
         },
+        clarity=clarity,
     )
 
 
@@ -836,6 +879,11 @@ def _impact_layout_quality(
             "finding_count": int(layout["finding_count"]),
             "unresolved_target_count": int(layout["unresolved_target_count"]),
         },
+        clarity=_layout_clarity(
+            _impact_layout_boxes(rendered_direct, rendered_transitive, layout),
+            canvas_width=float(layout["width"]),
+            canvas_height=float(layout["height"]),
+        ),
     )
 
 
@@ -973,6 +1021,12 @@ def _subgraph_layout_quality(
     omitted_flows = max(0, len(selected_flows) - len(rendered))
     omitted_nodes = sum(int(section["omitted_node_count"]) for section in layout["sections"])
     omitted_edges = int(layout["omitted_edge_count"])
+    clarity = _layout_clarity(
+        _subgraph_layout_boxes(rendered, layout),
+        canvas_width=float(layout["width"]),
+        canvas_height=float(layout["height"]),
+        edges=_subgraph_layout_edges(rendered),
+    )
     return _snapshot_layout_quality(
         compact=omitted_flows > 0 or omitted_nodes > 0 or omitted_edges > 0,
         counts={
@@ -986,20 +1040,254 @@ def _subgraph_layout_quality(
             "omitted_edge_count": omitted_edges,
             "unresolved_target_count": len(unresolved_targets),
         },
+        clarity=clarity,
     )
 
 
-def _snapshot_layout_quality(*, compact: bool, counts: dict[str, int]) -> dict[str, Any]:
+def _snapshot_layout_quality(
+    *,
+    compact: bool,
+    counts: dict[str, int],
+    clarity: dict[str, Any],
+) -> dict[str, Any]:
     return {
         "status": "compact" if compact else "complete",
         "complete": not compact,
         "counts": counts,
+        "clarity": clarity,
         "guardrail": (
             "Layout quality describes the rendered snapshot only. Compact snapshots may omit "
             "model nodes, edges, or flows; request a higher token_budget or the follow-up "
             "snapshot tool when omitted counts are non-zero."
         ),
     }
+
+
+def _flow_layout_boxes(rendered_nodes: list[FlowNode], layout: dict[str, Any]) -> list[_LayoutBox]:
+    positions: dict[str, tuple[int, int]] = layout["positions"]
+    boxes = [
+        _LayoutBox(
+            id=node.id,
+            x=float(positions[node.id][0]),
+            y=float(positions[node.id][1]),
+            width=float(layout["node_width"]),
+            height=float(layout["node_height"]),
+            kind="node",
+        )
+        for node in rendered_nodes
+        if node.id in positions
+    ]
+    panel_height = int(layout.get("panel_height") or 0)
+    if panel_height:
+        boxes.append(
+            _LayoutBox(
+                id="diagnostic-panel",
+                x=DIAGNOSTIC_PANEL_X,
+                y=DIAGNOSTIC_PANEL_Y,
+                width=DIAGNOSTIC_PANEL_WIDTH,
+                height=float(panel_height),
+                kind="diagnostic_panel",
+            )
+        )
+    return boxes
+
+
+def _impact_layout_boxes(
+    rendered_direct: list[Flow],
+    rendered_transitive: list[Flow],
+    layout: dict[str, Any],
+) -> list[_LayoutBox]:
+    row_height = float(layout["row_height"])
+    row_gap = float(layout["row_gap"])
+    boxes: list[_LayoutBox] = []
+    for column_id, flows, column in (
+        ("direct", rendered_direct, layout["direct_column"]),
+        ("caller", rendered_transitive, layout["transitive_column"]),
+    ):
+        for index, flow in enumerate(flows):
+            boxes.append(
+                _LayoutBox(
+                    id=f"{column_id}:{flow.id}",
+                    x=float(column["x"]),
+                    y=float(column["y"]) + index * (row_height + row_gap),
+                    width=float(column["width"]),
+                    height=row_height,
+                    kind="flow",
+                )
+            )
+    return boxes
+
+
+def _subgraph_layout_boxes(
+    rendered: list[_RenderedSubgraphFlow],
+    layout: dict[str, Any],
+) -> list[_LayoutBox]:
+    positions: dict[str, tuple[int, int]] = layout["positions"]
+    boxes: list[_LayoutBox] = []
+    for item in rendered:
+        for node in item.nodes:
+            if node.id not in positions:
+                continue
+            boxes.append(
+                _LayoutBox(
+                    id=node.id,
+                    x=float(positions[node.id][0]),
+                    y=float(positions[node.id][1]),
+                    width=float(layout["node_width"]),
+                    height=float(layout["node_height"]),
+                    kind="node",
+                )
+            )
+    return boxes
+
+
+def _subgraph_layout_edges(rendered: list[_RenderedSubgraphFlow]) -> list[_LayoutEdge]:
+    edges: list[_LayoutEdge] = []
+    for item in rendered:
+        node_ids = {node.id for node in item.nodes}
+        edges.extend(
+            _LayoutEdge(edge.source, edge.target, edge.label)
+            for edge in item.flow.edges
+            if edge.source in node_ids and edge.target in node_ids
+        )
+    return edges
+
+
+def _layout_clarity(
+    boxes: list[_LayoutBox],
+    *,
+    canvas_width: float,
+    canvas_height: float,
+    edges: list[_LayoutEdge] | None = None,
+) -> dict[str, Any]:
+    box_overlaps = _box_overlaps(boxes)
+    edge_hits = _edge_obstacle_hits(edges or [], boxes)
+    overflow = _canvas_overflow_boxes(boxes, canvas_width, canvas_height)
+    finite = (
+        math.isfinite(canvas_width)
+        and math.isfinite(canvas_height)
+        and all(
+            math.isfinite(value) for box in boxes for value in (box.x, box.y, box.width, box.height)
+        )
+    )
+    clear = finite and not box_overlaps and not edge_hits and not overflow
+    return {
+        "status": "clear" if clear else "needs_review",
+        "clear": clear,
+        "counts": {
+            "box_count": len(boxes),
+            "box_overlap_count": len(box_overlaps),
+            "edge_obstacle_hit_count": len(edge_hits),
+            "canvas_overflow_count": len(overflow),
+            "non_finite_geometry_count": 0 if finite else 1,
+        },
+        "minimum_box_gap": _minimum_box_gap(boxes),
+        "samples": {
+            "box_overlaps": box_overlaps[:5],
+            "edge_obstacle_hits": edge_hits[:5],
+            "canvas_overflow": overflow[:5],
+        },
+    }
+
+
+def _box_overlaps(boxes: list[_LayoutBox]) -> list[dict[str, str]]:
+    overlaps: list[dict[str, str]] = []
+    for left_index, left in enumerate(boxes):
+        for right in boxes[left_index + 1 :]:
+            if _boxes_overlap(left, right):
+                overlaps.append({"first": left.id, "second": right.id})
+    return overlaps
+
+
+def _edge_obstacle_hits(
+    edges: list[_LayoutEdge],
+    boxes: list[_LayoutBox],
+) -> list[dict[str, str]]:
+    boxes_by_id = {box.id: box for box in boxes}
+    hits: list[dict[str, str]] = []
+    for edge in edges:
+        source = boxes_by_id.get(edge.source)
+        target = boxes_by_id.get(edge.target)
+        if source is None or target is None:
+            continue
+        corridor = _edge_corridor(source, target)
+        for box in boxes:
+            if box.id in {edge.source, edge.target}:
+                continue
+            if _boxes_overlap(corridor, box):
+                hits.append(
+                    {
+                        "edge": f"{edge.source}->{edge.target}",
+                        "obstacle": box.id,
+                    }
+                )
+    return hits
+
+
+def _edge_corridor(source: _LayoutBox, target: _LayoutBox) -> _LayoutBox:
+    x1 = source.x + source.width / 2
+    y1 = source.bottom
+    x2 = target.x + target.width / 2
+    y2 = target.y
+    left = min(x1, x2) - 6
+    top = min(y1, y2)
+    return _LayoutBox(
+        id=f"{source.id}->{target.id}",
+        x=left,
+        y=top,
+        width=abs(x2 - x1) + 12,
+        height=abs(y2 - y1),
+        kind="edge_corridor",
+    )
+
+
+def _canvas_overflow_boxes(
+    boxes: list[_LayoutBox],
+    canvas_width: float,
+    canvas_height: float,
+) -> list[dict[str, str]]:
+    result: list[dict[str, str]] = []
+    for box in boxes:
+        sides: list[str] = []
+        if box.x < 0:
+            sides.append("left")
+        if box.y < 0:
+            sides.append("top")
+        if box.right > canvas_width:
+            sides.append("right")
+        if box.bottom > canvas_height:
+            sides.append("bottom")
+        if sides:
+            result.append({"box": box.id, "sides": ",".join(sides)})
+    return result
+
+
+def _minimum_box_gap(boxes: list[_LayoutBox]) -> float | None:
+    if len(boxes) < 2:
+        return None
+    gap: float | None = None
+    for left_index, left in enumerate(boxes):
+        for right in boxes[left_index + 1 :]:
+            distance = _box_gap(left, right)
+            gap = distance if gap is None else min(gap, distance)
+    return round(gap, 2) if gap is not None else None
+
+
+def _box_gap(left: _LayoutBox, right: _LayoutBox) -> float:
+    if _boxes_overlap(left, right):
+        return 0.0
+    dx = max(left.x - right.right, right.x - left.right, 0.0)
+    dy = max(left.y - right.bottom, right.y - left.bottom, 0.0)
+    return math.sqrt(dx * dx + dy * dy)
+
+
+def _boxes_overlap(left: _LayoutBox, right: _LayoutBox) -> bool:
+    return (
+        left.x < right.right
+        and left.right > right.x
+        and left.y < right.bottom
+        and left.bottom > right.y
+    )
 
 
 def _select_flow_nodes(
@@ -1123,9 +1411,9 @@ def _impact_box(flow: Flow, x: int, y: int, height: int) -> str:
 
 
 def _finding_panel(finding: Finding, diagnostic: dict[str, Any]) -> dict[str, Any]:
-    x = 646
-    y = 116
-    width = 246
+    x = DIAGNOSTIC_PANEL_X
+    y = DIAGNOSTIC_PANEL_Y
+    width = DIAGNOSTIC_PANEL_WIDTH
     lines = _finding_panel_lines(finding, diagnostic)
     row_height = 17
     height = _finding_panel_height(finding, diagnostic)

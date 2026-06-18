@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel, SourceLocation
+from logicchart.model import Flow, FlowEdge, FlowNode, NodeKind, ProjectModel, SourceLocation
 from logicchart.render.snapshot import (
     render_finding_snapshot,
     render_flow_snapshot,
@@ -44,6 +44,14 @@ def test_flow_snapshot_renders_decision_flow_svg(tmp_path: Path) -> None:
     assert snapshot["layout_quality"]["status"] == "complete"
     assert snapshot["layout_quality"]["complete"] is True
     assert snapshot["layout_quality"]["counts"]["omitted_node_count"] == 0
+    clarity = snapshot["layout_quality"]["clarity"]
+    assert clarity["status"] in {"clear", "needs_review"}
+    assert isinstance(clarity["clear"], bool)
+    assert clarity["counts"]["box_count"] == snapshot["rendered_node_count"]
+    assert clarity["counts"]["box_overlap_count"] >= 0
+    assert clarity["counts"]["canvas_overflow_count"] >= 0
+    assert clarity["counts"]["edge_obstacle_hit_count"] >= 0
+    assert clarity["minimum_box_gap"] > 0
 
 
 def test_finding_snapshot_highlights_finding_node(tmp_path: Path) -> None:
@@ -129,6 +137,45 @@ def test_flow_snapshot_budget_omits_nodes_but_keeps_highlight() -> None:
     assert "6 additional nodes omitted" in snapshot["svg"]
 
 
+def test_flow_snapshot_layout_quality_reports_edge_obstacles() -> None:
+    nodes = [
+        FlowNode(
+            id=f"n{index}",
+            kind=NodeKind.ACTION,
+            label=f"node {index}",
+            location=SourceLocation(path="app.py", start_line=index + 1, end_line=index + 1),
+        )
+        for index in range(3)
+    ]
+    flow = Flow(
+        id="jump-flow",
+        name="jump flow",
+        symbol="jump_flow",
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=True,
+        location=SourceLocation(path="app.py", start_line=1, end_line=3),
+        nodes=nodes,
+        edges=[FlowEdge(id="edge-n0-n2", source="n0", target="n2", label="skip middle")],
+    )
+    model = ProjectModel(
+        schema_version="1.1",
+        generated_at="2026-06-18T00:00:00+00:00",
+        root=".",
+        flows=[flow],
+    )
+
+    snapshot = render_flow_snapshot(model, flow.id)
+
+    assert snapshot["layout_quality"]["status"] == "complete"
+    clarity = snapshot["layout_quality"]["clarity"]
+    assert clarity["status"] == "needs_review"
+    assert clarity["clear"] is False
+    assert clarity["counts"]["edge_obstacle_hit_count"] == 1
+    assert clarity["samples"]["edge_obstacle_hits"] == [{"edge": "n0->n2", "obstacle": "n1"}]
+
+
 def test_impact_snapshot_renders_empty_state() -> None:
     snapshot = render_impact_snapshot(
         changed_files=["docs/readme.md"],
@@ -143,6 +190,7 @@ def test_impact_snapshot_renders_empty_state() -> None:
     assert snapshot["layout"]["columns"][0]["id"] == "direct"
     assert snapshot["layout_quality"]["status"] == "complete"
     assert snapshot["layout_quality"]["counts"]["direct_flow_count"] == 0
+    assert snapshot["layout_quality"]["clarity"]["status"] == "clear"
     assert "No modeled flows are affected" in snapshot["svg"]
 
 
@@ -255,6 +303,7 @@ def test_subgraph_snapshot_layout_quality_reports_compaction() -> None:
     assert snapshot["layout_quality"]["counts"]["rendered_flow_count"] == 2
     assert snapshot["layout_quality"]["counts"]["omitted_flow_count"] == 1
     assert snapshot["layout_quality"]["counts"]["omitted_node_count"] == 2
+    assert snapshot["layout_quality"]["clarity"]["counts"]["box_overlap_count"] == 0
 
 
 def test_snapshot_target_errors_are_structured() -> None:

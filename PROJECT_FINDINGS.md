@@ -377,6 +377,10 @@ Current checkpoint:
 - Snapshot payloads now include `layout_quality`, a compact/complete status plus key
   omission counts and a guardrail for agents, so MCP/CLI consumers can tell whether the
   SVG is complete without parsing geometry.
+- Snapshot `layout_quality` now includes a separate rendered-geometry `clarity` report for
+  box overlaps, edge paths that cross intermediate boxes, canvas overflow, minimum box
+  gaps, and bounded samples, so agents can distinguish complete snapshots from visually
+  crowded ones.
 - MCP exposes `get_flow_navigation` for token-bounded caller/callee, decision, finding,
   and next-tool orientation before an agent pulls the complete graph.
 - `logicchart navigate <flow-id>` exposes the same bounded flow-navigation contract over
@@ -389,8 +393,6 @@ Current checkpoint:
 
 Still open:
 
-- Keep evaluating whether snapshot `layout_quality` should adopt more of the React
-  viewer's obstacle/overlap quality report for very large subgraphs.
 - Add optional SVG-to-PNG/JPG rasterization.
 - Tune the default context-pack visual byte budget after more real agent usage.
 
@@ -690,6 +692,8 @@ Before the next release:
   on relevant flows before pulling full graphs.
 - Done: add deterministic layout metadata to flow/finding/impact snapshots for compacted
   large-subgraph review.
+- Done: add rendered-geometry clarity signals to snapshot `layout_quality`, including
+  overlap, overflow, gap, and edge-obstacle counts.
 - Done: cap inline `context_pack` SVG payload size with `visual_byte_budget` while keeping
   omitted visuals available through follow-up snapshot tools.
 - Done: add explicit flow/finding subgraph snapshots across MCP and CLI so agents can

@@ -294,9 +294,12 @@ subgraph fields as `impact --json`, so agents can detect mistyped targets withou
 the SVG. Snapshot JSON also includes deterministic layout metadata: canvas size, node or
 column dimensions, rendered positions, compact/omission flags, and rendered/omitted edge
 or flow counts. A `layout_quality` summary classifies the rendered snapshot as complete or
-compact and repeats the key omission counts with a guardrail for agents. Invalid snapshot
-targets and unsupported formats return structured, recoverable error payloads in JSON mode.
-Only SVG is supported by the CLI today; raster export remains available in the local viewer.
+compact and repeats the key omission counts with a guardrail for agents. It also includes a
+separate `clarity` report for rendered-box overlaps, canvas overflow, minimum box gaps, and
+edge paths that cross intermediate boxes, so agents can tell a complete snapshot from a
+visually clean one. Invalid snapshot targets and unsupported formats return structured,
+recoverable error payloads in JSON mode. Only SVG is supported by the CLI today; raster
+export remains available in the local viewer.
 
 ### `impact`
 
@@ -514,7 +517,8 @@ analysis and `context_pack` include per-flow `reasons` alongside a top-level
 `impact_reasons` map so agents can explain direct and transitive impact without
 reconstructing the traversal. Snapshot payloads carry deterministic layout metadata along
 with target, unresolved-target, impact-reason, and subgraph fields, plus `layout_quality`
-summaries for complete versus compact renderings, so agents can reason about omitted visual
+summaries for complete versus compact renderings and `clarity` signals for overlaps,
+overflow, gaps, and edge obstacles, so agents can reason about omitted or visually crowded
 context without parsing SVG geometry. `context_pack` accepts the same explicit `flow_ids`,
 `symbols`, `finding_ids`, and `dependency_paths` impact targets as `analyze_impact`.
 It also includes bounded flow-navigation packs for relevant flows, so agents can inspect
