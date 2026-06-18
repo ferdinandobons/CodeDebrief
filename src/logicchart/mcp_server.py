@@ -33,6 +33,7 @@ from logicchart.validation import validate_logicchart
 
 # Rough tokens per returned list item, used to honor an agent's token_budget cap.
 _TOKENS_PER_ITEM = 60
+_DEFAULT_CONTEXT_VISUAL_BYTE_BUDGET = 120_000
 
 # Errors raised while loading the on-disk model (missing file, corrupt/garbled JSON,
 # unexpected schema). Surfaced to the agent as a clean {"error": ...} instead of a raw
@@ -485,12 +486,15 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         dependency_paths: list[str] | None = None,
         include_visual: bool = False,
         token_budget: int = 600,
+        visual_byte_budget: int = _DEFAULT_CONTEXT_VISUAL_BYTE_BUDGET,
     ) -> dict[str, Any]:
         """Compact orientation pack: summary, relevant flows, impact, review, visuals.
 
         ``flow_ids``, ``symbols``, ``finding_ids``, and ``dependency_paths`` mirror
         ``analyze_impact`` so an agent can build a context pack around an exact flow,
         symbol, diagnostic, or source subtree without pretending a file changed.
+        ``visual_byte_budget`` caps inline SVG bytes when ``include_visual`` is true;
+        omitted snapshots remain available through the returned ``next_tools``.
         """
         model, error = _try_load(project_root, active_config)
         if error is not None:
@@ -567,6 +571,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 scope=scope,
                 include_visual=include_visual,
                 token_budget=token_budget,
+                visual_byte_budget=visual_byte_budget,
             ),
         }
 
@@ -655,11 +660,13 @@ def _context_visual_pack(
     scope: str | None,
     include_visual: bool,
     token_budget: int,
+    visual_byte_budget: int,
 ) -> dict[str, Any]:
     flow_candidates = _context_visual_flows(impact, matches)
     finding_candidates = review_findings
     flow_limit = _context_visual_item_budget(token_budget)
     finding_limit = _context_visual_item_budget(token_budget)
+    visual_byte_limit = max(0, visual_byte_budget)
     flow_tool_args = [
         {
             "tool": "get_flow_snapshot",
@@ -705,6 +712,8 @@ def _context_visual_pack(
             "finding_snapshots": finding_limit,
             "node_budget": _snapshot_node_budget(token_budget),
             "flow_budget": _snapshot_flow_budget(token_budget),
+            "visual_byte_budget": visual_byte_limit,
+            "used_visual_bytes": 0,
         },
         "next_tools": {
             "impact_snapshot": {
@@ -716,10 +725,26 @@ def _context_visual_pack(
         },
         "omitted_flow_snapshot_count": max(0, len(flow_candidates) - flow_limit),
         "omitted_finding_snapshot_count": max(0, len(finding_candidates) - finding_limit),
+        "omitted_visual_snapshot_count": 0,
+        "omitted_visual_snapshot_reasons": {},
     }
     if not include_visual:
         return payload
-    payload["impact_snapshot"] = render_impact_snapshot(
+    used_visual_bytes = 0
+    omitted_visual_reasons: dict[str, int] = {}
+
+    def include_snapshot(snapshot: dict[str, Any]) -> bool:
+        nonlocal used_visual_bytes
+        size = _snapshot_svg_byte_size(snapshot)
+        if used_visual_bytes + size > visual_byte_limit:
+            omitted_visual_reasons["visual_byte_budget"] = (
+                omitted_visual_reasons.get("visual_byte_budget", 0) + 1
+            )
+            return False
+        used_visual_bytes += size
+        return True
+
+    impact_snapshot = render_impact_snapshot(
         changed_files=impact.changed_files,
         direct=impact.directly_impacted,
         transitive=impact.transitively_impacted,
@@ -734,22 +759,35 @@ def _context_visual_pack(
         subgraph_flow_ids=impact.subgraph_flow_ids,
         subgraph_finding_ids=impact.subgraph_finding_ids,
     )
-    payload["flow_snapshots"] = [
-        render_flow_snapshot(
-            model,
-            flow.id,
-            max_nodes=_snapshot_node_budget(token_budget),
+    if include_snapshot(impact_snapshot):
+        payload["impact_snapshot"] = impact_snapshot
+    else:
+        payload["impact_snapshot_omitted_reason"] = "visual_byte_budget"
+
+    flow_snapshots = []
+    for flow in flow_candidates[:flow_limit]:
+        snapshot = render_flow_snapshot(
+            model, flow.id, max_nodes=_snapshot_node_budget(token_budget)
         )
-        for flow in flow_candidates[:flow_limit]
-    ]
-    payload["finding_snapshots"] = [
-        render_finding_snapshot(
-            model,
-            finding.id,
-            max_nodes=_snapshot_node_budget(token_budget),
+        if include_snapshot(snapshot):
+            flow_snapshots.append(snapshot)
+        else:
+            payload["omitted_flow_snapshot_count"] += 1
+    payload["flow_snapshots"] = flow_snapshots
+
+    finding_snapshots = []
+    for finding in finding_candidates[:finding_limit]:
+        snapshot = render_finding_snapshot(
+            model, finding.id, max_nodes=_snapshot_node_budget(token_budget)
         )
-        for finding in finding_candidates[:finding_limit]
-    ]
+        if include_snapshot(snapshot):
+            finding_snapshots.append(snapshot)
+        else:
+            payload["omitted_finding_snapshot_count"] += 1
+    payload["finding_snapshots"] = finding_snapshots
+    payload["snapshot_budget"]["used_visual_bytes"] = used_visual_bytes
+    payload["omitted_visual_snapshot_count"] = sum(omitted_visual_reasons.values())
+    payload["omitted_visual_snapshot_reasons"] = omitted_visual_reasons
     return payload
 
 
@@ -760,6 +798,13 @@ def _context_visual_flows(impact: Any, matches: list[Any]) -> list[Any]:
     for match in matches:
         flows.setdefault(match.flow.id, match.flow)
     return list(flows.values())
+
+
+def _snapshot_svg_byte_size(snapshot: dict[str, Any]) -> int:
+    svg = snapshot.get("svg", "")
+    if not isinstance(svg, str):
+        return 0
+    return len(svg.encode("utf-8"))
 
 
 def _context_navigation_pack(

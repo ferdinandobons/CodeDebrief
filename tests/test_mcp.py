@@ -93,6 +93,7 @@ def authorize(user):
                 assert {"flow_ids", "symbols", "finding_ids", "dependency_paths"} <= set(
                     context_properties
                 )
+                assert "visual_byte_budget" in context_properties
                 for impact_tool in ("analyze_impact", "get_impact_snapshot"):
                     impact_properties = schema_by_name[impact_tool].get("properties", {})
                     assert "dependency_paths" in impact_properties
@@ -672,6 +673,35 @@ def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
                 assert visual["flow_snapshots"][0]["rendered_node_count"] >= 1
                 assert visual["finding_snapshots"][0]["finding_id"] == captured[0]["id"]
                 assert visual["snapshot_budget"]["flow_snapshots"] == 1
+                assert visual["snapshot_budget"]["used_visual_bytes"] > 0
+                capped_visual_context = await session.call_tool(
+                    "context_pack",
+                    {
+                        "question": "dispatch status",
+                        "changed_files": ["app.py"],
+                        "include_visual": True,
+                        "token_budget": 120,
+                        "visual_byte_budget": 1,
+                    },
+                )
+                assert not capped_visual_context.isError
+                capped_payload = capped_visual_context.structuredContent  # type: ignore[assignment]
+                capped_visual = capped_payload["visual_context"]  # type: ignore[index]
+                assert capped_visual["include_visual"] is True
+                assert capped_visual["snapshot_budget"]["visual_byte_budget"] == 1
+                assert capped_visual["snapshot_budget"]["used_visual_bytes"] == 0
+                assert "impact_snapshot" not in capped_visual
+                assert capped_visual["impact_snapshot_omitted_reason"] == "visual_byte_budget"
+                assert capped_visual["flow_snapshots"] == []
+                assert capped_visual["finding_snapshots"] == []
+                assert capped_visual["omitted_visual_snapshot_count"] >= 3
+                assert capped_visual["omitted_visual_snapshot_reasons"] == {
+                    "visual_byte_budget": capped_visual["omitted_visual_snapshot_count"]
+                }
+                assert (
+                    capped_visual["next_tools"]["impact_snapshot"]["tool"]  # type: ignore[index]
+                    == "get_impact_snapshot"
+                )
 
     asyncio.run(call_review_queue())
 

@@ -75,6 +75,8 @@ The project follows Semantic Versioning.
   handled values across CLI and MCP.
 - Added optional inline visual context to MCP `context_pack`, with SVG impact, flow, and
   finding snapshots gated by `include_visual` and capped by `token_budget`.
+- Added a deterministic `visual_byte_budget` cap for inline MCP `context_pack` SVG
+  snapshots, with omission counts and recovery through returned snapshot tools.
 - Added explicit flow/symbol/finding impact targets and per-flow impact reasons to MCP
   `context_pack`, matching `analyze_impact` for agent-oriented context retrieval.
 - Added bounded flow-navigation packs to MCP `context_pack`, so agents get caller/callee,

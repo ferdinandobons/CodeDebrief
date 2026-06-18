@@ -358,14 +358,15 @@ Current checkpoint:
   without requiring MCP.
 - `context_pack(include_visual=true)` can include inline SVG impact, flow, and finding
   snapshots while the default response stays lightweight with follow-up snapshot tools.
+  Inline SVGs are additionally capped by `visual_byte_budget`; omitted visuals are counted
+  and remain recoverable through the returned snapshot tool calls.
 
 Still open:
 
 - Keep evaluating whether snapshot layout metadata should converge further with the React
   viewer's full layout-quality report for very large subgraphs.
 - Add optional SVG-to-PNG/JPG rasterization.
-- Keep monitoring whether context-pack visual payloads need stricter size caps after more
-  real agent usage.
+- Tune the default context-pack visual byte budget after more real agent usage.
 
 ## Finding 6: MCP Coverage and Contracts Lag Behind the Core
 
@@ -636,6 +637,8 @@ Before the next release:
   on relevant flows before pulling full graphs.
 - Done: add deterministic layout metadata to flow/finding/impact snapshots for compacted
   large-subgraph review.
+- Done: cap inline `context_pack` SVG payload size with `visual_byte_budget` while keeping
+  omitted visuals available through follow-up snapshot tools.
 - Next: add optional raster outputs if a local renderer path is worth the dependency.
 
 ### Phase 3: LLM Enrichment
