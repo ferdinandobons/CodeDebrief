@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-18T14:53:02.481140+00:00",
+  "generated_at": "2026-06-18T15:00:19.819682+00:00",
   "root": ".",
   "flows": [
     {
@@ -23689,6 +23689,456 @@
           "POTENTIAL_GAP": 2
         }
       },
+      "languages": {
+        "depth": {
+          "c": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 1,
+            "entrypoints": 1,
+            "decisions": 3,
+            "calls": 0,
+            "resolved_calls": 0,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 0.0,
+            "findings": 0,
+            "generic_nodes": 0,
+            "generic_ratio": 0.0,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".c",
+                ".h"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "try_catch": "not_supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported"
+              }
+            }
+          },
+          "cpp": {
+            "files": 2,
+            "files_with_flows": 2,
+            "flow_file_coverage": 1.0,
+            "flows": 4,
+            "entrypoints": 4,
+            "decisions": 9,
+            "calls": 1,
+            "resolved_calls": 1,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 1.0,
+            "findings": 0,
+            "generic_nodes": 1,
+            "generic_ratio": 0.0323,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".cc",
+                ".cpp",
+                ".cxx",
+                ".hh",
+                ".hpp",
+                ".hxx",
+                ".ipp",
+                ".tpp"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported"
+              }
+            }
+          },
+          "csharp": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 4,
+            "entrypoints": 2,
+            "decisions": 4,
+            "calls": 3,
+            "resolved_calls": 0,
+            "unresolved_calls": 2,
+            "call_resolution_rate": 0.0,
+            "findings": 0,
+            "generic_nodes": 3,
+            "generic_ratio": 0.1429,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".cs"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported"
+              }
+            }
+          },
+          "go": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 6,
+            "entrypoints": 4,
+            "decisions": 12,
+            "calls": 2,
+            "resolved_calls": 2,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 1.0,
+            "findings": 0,
+            "generic_nodes": 2,
+            "generic_ratio": 0.0476,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".go"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "try_catch": "not_supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported"
+              }
+            }
+          },
+          "java": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 3,
+            "entrypoints": 2,
+            "decisions": 5,
+            "calls": 1,
+            "resolved_calls": 1,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 1.0,
+            "findings": 0,
+            "generic_nodes": 1,
+            "generic_ratio": 0.0435,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".java"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported"
+              }
+            }
+          },
+          "javascript": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 2,
+            "entrypoints": 2,
+            "decisions": 2,
+            "calls": 0,
+            "resolved_calls": 0,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 0.0,
+            "findings": 0,
+            "generic_nodes": 0,
+            "generic_ratio": 0.0,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "typescript_tree_sitter",
+              "suffixes": [
+                ".js",
+                ".jsx",
+                ".mjs",
+                ".cjs"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "supported",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "partial"
+              }
+            }
+          },
+          "php": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 3,
+            "entrypoints": 2,
+            "decisions": 5,
+            "calls": 2,
+            "resolved_calls": 2,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 1.0,
+            "findings": 0,
+            "generic_nodes": 2,
+            "generic_ratio": 0.0952,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".php"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported"
+              }
+            }
+          },
+          "python": {
+            "files": 10,
+            "files_with_flows": 10,
+            "flow_file_coverage": 1.0,
+            "flows": 27,
+            "entrypoints": 25,
+            "decisions": 32,
+            "calls": 22,
+            "resolved_calls": 8,
+            "unresolved_calls": 14,
+            "call_resolution_rate": 0.3636,
+            "findings": 8,
+            "generic_nodes": 24,
+            "generic_ratio": 0.142,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "python_ast",
+              "suffixes": [
+                ".py"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "supported",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "supported",
+                "qualified_call_links": "supported"
+              }
+            }
+          },
+          "ruby": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 8,
+            "entrypoints": 8,
+            "decisions": 3,
+            "calls": 16,
+            "resolved_calls": 8,
+            "unresolved_calls": 7,
+            "call_resolution_rate": 0.5,
+            "findings": 0,
+            "generic_nodes": 16,
+            "generic_ratio": 0.4444,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".rb"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "try_catch": "not_supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported"
+              }
+            }
+          },
+          "rust": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 3,
+            "entrypoints": 1,
+            "decisions": 3,
+            "calls": 4,
+            "resolved_calls": 4,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 1.0,
+            "findings": 0,
+            "generic_nodes": 4,
+            "generic_ratio": 0.1818,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".rs"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "partial",
+                "try_catch": "not_supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported"
+              }
+            }
+          },
+          "typescript": {
+            "files": 13,
+            "files_with_flows": 9,
+            "flow_file_coverage": 0.6923,
+            "flows": 27,
+            "entrypoints": 11,
+            "decisions": 41,
+            "calls": 48,
+            "resolved_calls": 22,
+            "unresolved_calls": 26,
+            "call_resolution_rate": 0.4583,
+            "findings": 5,
+            "generic_nodes": 48,
+            "generic_ratio": 0.2388,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "typescript_tree_sitter",
+              "suffixes": [
+                ".ts",
+                ".tsx"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "supported",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "supported",
+                "qualified_call_links": "partial"
+              }
+            }
+          }
+        },
+        "attention": [
+          {
+            "language": "csharp",
+            "signals": [
+              "low_call_resolution"
+            ]
+          },
+          {
+            "language": "python",
+            "signals": [
+              "low_call_resolution"
+            ]
+          },
+          {
+            "language": "ruby",
+            "signals": [
+              "generic_labels"
+            ]
+          },
+          {
+            "language": "typescript",
+            "signals": [
+              "low_call_resolution",
+              "generic_labels"
+            ]
+          }
+        ]
+      },
       "labels": {
         "generic_nodes": 101,
         "generic_ratio": 0.1695,
@@ -23697,120 +24147,140 @@
             "flow_id": "flow-b25d2a1d236f82e9",
             "node_id": "flow-b25d2a1d236f82e9:n4",
             "label": "Call IsPublic()",
+            "language": "csharp",
             "source": "examples/demo/backend/auth/AuthService.cs:19"
           },
           {
             "flow_id": "flow-b93c13042e022906",
             "node_id": "flow-b93c13042e022906:n3",
             "label": "Call capture()",
+            "language": "java",
             "source": "examples/demo/backend/billing/BillingService.java:16"
           },
           {
             "flow_id": "flow-8525290305d958ad",
             "node_id": "flow-8525290305d958ad:n4",
             "label": "Call restockTarget()",
+            "language": "php",
             "source": "examples/demo/backend/catalog/Catalog.php:13"
           },
           {
             "flow_id": "flow-8525290305d958ad",
             "node_id": "flow-8525290305d958ad:n6",
             "label": "Call restockTarget()",
+            "language": "php",
             "source": "examples/demo/backend/catalog/Catalog.php:15"
           },
           {
             "flow_id": "flow-76b19f502b7630fd",
             "node_id": "flow-76b19f502b7630fd:n8",
             "label": "Call route()",
+            "language": "cpp",
             "source": "examples/demo/backend/native/admission.cpp:24"
           },
           {
             "flow_id": "flow-0f93659c9071bb28",
             "node_id": "flow-0f93659c9071bb28:n3",
             "label": "Call send_email()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:7"
           },
           {
             "flow_id": "flow-0f93659c9071bb28",
             "node_id": "flow-0f93659c9071bb28:n4",
             "label": "Call send_sms()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:9"
           },
           {
             "flow_id": "flow-0f93659c9071bb28",
             "node_id": "flow-0f93659c9071bb28:n5",
             "label": "Call send_push()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:11"
           },
           {
             "flow_id": "flow-0f93659c9071bb28",
             "node_id": "flow-0f93659c9071bb28:n6",
             "label": "Call write_inbox()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:13"
           },
           {
             "flow_id": "flow-0f93659c9071bb28",
             "node_id": "flow-0f93659c9071bb28:n7",
             "label": "Call queue_for_review()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:15"
           },
           {
             "flow_id": "flow-5fda5bdf81c4442c",
             "node_id": "flow-5fda5bdf81c4442c:n3",
             "label": "Call queue_for_review()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:21"
           },
           {
             "flow_id": "flow-5fda5bdf81c4442c",
             "node_id": "flow-5fda5bdf81c4442c:n6",
             "label": "Call send_email()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:25"
           },
           {
             "flow_id": "flow-5fda5bdf81c4442c",
             "node_id": "flow-5fda5bdf81c4442c:n7",
             "label": "Call send_push()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:27"
           },
           {
             "flow_id": "flow-5fda5bdf81c4442c",
             "node_id": "flow-5fda5bdf81c4442c:n8",
             "label": "Call queue_for_review()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:29"
           },
           {
             "flow_id": "flow-856cb6768c88d69a",
             "node_id": "flow-856cb6768c88d69a:n2",
             "label": "Call length()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:54"
           },
           {
             "flow_id": "flow-559f316eb31f2a37",
             "node_id": "flow-559f316eb31f2a37:n2",
             "label": "Call length()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:36"
           },
           {
             "flow_id": "flow-559f316eb31f2a37",
             "node_id": "flow-559f316eb31f2a37:n3",
             "label": "Call length()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:38"
           },
           {
             "flow_id": "flow-93f5681a653f0813",
             "node_id": "flow-93f5681a653f0813:n2",
             "label": "Call length()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:46"
           },
           {
             "flow_id": "flow-78196d7b3ea7c7fc",
             "node_id": "flow-78196d7b3ea7c7fc:n2",
             "label": "Call length()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:42"
           },
           {
             "flow_id": "flow-48c8d4b20e3f4457",
             "node_id": "flow-48c8d4b20e3f4457:n2",
             "label": "Call include?()",
+            "language": "ruby",
             "source": "examples/demo/backend/notifications/notifier.rb:58"
           }
         ]

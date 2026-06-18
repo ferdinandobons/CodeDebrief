@@ -81,6 +81,15 @@ def model_quality(model: ProjectModel) -> dict[str, Any]:
             "resolution_rate": _ratio(len(resolved), len(call_nodes)),
         },
         "findings": _finding_quality(findings),
+        "languages": _language_depth(
+            model,
+            non_test_flows=non_test_flows,
+            resolved_calls=resolved,
+            unresolved_calls=unresolved,
+            findings=findings,
+            generic_labels=generic_labels,
+            skipped_files=skipped_files,
+        ),
         "labels": {
             "generic_nodes": len(generic_labels),
             "generic_ratio": _ratio(len(generic_labels), node_count),
@@ -107,6 +116,9 @@ def render_quality(quality: dict[str, Any]) -> str:
     source = quality["source_locations"]
     graph = quality["graph"]
     findings = quality["findings"]
+    languages = quality.get("languages", {})
+    language_depth = languages.get("depth", {}) if isinstance(languages, dict) else {}
+    attention = languages.get("attention", []) if isinstance(languages, dict) else []
     lines = [
         "Analysis quality:",
         f"- Files: {files['total']} ({_format_counts(files['by_language'])})",
@@ -122,6 +134,17 @@ def render_quality(quality: dict[str, Any]) -> str:
         f"- Graph density: {graph['edges']} edges / {graph['nodes']} nodes "
         f"({graph['edge_to_node_ratio']})",
     ]
+    if language_depth:
+        lines.append(f"- Language depth: {len(language_depth)} observed language(s)")
+        lines.extend(
+            _format_language_depth(language, metrics)
+            for language, metrics in sorted(language_depth.items())[:5]
+        )
+    if attention:
+        lines.append("- Language attention signals:")
+        lines.extend(
+            f"  - {item['language']}: {', '.join(item['signals'])}" for item in attention[:5]
+        )
     if flows["huge"]:
         lines.append("- Huge flows:")
         lines.extend(
@@ -162,6 +185,123 @@ def _flow_distribution(flows: list[Flow]) -> dict[str, Any]:
     }
 
 
+def _language_depth(
+    model: ProjectModel,
+    *,
+    non_test_flows: list[Flow],
+    resolved_calls: list[FlowNode],
+    unresolved_calls: list[FlowNode],
+    findings: list[Finding],
+    generic_labels: list[dict[str, Any]],
+    skipped_files: list[dict[str, str]],
+) -> dict[str, Any]:
+    file_counts = Counter(record.language for record in model.files)
+    files_with_flows = Counter(
+        record.language for record in model.files if getattr(record, "flow_ids", [])
+    )
+    flow_counts = Counter(flow.language for flow in non_test_flows)
+    entrypoint_counts = Counter(flow.language for flow in non_test_flows if flow.is_entrypoint)
+    decision_counts = Counter(
+        flow.language
+        for flow in non_test_flows
+        for node in flow.nodes
+        if node.kind is NodeKind.DECISION
+    )
+    resolved_ids = {id(node) for node in resolved_calls}
+    unresolved_ids = {id(node) for node in unresolved_calls}
+    call_counts: Counter[str] = Counter()
+    resolved_counts: Counter[str] = Counter()
+    unresolved_counts: Counter[str] = Counter()
+    source_counts: Counter[str] = Counter()
+    for flow in non_test_flows:
+        for node in flow.nodes:
+            if node.kind is NodeKind.CALL:
+                call_counts[flow.language] += 1
+                if id(node) in resolved_ids:
+                    resolved_counts[flow.language] += 1
+                if id(node) in unresolved_ids:
+                    unresolved_counts[flow.language] += 1
+            if node.location.path and node.location.start_line > 0 and node.location.end_line > 0:
+                source_counts[flow.language] += 1
+    finding_counts = Counter(
+        flow.language
+        for finding in findings
+        for flow in non_test_flows
+        if flow.id == finding.flow_id
+    )
+    generic_counts = Counter(_sample_language(item) for item in generic_labels)
+    node_counts = Counter(flow.language for flow in non_test_flows for _node in flow.nodes)
+    skipped_counts = Counter(item.get("language", "") for item in skipped_files)
+    capabilities = model.metadata.get("language_capabilities", {})
+    languages = sorted(
+        {
+            *file_counts.keys(),
+            *flow_counts.keys(),
+            *skipped_counts.keys(),
+        }
+        - {""}
+    )
+    depth: dict[str, dict[str, Any]] = {}
+    attention: list[dict[str, Any]] = []
+    for language in languages:
+        files = file_counts[language]
+        flows = flow_counts[language]
+        calls = call_counts[language]
+        resolved = resolved_counts[language]
+        skipped = skipped_counts[language]
+        nodes = node_counts[language]
+        metrics = {
+            "files": files,
+            "files_with_flows": files_with_flows[language],
+            "flow_file_coverage": _ratio(files_with_flows[language], files),
+            "flows": flows,
+            "entrypoints": entrypoint_counts[language],
+            "decisions": decision_counts[language],
+            "calls": calls,
+            "resolved_calls": resolved,
+            "unresolved_calls": unresolved_counts[language],
+            "call_resolution_rate": _ratio(resolved, calls),
+            "findings": finding_counts[language],
+            "generic_nodes": generic_counts[language],
+            "generic_ratio": _ratio(generic_counts[language], nodes),
+            "source_coverage": _ratio(source_counts[language], nodes),
+            "skipped_files": skipped,
+            "capability": capabilities.get(language, {}),
+        }
+        signals = _language_attention_signals(metrics)
+        if signals:
+            attention.append({"language": language, "signals": signals})
+        depth[language] = metrics
+    return {"depth": depth, "attention": attention}
+
+
+def _language_attention_signals(metrics: dict[str, Any]) -> list[str]:
+    signals = []
+    if metrics["skipped_files"]:
+        signals.append("skipped_files")
+    if metrics["files"] and not metrics["files_with_flows"]:
+        signals.append("no_flow_files")
+    if metrics["calls"] and metrics["call_resolution_rate"] < 0.5:
+        signals.append("low_call_resolution")
+    if metrics["generic_ratio"] >= 0.2:
+        signals.append("generic_labels")
+    if metrics["flows"] and metrics["source_coverage"] < 0.9:
+        signals.append("low_source_coverage")
+    return signals
+
+
+def _sample_language(item: dict[str, Any]) -> str:
+    return str(item.get("language", ""))
+
+
+def _format_language_depth(language: str, metrics: dict[str, Any]) -> str:
+    return (
+        f"  - {language}: {metrics['files']} files, {metrics['flows']} flows, "
+        f"{metrics['decisions']} decisions, {metrics['resolved_calls']}/{metrics['calls']} "
+        "calls resolved"
+    )
+
+
 def _generic_label_nodes(flows: list[Flow]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for flow in flows:
@@ -173,6 +313,7 @@ def _generic_label_nodes(flows: list[Flow]) -> list[dict[str, Any]]:
                     "flow_id": flow.id,
                     "node_id": node.id,
                     "label": node.label,
+                    "language": flow.language,
                     "source": f"{node.location.path}:{node.location.start_line}",
                 }
             )

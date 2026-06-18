@@ -20,6 +20,8 @@ The project follows Semantic Versioning.
   omission counts for capped visual context.
 - Added deterministic model-quality metrics, exposed through generated metadata,
   `logicchart validate --quality`, MCP summaries, and `validate_artifacts`.
+- Added per-language depth metrics to the quality payload, including file/flow coverage,
+  decisions, calls, findings, source coverage, capability metadata, and attention signals.
 - Added a Project Quality panel to the generated viewer details rail, showing analyzer
   coverage, call-resolution, finding, generic-label, graph-density, and language metrics.
 - Added a deterministic language capability matrix to generated metadata and MCP summaries.

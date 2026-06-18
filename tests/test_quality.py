@@ -37,8 +37,19 @@ def test_model_quality_counts_calls_findings_and_labels(tmp_path: Path) -> None:
     assert quality["calls"]["unresolved"] >= 1
     assert quality["findings"]["total"] >= 1
     assert "missing_branch" in quality["findings"]["by_kind"]
+    python_depth = quality["languages"]["depth"]["python"]
+    assert python_depth["files"] == 1
+    assert python_depth["flows"] >= 2
+    assert python_depth["decisions"] >= 1
+    assert python_depth["calls"] >= 2
+    assert python_depth["resolved_calls"] >= 1
+    assert python_depth["unresolved_calls"] >= 1
+    assert python_depth["capability"]["frontend"] == "python_ast"
     assert quality["source_locations"]["coverage"] > 0
-    assert "Graph density" in render_quality(quality)
+    rendered = render_quality(quality)
+    assert "Graph density" in rendered
+    assert "Language depth:" in rendered
+    assert "python:" in rendered
 
 
 def test_validate_quality_json_and_text_output(tmp_path: Path, capsys) -> None:
@@ -61,6 +72,7 @@ def test_validate_quality_json_and_text_output(tmp_path: Path, capsys) -> None:
     assert "Analysis quality:" in text
     assert "Skipped files:" in text
     assert "Source coverage:" in text
+    assert "Language depth:" in text
 
 
 def test_validate_report_can_compute_quality_for_older_artifact(tmp_path: Path) -> None:

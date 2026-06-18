@@ -121,6 +121,7 @@
         const labels = quality.labels || {};
         const source = quality.source_locations || {};
         const graph = quality.graph || {};
+        const languagesQuality = quality.languages || {};
         const skipped = (files.skipped && typeof files.skipped === "object") ? files.skipped : { total: 0 };
 
         if (qualityCountEl) qualityCountEl.textContent = ratioPercent(source.coverage);
@@ -140,6 +141,9 @@
         const generic = Number(labels.generic_nodes || 0);
         const skippedTotal = Number(skipped.total || 0);
         const huge = Array.isArray(flows.huge) ? flows.huge.length : 0;
+        const languageAttention = Array.isArray(languagesQuality.attention)
+          ? languagesQuality.attention.length
+          : 0;
         signals.append(
           qualitySignal("Call resolution", ratioPercent(calls.resolution_rate), unresolved || ambiguous ? "attention" : ""),
           qualitySignal("Skipped files", skippedTotal, skippedTotal ? "attention" : ""),
@@ -147,6 +151,7 @@
           qualitySignal("Ambiguous calls", ambiguous, ambiguous ? "attention" : ""),
           qualitySignal("Generic labels", generic + " · " + ratioPercent(labels.generic_ratio), generic ? "attention" : ""),
           qualitySignal("Findings", findingsQuality.total || 0, findingsQuality.total ? "attention" : ""),
+          qualitySignal("Language attention", languageAttention, languageAttention ? "attention" : ""),
           qualitySignal("Graph density", graph.edge_to_node_ratio, graph.dense_graph_warning ? "attention" : "")
         );
         if (huge) signals.append(qualitySignal("Huge flows", huge, "attention"));

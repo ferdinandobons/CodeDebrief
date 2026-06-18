@@ -81,7 +81,7 @@ snapshot for large-codebase review:
 - call-resolution rate with unresolved and ambiguous call counts;
 - skipped-file count, finding count, generic-label ratio, graph density, and huge-flow
   signals;
-- top language distribution from the generated model.
+- top language distribution and per-language attention signals from the generated model.
 
 The panel is deterministic and local-only. It must not imply that heuristic review signals
 are confirmed bugs, and it should stay bounded even when a project has many findings or

@@ -30,7 +30,8 @@ LogicChart is in a strong alpha state.
 - Analysis-quality work has started: generated models now include deterministic quality
   metrics, `logicchart validate --quality` can print or emit them as JSON, and MCP summary
   and artifact validation can expose them to agents, and the viewer shows the same payload
-  in a compact Project Quality panel.
+  in a compact Project Quality panel. Quality now includes per-language depth signals for
+  large polyglot codebases.
 
 The main gap is no longer "make the canvas usable". The remaining gap is to keep raising
 logical diagnostics and agent/MCP visual context to the same level as the viewer.
@@ -462,6 +463,8 @@ Current checkpoint:
   call-resolution, findings, label, graph-density, and language metrics.
 - Generated models include `metadata.language_capabilities`, and MCP summaries expose that
   registry-derived matrix for agent orientation.
+- Quality metrics include per-language depth signals for files, flows, decisions, calls,
+  findings, source coverage, skipped files, and capability metadata.
 - Generated models include `metadata.skipped_files`, and quality metrics include skipped
   counts, reason buckets, and samples.
 - `logicchart validate` and MCP `validate_artifacts` can apply optional CI thresholds for
