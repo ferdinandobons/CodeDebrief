@@ -256,7 +256,13 @@ def test_render_html_emits_source_and_errors_panels(tmp_path: Path) -> None:
     assert "renderErrors" in html
     assert "prioritizedFindings" in html
     assert "appendFindingDiagnostic" in html
+    assert "appendDiagnosticChart" in html
+    assert "diagnosticChartItems" in html
     assert "diagnostic-grid" in html
+    assert "diagnostic-chart" in html
+    assert "Diagnostic subgraph" in html
+    assert "Focused diagnostic subgraph" in html
+    assert "data-diagnostic-chart-node" in html
     assert "diagnostic-related" in html
     assert "Related flows" in html
     assert "Evidence nodes" in html

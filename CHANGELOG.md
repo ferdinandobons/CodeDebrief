@@ -68,8 +68,8 @@ The project follows Semantic Versioning.
 - Updated generated agent instructions to recommend `logicchart explain <finding-id>`
   before treating logical findings as actionable.
 - Updated the Logical Errors panel so selected findings expand into a compact diagnostic
-  inspector with related-flow and evidence-node links while keeping broad finding lists
-  bounded.
+  inspector with a focused diagnostic subgraph, related-flow and evidence-node links,
+  while keeping broad finding lists bounded.
 
 ### Fixed
 

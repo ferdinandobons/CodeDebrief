@@ -125,14 +125,13 @@ Current checkpoint:
   fallbacks, constant guards, handler outcomes, empty branches, and asymmetric dispatch
   returns.
 - The viewer shows selected-finding diagnostics with confidence, missing/expected/actual
-  state, rule purpose, review prompt, next actions, related flows, and evidence nodes.
+  state, rule purpose, review prompt, next actions, a compact focused diagnostic subgraph,
+  related flows, and evidence nodes.
 
 Still open:
 
 - Promote diagnostics into a stricter schema version only when the backward-compatibility
   and consumer story are ready.
-- Consider a small focused chart for the diagnostic subgraph if related-flow links are not
-  enough for large findings.
 - Keep expanding detector-specific evidence only where it adds review value without
   implying heuristic findings are confirmed bugs.
 
@@ -562,6 +561,7 @@ Before the next release:
 - Done: add tests for each detector's structured output.
 - Done: update viewer Logical Errors panel to show diagnostic details and related
   flow/evidence-node links.
+- Done: add a compact focused diagnostic subgraph to selected finding rows in the viewer.
 - Done: add a CLI `explain` command for deterministic finding explanations and JSON output.
 - Next: consider a compatible schema 1.2 only when the consumer migration story is ready.
 

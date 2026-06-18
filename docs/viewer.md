@@ -67,6 +67,8 @@ expands the row with the normalized diagnostic metadata from the model:
 - the detector purpose, review prompt, and suggested next actions;
 - detector-specific evidence such as implicit fallbacks, constant guards, branch outcomes,
   and handler outcomes;
+- a compact focused diagnostic subgraph linking the finding's focus block to bounded
+  evidence nodes and related flows;
 - related flows and evidence nodes derived from diagnostic scope, caller/callee context,
   and shared decision metadata, each linked back into the progressive flowchart.
 

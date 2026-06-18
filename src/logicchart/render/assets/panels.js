@@ -64,10 +64,19 @@
 
       // --- small DOM helpers (text-node only) -------------------------------------
 
+      const SVG_NS = "http://www.w3.org/2000/svg";
+
       function el(tag, className, text) {
         const node = document.createElement(tag);
         if (className) node.className = className;
         if (text != null) node.textContent = text; // text node, never markup.
+        return node;
+      }
+
+      function svgEl(tag, attrs, text) {
+        const node = document.createElementNS(SVG_NS, tag);
+        Object.keys(attrs || {}).forEach(key => node.setAttribute(key, String(attrs[key])));
+        if (text != null) node.textContent = text;
         return node;
       }
 
@@ -500,8 +509,136 @@
         return button;
       }
 
-      function appendFindingContext(wrap, finding, diagnostic) {
-        const context = contextForFinding(finding, diagnostic);
+      function chartLabel(value, limit) {
+        const text = compactValue(value).replace(/\s+/g, " ").trim();
+        if (text.length <= limit) return text;
+        return text.slice(0, Math.max(0, limit - 3)).trim() + "...";
+      }
+
+      function diagnosticChartItems(finding, context) {
+        const focusFlow = byId.get(finding.flow_id);
+        if (!focusFlow) return [];
+        const focusNode = flowNodeById(focusFlow, finding.node_id);
+        const focusId = focusNode ? focusFlow.id + "::" + focusNode.id : focusFlow.id;
+        const items = [
+          {
+            activate: () =>
+              focusNode ? selectRelatedNode(focusFlow, focusNode) : selectRelatedFlow(focusFlow),
+            key: focusId,
+            kind: "focus",
+            label: focusNode ? (focusNode.label || focusNode.id) : (focusFlow.name || focusFlow.id),
+            meta: focusNode ? (focusFlow.name || focusFlow.id) : "finding flow",
+          }
+        ];
+        const seen = new Set([focusId]);
+        context.relatedNodes.slice(0, 4).forEach(item => {
+          const key = item.flow.id + "::" + item.node.id;
+          if (seen.has(key)) return;
+          seen.add(key);
+          items.push({
+            activate: () => selectRelatedNode(item.flow, item.node),
+            key: key,
+            kind: "evidence",
+            label: item.node.label || item.node.id,
+            meta: item.roles.map(contextRoleLabel).join(", ") || (item.flow.name || item.flow.id),
+          });
+        });
+        context.relatedFlows.slice(0, 3).forEach(item => {
+          const key = item.flow.id;
+          if (seen.has(key)) return;
+          seen.add(key);
+          items.push({
+            activate: () => selectRelatedFlow(item.flow),
+            key: key,
+            kind: "flow",
+            label: item.flow.name || item.flow.id,
+            meta: item.roles.map(contextRoleLabel).join(", "),
+          });
+        });
+        return items.slice(0, 6);
+      }
+
+      function appendDiagnosticChart(wrap, finding, context) {
+        const items = diagnosticChartItems(finding, context);
+        if (!items.length) return;
+        const block = el("div", "diagnostic-chart");
+        block.appendChild(el("div", "diagnostic-chart-title", "Diagnostic subgraph"));
+        const targetCount = Math.max(0, items.length - 1);
+        const height = Math.max(112, 36 + Math.max(1, targetCount) * 52);
+        const svg = svgEl("svg", {
+          "aria-label": "Focused diagnostic subgraph",
+          "class": "diagnostic-chart-svg",
+          "role": "img",
+          "viewBox": "0 0 320 " + height,
+        });
+        const focus = items[0];
+        const focusBox = { x: 14, y: Math.max(28, height / 2 - 20), width: 122, height: 42 };
+        const targetBoxes = items.slice(1).map((item, index) => ({
+          item: item,
+          x: 180,
+          y: 20 + index * 52,
+          width: 124,
+          height: 42,
+        }));
+        targetBoxes.forEach(box => {
+          svg.appendChild(svgEl("line", {
+            "class": "diagnostic-chart-edge",
+            "x1": focusBox.x + focusBox.width,
+            "x2": box.x,
+            "y1": focusBox.y + focusBox.height / 2,
+            "y2": box.y + box.height / 2,
+          }));
+        });
+
+        function appendChartNode(item, box) {
+          const group = svgEl("g", {
+            "class": "diagnostic-chart-node " + item.kind,
+            "data-diagnostic-chart-node": item.key,
+            "role": "button",
+            "tabindex": "0",
+            "transform": "translate(" + box.x + " " + box.y + ")",
+          });
+          group.appendChild(svgEl("rect", {
+            "class": "diagnostic-chart-box",
+            "height": box.height,
+            "rx": "7",
+            "width": box.width,
+            "x": "0",
+            "y": "0",
+          }));
+          group.appendChild(svgEl("text", {
+            "class": "diagnostic-chart-label",
+            "x": "10",
+            "y": "18",
+          }, chartLabel(item.label, 20)));
+          group.appendChild(svgEl("text", {
+            "class": "diagnostic-chart-meta",
+            "x": "10",
+            "y": "32",
+          }, chartLabel(item.meta, 24)));
+          group.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            item.activate();
+          });
+          group.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              event.stopPropagation();
+              item.activate();
+            }
+          });
+          svg.appendChild(group);
+        }
+
+        appendChartNode(focus, focusBox);
+        targetBoxes.forEach(box => appendChartNode(box.item, box));
+        block.appendChild(svg);
+        wrap.appendChild(block);
+      }
+
+      function appendFindingContext(wrap, finding, diagnostic, context) {
+        context = context || contextForFinding(finding, diagnostic);
         if (!context.relatedFlows.length && !context.relatedNodes.length) return;
         const block = el("div", "diagnostic-related");
         if (context.relatedFlows.length) {
@@ -570,7 +707,9 @@
           });
           wrap.appendChild(actionList);
         }
-        appendFindingContext(wrap, finding, diagnostic);
+        const context = contextForFinding(finding, diagnostic);
+        appendDiagnosticChart(wrap, finding, context);
+        appendFindingContext(wrap, finding, diagnostic, context);
         row.appendChild(wrap);
       }
 

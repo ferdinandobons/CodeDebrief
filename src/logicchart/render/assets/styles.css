@@ -1565,6 +1565,72 @@
       font-size: 11px;
       line-height: 1.45;
     }
+    .diagnostic-chart {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--panel) 84%, transparent);
+    }
+    .diagnostic-chart-title {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .diagnostic-chart-svg {
+      display: block;
+      width: 100%;
+      min-height: 112px;
+    }
+    .diagnostic-chart-edge {
+      stroke: color-mix(in srgb, var(--edge) 72%, var(--blue));
+      stroke-width: 1.5;
+      vector-effect: non-scaling-stroke;
+    }
+    .diagnostic-chart-node {
+      cursor: pointer;
+      outline: none;
+    }
+    .diagnostic-chart-box {
+      fill: var(--panel-2);
+      stroke: var(--line-strong);
+      stroke-width: 1.2;
+      vector-effect: non-scaling-stroke;
+    }
+    .diagnostic-chart-node.focus .diagnostic-chart-box {
+      stroke: var(--coral);
+      stroke-width: 2.2;
+    }
+    .diagnostic-chart-node.evidence .diagnostic-chart-box {
+      stroke: var(--amber);
+    }
+    .diagnostic-chart-node.flow .diagnostic-chart-box {
+      stroke: var(--cyan);
+    }
+    .diagnostic-chart-node:hover .diagnostic-chart-box,
+    .diagnostic-chart-node:focus-visible .diagnostic-chart-box {
+      stroke: var(--blue);
+      stroke-width: 2.4;
+    }
+    .diagnostic-chart-label {
+      fill: var(--ink);
+      font-size: 10px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    .diagnostic-chart-meta {
+      fill: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 8px;
+      font-weight: 700;
+      pointer-events: none;
+      text-transform: uppercase;
+    }
     .diagnostic-related {
       display: grid;
       gap: 6px;

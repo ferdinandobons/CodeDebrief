@@ -127,7 +127,8 @@ large-codebase study, not just one isolated function. It shows:
   surrounding codebase context.
 - Link selection that highlights the source node, target node, and selected connection
   while dimming unrelated blocks.
-- A synchronized source panel and logical-errors panel.
+- A synchronized source panel and logical-errors panel with selected-finding diagnostics,
+  bounded related-flow/evidence-node links, and a compact focused diagnostic subgraph.
 - Finding density on scope nodes and tree file rows, useful for scanning large systems.
 - Light/dark theme, pan/zoom, an aggregate draggable/scrollable minimap, fit-to-content,
   drag-to-arrange blocks, collapse-all reset, expand-all, full-screen canvas,
