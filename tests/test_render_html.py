@@ -389,6 +389,8 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "logicchart-right-rail-width" in html
     assert "initCollapsiblePanels" in html
     assert "logicchart-panel-collapsed-" in html
+    assert "data-panel-heading" in html
+    assert 'target.closest("button, a, input, select, textarea")' in html
     assert ".panel-collapse-toggle" in html
     assert ".panel[data-collapsed]" in html
     assert "resizeRailFromKeyboard" in html

@@ -1285,6 +1285,11 @@
       padding: 16px 20px 10px;
       border-bottom: 1px solid var(--line);
       flex: none;
+      transition: background .14s ease;
+    }
+    .panel-head[data-panel-heading] { cursor: pointer; }
+    .panel-head[data-panel-heading]:hover {
+      background: color-mix(in srgb, var(--chip) 36%, transparent);
     }
     .panel[data-collapsed] .panel-head { border-bottom: 0; }
     .panel-head .rail-title { margin: 0; }
@@ -1297,8 +1302,12 @@
       border: 1px solid var(--line);
       border-radius: 7px;
       background: var(--panel);
-      color: var(--muted);
+      color: var(--ink);
       cursor: pointer;
+    }
+    .panel-head[data-panel-heading]:hover .panel-collapse-toggle {
+      border-color: var(--blue);
+      color: var(--blue);
     }
     .panel-collapse-toggle:hover,
     .panel-collapse-toggle:focus-visible {

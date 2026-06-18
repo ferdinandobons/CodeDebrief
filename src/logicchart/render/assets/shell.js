@@ -322,6 +322,7 @@
       panels.forEach(panel => {
         const button = panel.querySelector("[data-panel-toggle]");
         if (!button) return;
+        const heading = panel.querySelector("[data-panel-heading]");
         const bodyId = button.getAttribute("aria-controls");
         const body = bodyId ? document.getElementById(bodyId) : null;
         const key = panel.getAttribute("data-panel-state") || panel.id || bodyId;
@@ -334,6 +335,13 @@
           event.preventDefault();
           setPanelCollapsed(panel, button, body, !panel.hasAttribute("data-collapsed"), true);
         });
+        if (heading) {
+          heading.addEventListener("click", event => {
+            const target = event.target;
+            if (target && target.closest && target.closest("button, a, input, select, textarea")) return;
+            setPanelCollapsed(panel, button, body, !panel.hasAttribute("data-collapsed"), true);
+          });
+        }
       });
     }
 

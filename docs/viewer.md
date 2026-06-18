@@ -97,8 +97,9 @@ are confirmed bugs, and it should stay bounded even when a project has many find
 languages.
 
 The Details rail sections for Project Quality, Source, and Logical Errors are independently
-collapsible. Each collapsed section keeps its heading visible while releasing body height to
-the other sections, and the viewer remembers the state locally in the browser.
+collapsible from their headings. Each collapsed section keeps its heading visible while
+releasing body height to the other sections, and the viewer remembers the state locally in
+the browser.
 
 ## Layout rules
 
