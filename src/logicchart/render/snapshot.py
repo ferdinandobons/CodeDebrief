@@ -38,7 +38,20 @@ def render_flow_snapshot(
     findings = [item for item in model.findings if item.flow_id == flow.id]
     highlighted = highlight_node_ids or set()
     rendered_nodes = _select_flow_nodes(flow, highlighted, max_nodes)
-    svg = _flow_svg(flow, findings, highlighted, rendered_nodes=rendered_nodes, title=title)
+    layout = _flow_layout(
+        flow,
+        findings,
+        highlighted,
+        rendered_nodes=rendered_nodes,
+    )
+    svg = _flow_svg(
+        flow,
+        findings,
+        highlighted,
+        rendered_nodes=rendered_nodes,
+        title=title,
+        layout=layout,
+    )
     return {
         "format": "svg",
         "flow_id": flow.id,
@@ -48,6 +61,7 @@ def render_flow_snapshot(
         "node_count": len(flow.nodes),
         "rendered_node_count": len(rendered_nodes),
         "omitted_node_count": max(0, len(flow.nodes) - len(rendered_nodes)),
+        "layout": _flow_layout_payload(flow, rendered_nodes, layout),
     }
 
 
@@ -65,6 +79,14 @@ def render_finding_snapshot(
     rendered_nodes = _select_flow_nodes(flow, highlighted, max_nodes)
     diagnostic = _diagnostic_for_snapshot(model, finding, flow, node)
     title = f"{finding.kind}: {finding.message}"
+    layout = _flow_layout(
+        flow,
+        [item for item in model.findings if item.flow_id == flow.id],
+        highlighted,
+        rendered_nodes=rendered_nodes,
+        finding=finding,
+        diagnostic=diagnostic,
+    )
     svg = _flow_svg(
         flow,
         [item for item in model.findings if item.flow_id == flow.id],
@@ -73,6 +95,7 @@ def render_finding_snapshot(
         title=title,
         finding=finding,
         diagnostic=diagnostic,
+        layout=layout,
     )
     return {
         "format": "svg",
@@ -86,6 +109,7 @@ def render_finding_snapshot(
         "finding_id": finding.id,
         "diagnostic_category": diagnostic.get("category"),
         "evidence_item_count": len(diagnostic.get("evidence_chain", [])),
+        "layout": _flow_layout_payload(flow, rendered_nodes, layout),
     }
 
 
@@ -128,6 +152,15 @@ def render_impact_snapshot(
 ) -> dict[str, Any]:
     rendered_direct = _select_impact_flows(direct, max_flows)
     rendered_transitive = _select_impact_flows(transitive, max_flows)
+    layout = _impact_layout(
+        changed_files,
+        direct,
+        transitive,
+        findings,
+        rendered_direct=rendered_direct,
+        rendered_transitive=rendered_transitive,
+        unresolved_targets=unresolved_targets or [],
+    )
     svg = _impact_svg(
         changed_files,
         direct,
@@ -136,6 +169,7 @@ def render_impact_snapshot(
         rendered_direct=rendered_direct,
         rendered_transitive=rendered_transitive,
         unresolved_targets=unresolved_targets or [],
+        layout=layout,
     )
     return {
         "format": "svg",
@@ -154,6 +188,13 @@ def render_impact_snapshot(
         "omitted_direct_flow_count": max(0, len(direct) - len(rendered_direct)),
         "omitted_transitive_flow_count": max(0, len(transitive) - len(rendered_transitive)),
         "finding_ids": [finding.id for finding in findings],
+        "layout": _impact_layout_payload(
+            direct,
+            transitive,
+            rendered_direct,
+            rendered_transitive,
+            layout,
+        ),
         "svg": svg,
     }
 
@@ -167,22 +208,17 @@ def _flow_svg(
     title: str | None,
     finding: Finding | None = None,
     diagnostic: dict[str, Any] | None = None,
+    layout: dict[str, Any] | None = None,
 ) -> str:
     nodes = rendered_nodes
     omitted = max(0, len(flow.nodes) - len(nodes))
-    width = 920
-    header_height = 108
-    row_gap = 34
-    node_width = 340
-    node_height = 76
-    x = 290
-    positions = {
-        node.id: (x, header_height + index * (node_height + row_gap))
-        for index, node in enumerate(nodes)
-    }
-    graph_height = header_height + max(1, len(nodes)) * (node_height + row_gap) + 86
+    layout = layout or _flow_layout(flow, findings, highlight_node_ids, rendered_nodes=nodes)
+    width = int(layout["width"])
+    height = int(layout["height"])
+    node_width = int(layout["node_width"])
+    node_height = int(layout["node_height"])
+    positions = layout["positions"]
     panel = _finding_panel(finding, diagnostic) if finding and diagnostic else None
-    height = max(graph_height, (panel["height"] + 132) if panel else graph_height)
     parts = [
         _svg_open(width, height, title or flow.name),
         _style(),
@@ -244,13 +280,22 @@ def _impact_svg(
     rendered_direct: list[Flow],
     rendered_transitive: list[Flow],
     unresolved_targets: list[Any],
+    layout: dict[str, Any] | None = None,
 ) -> str:
-    width = 920
-    row_height = 84
-    row_gap = 22
-    rows = max(1, max(len(rendered_direct), len(rendered_transitive)))
-    target_offset = 24 if unresolved_targets else 0
-    height = 156 + target_offset + rows * (row_height + row_gap) + 80
+    layout = layout or _impact_layout(
+        changed_files,
+        direct,
+        transitive,
+        findings,
+        rendered_direct=rendered_direct,
+        rendered_transitive=rendered_transitive,
+        unresolved_targets=unresolved_targets,
+    )
+    width = int(layout["width"])
+    height = int(layout["height"])
+    row_height = int(layout["row_height"])
+    row_gap = int(layout["row_gap"])
+    target_offset = int(layout["target_offset"])
     omitted_direct = max(0, len(direct) - len(rendered_direct))
     omitted_transitive = max(0, len(transitive) - len(rendered_transitive))
     parts = [
@@ -329,6 +374,153 @@ def _unresolved_target_label(item: Any) -> str:
             return f"{target_type}:{value}"
         return _compact(str(item), 80)
     return str(item)
+
+
+def _flow_layout(
+    flow: Flow,
+    findings: list[Finding],
+    highlight_node_ids: set[str],
+    *,
+    rendered_nodes: list[FlowNode],
+    finding: Finding | None = None,
+    diagnostic: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    width = 920
+    header_height = 108
+    row_gap = 34
+    node_width = 340
+    node_height = 76
+    x = 290
+    positions = {
+        node.id: (x, header_height + index * (node_height + row_gap))
+        for index, node in enumerate(rendered_nodes)
+    }
+    graph_height = header_height + max(1, len(rendered_nodes)) * (node_height + row_gap) + 86
+    panel_height = _finding_panel_height(finding, diagnostic) if finding and diagnostic else 0
+    height = max(graph_height, panel_height + 132 if panel_height else graph_height)
+    rendered_edge_count = sum(
+        edge.source in positions and edge.target in positions for edge in flow.edges
+    )
+    return {
+        "engine": "static-flow-snapshot-v1",
+        "direction": "top_to_bottom",
+        "width": width,
+        "height": height,
+        "header_height": header_height,
+        "row_gap": row_gap,
+        "node_width": node_width,
+        "node_height": node_height,
+        "x": x,
+        "graph_height": graph_height,
+        "panel_height": panel_height,
+        "positions": positions,
+        "rendered_edge_count": rendered_edge_count,
+        "omitted_edge_count": max(0, len(flow.edges) - rendered_edge_count),
+        "highlighted_node_count": len(highlight_node_ids),
+        "finding_count": len(findings),
+    }
+
+
+def _flow_layout_payload(
+    flow: Flow,
+    rendered_nodes: list[FlowNode],
+    layout: dict[str, Any],
+) -> dict[str, Any]:
+    positions: dict[str, tuple[int, int]] = layout["positions"]
+    return {
+        "engine": layout["engine"],
+        "direction": layout["direction"],
+        "canvas": {"width": layout["width"], "height": layout["height"]},
+        "node": {
+            "width": layout["node_width"],
+            "height": layout["node_height"],
+            "row_gap": layout["row_gap"],
+        },
+        "bounds": {
+            "x": layout["x"],
+            "y": layout["header_height"],
+            "width": layout["node_width"],
+            "height": max(1, layout["graph_height"] - layout["header_height"]),
+        },
+        "rendered_edge_count": layout["rendered_edge_count"],
+        "omitted_edge_count": layout["omitted_edge_count"],
+        "compact": len(rendered_nodes) < len(flow.nodes),
+        "node_positions": [
+            {
+                "id": node.id,
+                "x": positions[node.id][0],
+                "y": positions[node.id][1],
+                "width": layout["node_width"],
+                "height": layout["node_height"],
+            }
+            for node in rendered_nodes
+        ],
+    }
+
+
+def _impact_layout(
+    changed_files: list[str],
+    direct: list[Flow],
+    transitive: list[Flow],
+    findings: list[Finding],
+    *,
+    rendered_direct: list[Flow],
+    rendered_transitive: list[Flow],
+    unresolved_targets: list[Any],
+) -> dict[str, Any]:
+    width = 920
+    row_height = 84
+    row_gap = 22
+    rows = max(1, max(len(rendered_direct), len(rendered_transitive)))
+    target_offset = 24 if unresolved_targets else 0
+    height = 156 + target_offset + rows * (row_height + row_gap) + 80
+    return {
+        "engine": "static-impact-snapshot-v1",
+        "direction": "left_to_right_columns",
+        "width": width,
+        "height": height,
+        "row_height": row_height,
+        "row_gap": row_gap,
+        "rows": rows,
+        "target_offset": target_offset,
+        "direct_column": {"x": 52, "y": 150 + target_offset, "width": 366},
+        "transitive_column": {"x": 502, "y": 150 + target_offset, "width": 366},
+        "changed_file_count": len(changed_files),
+        "finding_count": len(findings),
+        "unresolved_target_count": len(unresolved_targets),
+    }
+
+
+def _impact_layout_payload(
+    direct: list[Flow],
+    transitive: list[Flow],
+    rendered_direct: list[Flow],
+    rendered_transitive: list[Flow],
+    layout: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "engine": layout["engine"],
+        "direction": layout["direction"],
+        "canvas": {"width": layout["width"], "height": layout["height"]},
+        "row": {"height": layout["row_height"], "gap": layout["row_gap"]},
+        "columns": [
+            {
+                "id": "direct",
+                "label": "Direct impact",
+                **layout["direct_column"],
+                "rendered_flow_count": len(rendered_direct),
+                "omitted_flow_count": max(0, len(direct) - len(rendered_direct)),
+            },
+            {
+                "id": "caller",
+                "label": "Caller impact",
+                **layout["transitive_column"],
+                "rendered_flow_count": len(rendered_transitive),
+                "omitted_flow_count": max(0, len(transitive) - len(rendered_transitive)),
+            },
+        ],
+        "compact": len(rendered_direct) < len(direct) or len(rendered_transitive) < len(transitive),
+    }
 
 
 def _select_flow_nodes(
@@ -457,7 +649,7 @@ def _finding_panel(finding: Finding, diagnostic: dict[str, Any]) -> dict[str, An
     width = 246
     lines = _finding_panel_lines(finding, diagnostic)
     row_height = 17
-    height = 44 + len(lines) * row_height
+    height = _finding_panel_height(finding, diagnostic)
     parts = [
         f'<rect class="diagnostic-panel" x="{x}" y="{y}" width="{width}" '
         f'height="{height}" rx="12" />',
@@ -468,6 +660,10 @@ def _finding_panel(finding: Finding, diagnostic: dict[str, Any]) -> dict[str, An
         parts.append(_text(x + 14, cursor, line, "panel-text"))
         cursor += row_height
     return {"height": height, "svg": "\n".join(parts)}
+
+
+def _finding_panel_height(finding: Finding, diagnostic: dict[str, Any]) -> int:
+    return 44 + len(_finding_panel_lines(finding, diagnostic)) * 17
 
 
 def _finding_panel_lines(finding: Finding, diagnostic: dict[str, Any]) -> list[str]:

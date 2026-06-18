@@ -35,6 +35,11 @@ def test_flow_snapshot_renders_decision_flow_svg(tmp_path: Path) -> None:
     assert "kind-decision highlight" in svg
     assert "&lt;admin&gt;" in svg
     assert "<admin>" not in svg
+    assert snapshot["layout"]["engine"] == "static-flow-snapshot-v1"
+    assert snapshot["layout"]["direction"] == "top_to_bottom"
+    assert snapshot["layout"]["canvas"]["width"] == 920
+    assert snapshot["layout"]["rendered_edge_count"] >= 1
+    assert snapshot["layout"]["node_positions"][0]["id"] == flow.nodes[0].id
 
 
 def test_finding_snapshot_highlights_finding_node(tmp_path: Path) -> None:
@@ -61,6 +66,8 @@ def test_finding_snapshot_highlights_finding_node(tmp_path: Path) -> None:
     assert "Evidence: POTENTIAL_GAP" in snapshot["svg"]
     assert "Evidence chain:" in snapshot["svg"]
     assert "implicit fallback" in snapshot["svg"]
+    assert snapshot["layout"]["node_positions"]
+    assert snapshot["layout"]["canvas"]["height"] >= 1
 
 
 def test_flow_snapshot_budget_omits_nodes_but_keeps_highlight() -> None:
@@ -100,6 +107,13 @@ def test_flow_snapshot_budget_omits_nodes_but_keeps_highlight() -> None:
 
     assert snapshot["rendered_node_count"] == 4
     assert snapshot["omitted_node_count"] == 6
+    assert snapshot["layout"]["compact"] is True
+    assert snapshot["layout"]["omitted_edge_count"] == 0
+    snapshot_nodes = [nodes[0], nodes[1], nodes[2], nodes[9]]
+    assert [item["id"] for item in snapshot["layout"]["node_positions"]] == [
+        node.id for node in snapshot_nodes
+    ]
+    assert snapshot_nodes[-1].label == "node 9"
     assert "node 9" in snapshot["svg"]
     assert "6 additional nodes omitted" in snapshot["svg"]
 
@@ -114,6 +128,8 @@ def test_impact_snapshot_renders_empty_state() -> None:
 
     assert snapshot["format"] == "svg"
     assert snapshot["direct_flow_ids"] == []
+    assert snapshot["layout"]["engine"] == "static-impact-snapshot-v1"
+    assert snapshot["layout"]["columns"][0]["id"] == "direct"
     assert "No modeled flows are affected" in snapshot["svg"]
 
 
@@ -166,6 +182,9 @@ def test_impact_snapshot_budget_reports_omitted_flows() -> None:
     assert snapshot["rendered_transitive_flow_ids"] == ["flow-2"]
     assert snapshot["omitted_direct_flow_count"] == 1
     assert snapshot["omitted_transitive_flow_count"] == 1
+    assert snapshot["layout"]["compact"] is True
+    assert snapshot["layout"]["columns"][0]["rendered_flow_count"] == 1
+    assert snapshot["layout"]["columns"][1]["omitted_flow_count"] == 1
     assert "1 direct and 1 caller flows omitted" in snapshot["svg"]
 
 

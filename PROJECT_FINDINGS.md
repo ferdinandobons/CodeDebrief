@@ -348,6 +348,9 @@ Current checkpoint:
 - Impact snapshots now carry target lists, unresolved targets, impact reasons, and
   subgraph ids, matching `impact --json`/MCP `analyze_impact` instead of forcing agents to
   infer target errors from an empty SVG.
+- Flow, finding, and impact snapshot payloads now include deterministic layout metadata:
+  canvas size, rendered positions, node/column dimensions, compact flags, and omitted
+  edge/flow counts for large subgraph review.
 - MCP exposes `get_flow_navigation` for token-bounded caller/callee, decision, finding,
   and next-tool orientation before an agent pulls the complete graph.
 - `logicchart navigate <flow-id>` exposes the same bounded flow-navigation contract over
@@ -358,7 +361,8 @@ Current checkpoint:
 
 Still open:
 
-- Share more layout intelligence with the React viewer, especially for larger subgraphs.
+- Keep evaluating whether snapshot layout metadata should converge further with the React
+  viewer's full layout-quality report for very large subgraphs.
 - Add optional SVG-to-PNG/JPG rasterization.
 - Keep monitoring whether context-pack visual payloads need stricter size caps after more
   real agent usage.
@@ -624,6 +628,8 @@ Before the next release:
   follow-up tools.
 - Done: add bounded flow-navigation packs directly to `context_pack` so agents can orient
   on relevant flows before pulling full graphs.
+- Done: add deterministic layout metadata to flow/finding/impact snapshots for compacted
+  large-subgraph review.
 - Next: add optional raster outputs if a local renderer path is worth the dependency.
 
 ### Phase 3: LLM Enrichment

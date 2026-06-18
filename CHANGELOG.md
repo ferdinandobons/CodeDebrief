@@ -34,6 +34,8 @@ The project follows Semantic Versioning.
   omission counts for capped visual context.
 - Added target, unresolved-target, impact-reason, and subgraph metadata to impact snapshot
   payloads across CLI and MCP.
+- Added deterministic layout metadata to flow, finding, and impact snapshot payloads,
+  including canvas size, rendered positions, compact flags, and omitted edge/flow counts.
 - Added a compact diagnostic panel to MCP finding SVG snapshots with evidence tier,
   confidence, review prompt, and evidence-chain summaries.
 - Added deterministic model-quality metrics, exposed through generated metadata,
