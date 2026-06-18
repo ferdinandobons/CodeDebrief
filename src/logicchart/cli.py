@@ -18,10 +18,12 @@ from logicchart.install import install_all
 from logicchart.quality import render_quality
 from logicchart.query import (
     explain_finding,
+    flow_navigation,
     git_changed_files,
     impact_model,
     query_model,
     render_finding_explanation,
+    render_flow_navigation,
     render_impact,
     render_query,
 )
@@ -101,6 +103,13 @@ def build_parser() -> argparse.ArgumentParser:
     explain.add_argument("--path", default=".")
     _add_profile_argument(explain)
     explain.add_argument("--json", action="store_true", dest="json_output")
+
+    navigate = subparsers.add_parser("navigate", help="Show an agent navigation pack for one flow.")
+    navigate.add_argument("flow")
+    navigate.add_argument("--path", default=".")
+    navigate.add_argument("--token-budget", type=int, default=0)
+    _add_profile_argument(navigate)
+    navigate.add_argument("--json", action="store_true", dest="json_output")
 
     view = subparsers.add_parser("view", help="Generate and serve the interactive flowchart.")
     view.add_argument("path", nargs="?", default=".")
@@ -239,6 +248,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.json_output,
                 args.profile,
             )
+        if args.command == "navigate":
+            return _navigate(
+                Path(args.path),
+                args.flow,
+                args.token_budget,
+                args.json_output,
+                args.profile,
+            )
         if args.command == "view":
             return _view(
                 Path(args.path),
@@ -274,6 +291,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         # permission-denied write surfaces as a clean message instead of a raw traceback.
         print(f"error: {error}", file=sys.stderr)
         return 1
+    return 0
+
+
+def _navigate(
+    root: Path,
+    flow_target: str,
+    token_budget: int,
+    json_output: bool,
+    profile: str | None = None,
+) -> int:
+    root = root.resolve()
+    config = LogicChartConfig.load(root, profile=profile)
+    navigation = flow_navigation(load_model(root, config), flow_target, token_budget)
+    if "error" in navigation:
+        print(f"error: {navigation['error']}", file=sys.stderr)
+        if navigation.get("matches"):
+            for item in navigation["matches"]:
+                print(f"  - {item['name']} ({item['id']}) {item['source']}", file=sys.stderr)
+        return 1
+    if json_output:
+        print(json.dumps(navigation, indent=2))
+    else:
+        print(render_flow_navigation(navigation))
     return 0
 
 

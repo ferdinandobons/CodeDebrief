@@ -249,6 +249,20 @@ evidence-chain summary. The guardrail text distinguishes `VERIFIED`, `INFERRED`,
 `POTENTIAL_GAP` so review candidates are not presented as confirmed bugs. JSON output uses
 the same deterministic explanation payload exposed by MCP.
 
+### `navigate`
+
+Inspect one flow before loading the complete graph:
+
+```bash
+logicchart navigate flow-id
+logicchart navigate module.symbol --json
+logicchart navigate flow-id --token-budget 240
+```
+
+The command returns the same bounded navigation pack as MCP `get_flow_navigation`: flow
+shape, caller/callee summaries, decision nodes, related findings, annotations when present,
+and next-tool hints for full flow, impact, query, and visual snapshot follow-up.
+
 ### `impact`
 
 Show flows affected by changed files or explicit model targets:

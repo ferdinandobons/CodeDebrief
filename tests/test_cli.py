@@ -98,6 +98,40 @@ def handle(status):
     assert "finding not found: missing-finding" in capsys.readouterr().err
 
 
+def test_cli_navigate_flow_human_and_json(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "service.py").write_text(
+        """
+def authorize(user):
+    if user.role == "admin":
+        return allow()
+    return deny()
+""",
+        encoding="utf-8",
+    )
+
+    assert main(["analyze", str(tmp_path), "--full", "--no-html"]) == 0
+    capsys.readouterr()
+    model = load_model(tmp_path, LogicChartConfig())
+    flow = next(item for item in model.flows if item.name == "authorize")
+
+    assert main(["navigate", flow.id, "--path", str(tmp_path)]) == 0
+    human = capsys.readouterr().out
+    assert f"Flow: authorize ({flow.id})" in human
+    assert "Decision nodes:" in human
+    assert "Next tools:" in human
+
+    assert main(["navigate", flow.symbol, "--path", str(tmp_path), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["flow"]["id"] == flow.id
+    assert payload["decision_nodes"][0]["label"] == "user.role == 'admin'"
+    assert payload["next_tools"]["visual_snapshot"]["tool"] == "get_flow_snapshot"
+
+    assert main(["navigate", "missing-flow", "--path", str(tmp_path)]) == 1
+    assert "flow not found: missing-flow" in capsys.readouterr().err
+
+
 def test_cli_validate_and_profiles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     source = tmp_path / "src" / "logicchart" / "main.py"
     source.parent.mkdir(parents=True)
@@ -150,6 +184,7 @@ def test_cli_install_can_write_mcp_config(
     assert (tmp_path / "AGENTS.md").exists()
     assert (tmp_path / ".codex" / "config.toml").exists()
     assert "logicchart explain <finding-id>" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "logicchart navigate <flow-id>" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     assert "Updated" in capsys.readouterr().out
 
     assert main(["install", str(tmp_path), "--platform", "codex", "--mcp-config", "codex"]) == 0

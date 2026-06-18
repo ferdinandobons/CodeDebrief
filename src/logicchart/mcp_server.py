@@ -9,12 +9,13 @@ from logicchart.annotations import load_annotations
 from logicchart.artifacts import load_model, write_artifacts
 from logicchart.config import LogicChartConfig
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts
-from logicchart.model import NodeKind, ProjectModel
+from logicchart.model import ProjectModel
 from logicchart.quality import model_quality
 from logicchart.query import (
     explain_finding,
     find_decisions,
     finding_context,
+    flow_navigation,
     git_changed_files,
     impact_model,
     model_summary,
@@ -154,12 +155,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return error
         assert model is not None
-        flow = next((item for item in model.flows if item.id == flow_id), None)
-        if flow is None:
-            return {"error": f"Unknown flow: {flow_id}"}
         annotations = load_annotations(project_root, model, active_config)
         annotation_payload = annotations.annotations if annotations.ok else None
-        return _flow_navigation(model, flow, token_budget, annotation_payload)
+        return flow_navigation(model, flow_id, token_budget, annotation_payload)
 
     @server.tool()
     def get_flow_snapshot(
@@ -840,112 +838,6 @@ def _list_dicts(value: Any) -> list[dict[str, Any]]:
 
 def _quality_item_budget(token_budget: int) -> int:
     return max(1, min(8, token_budget // 120))
-
-
-def _flow_navigation(
-    model: ProjectModel,
-    flow: Any,
-    token_budget: int,
-    annotations: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    by_id = {item.id: item for item in model.flows}
-    findings = sorted(
-        [item for item in model.findings if item.flow_id == flow.id],
-        key=lambda item: (_finding_priority(item), item.location.path, item.message),
-    )
-    finding_node_ids = {item.node_id for item in findings if item.node_id}
-    scope = flow.metadata.get("scope", [])
-    primary_scope = scope[0] if scope else None
-    return {
-        "flow": {
-            **_flow_summary(flow),
-            "symbol": flow.symbol,
-            "is_entrypoint": flow.is_entrypoint,
-            "nodes": len(flow.nodes),
-            "edges": len(flow.edges),
-            "decisions": sum(node.kind is NodeKind.DECISION for node in flow.nodes),
-            "calls": len(flow.calls),
-            "callers": len(flow.called_by),
-            "tests": flow.tests,
-        },
-        "called_flows": _cap(_related_flow_summaries(flow.calls, by_id), token_budget),
-        "caller_flows": _cap(_related_flow_summaries(flow.called_by, by_id), token_budget),
-        "unresolved_call_ids": [target_id for target_id in flow.calls if target_id not in by_id],
-        "decision_nodes": _cap(
-            [
-                _decision_navigation(node, node.id in finding_node_ids)
-                for node in flow.nodes
-                if node.kind is NodeKind.DECISION
-            ],
-            token_budget,
-        ),
-        "findings": _cap([_finding_dict(item, model) for item in findings], token_budget),
-        "annotations": _flow_annotations(flow, findings, annotations),
-        "next_tools": {
-            "complete_flow": {"tool": "get_flow", "arguments": {"flow_id": flow.id}},
-            "visual_snapshot": {
-                "tool": "get_flow_snapshot",
-                "arguments": {"flow_id": flow.id, "format": "svg"},
-            },
-            "source_impact": {
-                "tool": "analyze_impact",
-                "arguments": {"changed_files": [flow.location.path]},
-            },
-            "related_query": {
-                "tool": "query_logic",
-                "arguments": {
-                    "question": flow.name,
-                    **({"scope": primary_scope} if primary_scope else {}),
-                },
-            },
-        },
-    }
-
-
-def _flow_annotations(
-    flow: Any,
-    findings: list[Any],
-    annotations: dict[str, Any] | None,
-) -> dict[str, Any]:
-    if not annotations:
-        return {"status": "absent"}
-    flow_annotations = annotations.get("flows", {})
-    node_annotations = annotations.get("nodes", {})
-    finding_annotations = annotations.get("findings", {})
-    return {
-        "status": "loaded",
-        "flow": flow_annotations.get(flow.id),
-        "nodes": {
-            node.id: node_annotations[node.id] for node in flow.nodes if node.id in node_annotations
-        },
-        "findings": {
-            finding.id: finding_annotations[finding.id]
-            for finding in findings
-            if finding.id in finding_annotations
-        },
-    }
-
-
-def _related_flow_summaries(flow_ids: list[str], by_id: dict[str, Any]) -> list[dict[str, Any]]:
-    return sorted(
-        [_flow_summary(by_id[flow_id]) for flow_id in flow_ids if flow_id in by_id],
-        key=lambda item: (item["name"], item["id"]),
-    )
-
-
-def _decision_navigation(node: Any, has_findings: bool) -> dict[str, Any]:
-    return {
-        "node_id": node.id,
-        "label": node.label,
-        "source": f"{node.location.path}:{node.location.start_line}",
-        "condition": node.metadata.get("condition"),
-        "domain": node.metadata.get("domain"),
-        "subject": node.metadata.get("subject"),
-        "operator": node.metadata.get("operator"),
-        "values": node.metadata.get("values", []),
-        "branches": node.metadata.get("branches", []),
-        "has_findings": has_findings,
-    }
 
 
 def _finding_dict(finding: Any, model: ProjectModel | None = None) -> dict[str, Any]:

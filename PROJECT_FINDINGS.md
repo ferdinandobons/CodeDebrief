@@ -329,6 +329,9 @@ Current checkpoint:
   silently falling back to browser screenshots.
 - MCP exposes `get_flow_navigation` for token-bounded caller/callee, decision, finding,
   and next-tool orientation before an agent pulls the complete graph.
+- `logicchart navigate <flow-id>` exposes the same bounded flow-navigation contract over
+  the CLI, so agents can inspect callers, callees, decisions, findings, and next steps
+  without requiring MCP.
 - `context_pack(include_visual=true)` can include inline SVG impact, flow, and finding
   snapshots while the default response stays lightweight with follow-up snapshot tools.
 
@@ -564,6 +567,7 @@ Before the next release:
 - Done: add focused diagnostic panels to finding SVG snapshots.
 - Done: add a flow-navigation MCP pack for caller/callee, decision, finding, and next-tool
   orientation.
+- Done: share the flow-navigation pack with CLI via `logicchart navigate`.
 - Done: add a finding-context MCP pack for focus flow, related nodes/flows/findings,
   evidence guardrails, and next-tool orientation.
 - Done: make MCP flow/finding/impact SVG snapshots honor `token_budget` by omitting excess
