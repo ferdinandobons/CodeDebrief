@@ -439,6 +439,8 @@ Current checkpoint:
 - MCP `analyze_impact` and `get_impact_snapshot` accept the same target types.
 - JSON/MCP impact responses include target lists, unresolved targets, subgraph flow ids,
   and subgraph finding ids.
+- JSON/MCP impact responses include per-flow impact reasons, distinguishing changed-file
+  matches, explicit flow/symbol/finding targets, and caller propagation.
 
 Still open:
 

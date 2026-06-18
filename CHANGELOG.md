@@ -52,6 +52,8 @@ The project follows Semantic Versioning.
   evidence guardrails, and next-tool hints for logical-error review.
 - Added deterministic impact targets for flow ids, symbols, and finding ids across CLI and
   MCP, with subgraph ids and unresolved-target reporting.
+- Added per-flow impact reasons to CLI JSON and MCP impact analysis, so agents can see why
+  each direct or caller impact was selected.
 - Added deterministic query filters for source paths, symbols/names, decision domains, and
   handled values across CLI and MCP.
 - Added optional inline visual context to MCP `context_pack`, with SVG impact, flow, and

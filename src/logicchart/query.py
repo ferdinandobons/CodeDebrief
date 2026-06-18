@@ -54,6 +54,7 @@ class ImpactResult:
     directly_impacted: list[Flow]
     transitively_impacted: list[Flow]
     findings: list[Finding]
+    impact_reasons: dict[str, list[str]] = field(default_factory=dict)
     target_flow_ids: list[str] = field(default_factory=list)
     target_symbols: list[str] = field(default_factory=list)
     target_finding_ids: list[str] = field(default_factory=list)
@@ -202,22 +203,33 @@ def impact_model(
     target_symbols = _unique(symbols or [])
     target_finding_ids = _unique(finding_ids or [])
     unresolved_targets: list[dict[str, str]] = []
-    direct_by_id = {flow.id: flow for flow in direct}
+    direct_by_id: dict[str, Flow] = {}
+    impact_reasons: dict[str, list[str]] = {}
 
-    def add_flow(flow: Flow, target_type: str, value: str) -> None:
+    def add_reason(flow: Flow, reason: str) -> None:
+        reasons = impact_reasons.setdefault(flow.id, [])
+        if reason not in reasons:
+            reasons.append(reason)
+
+    for flow in direct:
+        direct_by_id[flow.id] = flow
+        add_reason(flow, f"source file changed `{_normalize_path(flow.location.path)}`")
+
+    def add_flow(flow: Flow, target_type: str, value: str, reason: str) -> None:
         if flow.id not in scoped_ids:
             unresolved_targets.append(
                 {"type": target_type, "value": value, "reason": "scope_filtered"}
             )
             return
         direct_by_id[flow.id] = flow
+        add_reason(flow, reason)
 
     for flow_id in target_flow_ids:
-        flow = by_id.get(flow_id)
-        if flow is None:
+        target_flow = by_id.get(flow_id)
+        if target_flow is None:
             unresolved_targets.append({"type": "flow", "value": flow_id, "reason": "not_found"})
             continue
-        add_flow(flow, "flow", flow_id)
+        add_flow(target_flow, "flow", flow_id, f"explicit flow target `{flow_id}`")
 
     for symbol in target_symbols:
         matches = [flow for flow in model.flows if flow.symbol == symbol or flow.name == symbol]
@@ -225,7 +237,7 @@ def impact_model(
             unresolved_targets.append({"type": "symbol", "value": symbol, "reason": "not_found"})
             continue
         for flow in matches:
-            add_flow(flow, "symbol", symbol)
+            add_flow(flow, "symbol", symbol, f"explicit symbol/name target `{symbol}`")
 
     findings_by_id = {finding.id: finding for finding in model.findings}
     for finding_id in target_finding_ids:
@@ -235,13 +247,13 @@ def impact_model(
                 {"type": "finding", "value": finding_id, "reason": "not_found"}
             )
             continue
-        flow = by_id.get(finding.flow_id)
-        if flow is None:
+        finding_flow = by_id.get(finding.flow_id)
+        if finding_flow is None:
             unresolved_targets.append(
                 {"type": "finding", "value": finding_id, "reason": "flow_not_found"}
             )
             continue
-        add_flow(flow, "finding", finding_id)
+        add_flow(finding_flow, "finding", finding_id, f"explicit finding target `{finding_id}`")
 
     direct = list(direct_by_id.values())
     impacted_ids = set(direct_by_id)
@@ -259,15 +271,22 @@ def impact_model(
             caller = by_id.get(caller_id)
             if caller:
                 transitive.append(caller)
+                add_reason(caller, f"calls impacted flow `{current.name}`")
 
     transitive = [flow for flow in transitive if flow_in_scope(flow, scope)]
     impacted_ids = {flow.id for flow in direct} | {flow.id for flow in transitive}
     findings = [item for item in model.findings if item.flow_id in impacted_ids]
+    scoped_impact_reasons = {
+        flow_id: reasons
+        for flow_id, reasons in sorted(impact_reasons.items())
+        if flow_id in impacted_ids
+    }
     return ImpactResult(
         changed_files=sorted(normalized),
         directly_impacted=sorted(direct, key=lambda item: item.name),
         transitively_impacted=sorted(transitive, key=lambda item: item.name),
         findings=findings,
+        impact_reasons=scoped_impact_reasons,
         target_flow_ids=target_flow_ids,
         target_symbols=target_symbols,
         target_finding_ids=target_finding_ids,
@@ -312,12 +331,14 @@ def render_impact(result: ImpactResult) -> str:
         lines.append("\nDirect impact:")
         lines.extend(
             f"- {flow.name} ({flow.location.path}:{flow.location.start_line})"
+            f" - {_compact_list(result.impact_reasons.get(flow.id, []), limit=3)}"
             for flow in result.directly_impacted
         )
     if result.transitively_impacted:
         lines.append("\nCaller impact:")
         lines.extend(
             f"- {flow.name} ({flow.location.path}:{flow.location.start_line})"
+            f" - {_compact_list(result.impact_reasons.get(flow.id, []), limit=3)}"
             for flow in result.transitively_impacted
         )
     if result.findings:

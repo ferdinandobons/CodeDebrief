@@ -296,7 +296,9 @@ With no file arguments and no explicit targets, `impact` uses `git diff` to infe
 files. Explicit targets are deterministic and local: `--flow` matches a flow id,
 `--symbol` matches an exact flow symbol or flow name, and `--finding` starts from a
 finding id. JSON output includes `subgraph_flow_ids`, `subgraph_finding_ids`, and any
-`unresolved_targets` so agents can chain into flow navigation or snapshots.
+`unresolved_targets` so agents can chain into flow navigation or snapshots. It also emits
+`impact_reasons`, a per-flow explanation of whether each flow was selected by a changed
+source file, an explicit target, or caller propagation.
 
 ### `validate`
 
@@ -470,7 +472,9 @@ explanation, finding-context subgraphs, state-handling lookup, decision-node sea
 impact analysis, token-bounded deterministic SVG snapshots for flows/findings/impact
 sets, review queue, context pack, artifact validation, and artifact update. Finding
 snapshots include a compact diagnostic panel with evidence tier, confidence, review
-prompt, and evidence-chain summaries.
+prompt, and evidence-chain summaries. MCP impact analysis includes per-flow `reasons`
+alongside a top-level `impact_reasons` map so agents can explain direct and transitive
+impact without reconstructing the traversal.
 If the generated model is missing or malformed, model-reading MCP tools return structured
 recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
 actions instead of surfacing a raw traceback.

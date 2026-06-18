@@ -425,6 +425,10 @@ def test_impact_model_accepts_flow_symbol_and_finding_targets() -> None:
     assert result.target_symbols == ["caller", "missing-symbol"]
     assert result.target_finding_ids == ["target-find", "missing-finding"]
     assert {flow.id for flow in result.directly_impacted} == {"target", "caller"}
+    assert result.impact_reasons == {
+        "caller": ["explicit symbol/name target `caller`"],
+        "target": ["explicit flow target `target`", "explicit finding target `target-find`"],
+    }
     assert result.subgraph_flow_ids == ["caller", "target"]
     assert result.subgraph_finding_ids == ["target-find"]
     assert {item["value"]: item["reason"] for item in result.unresolved_targets} == {
@@ -529,6 +533,9 @@ def test_cli_impact_json_accepts_flow_target_without_changed_files(
     assert payload["changed_files"] == []
     assert payload["target_flow_ids"] == [flow.id]
     assert payload["directly_impacted"] == [flow.id]
+    assert payload["impact_reasons"] == {
+        flow.id: [f"explicit flow target `{flow.id}`"],
+    }
     assert payload["subgraph_flow_ids"] == [flow.id]
 
 

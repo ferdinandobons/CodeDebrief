@@ -367,14 +367,22 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             symbols=symbols,
             finding_ids=finding_ids,
         )
-        direct = [_flow_summary(item) for item in result.directly_impacted]
-        transitive = [_flow_summary(item) for item in result.transitively_impacted]
+
+        def impact_flow_summary(flow: Any) -> dict[str, Any]:
+            return {
+                **_flow_summary(flow),
+                "reasons": result.impact_reasons.get(flow.id, []),
+            }
+
+        direct = [impact_flow_summary(item) for item in result.directly_impacted]
+        transitive = [impact_flow_summary(item) for item in result.transitively_impacted]
         return {
             "changed_files": result.changed_files,
             "target_flow_ids": result.target_flow_ids,
             "target_symbols": result.target_symbols,
             "target_finding_ids": result.target_finding_ids,
             "unresolved_targets": result.unresolved_targets,
+            "impact_reasons": result.impact_reasons,
             "direct": _cap(direct, token_budget),
             "transitive": _cap(transitive, token_budget),
             "findings": _cap(

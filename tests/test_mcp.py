@@ -162,6 +162,12 @@ def authorize(user):
                 targeted_payload = targeted_impact.structuredContent  # type: ignore[assignment]
                 assert targeted_payload["changed_files"] == []  # type: ignore[index]
                 assert targeted_payload["target_flow_ids"] == [flow.id]  # type: ignore[index]
+                assert targeted_payload["impact_reasons"] == {  # type: ignore[index]
+                    flow.id: [f"explicit flow target `{flow.id}`"]
+                }
+                assert targeted_payload["direct"][0]["reasons"] == [  # type: ignore[index]
+                    f"explicit flow target `{flow.id}`"
+                ]
                 assert flow.id in targeted_payload["subgraph_flow_ids"]  # type: ignore[index]
                 targeted_snapshot = await session.call_tool(
                     "get_impact_snapshot",

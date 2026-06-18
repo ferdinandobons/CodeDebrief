@@ -528,6 +528,7 @@ def _impact(
                     "target_symbols": result.target_symbols,
                     "target_finding_ids": result.target_finding_ids,
                     "unresolved_targets": result.unresolved_targets,
+                    "impact_reasons": result.impact_reasons,
                     "directly_impacted": [item.id for item in result.directly_impacted],
                     "transitively_impacted": [item.id for item in result.transitively_impacted],
                     "findings": [item.id for item in result.findings],
