@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from logicchart.model import (
@@ -13,7 +14,7 @@ from logicchart.model import (
     NodeKind,
     SourceLocation,
 )
-from logicchart.util import compact_text
+from logicchart.util import compact_text, relpath
 
 FUNCTIONAL_TERMS = {
     "active",
@@ -362,6 +363,51 @@ def attach_qualified_calls(flow: Flow, import_map: dict[str, str], current_modul
         node.metadata["qualified_calls"] = [
             resolve_qualified(raw, import_map, current_module) for raw in raw_calls
         ]
+
+
+def dependency_paths_from_import_map(
+    import_map: dict[str, str],
+    root: Path,
+    *,
+    module_suffixes: tuple[str, ...],
+    package_files: tuple[str, ...] = (),
+) -> list[str]:
+    """Resolve import-map modules to first-party source paths under ``root``.
+
+    Import maps may contain external packages. A dependency is emitted only when a
+    candidate file exists inside the analyzed folder, keeping impact edges local-first and
+    deterministic.
+    """
+    dependencies: list[str] = []
+    seen: set[str] = set()
+    for module in _import_map_modules(import_map):
+        module_path = module.replace(".", "/")
+        candidates = [
+            *(f"{module_path}{suffix}" for suffix in module_suffixes),
+            *(f"{module_path}/{filename}" for filename in package_files),
+        ]
+        for candidate in candidates:
+            path = root / candidate
+            if not path.is_file():
+                continue
+            relative = relpath(path, root)
+            if relative not in seen:
+                dependencies.append(relative)
+                seen.add(relative)
+            break
+    return dependencies
+
+
+def _import_map_modules(import_map: dict[str, str]) -> list[str]:
+    modules: list[str] = []
+    seen: set[str] = set()
+    for value in import_map.values():
+        module = str(value).split(":", 1)[0]
+        if not module or module in seen:
+            continue
+        modules.append(module)
+        seen.add(module)
+    return modules
 
 
 def annotate_reachability(flow: Flow) -> None:

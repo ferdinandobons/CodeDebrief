@@ -308,7 +308,10 @@ and `--dependency-path` starts from every modeled flow in or under a source path
 output includes `subgraph_flow_ids`, `subgraph_finding_ids`, and any `unresolved_targets`
 so agents can chain into flow navigation or snapshots. It also emits
 `impact_reasons`, a per-flow explanation of whether each flow was selected by a changed
-source file, an explicit target, or caller propagation.
+source file, an imported changed file, an explicit target, or caller propagation. For
+Python and TypeScript/JavaScript, generated file records include first-party
+`dependencies`; when a changed file has no modeled flow of its own, `impact` can still
+surface the entrypoints that import it.
 
 ### `validate`
 

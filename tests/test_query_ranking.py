@@ -604,6 +604,31 @@ def test_cli_impact_json_accepts_dependency_path_target(tmp_path: Path, capsys: 
     assert payload["subgraph_flow_ids"] == [flow.id]
 
 
+def test_cli_impact_json_includes_import_dependent_flows(tmp_path: Path, capsys: object) -> None:
+    (tmp_path / "settings.py").write_text("ENABLED = True\n", encoding="utf-8")
+    (tmp_path / "route.py").write_text(
+        "from settings import ENABLED\n\n"
+        "def handler(req):\n"
+        "    if ENABLED:\n"
+        "        return 'enabled'\n"
+        "    return 'disabled'\n",
+        encoding="utf-8",
+    )
+    assert main(["analyze", str(tmp_path), "--full"]) == 0
+    capsys.readouterr()  # type: ignore[attr-defined]
+    handler = next(flow for flow in load_model(tmp_path).flows if flow.name == "handler")
+
+    assert main(["impact", "settings.py", "--path", str(tmp_path), "--json"]) == 0
+    out = capsys.readouterr()  # type: ignore[attr-defined]
+    payload = json.loads(out.out)
+
+    assert payload["changed_files"] == ["settings.py"]
+    assert payload["directly_impacted"] == [handler.id]
+    assert payload["impact_reasons"] == {
+        handler.id: ["depends on changed file `settings.py`"],
+    }
+
+
 def test_cli_query_json_accepts_structured_filters(tmp_path: Path, capsys: object) -> None:
     root = _demo_source(tmp_path)
     assert main(["analyze", str(root), "--full"]) == 0

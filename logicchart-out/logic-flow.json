@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-18T20:43:16.985707+00:00",
+  "generated_at": "2026-06-18T20:54:23.385927+00:00",
   "root": ".",
   "flows": [
     {
@@ -22819,7 +22819,8 @@
         "flow-30a90e08f492f570",
         "flow-db1ea9fb5eca41b0",
         "flow-b402d1781be25f62"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/demo/backend/billing/BillingService.java",
@@ -22829,7 +22830,8 @@
         "flow-b93c13042e022906",
         "flow-f20ccc2fbafb5db2",
         "flow-e04a1135f411a219"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/demo/backend/cache/cache.c",
@@ -22837,7 +22839,8 @@
       "sha256": "ba3b1a836649d2dea5980d35aa63ae123e5f097a31f8b9242f7bd0bf9a1c1fe4",
       "flow_ids": [
         "flow-e82e8b5bab62025d"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/demo/backend/catalog/Catalog.php",
@@ -22847,7 +22850,8 @@
         "flow-8525290305d958ad",
         "flow-544b153768a89b2c",
         "flow-05f47393e12ffed6"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/demo/backend/native/admission.cpp",
@@ -22857,7 +22861,8 @@
         "flow-76b19f502b7630fd",
         "flow-9552dc25a351bdd5",
         "flow-d80fbb571da2c2b2"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/demo/backend/native/policy.cpp",
@@ -22865,7 +22870,8 @@
       "sha256": "3f6075ec020d022db621d59fab91ea512c780d7fc389691031d6b64829236225",
       "flow_ids": [
         "flow-a0f8661012b6ffb8"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/demo/backend/notifications/notifier.rb",
@@ -22880,7 +22886,8 @@
         "flow-34aaa6b9bc39e3cd",
         "flow-856cb6768c88d69a",
         "flow-48c8d4b20e3f4457"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/demo/backend/orders/service.go",
@@ -22893,7 +22900,8 @@
         "flow-99a2ebfc956e8b2c",
         "flow-656ecac16fb68465",
         "flow-3d400c9162e93c46"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/demo/backend/router/src/lib.rs",
@@ -22903,7 +22911,8 @@
         "flow-9259780255b6b463",
         "flow-c371c524183f5665",
         "flow-a2561c50cfc4a119"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/demo/backend/users.py",
@@ -22917,7 +22926,8 @@
         "flow-764cb8abc18ad0eb",
         "flow-7c701820993d7fff",
         "flow-ace5dd36ca3d7521"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/demo/frontend/app/api/orders/route.ts",
@@ -22935,6 +22945,11 @@
         "flow-b0e24f566e5e2350",
         "flow-99b872ff61adb8e0",
         "flow-837a697e4814e15c"
+      ],
+      "dependencies": [
+        "examples/demo/frontend/lib/db.ts",
+        "examples/demo/frontend/lib/orderState.ts",
+        "examples/demo/frontend/lib/userStatus.ts"
       ]
     },
     {
@@ -22949,6 +22964,10 @@
         "flow-0018c3465f63c7a0",
         "flow-d7be38055f408fcf",
         "flow-af7d9917429499f4"
+      ],
+      "dependencies": [
+        "examples/demo/frontend/lib/db.ts",
+        "examples/demo/frontend/lib/userStatus.ts"
       ]
     },
     {
@@ -22959,19 +22978,25 @@
         "flow-75546b2685371cc9",
         "flow-a9d844052f74bb91",
         "flow-24c443fc924a2fa8"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/demo/frontend/lib/db.ts",
       "language": "typescript",
       "sha256": "3c1145ff7667995afa971e1eba79f13569dc38b2b35ec5d4b0af213386ac510e",
-      "flow_ids": []
+      "flow_ids": [],
+      "dependencies": [
+        "examples/demo/frontend/lib/orderState.ts",
+        "examples/demo/frontend/lib/userStatus.ts"
+      ]
     },
     {
       "path": "examples/demo/frontend/lib/orderState.ts",
       "language": "typescript",
       "sha256": "23c828ce6def99907026a0118e1fdbcc916d3c7839bf2a278e157fc2408ca97c",
-      "flow_ids": []
+      "flow_ids": [],
+      "dependencies": []
     },
     {
       "path": "examples/demo/frontend/lib/status.js",
@@ -22980,13 +23005,15 @@
       "flow_ids": [
         "flow-b9ac3318caa675de",
         "flow-d18ad051649c1dc1"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/demo/frontend/lib/userStatus.ts",
       "language": "typescript",
       "sha256": "7990f2bef2c5e84e90bdb339773159e1531f96b773cc5099c7bc10e95cb0cd65",
-      "flow_ids": []
+      "flow_ids": [],
+      "dependencies": []
     },
     {
       "path": "examples/shop/backend/api/admin_routes.py",
@@ -22995,7 +23022,8 @@
       "flow_ids": [
         "flow-22d844fbd2f31cd3",
         "flow-83e56dcea5b74bf9"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/shop/backend/api/orders_routes.py",
@@ -23006,7 +23034,8 @@
         "flow-08a786dcbded8185",
         "flow-f482b3026e3ea072",
         "flow-4143ee18aecc0353"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/shop/backend/api/users_routes.py",
@@ -23016,7 +23045,8 @@
         "flow-836bfa1aef528de0",
         "flow-bf4bdbe9cee93085",
         "flow-694730b8745d57de"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/shop/backend/auth.py",
@@ -23025,7 +23055,8 @@
       "flow_ids": [
         "flow-93e6edefb10af9c5",
         "flow-92971030a65d1410"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/shop/backend/domain.py",
@@ -23033,7 +23064,8 @@
       "sha256": "662525077ac567a3a141f18c6105fd146c1e0f49c147d15489155188190696f8",
       "flow_ids": [
         "flow-6b1a3c91e47c3ef8"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/shop/backend/orders_service.py",
@@ -23042,7 +23074,8 @@
       "flow_ids": [
         "flow-4e833d53a700855c",
         "flow-cfef4e8dba6238fd"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/shop/backend/payments_service.py",
@@ -23053,7 +23086,8 @@
         "flow-3fb7f77aa3ec9fd5",
         "flow-7dfa5d0eac72e588",
         "flow-3b15514408bbb3ee"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/shop/backend/users_service.py",
@@ -23062,7 +23096,8 @@
       "flow_ids": [
         "flow-c00fda52066729a3",
         "flow-68e9ed308389b179"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/shop/frontend/app/account/page.tsx",
@@ -23070,6 +23105,9 @@
       "sha256": "4bf5c7c638f7e52ce27c451570ea5cbe8b9dfad00da94cc36817770d2f192bc7",
       "flow_ids": [
         "flow-aff7a7b992bc22b9"
+      ],
+      "dependencies": [
+        "examples/shop/frontend/lib/status.ts"
       ]
     },
     {
@@ -23078,7 +23116,8 @@
       "sha256": "e8841695a674a01de2168b08c39433e3f15318c4e921cbc0eeda2ad8b29f9dd5",
       "flow_ids": [
         "flow-f9ae842409a8d60d"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/shop/frontend/app/api/orders/route.ts",
@@ -23086,6 +23125,9 @@
       "sha256": "bcc6b8dbc63dbe4c8b7b18b5e735dea8436f178c221770a250283d54749c7ac1",
       "flow_ids": [
         "flow-484f0b6804aa2ba6"
+      ],
+      "dependencies": [
+        "examples/shop/frontend/lib/status.ts"
       ]
     },
     {
@@ -23094,6 +23136,9 @@
       "sha256": "68c24169205edd92bac81677cc753fceac4a29e4f797a9d7eccbff80d7cf1873",
       "flow_ids": [
         "flow-082b27af25998831"
+      ],
+      "dependencies": [
+        "examples/shop/frontend/lib/status.ts"
       ]
     },
     {
@@ -23102,13 +23147,15 @@
       "sha256": "ad35bc466982ee90669e3861f239bf482f017448ca9be15da10be7e50a62711c",
       "flow_ids": [
         "flow-a14422f6dd2875d3"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/shop/frontend/lib/status.ts",
       "language": "typescript",
       "sha256": "e915f97f780b127e5864adc4b5cce8f9c1ac39d5e1e0d97cc740e1d6cc011550",
-      "flow_ids": []
+      "flow_ids": [],
+      "dependencies": []
     },
     {
       "path": "examples/shop/frontend/middleware.ts",
@@ -23116,7 +23163,8 @@
       "sha256": "896797092b08b33fd412280c35aa7e6b189ceff64368e6d24ded0d14a3c42d24",
       "flow_ids": [
         "flow-288c098a2caf8a7a"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "examples/shop/tests/test_users_service.py",
@@ -23124,7 +23172,8 @@
       "sha256": "5352b6ca051faef2423ba684d39c94ba052cca37215b9d6e677ba188cdf34c34",
       "flow_ids": [
         "flow-e072609d6dac1e2b"
-      ]
+      ],
+      "dependencies": []
     }
   ],
   "metadata": {

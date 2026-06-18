@@ -42,7 +42,7 @@ from logicchart.util import (
     write_json,
 )
 
-CACHE_VERSION = "3"
+CACHE_VERSION = "4"
 
 # One bad file (mid-edit syntax error, non-UTF-8 bytes, a merge-conflict marker,
 # or a missing lazy language grammar in the current Python environment) must never
@@ -251,6 +251,7 @@ class ProjectAnalyzer:
                 language=analysis.language,
                 sha256=analysis.sha256,
                 flow_ids=[flow.id for flow in analysis.flows],
+                dependencies=analysis.dependencies,
             )
             for analysis in analyses
         ]

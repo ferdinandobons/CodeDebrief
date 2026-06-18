@@ -117,6 +117,7 @@ class FileRecord:
     language: str
     sha256: str
     flow_ids: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -128,6 +129,7 @@ class FileAnalysis:
     findings: list[Finding] = field(default_factory=list)
     enums: dict[str, list[str]] = field(default_factory=dict)
     constants: dict[str, bool] = field(default_factory=dict)
+    dependencies: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -142,6 +144,7 @@ class FileAnalysis:
             findings=[_finding_from_dict(item) for item in data.get("findings", [])],
             enums=data.get("enums", {}),
             constants=data.get("constants", {}),
+            dependencies=data.get("dependencies", []),
         )
 
 

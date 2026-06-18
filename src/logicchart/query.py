@@ -219,6 +219,22 @@ def impact_model(
         direct_by_id[flow.id] = flow
         add_reason(flow, f"source file changed `{_normalize_path(flow.location.path)}`")
 
+    for file_record in model.files:
+        dependency_matches = sorted(
+            dependency
+            for dependency in {_normalize_path(item) for item in file_record.dependencies}
+            if dependency in normalized
+        )
+        if not dependency_matches:
+            continue
+        for flow_id in file_record.flow_ids:
+            dependent_flow = by_id.get(flow_id)
+            if dependent_flow is None or dependent_flow.id not in scoped_ids:
+                continue
+            direct_by_id[dependent_flow.id] = dependent_flow
+            for dependency in dependency_matches:
+                add_reason(dependent_flow, f"depends on changed file `{dependency}`")
+
     def add_flow(flow: Flow, target_type: str, value: str, reason: str) -> None:
         if flow.id not in scoped_ids:
             unresolved_targets.append(

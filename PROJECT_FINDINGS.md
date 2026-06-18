@@ -446,8 +446,8 @@ This should appear in docs and in `logicchart doctor` or `logicchart validate --
 ### Current status
 
 `query` ranks by lexical overlap across identity, nodes, structure, metadata, and findings.
-`impact` follows file-level direct impact, explicit flow/symbol/finding targets, and caller
-relationships.
+`impact` follows file-level direct impact, first-party import dependencies,
+explicit flow/symbol/finding targets, and caller relationships.
 
 ### Improvement
 
@@ -473,14 +473,19 @@ Current checkpoint:
 - CLI/MCP impact snapshots include the same target, unresolved-target, impact-reason, and
   subgraph fields as the non-visual impact responses.
 - JSON/MCP impact responses include per-flow impact reasons, distinguishing changed-file
-  matches, explicit flow/symbol/finding/dependency-path targets, and caller propagation.
+  matches, imported changed-file dependencies, explicit flow/symbol/finding/dependency-path
+  targets, and caller propagation.
 - MCP `context_pack` accepts the same explicit impact targets and preserves per-flow
   impact reasons plus subgraph ids, so agents can request a bounded context pack for an
   exact flow, symbol, finding, or source subtree without inventing a changed file.
+- Generated `files[]` records now include first-party `dependencies` for Python and
+  TypeScript/JavaScript imports; `impact` uses those edges to include flows from files that
+  import a changed file even when the changed file has no modeled flow of its own.
 
 Still open:
 
-- Add dependency-edge-aware impact once cross-file dependency edges carry enough precision.
+- Extend dependency-edge-aware impact beyond Python/TypeScript/JavaScript imports when
+  profile-driven languages expose equally precise first-party import metadata.
 
 Optional LLM query reformulation could help map natural language to deterministic query
 fields, but final retrieval should still be model-backed.

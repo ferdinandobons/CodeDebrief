@@ -6,6 +6,7 @@ from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.model import Flow, FlowNode, NodeKind
+from logicchart.query import impact_model
 
 
 def _call_node(flow: Flow) -> FlowNode:
@@ -64,6 +65,73 @@ def test_typescript_named_import_resolves_across_files(tmp_path: Path) -> None:
 
     assert call.metadata["link_confidence"] == "high"
     assert call.metadata["target_flow"] == target.id
+
+
+def test_python_import_dependencies_drive_changed_file_impact(tmp_path: Path) -> None:
+    (tmp_path / "flags.py").write_text("FEATURE_ENABLED = True\n", encoding="utf-8")
+    (tmp_path / "route.py").write_text(
+        "from flags import FEATURE_ENABLED\n\n"
+        "def handler(req):\n"
+        "    if FEATURE_ENABLED:\n"
+        "        return 'enabled'\n"
+        "    return 'disabled'\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    route_record = next(record for record in model.files if record.path == "route.py")
+    handler = next(flow for flow in model.flows if flow.name == "handler")
+
+    assert route_record.dependencies == ["flags.py"]
+    result = impact_model(model, ["flags.py"])
+
+    assert [flow.id for flow in result.directly_impacted] == [handler.id]
+    assert result.impact_reasons == {
+        handler.id: ["depends on changed file `flags.py`"],
+    }
+
+
+def test_typescript_import_dependencies_drive_changed_file_impact(tmp_path: Path) -> None:
+    (tmp_path / "flags.ts").write_text("export const FEATURE = true;\n", encoding="utf-8")
+    (tmp_path / "route.ts").write_text(
+        'import { FEATURE } from "./flags";\n\n'
+        "export function render() {\n"
+        "  if (FEATURE) {\n"
+        "    return 'enabled';\n"
+        "  }\n"
+        "  return 'disabled';\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    route_record = next(record for record in model.files if record.path == "route.ts")
+    render = next(flow for flow in model.flows if flow.name == "render")
+
+    assert route_record.dependencies == ["flags.ts"]
+    result = impact_model(model, ["flags.ts"])
+
+    assert [flow.id for flow in result.directly_impacted] == [render.id]
+    assert result.impact_reasons == {
+        render.id: ["depends on changed file `flags.ts`"],
+    }
+
+
+def test_typescript_side_effect_import_records_dependency(tmp_path: Path) -> None:
+    (tmp_path / "setup.ts").write_text("export const installed = true;\n", encoding="utf-8")
+    (tmp_path / "route.ts").write_text(
+        "import \"./setup\";\n\nexport function render() {\n  return 'ready';\n}\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    route_record = next(record for record in model.files if record.path == "route.ts")
+    render = next(flow for flow in model.flows if flow.name == "render")
+
+    assert route_record.dependencies == ["setup.ts"]
+    result = impact_model(model, ["setup.ts"])
+
+    assert [flow.id for flow in result.directly_impacted] == [render.id]
 
 
 def test_module_function_not_confused_with_class_method(tmp_path: Path) -> None:

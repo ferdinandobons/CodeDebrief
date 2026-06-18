@@ -30,6 +30,7 @@ from logicchart.analysis.common import (
     call_is_boundary,
     decision_identity,
     decision_metadata,
+    dependency_paths_from_import_map,
     domain_from_subject,
     is_functional_condition,
     require_tree_sitter_parse_ok,
@@ -103,6 +104,23 @@ class TypeScriptAnalyzer:
             for flow in flows:
                 flow.metadata["parse_error"] = parse_error
         import_map = _import_map(tree.root_node, source_bytes, relative)
+        dependencies = [
+            item
+            for item in dependency_paths_from_import_map(
+                import_map,
+                self.root,
+                module_suffixes=(".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"),
+                package_files=(
+                    "index.ts",
+                    "index.tsx",
+                    "index.js",
+                    "index.jsx",
+                    "index.mjs",
+                    "index.cjs",
+                ),
+            )
+            if item != relative
+        ]
         module_name = _module_name(relative)
         for flow in flows:
             attach_qualified_calls(flow, import_map, module_name)
@@ -111,6 +129,7 @@ class TypeScriptAnalyzer:
             language=ir_language,
             sha256=file_sha256(path),
             enums=_harvest_enums(tree.root_node, source_bytes),
+            dependencies=dependencies,
             flows=flows,
             findings=findings,
         )
@@ -851,6 +870,7 @@ def _import_map(root: Any, source: bytes, relative: str) -> dict[str, str]:
             continue
         clause = next((child for child in node.children if child.type == "import_clause"), None)
         if clause is None:
+            mapping[f"__side_effect_import__:{module}"] = f"{module}:"
             continue
         for child in clause.children:
             if child.type == "identifier":  # default import -> resolve via marker

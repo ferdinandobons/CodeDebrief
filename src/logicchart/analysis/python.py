@@ -24,6 +24,7 @@ from logicchart.analysis.common import (
     call_is_boundary,
     decision_identity,
     decision_metadata,
+    dependency_paths_from_import_map,
     domain_from_subject,
     is_functional_condition,
     tag_call_effects,
@@ -81,6 +82,16 @@ class PythonAnalyzer:
 
         is_package = Path(relative).name == "__init__.py"
         import_map = _import_map(tree, module_name, is_package, self.root)
+        dependencies = [
+            item
+            for item in dependency_paths_from_import_map(
+                import_map,
+                self.root,
+                module_suffixes=(".py",),
+                package_files=("__init__.py",),
+            )
+            if item != relative
+        ]
         for flow in flows:
             attach_qualified_calls(flow, import_map, module_name)
 
@@ -90,6 +101,7 @@ class PythonAnalyzer:
             sha256=file_sha256(path),
             enums=_harvest_enums(tree),
             constants=constants,
+            dependencies=dependencies,
             flows=flows,
             findings=findings,
         )

@@ -66,6 +66,9 @@ The project follows Semantic Versioning.
   MCP, with subgraph ids and unresolved-target reporting.
 - Added deterministic dependency-path impact targets across CLI, snapshots, MCP
   `analyze_impact`, `get_impact_snapshot`, and `context_pack`.
+- Added first-party file dependency records for Python and TypeScript/JavaScript imports,
+  so changed config/type/helper files can impact importing flows even when the changed file
+  has no modeled flow.
 - Added per-flow impact reasons to CLI JSON and MCP impact analysis, so agents can see why
   each direct or caller impact was selected.
 - Added deterministic query filters for source paths, symbols/names, decision domains, and
