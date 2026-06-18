@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-18T21:56:47.543427+00:00",
+  "generated_at": "2026-06-18T22:01:32.965202+00:00",
   "root": ".",
   "flows": [
     {
@@ -23304,6 +23304,9 @@
           "enum_harvest": "supported",
           "qualified_call_links": "supported",
           "import_dependencies": "supported"
+        },
+        "limitations": {
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches."
         }
       },
       "typescript": {
@@ -23327,6 +23330,9 @@
           "enum_harvest": "supported",
           "qualified_call_links": "partial",
           "import_dependencies": "supported"
+        },
+        "limitations": {
+          "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
         }
       },
       "javascript": {
@@ -23352,6 +23358,10 @@
           "enum_harvest": "not_supported",
           "qualified_call_links": "partial",
           "import_dependencies": "supported"
+        },
+        "limitations": {
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
         }
       },
       "go": {
@@ -23374,6 +23384,12 @@
           "enum_harvest": "not_supported",
           "qualified_call_links": "supported",
           "import_dependencies": "supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "try_catch": "Error-boundary control flow is not modeled for this language.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available."
         }
       },
       "java": {
@@ -23396,6 +23412,12 @@
           "enum_harvest": "not_supported",
           "qualified_call_links": "partial",
           "import_dependencies": "supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
         }
       },
       "csharp": {
@@ -23418,6 +23440,13 @@
           "enum_harvest": "not_supported",
           "qualified_call_links": "not_supported",
           "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
         }
       },
       "php": {
@@ -23440,6 +23469,13 @@
           "enum_harvest": "not_supported",
           "qualified_call_links": "not_supported",
           "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
         }
       },
       "c": {
@@ -23463,6 +23499,14 @@
           "enum_harvest": "not_supported",
           "qualified_call_links": "not_supported",
           "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "try_catch": "Error-boundary control flow is not modeled for this language.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
         }
       },
       "cpp": {
@@ -23492,6 +23536,13 @@
           "enum_harvest": "not_supported",
           "qualified_call_links": "not_supported",
           "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
         }
       },
       "rust": {
@@ -23514,6 +23565,15 @@
           "enum_harvest": "not_supported",
           "qualified_call_links": "not_supported",
           "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "returns_throws": "Return flow is modeled, but throw/raise semantics are incomplete.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "try_catch": "Error-boundary control flow is not modeled for this language.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
         }
       },
       "ruby": {
@@ -23536,6 +23596,14 @@
           "enum_harvest": "not_supported",
           "qualified_call_links": "not_supported",
           "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "try_catch": "Error-boundary control flow is not modeled for this language.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
         }
       }
     },
@@ -23955,6 +24023,14 @@
                 "enum_harvest": "not_supported",
                 "qualified_call_links": "not_supported",
                 "import_dependencies": "not_supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "try_catch": "Error-boundary control flow is not modeled for this language.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+                "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
               }
             }
           },
@@ -24002,6 +24078,13 @@
                 "enum_harvest": "not_supported",
                 "qualified_call_links": "not_supported",
                 "import_dependencies": "not_supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+                "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
               }
             }
           },
@@ -24042,6 +24125,13 @@
                 "enum_harvest": "not_supported",
                 "qualified_call_links": "not_supported",
                 "import_dependencies": "not_supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+                "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
               }
             }
           },
@@ -24082,6 +24172,12 @@
                 "enum_harvest": "not_supported",
                 "qualified_call_links": "supported",
                 "import_dependencies": "supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "try_catch": "Error-boundary control flow is not modeled for this language.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available."
               }
             }
           },
@@ -24122,6 +24218,12 @@
                 "enum_harvest": "not_supported",
                 "qualified_call_links": "partial",
                 "import_dependencies": "supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
               }
             }
           },
@@ -24165,6 +24267,10 @@
                 "enum_harvest": "not_supported",
                 "qualified_call_links": "partial",
                 "import_dependencies": "supported"
+              },
+              "limitations": {
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
               }
             }
           },
@@ -24205,6 +24311,13 @@
                 "enum_harvest": "not_supported",
                 "qualified_call_links": "not_supported",
                 "import_dependencies": "not_supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+                "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
               }
             }
           },
@@ -24245,6 +24358,9 @@
                 "enum_harvest": "supported",
                 "qualified_call_links": "supported",
                 "import_dependencies": "supported"
+              },
+              "limitations": {
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches."
               }
             }
           },
@@ -24285,6 +24401,14 @@
                 "enum_harvest": "not_supported",
                 "qualified_call_links": "not_supported",
                 "import_dependencies": "not_supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "try_catch": "Error-boundary control flow is not modeled for this language.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+                "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
               }
             }
           },
@@ -24325,6 +24449,15 @@
                 "enum_harvest": "not_supported",
                 "qualified_call_links": "not_supported",
                 "import_dependencies": "not_supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "returns_throws": "Return flow is modeled, but throw/raise semantics are incomplete.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "try_catch": "Error-boundary control flow is not modeled for this language.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+                "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
               }
             }
           },
@@ -24366,6 +24499,9 @@
                 "enum_harvest": "supported",
                 "qualified_call_links": "partial",
                 "import_dependencies": "supported"
+              },
+              "limitations": {
+                "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
               }
             }
           }

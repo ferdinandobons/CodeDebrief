@@ -104,6 +104,8 @@ The project follows Semantic Versioning.
   keep extracted flows and add parse-warning quality signals.
 - Added language capability smoke tests for every supported language id, checking declared
   function, decision, switch/match, call, and return support against real analyzer output.
+- Added concise limitation notes to `metadata.language_capabilities` for partial or
+  unsupported analyzer features.
 - Added header-clickable collapsible Details rail sections for Project Quality, Source,
   and Logical Errors.
 

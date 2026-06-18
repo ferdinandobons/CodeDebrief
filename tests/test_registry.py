@@ -316,6 +316,18 @@ def test_language_capability_matrix_tracks_registry() -> None:
     assert matrix["c"]["features"]["try_catch"] == "not_supported"
     assert matrix["c"]["features"]["import_dependencies"] == "not_supported"
     assert matrix["rust"]["features"]["returns_throws"] == "partial"
+    assert matrix["java"]["limitations"]["qualified_call_links"].startswith("Common")
+    assert "import_dependencies" not in matrix["java"]["limitations"]
+    assert matrix["c"]["limitations"]["try_catch"].startswith("Error-boundary")
+    assert matrix["rust"]["limitations"]["returns_throws"].startswith("Return flow")
+
+    for capability in matrix.values():
+        features = capability["features"]
+        limitations = capability["limitations"]
+        assert set(limitations) <= {
+            feature for feature, status in features.items() if status != "supported"
+        }
+        assert all(note.endswith(".") for note in limitations.values())
 
 
 @pytest.mark.parametrize("language", sorted(_CAPABILITY_SMOKE_FIXTURES))

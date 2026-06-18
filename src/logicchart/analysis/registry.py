@@ -185,6 +185,32 @@ _LANGUAGE_OVERRIDES: dict[str, dict[str, str]] = {
     },
 }
 
+_LIMITATION_NOTES: dict[str, dict[str, str]] = {
+    "entrypoint_heuristics": {
+        "partial": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+        "not_supported": "No entrypoint heuristics are available for this language.",
+    },
+    "expression_bodied_functions": {
+        "not_supported": "Expression-bodied definitions are not modeled as return branches.",
+    },
+    "try_catch": {
+        "not_supported": "Error-boundary control flow is not modeled for this language.",
+    },
+    "enum_harvest": {
+        "not_supported": "Declared enum or closed-set extraction is not available.",
+    },
+    "qualified_call_links": {
+        "partial": "Common qualified calls are linked, but dynamic dispatch may remain unresolved.",
+        "not_supported": "Receiver or module calls are recorded but not statically linked.",
+    },
+    "import_dependencies": {
+        "not_supported": "Dependency-aware impact does not follow imports for this language yet.",
+    },
+    "returns_throws": {
+        "partial": "Return flow is modeled, but throw/raise semantics are incomplete.",
+    },
+}
+
 _FRONTENDS: dict[str, str] = {
     "javascript": "typescript_tree_sitter",
     "typescript": "typescript_tree_sitter",
@@ -243,8 +269,19 @@ def language_capability_matrix() -> dict[str, dict[str, object]]:
             "frontend": _FRONTENDS[language],
             "suffixes": list(_suffixes_for_language(language)),
             "features": {key: features[key] for key in _FEATURES},
+            "limitations": _capability_limitations(features),
         }
     return matrix
+
+
+def _capability_limitations(features: dict[str, str]) -> dict[str, str]:
+    limitations: dict[str, str] = {}
+    for feature in _FEATURES:
+        status = features[feature]
+        note = _LIMITATION_NOTES.get(feature, {}).get(status)
+        if note is not None:
+            limitations[feature] = note
+    return limitations
 
 
 def spec_for_path(path: Path) -> LanguageSpec | None:

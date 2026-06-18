@@ -473,6 +473,9 @@ Current checkpoint:
 
 - Generated models include `metadata.language_capabilities` for every supported language
   id, including analyzer frontend, suffixes, and coarse feature statuses.
+- Capability entries include concise `limitations` notes for partial or unsupported
+  features, so agents and UI quality payloads can explain analyzer depth without
+  overstating support.
 - The quality payload includes per-language depth metrics for files, flows, decisions,
   calls, findings, source coverage, skipped files, and capability metadata.
 - Registry tests now smoke-check every supported language id against real analyzer output
@@ -481,8 +484,6 @@ Current checkpoint:
 
 Still open:
 
-- Extend the generated matrix with explicit limitation notes per feature once those notes
-  can be kept concise and stable.
 - Consider surfacing the capability smoke coverage in `doctor` only if it can remain fast
   and local without running the full test suite.
 
