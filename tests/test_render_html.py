@@ -257,6 +257,10 @@ def test_render_html_emits_source_and_errors_panels(tmp_path: Path) -> None:
     assert "prioritizedFindings" in html
     assert "appendFindingDiagnostic" in html
     assert "diagnostic-grid" in html
+    assert "diagnostic-related" in html
+    assert "Related flows" in html
+    assert "Evidence nodes" in html
+    assert "contextForFinding" in html
     assert "finding_rules" in html
     # The full-screen toggle on the canvas toolbar (aria-pressed, data-action hook).
     assert 'data-action="fullscreen"' in html

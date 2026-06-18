@@ -1565,6 +1565,60 @@
       font-size: 11px;
       line-height: 1.45;
     }
+    .diagnostic-related {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .diagnostic-related-title {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .diagnostic-context-list {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .diagnostic-context-button {
+      display: grid;
+      gap: 2px;
+      width: 100%;
+      min-width: 0;
+      padding: 6px 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+    }
+    .diagnostic-context-button:hover {
+      border-color: var(--line-strong);
+      background: var(--panel-strong);
+    }
+    .diagnostic-context-button:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+    .diagnostic-context-label {
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .diagnostic-context-meta {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
 
     /* Compact counts-by-tier summary shown instead of an unbounded list for a broad
        (empty / L0 / scope) selection -- the errors panel never renders thousands of rows. */

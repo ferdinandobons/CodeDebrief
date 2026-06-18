@@ -343,6 +343,193 @@
         return line;
       }
 
+      function asTextList(value) {
+        if (value == null) return [];
+        if (Array.isArray(value)) return value.map(String).filter(Boolean);
+        return [String(value)].filter(Boolean);
+      }
+
+      function findingMetadata(finding) {
+        const metadata = finding && finding.metadata;
+        return metadata && typeof metadata === "object" ? metadata : {};
+      }
+
+      function flowNodeById(flow, nodeId) {
+        if (!flow || !nodeId) return null;
+        return (flow.nodes || []).find(node => node.id === nodeId) || null;
+      }
+
+      function decisionValues(node) {
+        const values = new Set(asTextList(node && node.metadata && node.metadata.values));
+        const branches = node && node.metadata && Array.isArray(node.metadata.branches)
+          ? node.metadata.branches
+          : [];
+        branches.forEach(branch => {
+          if (branch && typeof branch === "object" && branch.label != null) {
+            values.add(String(branch.label));
+          }
+        });
+        return values;
+      }
+
+      function addContextRole(map, id, role) {
+        if (!id || !role) return;
+        const roles = map.get(id) || new Set();
+        roles.add(role);
+        map.set(id, roles);
+      }
+
+      function contextRoleLabel(role) {
+        return String(role || "").replace(/_/g, " ");
+      }
+
+      function contextForFinding(finding, diagnostic) {
+        const metadata = findingMetadata(finding);
+        const scope = diagnostic && diagnostic.scope && typeof diagnostic.scope === "object"
+          ? diagnostic.scope
+          : {};
+        const flowRoles = new Map();
+        const nodeRoles = new Map();
+        const focusFlow = byId.get(finding.flow_id);
+        const focusNode = flowNodeById(focusFlow, finding.node_id);
+        const focusNodeMetadata = focusNode && focusNode.metadata ? focusNode.metadata : {};
+        const subject = metadata.subject || focusNodeMetadata.subject || "";
+        const namespace = metadata.value_namespace || focusNodeMetadata.value_namespace || "";
+        const condition = metadata.condition || focusNodeMetadata.condition || "";
+        const missingValues = new Set(asTextList(metadata.missing));
+
+        asTextList(scope.related_flow_ids).forEach(flowId => addContextRole(flowRoles, flowId, "diagnostic scope"));
+        asTextList(scope.related_node_ids).forEach(nodeId => {
+          if (focusFlow) addContextRole(nodeRoles, focusFlow.id + "\u0000" + nodeId, "diagnostic evidence");
+        });
+        if (focusFlow) {
+          addContextRole(flowRoles, focusFlow.id, "finding flow");
+          (focusFlow.calls || []).forEach(flowId => addContextRole(flowRoles, flowId, "called by finding flow"));
+          (focusFlow.called_by || []).forEach(flowId => addContextRole(flowRoles, flowId, "caller of finding flow"));
+        }
+
+        flows.forEach(flow => {
+          (flow.nodes || []).forEach(node => {
+            if (node.kind !== "decision") return;
+            const nodeMetadata = node.metadata || {};
+            const values = decisionValues(node);
+            const reasons = [];
+            if (subject && nodeMetadata.subject === subject) {
+              if (namespace && nodeMetadata.value_namespace === namespace) reasons.push("same subject namespace");
+              else if (!namespace) reasons.push("same subject");
+            }
+            if (condition && nodeMetadata.condition === condition) reasons.push("same condition");
+            if (missingValues.size && [...missingValues].some(value => values.has(value))) {
+              reasons.push("handles missing value");
+            }
+            reasons.forEach(reason => {
+              addContextRole(flowRoles, flow.id, reason);
+              addContextRole(nodeRoles, flow.id + "\u0000" + node.id, reason);
+            });
+          });
+        });
+
+        const relatedFlows = [...flowRoles.entries()]
+          .map(([flowId, roles]) => ({ flow: byId.get(flowId), roles: [...roles].sort() }))
+          .filter(item => item.flow && item.flow.id !== finding.flow_id)
+          .sort((a, b) => String(a.flow.name || a.flow.id).localeCompare(String(b.flow.name || b.flow.id)))
+          .slice(0, 6);
+        const relatedNodes = [...nodeRoles.entries()]
+          .map(([key, roles]) => {
+            const [flowId, nodeId] = key.split("\u0000");
+            const flow = byId.get(flowId);
+            const node = flowNodeById(flow, nodeId);
+            return { flow, node, roles: [...roles].sort() };
+          })
+          .filter(item => item.flow && item.node)
+          .sort((a, b) =>
+            String(a.flow.name || a.flow.id).localeCompare(String(b.flow.name || b.flow.id)) ||
+            String(a.node.label || a.node.id).localeCompare(String(b.node.label || b.node.id))
+          )
+          .slice(0, 6);
+        return { relatedFlows, relatedNodes };
+      }
+
+      function selectRelatedFlow(flow) {
+        if (!flow) return;
+        if (LC.selectFlow) LC.selectFlow(flow.id);
+        afterFlowOpen(() => {
+          LC.select({
+            edgeId: null,
+            endLine: (flow.location && (flow.location.end_line || flow.location.start_line)) || null,
+            findingId: null,
+            flowId: flow.id,
+            line: (flow.location && flow.location.start_line) || null,
+            nodeId: null,
+            path: (flow.location && flow.location.path) || null,
+          });
+        });
+      }
+
+      function selectRelatedNode(flow, node) {
+        if (!flow || !node) return;
+        if (LC.selectFlow) LC.selectFlow(flow.id);
+        afterFlowOpen(() => {
+          LC.select({
+            edgeId: null,
+            endLine: (node.location && (node.location.end_line || node.location.start_line)) || null,
+            findingId: null,
+            flowId: flow.id,
+            line: (node.location && node.location.start_line) || null,
+            nodeId: node.id,
+            path: (node.location && node.location.path) || (flow.location && flow.location.path) || null,
+          });
+        });
+      }
+
+      function contextButton(label, meta, activate) {
+        const button = el("button", "diagnostic-context-button");
+        button.type = "button";
+        button.appendChild(el("span", "diagnostic-context-label", label));
+        if (meta) button.appendChild(el("span", "diagnostic-context-meta", meta));
+        button.addEventListener("click", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          activate();
+        });
+        return button;
+      }
+
+      function appendFindingContext(wrap, finding, diagnostic) {
+        const context = contextForFinding(finding, diagnostic);
+        if (!context.relatedFlows.length && !context.relatedNodes.length) return;
+        const block = el("div", "diagnostic-related");
+        if (context.relatedFlows.length) {
+          block.appendChild(el("div", "diagnostic-related-title", "Related flows"));
+          const list = el("div", "diagnostic-context-list");
+          context.relatedFlows.forEach(item => {
+            list.appendChild(
+              contextButton(
+                item.flow.name || item.flow.id,
+                item.roles.map(contextRoleLabel).join(", "),
+                () => selectRelatedFlow(item.flow)
+              )
+            );
+          });
+          block.appendChild(list);
+        }
+        if (context.relatedNodes.length) {
+          block.appendChild(el("div", "diagnostic-related-title", "Evidence nodes"));
+          const list = el("div", "diagnostic-context-list");
+          context.relatedNodes.forEach(item => {
+            list.appendChild(
+              contextButton(
+                (item.node.label || item.node.id) + " - " + (item.flow.name || item.flow.id),
+                item.roles.map(contextRoleLabel).join(", "),
+                () => selectRelatedNode(item.flow, item.node)
+              )
+            );
+          });
+          block.appendChild(list);
+        }
+        wrap.appendChild(block);
+      }
+
       function appendFindingDiagnostic(row, finding) {
         const diagnostic = findingDiagnostic(finding);
         if (!diagnostic) return;
@@ -378,6 +565,7 @@
           });
           wrap.appendChild(actionList);
         }
+        appendFindingContext(wrap, finding, diagnostic);
         row.appendChild(wrap);
       }
 

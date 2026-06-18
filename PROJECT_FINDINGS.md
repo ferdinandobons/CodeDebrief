@@ -24,7 +24,7 @@ LogicChart is in a strong alpha state.
 - Phase 1 diagnostic work has started: every finding now carries normalized diagnostic
   metadata, generated models include a shared detector-rule registry, MCP exposes
   `finding_rules`, and the Logical Errors panel expands selected findings into a compact
-  diagnostic inspector.
+  diagnostic inspector with related-flow and evidence-node links.
 - Phase 2 visual-context work has started: MCP can now return deterministic SVG snapshots
   for a flow, a selected finding, or an impact set without scraping the browser.
 - Analysis-quality work has started: generated models now include deterministic quality
@@ -111,14 +111,14 @@ Current checkpoint:
 - `get_finding_context` exposes a bounded deterministic subgraph with the focus flow,
   evidence nodes, related flows/findings, evidence guardrail, and next-tool hints.
 - The viewer shows selected-finding diagnostics with confidence, missing/expected/actual
-  state, rule purpose, review prompt, and next actions.
+  state, rule purpose, review prompt, next actions, related flows, and evidence nodes.
 
 Still open:
 
 - Promote diagnostics into a stricter schema version only when the backward-compatibility
   and consumer story are ready.
-- Share the same finding-context semantics with viewer-side diagnostic focus when the UI
-  needs deeper related-flow navigation.
+- Consider a small focused chart for the diagnostic subgraph if related-flow links are not
+  enough for large findings.
 - Add richer detector-specific evidence chains where the current metadata is still shallow.
 
 ### Resulting UX
@@ -485,7 +485,7 @@ Add a finding detail state:
 - selecting a finding opens the flow and target node;
 - the right panel shows the rule explanation;
 - a mini diagnostic table shows handled/missing/declared values;
-- related flows are linked;
+- related flows and evidence nodes are linked;
 - a small focused chart shows only the diagnostic subgraph;
 - LLM enrichment, when available, adds a short plain-language explanation.
 
@@ -517,7 +517,8 @@ Before the next release:
 - Done: normalize finding metadata under a compatibility-preserving diagnostic object.
 - Done: add baseline diagnostic evidence chains.
 - Done: add tests for each detector's structured output.
-- Done: update viewer Logical Errors panel to show diagnostic details.
+- Done: update viewer Logical Errors panel to show diagnostic details and related
+  flow/evidence-node links.
 - Next: deepen detector-specific evidence chains and consider a compatible schema 1.2.
 
 ### Phase 2: MCP Visual Context

@@ -64,7 +64,9 @@ expands the row with the normalized diagnostic metadata from the model:
 - severity, evidence tier, category, and confidence basis;
 - missing values, expected state, and actual handled values when the detector provides
   them;
-- the detector purpose, review prompt, and suggested next actions.
+- the detector purpose, review prompt, and suggested next actions;
+- related flows and evidence nodes derived from diagnostic scope, caller/callee context,
+  and shared decision metadata, each linked back into the progressive flowchart.
 
 This panel must preserve the model's evidence language: `VERIFIED` means syntax-backed,
 `INFERRED` means deterministic heuristic, and `POTENTIAL_GAP` remains a review candidate,
