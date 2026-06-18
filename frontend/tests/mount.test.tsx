@@ -209,6 +209,72 @@ describe("mountLogicChartViewer", () => {
     container.remove();
   });
 
+  it("focuses a selected open flow instead of shrinking it into the whole scope", async () => {
+    const crowdedPayload: LogicChartPayload = {
+      flows: [
+        ...payload.flows,
+        ...Array.from({ length: 14 }, (_, index) => ({
+          id: `extra-route-${index}`,
+          name: `Route ${index}`,
+          language: "typescript",
+          entry_kind: "route",
+          is_entrypoint: true,
+          location: {
+            path: `frontend/app/api/extra-${index}/route.ts`,
+            start_line: 3,
+          },
+          calls: [],
+          called_by: [],
+          metadata: { scope: ["frontend"] },
+        })),
+      ],
+    };
+    const container = document.createElement("main");
+    document.body.appendChild(container);
+
+    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    await act(async () => {
+      mounted = mountLogicChartViewer(container, {
+        payload: crowdedPayload,
+        routeFlowIds: ["orders-route"],
+        scope: "frontend",
+      });
+    });
+
+    const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
+    if (!svg) throw new Error("expected mounted viewer svg");
+    const broadViewBox = parseViewBox(svg);
+
+    await act(async () => {
+      mounted.update({
+        payload: crowdedPayload,
+        routeFlowIds: ["orders-route"],
+        scope: "frontend",
+        selectedFlowId: "orders-route",
+      });
+    });
+
+    const focusedViewBox = parseViewBox(svg);
+    expect(focusedViewBox[2]).toBeLessThan(broadViewBox[2] * 0.75);
+    expect(container.querySelector('[data-flow-id="orders-route"]')?.getAttribute("class")).toContain(
+      "selected",
+    );
+
+    await act(async () => {
+      mounted.update({
+        payload: crowdedPayload,
+        routeFlowIds: ["orders-route"],
+        scope: "frontend",
+        selectedFlowId: null,
+      });
+    });
+
+    expect(parseViewBox(svg)).toEqual(focusedViewBox);
+
+    mounted.unmount();
+    container.remove();
+  });
+
   it("renders a navigable aggregate canvas overview that tracks zoom and fits the whole flowchart", async () => {
     const originalGetBBox = Object.getOwnPropertyDescriptor(SVGElement.prototype, "getBBox");
     Object.defineProperty(SVGElement.prototype, "getBBox", {

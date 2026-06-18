@@ -17,7 +17,9 @@ import {
 import {
   type Bounds,
   type ExpandedFlowMeasure,
+  type InlineAnchor,
   type ProgressiveFlowNode,
+  type LayoutNodePosition,
   type ScopeEntryEdge,
   type ScopeLayoutPosition,
   type ScopeNodePosition,
@@ -236,7 +238,19 @@ export function ViewerApp({
     ],
   );
   const viewportSignature = useMemo(
-    () => ({}),
+    () =>
+      [
+        scope,
+        scopeNode
+          ? `${scopeNode.scope}:${scopeNode.x}:${scopeNode.y}:${scopeNode.width}:${scopeNode.height}`
+          : "",
+        expandedScopes === undefined ? "__auto__" : [...expandedScopes].join("\u0000"),
+        routeFlowIds.join("\u0000"),
+        contextFlowIds.join("\u0000"),
+        layersSignature(layers),
+        payloadSignature(payload),
+        expandedMeasuresSignature(effectiveExpandedMeasures),
+      ].join("\u0001"),
     [
       effectiveExpandedMeasures,
       expandedScopes,
@@ -247,16 +261,6 @@ export function ViewerApp({
       scopeNode,
     ],
   );
-  const stableViewBox = useRef<{
-    signature: object;
-    viewBox: typeof layout.viewBox;
-  } | null>(null);
-  if (!stableViewBox.current || stableViewBox.current.signature !== viewportSignature) {
-    stableViewBox.current = {
-      signature: viewportSignature,
-      viewBox: layout.viewBox,
-    };
-  }
   const {
     entryEdges,
     flowById,
@@ -267,6 +271,36 @@ export function ViewerApp({
     rootNode,
     scopeNodes,
   } = layout;
+  const focusedFlowId = selectedFlowIdProp !== undefined ? selectedFlowIdProp : selectedFlowId;
+  const focusedFlowViewBox = useMemo(
+    () =>
+      focusedFlowId
+        ? viewBoxForFocusedFlow(focusedFlowId, flowPositions, inlineAnchors)
+        : null,
+    [flowPositions, focusedFlowId, inlineAnchors],
+  );
+  const stableViewBox = useRef<{
+    focusedFlowId: string | null;
+    signature: string;
+    viewBox: typeof layout.viewBox;
+  } | null>(null);
+  if (!stableViewBox.current || stableViewBox.current.signature !== viewportSignature) {
+    stableViewBox.current = {
+      focusedFlowId,
+      signature: viewportSignature,
+      viewBox: focusedFlowViewBox ?? layout.viewBox,
+    };
+  } else if (
+    focusedFlowId &&
+    focusedFlowViewBox &&
+    stableViewBox.current.focusedFlowId !== focusedFlowId
+  ) {
+    stableViewBox.current = {
+      focusedFlowId,
+      signature: viewportSignature,
+      viewBox: focusedFlowViewBox,
+    };
+  }
   const viewBox = stableViewBox.current.viewBox;
   const viewMinX = viewBox.minX;
   const viewMinY = viewBox.minY;
@@ -2057,6 +2091,93 @@ function connectedFlowIdsFromSeeds(
 
 function detailNodeKey(flowId: string, nodeId: string): string {
   return `${flowId}:${nodeId}`;
+}
+
+function layersSignature(layers: readonly (readonly ProgressiveFlowNode[])[] | undefined): string {
+  if (!layers) return "";
+  return layers.map(layer => layer.map(node => node.id).join(",")).join("|");
+}
+
+function payloadSignature(payload: LogicChartPayload | undefined): string {
+  if (!payload) return "";
+  return payload.flows
+    .map(
+      flow =>
+        `${flow.id}:${flow.location?.path ?? ""}:${flow.location?.start_line ?? ""}:${
+          flow.nodes?.length ?? 0
+        }:${flow.edges?.length ?? 0}:${flow.calls?.length ?? 0}:${flow.called_by?.length ?? 0}`,
+    )
+    .join("|");
+}
+
+function expandedMeasuresSignature(
+  measures: ReadonlyMap<string, ExpandedFlowMeasure> | undefined,
+): string {
+  if (!measures) return "";
+  return [...measures.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(
+      ([flowId, measure]) =>
+        `${flowId}:${measure.minX}:${measure.minY}:${measure.maxX}:${measure.maxY}:${measure.width}:${measure.height}`,
+    )
+    .join("|");
+}
+
+function viewBoxForFocusedFlow(
+  flowId: string,
+  flowPositions: ReadonlyMap<string, LayoutNodePosition>,
+  inlineAnchors: readonly InlineAnchor[],
+): Bounds | null {
+  const host = flowPositions.get(flowId);
+  if (!host) return null;
+  const anchor = inlineAnchors.find(item => item.flowId === flowId);
+  return expandBoundsToMinimum(
+    paddedBounds(mergeSvgBounds([nodePositionBounds(host), anchor?.bounds]), 160, 130),
+    900,
+    640,
+  );
+}
+
+function nodePositionBounds(position: LayoutNodePosition): Bounds {
+  return {
+    maxX: position.x + position.width / 2,
+    maxY: position.y + position.height / 2,
+    minX: position.x - position.width / 2,
+    minY: position.y - position.height / 2,
+  };
+}
+
+function mergeSvgBounds(bounds: Array<Bounds | undefined>): Bounds {
+  const available = bounds.filter((item): item is Bounds => item !== undefined);
+  if (!available.length) return { maxX: 0, maxY: 0, minX: 0, minY: 0 };
+  return {
+    maxX: Math.max(...available.map(item => item.maxX)),
+    maxY: Math.max(...available.map(item => item.maxY)),
+    minX: Math.min(...available.map(item => item.minX)),
+    minY: Math.min(...available.map(item => item.minY)),
+  };
+}
+
+function paddedBounds(bounds: Bounds, padX: number, padY: number): Bounds {
+  return {
+    maxX: bounds.maxX + padX,
+    maxY: bounds.maxY + padY,
+    minX: bounds.minX - padX,
+    minY: bounds.minY - padY,
+  };
+}
+
+function expandBoundsToMinimum(bounds: Bounds, minWidth: number, minHeight: number): Bounds {
+  const width = bounds.maxX - bounds.minX;
+  const height = bounds.maxY - bounds.minY;
+  const extraX = Math.max(0, minWidth - width) / 2;
+  const extraY = Math.max(0, minHeight - height) / 2;
+  return {
+    maxX: bounds.maxX + extraX,
+    maxY: bounds.maxY + extraY,
+    minX: bounds.minX - extraX,
+    minY: bounds.minY - extraY,
+  };
 }
 
 function hashString(value: string): number {
