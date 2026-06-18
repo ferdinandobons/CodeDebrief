@@ -464,8 +464,11 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
   const overview = document.createElement("button");
   overview.className = "logicchart-overview";
   overview.type = "button";
-  overview.title = "Fit the full flowchart";
-  overview.setAttribute("aria-label", "Canvas overview. Fit the full flowchart");
+  overview.title = "Click to center the canvas; double-click to fit all";
+  overview.setAttribute(
+    "aria-label",
+    "Canvas overview. Click to center the viewport; double-click to fit all",
+  );
 
   const overviewSvg = document.createElementNS(namespace, "svg");
   overviewSvg.classList.add("logicchart-overview-map");
@@ -475,12 +478,10 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
 
   const contentRect = document.createElementNS(namespace, "rect");
   contentRect.classList.add("logicchart-overview-content");
-  const nodeLayer = document.createElementNS(namespace, "g");
-  nodeLayer.classList.add("logicchart-overview-nodes");
   const viewportRect = document.createElementNS(namespace, "rect");
   viewportRect.classList.add("logicchart-overview-viewport");
 
-  overviewSvg.append(contentRect, nodeLayer, viewportRect);
+  overviewSvg.append(contentRect, viewportRect);
   overview.appendChild(overviewSvg);
   container.appendChild(overview);
 
@@ -503,61 +504,49 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
 
   const refresh = () => {
     contentBounds = svgContentBounds(svg) ?? readViewBox(svg);
-    nodeLayer.replaceChildren();
-    if (contentBounds) {
-      overviewNodeBounds(svg).forEach(box => {
-        const node = document.createElementNS(namespace, "rect");
-        node.classList.add("logicchart-overview-node");
-        setRectAttributes(node, box);
-        nodeLayer.appendChild(node);
-      });
-    }
     sync();
   };
 
-  const fitOverview = () => {
+  const centerOverview = (event: MouseEvent) => {
+    if (!contentBounds) return;
+    if (event.clientX === 0 && event.clientY === 0) {
+      writeViewBox(svg, contentBounds);
+      return;
+    }
+    const current = readViewBox(svg);
+    const target = current
+      ? clientPointToOverviewPoint(overviewSvg, contentBounds, event.clientX, event.clientY)
+      : null;
+    if (!current || !target) {
+      writeViewBox(svg, contentBounds);
+      return;
+    }
+    writeViewBox(svg, {
+      ...current,
+      x: target.x - current.width / 2,
+      y: target.y - current.height / 2,
+    });
+  };
+
+  const fitOverview = (event?: MouseEvent) => {
+    event?.preventDefault();
     if (contentBounds) writeViewBox(svg, contentBounds);
   };
 
   svg.addEventListener("logicchart:viewboxchange", sync);
-  overview.addEventListener("click", fitOverview);
+  overview.addEventListener("click", centerOverview);
+  overview.addEventListener("dblclick", fitOverview);
   refresh();
 
   return {
     cleanup() {
       svg.removeEventListener("logicchart:viewboxchange", sync);
-      overview.removeEventListener("click", fitOverview);
+      overview.removeEventListener("click", centerOverview);
+      overview.removeEventListener("dblclick", fitOverview);
       overview.remove();
     },
     refresh,
   };
-}
-
-function overviewNodeBounds(svg: SVGSVGElement): ViewBox[] {
-  const maxNodes = 240;
-  return [...svg.querySelectorAll<Element>(".node, .detail-node")]
-    .slice(0, maxNodes)
-    .map(node => {
-      if (!hasBBox(node)) return null;
-      try {
-        const box = node.getBBox();
-        if (
-          !box ||
-          !Number.isFinite(box.x) ||
-          !Number.isFinite(box.y) ||
-          !Number.isFinite(box.width) ||
-          !Number.isFinite(box.height) ||
-          box.width <= 0 ||
-          box.height <= 0
-        ) {
-          return null;
-        }
-        return { x: box.x, y: box.y, width: box.width, height: box.height };
-      } catch {
-        return null;
-      }
-    })
-    .filter((box): box is ViewBox => box !== null);
 }
 
 function setRectAttributes(rect: SVGRectElement, box: ViewBox) {
@@ -565,6 +554,35 @@ function setRectAttributes(rect: SVGRectElement, box: ViewBox) {
   rect.setAttribute("y", String(box.y));
   rect.setAttribute("width", String(box.width));
   rect.setAttribute("height", String(box.height));
+}
+
+function clientPointToOverviewPoint(
+  overviewSvg: SVGSVGElement,
+  contentBounds: ViewBox,
+  clientX: number,
+  clientY: number,
+): { x: number; y: number } | null {
+  const rect = overviewSvg.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  const scale = Math.min(
+    rect.width / Math.max(1, contentBounds.width),
+    rect.height / Math.max(1, contentBounds.height),
+  );
+  if (!Number.isFinite(scale) || scale <= 0) return null;
+  const renderedWidth = contentBounds.width * scale;
+  const renderedHeight = contentBounds.height * scale;
+  const offsetX = rect.left + (rect.width - renderedWidth) / 2;
+  const offsetY = rect.top + (rect.height - renderedHeight) / 2;
+  const ratioX = clamp((clientX - offsetX) / Math.max(1, renderedWidth), 0, 1);
+  const ratioY = clamp((clientY - offsetY) / Math.max(1, renderedHeight), 0, 1);
+  return {
+    x: contentBounds.x + ratioX * contentBounds.width,
+    y: contentBounds.y + ratioY * contentBounds.height,
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function cssVar(name: string, fallback: string): string {

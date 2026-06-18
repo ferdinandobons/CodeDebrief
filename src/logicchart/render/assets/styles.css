@@ -474,8 +474,8 @@
       left: 12px;
       bottom: 12px;
       z-index: 6;
-      width: 150px;
-      height: 96px;
+      width: 190px;
+      height: 122px;
       padding: 0;
       border: 1px solid color-mix(in srgb, var(--line-strong) 54%, transparent);
       border-radius: 8px;
@@ -484,7 +484,7 @@
         var(--panel);
       box-shadow: 0 14px 28px rgba(0, 0, 0, .22);
       cursor: pointer;
-      opacity: .74;
+      opacity: .86;
       overflow: hidden;
     }
     .typed-viewer-host .logicchart-overview:hover,
@@ -499,20 +499,16 @@
       height: 100%;
     }
     .typed-viewer-host .logicchart-overview-content {
-      fill: transparent;
-      stroke: color-mix(in srgb, var(--line) 58%, transparent);
-      stroke-width: 1;
+      fill: color-mix(in srgb, var(--panel-2) 74%, transparent);
+      stroke: color-mix(in srgb, var(--line) 70%, transparent);
+      stroke-width: 1.2;
       vector-effect: non-scaling-stroke;
     }
-    .typed-viewer-host .logicchart-overview-node {
-      fill: color-mix(in srgb, var(--ink-muted) 68%, var(--blue));
-      opacity: .42;
-    }
     .typed-viewer-host .logicchart-overview-viewport {
-      fill: transparent;
+      fill: color-mix(in srgb, var(--blue) 10%, transparent);
       stroke: color-mix(in srgb, var(--blue) 68%, var(--cyan));
-      stroke-width: 1.4;
-      opacity: .72;
+      stroke-width: 1.8;
+      opacity: .86;
       vector-effect: non-scaling-stroke;
     }
     .typed-viewer-host .logicchart-viewer.dragging {

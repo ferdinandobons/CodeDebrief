@@ -209,7 +209,7 @@ describe("mountLogicChartViewer", () => {
     container.remove();
   });
 
-  it("renders a canvas overview that tracks zoom and fits the whole flowchart", async () => {
+  it("renders a navigable aggregate canvas overview that tracks zoom and fits the whole flowchart", async () => {
     const originalGetBBox = Object.getOwnPropertyDescriptor(SVGElement.prototype, "getBBox");
     Object.defineProperty(SVGElement.prototype, "getBBox", {
       configurable: true,
@@ -236,14 +236,41 @@ describe("mountLogicChartViewer", () => {
 
     const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
     const overview = container.querySelector<HTMLButtonElement>(".logicchart-overview");
+    const overviewMap = container.querySelector<SVGSVGElement>(".logicchart-overview-map");
+    const content = container.querySelector<SVGRectElement>(".logicchart-overview-content");
     const viewport = container.querySelector<SVGRectElement>(".logicchart-overview-viewport");
-    if (!svg || !overview || !viewport) throw new Error("expected viewer overview");
-    expect(overview.getAttribute("aria-label")).toContain("Fit the full flowchart");
+    if (!svg || !overview || !overviewMap || !content || !viewport) {
+      throw new Error("expected viewer overview");
+    }
+    expect(overview.getAttribute("aria-label")).toContain("Click to center the viewport");
     expect(container.querySelector(".logicchart-viewer-frame")).not.toBeNull();
+    expect(container.querySelector(".logicchart-overview-node")).toBeNull();
+    expect(content.getAttribute("width")).toBe("600");
+    expect(content.getAttribute("height")).toBe("440");
+    Object.defineProperty(overviewMap, "getBoundingClientRect", {
+      configurable: true,
+      value: () => domRect({ height: 96, width: 150 }),
+    });
 
     const initialViewportWidth = viewport.getAttribute("width");
     mounted.zoom(0.5);
     expect(viewport.getAttribute("width")).not.toBe(initialViewportWidth);
+    const [, , zoomWidth, zoomHeight] = parseViewBox(svg);
+
+    await act(async () => {
+      overview.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          clientX: 150,
+          clientY: 96,
+        }),
+      );
+    });
+    const [centeredX, centeredY, centeredWidth, centeredHeight] = parseViewBox(svg);
+    expect(centeredWidth).toBeCloseTo(zoomWidth);
+    expect(centeredHeight).toBeCloseTo(zoomHeight);
+    expect(centeredX).toBeCloseTo(590 - zoomWidth / 2);
+    expect(centeredY).toBeCloseTo(470 - zoomHeight / 2);
 
     await act(async () => {
       overview.click();
