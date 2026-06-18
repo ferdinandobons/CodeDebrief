@@ -10,7 +10,18 @@ from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.annotations import annotations_path, model_hash
 from logicchart.artifacts import load_model, write_artifacts
 from logicchart.cli import main as cli_main
-from logicchart.mcp_server import MCP_INSTRUCTIONS, _quality_report
+from logicchart.config import LogicChartConfig
+from logicchart.mcp_server import (
+    MCP_INSTRUCTIONS,
+    _context_navigation_pack,
+    _context_visual_pack,
+    _model_load_error,
+    _quality_report,
+    _unknown_target_error,
+    _update_workflow_payload,
+    _validation_payload,
+)
+from logicchart.query import impact_model
 
 
 def test_mcp_lists_and_queries_flows(tmp_path: Path) -> None:
@@ -624,6 +635,152 @@ def test_analysis_quality_report_bounds_language_attention() -> None:
     assert (
         report["attention"][1]["next_tools"]["query_language"]["arguments"]["language"] == "python"
     )
+
+
+def test_mcp_context_visual_pack_direct_contracts(tmp_path: Path) -> None:
+    source = tmp_path / "app.py"
+    source.write_text(
+        "def dispatch(order):\n"
+        "    if order.status == Status.OPEN:\n"
+        "        return 'open'\n"
+        "    elif order.status == Status.CLOSED:\n"
+        "        return 'closed'\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    model = result.model
+    finding = model.findings[0]
+    flow = next(item for item in model.flows if item.id == finding.flow_id)
+    impact = impact_model(model, [], flow_ids=[flow.id])
+
+    payload = _context_visual_pack(
+        model,
+        impact=impact,
+        matches=[],
+        review_findings=[finding],
+        scope=None,
+        include_visual=True,
+        token_budget=120,
+        visual_byte_budget=200_000,
+    )
+
+    assert payload["include_visual"] is True
+    assert payload["next_tools"]["impact_snapshot"]["arguments"]["flow_ids"] == [flow.id]
+    assert payload["next_tools"]["subgraph_snapshot"]["arguments"] == {
+        "flow_ids": [flow.id],
+        "finding_ids": [finding.id],
+        "format": "svg",
+        "token_budget": 120,
+    }
+    assert payload["impact_snapshot"]["format"] == "svg"
+    assert payload["subgraph_snapshot"]["layout"]["engine"] == "static-subgraph-snapshot-v1"
+    assert payload["subgraph_snapshot"]["rendered_flow_ids"] == [flow.id]
+    assert payload["subgraph_snapshot"]["finding_ids"] == [finding.id]
+    assert payload["flow_snapshots"][0]["flow_id"] == flow.id
+    assert payload["finding_snapshots"][0]["finding_id"] == finding.id
+    assert payload["snapshot_budget"]["used_visual_bytes"] > 0
+
+    capped = _context_visual_pack(
+        model,
+        impact=impact,
+        matches=[],
+        review_findings=[finding],
+        scope=None,
+        include_visual=True,
+        token_budget=120,
+        visual_byte_budget=1,
+    )
+
+    assert "impact_snapshot" not in capped
+    assert capped["impact_snapshot_omitted_reason"] == "visual_byte_budget"
+    assert "subgraph_snapshot" not in capped
+    assert capped["subgraph_snapshot_omitted_reason"] == "visual_byte_budget"
+    assert capped["flow_snapshots"] == []
+    assert capped["finding_snapshots"] == []
+    assert capped["omitted_visual_snapshot_reasons"] == {
+        "visual_byte_budget": capped["omitted_visual_snapshot_count"]
+    }
+
+
+def test_mcp_context_navigation_pack_direct_contracts(tmp_path: Path) -> None:
+    source = tmp_path / "app.py"
+    source.write_text(
+        "def dispatch(order):\n"
+        "    if order.status == 'open':\n"
+        "        return handle_open(order)\n"
+        "    return handle_default(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    model = result.model
+    flow = next(item for item in model.flows if item.name == "dispatch")
+    impact = impact_model(model, [], flow_ids=[flow.id])
+
+    payload = _context_navigation_pack(
+        model,
+        impact=impact,
+        matches=[],
+        annotations=None,
+        token_budget=120,
+    )
+
+    assert payload["flow_budget"] == 1
+    assert payload["per_flow_token_budget"] == 120
+    assert payload["flows"][0]["flow"]["id"] == flow.id
+    assert payload["flows"][0]["next_tools"]["complete_flow"]["tool"] == "get_flow"
+    assert payload["next_tools"]["flow_navigation"] == [
+        {
+            "tool": "get_flow_navigation",
+            "arguments": {"flow_id": flow.id, "token_budget": 120},
+        }
+    ]
+    assert payload["omitted_flow_navigation_count"] == 0
+
+
+def test_mcp_recovery_payload_helpers_are_actionable(tmp_path: Path) -> None:
+    config = LogicChartConfig()
+
+    missing = _model_load_error(tmp_path, config, FileNotFoundError("missing artifact"))
+    assert missing["error_code"] == "artifact_missing"
+    assert missing["recoverable"] is True
+    assert missing["artifact"].endswith("logicchart-out/logic-flow.json")
+    assert missing["next_tools"]["update_model"]["tool"] == "update_logicchart"
+    assert "logicchart analyze --full" in missing["next_cli"]
+
+    malformed = _model_load_error(tmp_path, config, ValueError("invalid JSON in artifact"))
+    assert malformed["error_code"] == "artifact_malformed_json"
+
+    unknown_flow = _unknown_target_error("flow", "missing-flow")
+    assert unknown_flow["error_code"] == "flow_not_found"
+    assert unknown_flow["next_tools"]["list_flows"]["tool"] == "list_flows"
+    assert unknown_flow["next_tools"]["query_logic"]["arguments"]["question"] == "missing-flow"
+
+    unknown_finding = _unknown_target_error("finding", "missing-finding")
+    assert unknown_finding["error_code"] == "finding_not_found"
+    assert unknown_finding["next_tools"]["review_queue"]["tool"] == "review_queue"
+
+    stale = _validation_payload({"ok": False, "errors": ["stale"], "warnings": []})
+    assert stale["next_tools"]["update_model"]["tool"] == "update_logicchart"
+    assert stale["next_cli"] == [
+        "logicchart update",
+        "logicchart validate --check-sync --json",
+    ]
+
+    fresh = _validation_payload({"ok": True, "errors": [], "warnings": []})
+    assert "update_model" not in fresh["next_tools"]
+    assert "logicchart query <question>" in fresh["next_cli"]
+
+    workflow = _update_workflow_payload(
+        tmp_path / "logicchart-out" / "logic-flow.json",
+        tmp_path / "logicchart-out" / "logic-flow.md",
+        None,
+    )
+    assert workflow["next_tools"]["validate_artifacts"]["arguments"] == {
+        "check_sync": True,
+        "include_quality": True,
+    }
+    assert workflow["next_artifacts"]["local_html"] is None
+    assert workflow["next_artifacts"]["commit"][0].endswith("logic-flow.json")
 
 
 def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:

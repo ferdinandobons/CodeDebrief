@@ -415,6 +415,11 @@ Current checkpoint:
   context, and snapshot tools as structured recoverable errors.
 - MCP `context_pack` now embeds bounded flow-navigation packs for the relevant impact/query
   flows, including caller/callee, decision, finding, annotation, and next-tool orientation.
+- MCP tests now directly pin the visual `context_pack` helper contract, including inline
+  impact/subgraph/flow/finding snapshots and `visual_byte_budget` omissions, without
+  relying only on stdio integration.
+- MCP tests now directly pin flow-navigation pack shape and recoverable helper payloads
+  for artifact loading, validation, update workflow, and unknown targets.
 
 ## Finding 7: Language Support Needs Depth Metrics, Not Only a Count
 

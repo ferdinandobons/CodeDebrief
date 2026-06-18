@@ -85,6 +85,8 @@ The project follows Semantic Versioning.
 - Added bounded flow-navigation packs to MCP `context_pack`, so agents get caller/callee,
   decision, finding, annotation, and next-tool orientation for relevant flows without an
   immediate second tool call.
+- Added direct MCP contract tests for visual `context_pack`, flow-navigation packs, and
+  recoverable helper payloads, complementing end-to-end stdio coverage.
 - Added deterministic accessibility summaries to viewer flow nodes for broad-canvas
   scanning.
 - Added a local optional `logic-annotations.json` sidecar schema, validation, viewer
