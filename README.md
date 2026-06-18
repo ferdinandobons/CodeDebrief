@@ -451,7 +451,9 @@ Every finding also carries normalized diagnostic metadata:
 - a review prompt and suggested next actions for humans and agents.
 
 The shared rule registry is emitted under `metadata.finding_rules`, so CLI artifacts, the
-HTML viewer, and MCP tools all explain findings with the same detector contracts.
+HTML viewer, and MCP tools all explain findings with the same detector contracts. Each
+contract includes purpose, preconditions, caveats, evidence rationale, guaranteed metadata
+fields, review prompt, and suggested next actions.
 
 ## Limitations
 

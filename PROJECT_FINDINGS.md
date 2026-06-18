@@ -211,6 +211,24 @@ Keep the detectors, but make each one publish a stable rule contract:
 
 This can live in code as a registry and render into docs/MCP responses automatically.
 
+Current checkpoint:
+
+- Every `FindingKind` has a shared rule contract emitted through
+  `metadata.finding_rules` and exposed via MCP `finding_rules`.
+- Rule contracts include purpose, exact preconditions, caveats, evidence rationale,
+  guaranteed metadata fields, review prompt, and suggested next actions.
+- Diagnostics reuse the same contracts for `review_prompt` and `suggested_next_actions`,
+  so CLI explanations, MCP payloads, snapshots, and the viewer stay aligned.
+- Tests now pin the public rule-contract shape for every finding kind and verify filtered
+  lookup behavior for known and unknown kinds.
+
+Still open:
+
+- Add concise true-positive and intentional-suppression examples to each rule contract
+  only when the example text can stay stable and not bloat MCP responses.
+- Keep metadata-field guarantees synchronized when adding new detectors or detector
+  evidence.
+
 ## Finding 3: Schema 1.1 Is Too Flexible for a Mature Product
 
 ### Problem

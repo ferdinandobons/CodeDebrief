@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.diagnostics import finding_rule_contracts_by_kind
+from logicchart.diagnostics import finding_rule_contracts, finding_rule_contracts_by_kind
 from logicchart.model import Evidence, FindingKind
 from logicchart.query import explain_finding, query_model
 
@@ -156,13 +156,36 @@ def feature():
 def test_every_finding_kind_has_a_rule_contract() -> None:
     rules = finding_rule_contracts_by_kind()
     assert set(rules) == {kind.value for kind in FindingKind}
+    expected_keys = {
+        "rule_id",
+        "category",
+        "title",
+        "purpose",
+        "preconditions",
+        "evidence_rationale",
+        "caveats",
+        "metadata_fields",
+        "review_prompt",
+        "suggested_next_actions",
+    }
     for kind, rule in rules.items():
+        assert set(rule) == expected_keys
         assert rule["rule_id"] == kind
+        assert rule["category"] in {"single_flow", "cross_flow", "project"}
+        assert rule["title"]
         assert rule["purpose"]
         assert rule["preconditions"]
         assert rule["evidence_rationale"]
+        assert rule["caveats"]
+        assert "category" in rule["metadata_fields"]
         assert rule["review_prompt"]
         assert rule["suggested_next_actions"]
+        assert len(rule["suggested_next_actions"]) >= 2
+
+    missing_branch = finding_rule_contracts("missing_branch")
+    assert len(missing_branch) == 1
+    assert missing_branch[0] == rules["missing_branch"]
+    assert finding_rule_contracts("unknown_kind") == []
 
 
 def test_explain_finding_returns_diagnostic_contract(tmp_path: Path) -> None:

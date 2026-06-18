@@ -87,6 +87,8 @@ The project follows Semantic Versioning.
   immediate second tool call.
 - Added direct MCP contract tests for visual `context_pack`, flow-navigation packs, and
   recoverable helper payloads, complementing end-to-end stdio coverage.
+- Added stricter finding-rule contract tests that pin every detector's public purpose,
+  preconditions, caveats, metadata fields, review prompt, and next-action shape.
 - Added deterministic accessibility summaries to viewer flow nodes for broad-canvas
   scanning.
 - Added a local optional `logic-annotations.json` sidecar schema, validation, viewer
