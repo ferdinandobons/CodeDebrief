@@ -22,6 +22,8 @@ The project follows Semantic Versioning.
 - Added a shared finding-rule registry to generated model metadata and exposed it through
   MCP with a new `finding_rules` tool.
 - Added deterministic SVG MCP snapshot tools for flow, finding, and impact visual context.
+- Added `logicchart snapshot flow|finding|impact` for deterministic SVG visual context
+  without requiring MCP or a browser.
 - Added token-budget handling to MCP flow, finding, and impact SVG snapshots, including
   omission counts for capped visual context.
 - Added a compact diagnostic panel to MCP finding SVG snapshots with evidence tier,

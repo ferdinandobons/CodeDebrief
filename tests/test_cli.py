@@ -132,6 +132,67 @@ def authorize(user):
     assert "flow not found: missing-flow" in capsys.readouterr().err
 
 
+def test_cli_snapshot_flow_finding_and_impact(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "service.py").write_text(
+        """
+from enum import Enum
+
+
+class Status(Enum):
+    OPEN = "open"
+    CLOSED = "closed"
+    DELETED = "deleted"
+
+
+def handle(status):
+    match status:
+        case Status.OPEN:
+            return "open"
+        case Status.CLOSED:
+            return "closed"
+""",
+        encoding="utf-8",
+    )
+
+    assert main(["analyze", str(tmp_path), "--full", "--no-html"]) == 0
+    capsys.readouterr()
+    model = load_model(tmp_path, LogicChartConfig())
+    flow = next(item for item in model.flows if item.name == "handle")
+    finding = model.findings[0]
+
+    assert main(["snapshot", "flow", flow.id, "--path", str(tmp_path)]) == 0
+    assert "<svg" in capsys.readouterr().out
+
+    assert main(["snapshot", "finding", finding.id, "--path", str(tmp_path), "--json"]) == 0
+    finding_payload = json.loads(capsys.readouterr().out)
+    assert finding_payload["finding_id"] == finding.id
+    assert "Finding context" in finding_payload["svg"]
+
+    output = tmp_path / "impact.svg"
+    assert (
+        main(
+            [
+                "snapshot",
+                "impact",
+                "--path",
+                str(tmp_path),
+                "--flow",
+                flow.id,
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    assert output.exists()
+    assert "Impact snapshot" in output.read_text(encoding="utf-8")
+
+    assert main(["snapshot", "flow", flow.id, "--path", str(tmp_path), "--format", "png"]) == 1
+    assert "Unsupported snapshot format: png" in capsys.readouterr().err
+
+
 def test_cli_validate_and_profiles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     source = tmp_path / "src" / "logicchart" / "main.py"
     source.parent.mkdir(parents=True)
@@ -185,6 +246,9 @@ def test_cli_install_can_write_mcp_config(
     assert (tmp_path / ".codex" / "config.toml").exists()
     assert "logicchart explain <finding-id>" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     assert "logicchart navigate <flow-id>" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "logicchart snapshot flow <flow-id>" in (tmp_path / "AGENTS.md").read_text(
+        encoding="utf-8"
+    )
     assert "Updated" in capsys.readouterr().out
 
     assert main(["install", str(tmp_path), "--platform", "codex", "--mcp-config", "codex"]) == 0

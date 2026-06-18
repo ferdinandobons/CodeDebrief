@@ -323,6 +323,8 @@ Current checkpoint:
 
 - MCP exposes `get_flow_snapshot`, `get_finding_snapshot`, and `get_impact_snapshot`.
 - Snapshots are generated from the deterministic model and returned as inline SVG.
+- `logicchart snapshot flow|finding|impact` exposes the same deterministic SVG snapshots
+  over the CLI for agents that are not connected to MCP.
 - Finding snapshots include a compact diagnostic side panel with evidence tier,
   confidence, review prompt, and evidence-chain summaries next to the highlighted flow.
 - Unsupported raster formats return an explicit supported-format response instead of
@@ -563,6 +565,7 @@ Before the next release:
 - Done: add model-slice helpers for flow/finding/impact snapshots.
 - Done: add deterministic SVG snapshot rendering.
 - Done: expose snapshot tools over MCP.
+- Done: expose deterministic SVG snapshots over CLI.
 - Done: add tool contract tests for snapshot discovery and output shape.
 - Done: add focused diagnostic panels to finding SVG snapshots.
 - Done: add a flow-navigation MCP pack for caller/callee, decision, finding, and next-tool

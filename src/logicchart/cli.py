@@ -28,6 +28,12 @@ from logicchart.query import (
     render_query,
 )
 from logicchart.render.html import render_html
+from logicchart.render.snapshot import (
+    render_finding_snapshot,
+    render_flow_snapshot,
+    render_impact_snapshot,
+    unsupported_snapshot_format,
+)
 from logicchart.validation import validate_logicchart
 
 
@@ -110,6 +116,30 @@ def build_parser() -> argparse.ArgumentParser:
     navigate.add_argument("--token-budget", type=int, default=0)
     _add_profile_argument(navigate)
     navigate.add_argument("--json", action="store_true", dest="json_output")
+
+    snapshot = subparsers.add_parser(
+        "snapshot", help="Render deterministic SVG snapshots for agents."
+    )
+    snapshot_subparsers = snapshot.add_subparsers(dest="snapshot_kind", required=True)
+    snapshot_flow = snapshot_subparsers.add_parser("flow", help="Render one flow snapshot.")
+    snapshot_flow.add_argument("flow_id")
+    _add_snapshot_arguments(snapshot_flow)
+
+    snapshot_finding = snapshot_subparsers.add_parser(
+        "finding", help="Render one finding snapshot."
+    )
+    snapshot_finding.add_argument("finding_id")
+    _add_snapshot_arguments(snapshot_finding)
+
+    snapshot_impact = snapshot_subparsers.add_parser(
+        "impact", help="Render an impact snapshot from files or explicit targets."
+    )
+    snapshot_impact.add_argument("files", nargs="*")
+    snapshot_impact.add_argument("--scope", default=None, help="Restrict to a named macro-part.")
+    snapshot_impact.add_argument("--flow", action="append", default=[])
+    snapshot_impact.add_argument("--symbol", action="append", default=[])
+    snapshot_impact.add_argument("--finding", action="append", default=[])
+    _add_snapshot_arguments(snapshot_impact)
 
     view = subparsers.add_parser("view", help="Generate and serve the interactive flowchart.")
     view.add_argument("path", nargs="?", default=".")
@@ -196,6 +226,15 @@ def _add_profile_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--path", default=".")
+    parser.add_argument("--format", default="svg")
+    parser.add_argument("--token-budget", type=int, default=0)
+    parser.add_argument("--output", default=None, help="Write SVG output to this path.")
+    _add_profile_argument(parser)
+    parser.add_argument("--json", action="store_true", dest="json_output")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -256,6 +295,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.json_output,
                 args.profile,
             )
+        if args.command == "snapshot":
+            return _snapshot(args)
         if args.command == "view":
             return _view(
                 Path(args.path),
@@ -292,6 +333,86 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"error: {error}", file=sys.stderr)
         return 1
     return 0
+
+
+def _snapshot(args: argparse.Namespace) -> int:
+    root = Path(args.path).resolve()
+    config = LogicChartConfig.load(root, profile=args.profile)
+    if args.format != "svg":
+        return _emit_snapshot(unsupported_snapshot_format(args.format), args.json_output, None)
+
+    model = load_model(root, config)
+    if args.snapshot_kind == "flow":
+        payload = render_flow_snapshot(
+            model,
+            args.flow_id,
+            max_nodes=_snapshot_node_budget(args.token_budget),
+        )
+    elif args.snapshot_kind == "finding":
+        payload = render_finding_snapshot(
+            model,
+            args.finding_id,
+            max_nodes=_snapshot_node_budget(args.token_budget),
+        )
+    else:
+        has_targets = bool(args.flow or args.symbol or args.finding)
+        changed = args.files if args.files or has_targets else git_changed_files(root)
+        impact = impact_model(
+            model,
+            changed,
+            args.scope,
+            flow_ids=args.flow,
+            symbols=args.symbol,
+            finding_ids=args.finding,
+        )
+        payload = render_impact_snapshot(
+            changed_files=impact.changed_files,
+            direct=impact.directly_impacted,
+            transitive=impact.transitively_impacted,
+            findings=impact.findings,
+            max_flows=_snapshot_flow_budget(args.token_budget),
+        )
+        payload["target_flow_ids"] = impact.target_flow_ids
+        payload["target_symbols"] = impact.target_symbols
+        payload["target_finding_ids"] = impact.target_finding_ids
+        payload["unresolved_targets"] = impact.unresolved_targets
+
+    return _emit_snapshot(payload, args.json_output, args.output)
+
+
+def _emit_snapshot(
+    payload: dict[str, object],
+    json_output: bool,
+    output: str | None,
+) -> int:
+    if "error" in payload:
+        if json_output:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"error: {payload['error']}", file=sys.stderr)
+        return 1
+    if output is not None:
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(str(payload["svg"]), encoding="utf-8")
+        if not json_output:
+            print(f"Wrote {output_path}")
+            return 0
+        payload = {**payload, "output": str(output_path)}
+    print(json.dumps(payload, indent=2) if json_output else str(payload["svg"]))
+    return 0
+
+
+def _snapshot_node_budget(token_budget: int) -> int | None:
+    if token_budget <= 0:
+        return None
+    return max(4, token_budget // 80)
+
+
+def _snapshot_flow_budget(token_budget: int) -> int | None:
+    if token_budget <= 0:
+        return None
+    return max(1, token_budget // 120)
 
 
 def _navigate(

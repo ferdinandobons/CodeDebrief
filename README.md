@@ -263,6 +263,21 @@ The command returns the same bounded navigation pack as MCP `get_flow_navigation
 shape, caller/callee summaries, decision nodes, related findings, annotations when present,
 and next-tool hints for full flow, impact, query, and visual snapshot follow-up.
 
+### `snapshot`
+
+Render deterministic SVG visual context without starting the viewer or MCP server:
+
+```bash
+logicchart snapshot flow flow-id > flow.svg
+logicchart snapshot finding finding-id --json
+logicchart snapshot impact --flow flow-id --output impact.svg
+```
+
+Snapshots are generated from the committed model artifact, not from browser screenshots.
+`flow`, `finding`, and `impact` support `--token-budget`; `impact` accepts the same
+`--flow`, `--symbol`, `--finding`, `--scope`, and changed-file targets as `impact`.
+Only SVG is supported by the CLI today; raster export remains available in the local viewer.
+
 ### `impact`
 
 Show flows affected by changed files or explicit model targets:

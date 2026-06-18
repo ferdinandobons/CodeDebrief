@@ -22,6 +22,7 @@ For codebase questions about behavior, decisions, missing cases, or change impac
 3. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` findings.
 4. Use `logicchart explain <finding-id>` before treating a logical finding as actionable.
 5. Use `logicchart navigate <flow-id>` to inspect callers, callees, decisions, and findings.
+6. Use `logicchart snapshot flow <flow-id>` when visual flow context would help.
 
 After a substantial code change:
 
