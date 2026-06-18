@@ -420,12 +420,13 @@ Current checkpoint:
 - MCP `validate_artifacts(include_quality=true)` returns the same quality payload.
 - The generated viewer Details rail includes a Project Quality panel with coverage,
   call-resolution, findings, label, graph-density, and language metrics.
+- Generated models include `metadata.language_capabilities`, and MCP summaries expose that
+  registry-derived matrix for agent orientation.
 
 Still open:
 
 - Persist skipped-file reasons directly in the artifact instead of only degraded empty-file
   counts.
-- Add a language capability matrix generated from tests.
 - Add optional CI thresholds for selected metrics.
 
 Expose these through:
@@ -433,6 +434,7 @@ Expose these through:
 - `logicchart validate --quality`;
 - Done: MCP summary;
 - Done: viewer project overview;
+- Done: language capability matrix in metadata and MCP summary;
 - Next: CI optional gate.
 
 ## Finding 11: Logical Error UI Should Explain, Not Just List
@@ -507,7 +509,8 @@ Before the next release:
 - Use private `examples/Certifexp` as local smoke test only.
 - Done: add baseline analyzer quality metrics.
 - Done: add viewer quality overview.
-- Next: add language capability matrix.
+- Done: add language capability matrix.
+- Next: add optional quality thresholds.
 
 ### Phase 5: Release Consolidation
 

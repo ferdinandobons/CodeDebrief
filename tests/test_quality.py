@@ -25,6 +25,8 @@ def test_model_quality_counts_calls_findings_and_labels(tmp_path: Path) -> None:
     quality = model.metadata["quality"]
 
     assert quality == model_quality(model)
+    assert "language_capabilities" in model.metadata
+    assert "python" in model.metadata["language_capabilities"]
     assert quality["files"]["total"] == 1
     assert quality["flows"]["total"] >= 2
     assert quality["flows"]["entrypoints"] >= 1

@@ -7575,6 +7575,240 @@
         ]
       }
     },
+    "language_capabilities": {
+      "python": {
+        "status": "supported",
+        "frontend": "python_ast",
+        "suffixes": [
+          ".py"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "supported",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "supported",
+          "qualified_call_links": "supported"
+        }
+      },
+      "typescript": {
+        "status": "supported",
+        "frontend": "typescript_tree_sitter",
+        "suffixes": [
+          ".ts",
+          ".tsx"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "supported",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "supported",
+          "qualified_call_links": "partial"
+        }
+      },
+      "javascript": {
+        "status": "supported",
+        "frontend": "typescript_tree_sitter",
+        "suffixes": [
+          ".js",
+          ".jsx",
+          ".mjs",
+          ".cjs"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "supported",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "partial"
+        }
+      },
+      "go": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".go"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "try_catch": "not_supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported"
+        }
+      },
+      "java": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".java"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported"
+        }
+      },
+      "csharp": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".cs"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported"
+        }
+      },
+      "php": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".php"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported"
+        }
+      },
+      "c": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".c",
+          ".h"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "try_catch": "not_supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported"
+        }
+      },
+      "cpp": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".cc",
+          ".cpp",
+          ".cxx",
+          ".hh",
+          ".hpp",
+          ".hxx",
+          ".ipp",
+          ".tpp"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported"
+        }
+      },
+      "rust": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".rs"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "partial",
+          "try_catch": "not_supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported"
+        }
+      },
+      "ruby": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".rb"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "try_catch": "not_supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported"
+        }
+      }
+    },
     "scopes": {
       "backend": 20,
       "frontend": 6,

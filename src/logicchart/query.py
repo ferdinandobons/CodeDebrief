@@ -241,6 +241,7 @@ def model_summary(model: ProjectModel) -> dict[str, Any]:
                 Counter(str(item.get("category", "project")) for item in rules.values())
             ),
         },
+        "language_capabilities": model.metadata.get("language_capabilities", {}),
         "enums": {
             language: sorted(members)
             for language, members in model.metadata.get("enums", {}).items()

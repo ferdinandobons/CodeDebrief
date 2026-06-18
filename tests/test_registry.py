@@ -8,6 +8,7 @@ import pytest
 
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.analysis.registry import (
+    language_capability_matrix,
     language_for,
     spec_for_language,
     spec_for_path,
@@ -21,6 +22,18 @@ def test_known_suffixes_map_to_languages() -> None:
     assert language_for(Path("a/b.tsx")) == "typescript"
     assert language_for(Path("a/b.cpp")) == "cpp"
     assert {".py", ".ts", ".tsx", ".cpp", ".hpp"} <= supported_suffixes()
+
+
+def test_language_capability_matrix_tracks_registry() -> None:
+    matrix = language_capability_matrix()
+
+    assert {"python", "typescript", "javascript", "cpp", "rust"} <= set(matrix)
+    assert matrix["python"]["suffixes"] == [".py"]
+    assert matrix["typescript"]["suffixes"] == [".ts", ".tsx"]
+    assert matrix["javascript"]["suffixes"] == [".js", ".jsx", ".mjs", ".cjs"]
+    assert matrix["python"]["features"]["enum_harvest"] == "supported"
+    assert matrix["c"]["features"]["try_catch"] == "not_supported"
+    assert matrix["rust"]["features"]["returns_throws"] == "partial"
 
 
 def test_unknown_suffix_is_rejected() -> None:
@@ -45,6 +58,8 @@ def test_project_analyzer_dispatches_and_caches(tmp_path: Path) -> None:
     model = analyzer.analyze(full=True).model
     languages = {flow.language for flow in model.flows}
     assert {"python", "typescript", "cpp"} <= languages
+    assert "language_capabilities" in model.metadata
+    assert "javascript" in model.metadata["language_capabilities"]
     # Analyzers are cached lazily, one per language actually seen.
     assert set(analyzer._analyzers) == {"python", "typescript", "cpp"}
 

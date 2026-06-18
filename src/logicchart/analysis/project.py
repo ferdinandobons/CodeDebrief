@@ -14,7 +14,12 @@ from logicchart.analysis.common import (
 )
 from logicchart.analysis.cross_flow import cross_flow_findings
 from logicchart.analysis.discovery import discover_source_files
-from logicchart.analysis.registry import LanguageAnalyzer, language_for, spec_for_language
+from logicchart.analysis.registry import (
+    LanguageAnalyzer,
+    language_capability_matrix,
+    language_for,
+    spec_for_language,
+)
 from logicchart.config import LogicChartConfig
 from logicchart.diagnostics import enrich_model_diagnostics
 from logicchart.model import (
@@ -248,6 +253,7 @@ class ProjectAnalyzer:
                 "flow_count": len(flows),
                 "finding_count": len(findings),
                 "enums": enums,
+                "language_capabilities": language_capability_matrix(),
                 "scopes": dict(sorted(scope_counts.items())),
             },
         )

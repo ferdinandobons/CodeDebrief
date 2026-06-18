@@ -80,6 +80,7 @@ def authorize(user):
                 assert "flows" in str(summary.content)
                 assert "finding_rules" in str(summary.content)
                 assert "quality" in str(summary.content)
+                assert "language_capabilities" in str(summary.content)
 
                 rules = await session.call_tool("finding_rules", {"kind": "missing_branch"})
                 assert not rules.isError

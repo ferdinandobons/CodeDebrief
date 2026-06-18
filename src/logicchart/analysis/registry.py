@@ -105,6 +105,96 @@ _BY_SUFFIX: dict[str, LanguageSpec] = {
 }
 _BY_ID: dict[str, LanguageSpec] = {spec.id: spec for spec in LANGUAGES}
 
+_FEATURES: tuple[str, ...] = (
+    "functions_methods",
+    "entrypoint_heuristics",
+    "decisions",
+    "switch_match",
+    "loops",
+    "calls",
+    "returns_throws",
+    "try_catch",
+    "test_detection",
+    "enum_harvest",
+    "qualified_call_links",
+)
+
+_BASE_FEATURES: dict[str, str] = {
+    "functions_methods": "supported",
+    "entrypoint_heuristics": "supported",
+    "decisions": "supported",
+    "switch_match": "supported",
+    "loops": "supported",
+    "calls": "supported",
+    "returns_throws": "supported",
+    "try_catch": "supported",
+    "test_detection": "supported",
+    "enum_harvest": "not_supported",
+    "qualified_call_links": "partial",
+}
+
+_LANGUAGE_OVERRIDES: dict[str, dict[str, str]] = {
+    "javascript": {"enum_harvest": "not_supported"},
+    "typescript": {"enum_harvest": "supported"},
+    "python": {"enum_harvest": "supported", "qualified_call_links": "supported"},
+    "c": {
+        "entrypoint_heuristics": "partial",
+        "try_catch": "not_supported",
+        "qualified_call_links": "not_supported",
+    },
+    "cpp": {"entrypoint_heuristics": "partial", "qualified_call_links": "not_supported"},
+    "csharp": {"entrypoint_heuristics": "partial", "qualified_call_links": "not_supported"},
+    "go": {
+        "entrypoint_heuristics": "partial",
+        "try_catch": "not_supported",
+        "qualified_call_links": "not_supported",
+    },
+    "java": {"entrypoint_heuristics": "partial", "qualified_call_links": "not_supported"},
+    "php": {"entrypoint_heuristics": "partial", "qualified_call_links": "not_supported"},
+    "ruby": {
+        "entrypoint_heuristics": "partial",
+        "try_catch": "not_supported",
+        "qualified_call_links": "not_supported",
+    },
+    "rust": {
+        "entrypoint_heuristics": "partial",
+        "returns_throws": "partial",
+        "try_catch": "not_supported",
+        "qualified_call_links": "not_supported",
+    },
+}
+
+_FRONTENDS: dict[str, str] = {
+    "javascript": "typescript_tree_sitter",
+    "typescript": "typescript_tree_sitter",
+    "python": "python_ast",
+    "c": "tree_sitter_profile",
+    "cpp": "tree_sitter_profile",
+    "csharp": "tree_sitter_profile",
+    "go": "tree_sitter_profile",
+    "java": "tree_sitter_profile",
+    "php": "tree_sitter_profile",
+    "ruby": "tree_sitter_profile",
+    "rust": "tree_sitter_profile",
+}
+
+_STATUSES: dict[str, str] = {
+    language: "supported"
+    for language in (
+        "javascript",
+        "typescript",
+        "python",
+        "c",
+        "cpp",
+        "csharp",
+        "go",
+        "java",
+        "php",
+        "ruby",
+        "rust",
+    )
+}
+
 
 def supported_suffixes() -> frozenset[str]:
     return frozenset(_BY_SUFFIX)
@@ -121,6 +211,21 @@ def supported_language_ids() -> tuple[str, ...]:
     return tuple(ids)
 
 
+def language_capability_matrix() -> dict[str, dict[str, object]]:
+    """Return a coarse, deterministic analyzer support matrix for agents and UI."""
+    matrix: dict[str, dict[str, object]] = {}
+    for language in supported_language_ids():
+        features = dict(_BASE_FEATURES)
+        features.update(_LANGUAGE_OVERRIDES.get(language, {}))
+        matrix[language] = {
+            "status": _STATUSES[language],
+            "frontend": _FRONTENDS[language],
+            "suffixes": list(_suffixes_for_language(language)),
+            "features": {key: features[key] for key in _FEATURES},
+        }
+    return matrix
+
+
 def spec_for_path(path: Path) -> LanguageSpec | None:
     return _BY_SUFFIX.get(path.suffix.lower())
 
@@ -130,6 +235,14 @@ def language_for(path: Path) -> str:
     if spec is None:
         raise ValueError(f"Unsupported source file: {path}")
     return spec.id
+
+
+def _suffixes_for_language(language: str) -> tuple[str, ...]:
+    if language == "javascript":
+        return (".js", ".jsx", ".mjs", ".cjs")
+    if language == "typescript":
+        return (".ts", ".tsx")
+    return spec_for_language(language).suffixes
 
 
 def spec_for_language(language: str) -> LanguageSpec:

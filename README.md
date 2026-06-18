@@ -181,6 +181,8 @@ Framework-aware entry points include:
 
 A new control-flow language is a `LanguageProfile` plus a registry entry, not a new
 pipeline.
+Generated models include `metadata.language_capabilities`, a deterministic support matrix
+with suffixes, analyzer frontend, and coarse feature coverage for each language id.
 
 ## Commands
 

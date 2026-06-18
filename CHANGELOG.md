@@ -18,6 +18,7 @@ The project follows Semantic Versioning.
   `logicchart validate --quality`, MCP summaries, and `validate_artifacts`.
 - Added a Project Quality panel to the generated viewer details rail, showing analyzer
   coverage, call-resolution, finding, generic-label, graph-density, and language metrics.
+- Added a deterministic language capability matrix to generated metadata and MCP summaries.
 
 ### Changed
 
