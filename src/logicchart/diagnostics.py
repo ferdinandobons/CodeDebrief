@@ -24,6 +24,8 @@ class FindingRule:
     metadata_fields: tuple[str, ...]
     review_prompt: str
     suggested_next_actions: tuple[str, ...]
+    true_positive_example: str
+    intentional_suppression_example: str
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -57,6 +59,12 @@ FINDING_RULES: dict[str, FindingRule] = {
             "Add an explicit else/default when the omitted path is real.",
             "Suppress or document the finding when an upstream invariant proves exhaustiveness.",
         ),
+        true_positive_example=(
+            "A public route switches on account.status but has no default for new statuses."
+        ),
+        intentional_suppression_example=(
+            "A validator rejects all unlisted statuses before this function runs."
+        ),
     ),
     FindingKind.DEAD_CODE.value: FindingRule(
         rule_id=FindingKind.DEAD_CODE.value,
@@ -80,6 +88,10 @@ FINDING_RULES: dict[str, FindingRule] = {
             "Inspect the previous return/raise paths.",
             "Remove dead code when it is accidental.",
             "Refactor the branch when the later code should still run.",
+        ),
+        true_positive_example="A statement after unconditional return is never executed.",
+        intentional_suppression_example=(
+            "A decorator or runtime hook changes control flow outside the modeled body."
         ),
     ),
     FindingKind.BROAD_EXCEPT_SWALLOW.value: FindingRule(
@@ -106,6 +118,10 @@ FINDING_RULES: dict[str, FindingRule] = {
             "Return or raise an explicit failure path when callers need to know.",
             "Document intentional suppression when the failure is safely absorbed.",
         ),
+        true_positive_example=(
+            "A broad except logs and continues after a failed write that callers must know about."
+        ),
+        intentional_suppression_example="A best-effort telemetry call may fail silently by design.",
     ),
     FindingKind.NO_OP_BRANCH.value: FindingRule(
         rule_id=FindingKind.NO_OP_BRANCH.value,
@@ -124,6 +140,10 @@ FINDING_RULES: dict[str, FindingRule] = {
             "Inspect the selected branch.",
             "Add the missing behavior or remove the dead branch.",
             "Leave an explicit comment when the no-op is intentional.",
+        ),
+        true_positive_example="A paid-order case is empty while sibling states update inventory.",
+        intentional_suppression_example=(
+            "An explicit pass marks a state that intentionally requires no action."
         ),
     ),
     FindingKind.ASYMMETRIC_RETURN.value: FindingRule(
@@ -145,6 +165,12 @@ FINDING_RULES: dict[str, FindingRule] = {
             "Add an explicit return or raise when the fall-through is accidental.",
             "Document intentional fall-through when shared tail logic is required.",
         ),
+        true_positive_example=(
+            "One switch case computes a response but falls through while siblings return."
+        ),
+        intentional_suppression_example=(
+            "A case intentionally falls through to shared audit or cleanup logic."
+        ),
     ),
     FindingKind.DEAD_GUARD.value: FindingRule(
         rule_id=FindingKind.DEAD_GUARD.value,
@@ -165,6 +191,10 @@ FINDING_RULES: dict[str, FindingRule] = {
             "Inspect the constant definition and selected guard.",
             "Remove unreachable branch logic when the constant is fixed.",
             "Avoid flagging by making runtime configuration explicit when it is mutable.",
+        ),
+        true_positive_example="A module constant disables a feature branch that can never run.",
+        intentional_suppression_example=(
+            "The constant is monkeypatched or injected in the runtime environment."
         ),
     ),
     FindingKind.INCONSISTENT_CASE_HANDLING.value: FindingRule(
@@ -199,6 +229,12 @@ FINDING_RULES: dict[str, FindingRule] = {
             "Add missing cases or an explicit default when the omission is accidental.",
             "Document the narrower contract when the omission is intentional.",
         ),
+        true_positive_example=(
+            "Most sibling handlers cover CANCELLED, but one route omits it without default."
+        ),
+        intentional_suppression_example=(
+            "The flagged route accepts only a narrower documented subset of states."
+        ),
     ),
     FindingKind.ENUM_EXHAUSTIVENESS.value: FindingRule(
         rule_id=FindingKind.ENUM_EXHAUSTIVENESS.value,
@@ -226,6 +262,12 @@ FINDING_RULES: dict[str, FindingRule] = {
             "Add missing cases for real states.",
             "Add an explicit default or suppression when upstream validation proves the subset.",
         ),
+        true_positive_example=(
+            "A dispatch over a declared enum omits DELETED and has no default branch."
+        ),
+        intentional_suppression_example=(
+            "Upstream validation proves the omitted enum member cannot reach this flow."
+        ),
     ),
     FindingKind.OUTCOME_INCONSISTENCY.value: FindingRule(
         rule_id=FindingKind.OUTCOME_INCONSISTENCY.value,
@@ -249,6 +291,12 @@ FINDING_RULES: dict[str, FindingRule] = {
             "Align the outcome when consistency is required.",
             "Document the intentional divergence when the route contract differs.",
         ),
+        true_positive_example=(
+            "Sibling flows return forbidden for the same guard, but one returns success."
+        ),
+        intentional_suppression_example=(
+            "The route intentionally maps the same state to a different public contract."
+        ),
     ),
     FindingKind.LOGGING_ASYMMETRY.value: FindingRule(
         rule_id=FindingKind.LOGGING_ASYMMETRY.value,
@@ -268,6 +316,12 @@ FINDING_RULES: dict[str, FindingRule] = {
             "Inspect the selected guard and sibling error path.",
             "Add logging or alerting when observability is required.",
             "Document intentional silence when noise reduction is deliberate.",
+        ),
+        true_positive_example=(
+            "One payment failure path raises without logging while siblings alert operators."
+        ),
+        intentional_suppression_example=(
+            "Noise-sensitive paths are intentionally silent and monitored elsewhere."
         ),
     ),
     FindingKind.AUTH_DIVERGENCE.value: FindingRule(
@@ -292,6 +346,12 @@ FINDING_RULES: dict[str, FindingRule] = {
             "Inspect route middleware, dependencies, and decorators.",
             "Add an explicit authorization check if none exists.",
             "Suppress or document the finding when external enforcement is confirmed.",
+        ),
+        true_positive_example=(
+            "A sibling admin route checks authorization, but this entrypoint does not."
+        ),
+        intentional_suppression_example=(
+            "Middleware or route configuration enforces authorization before the handler."
         ),
     ),
 }
@@ -373,6 +433,12 @@ def _fallback_rule(kind: str) -> FindingRule:
         metadata_fields=(),
         review_prompt="Review the selected finding and source evidence.",
         suggested_next_actions=("Inspect the selected flow and source range.",),
+        true_positive_example=(
+            "The detector evidence points to a real behavior gap in the selected flow."
+        ),
+        intentional_suppression_example=(
+            "Project-specific context proves the emitted finding is intentional."
+        ),
     )
 
 

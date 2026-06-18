@@ -21,6 +21,8 @@ The project follows Semantic Versioning.
   Markdown findings list.
 - Added a shared finding-rule registry to generated model metadata and exposed it through
   MCP with a new `finding_rules` tool.
+- Added concise true-positive and intentional-suppression examples to every finding-rule
+  contract in metadata and MCP responses.
 - Added deterministic SVG MCP snapshot tools for flow, finding, impact, and explicit
   flow/finding subgraph visual context.
 - Added `logicchart snapshot flow|finding|impact|subgraph` for deterministic SVG visual

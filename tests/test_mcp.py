@@ -154,6 +154,9 @@ def authorize(user):
                 rules = await session.call_tool("finding_rules", {"kind": "missing_branch"})
                 assert not rules.isError
                 assert "Missing explicit fallback" in str(rules.content)
+                rule_payload = rules.structuredContent["result"][0]  # type: ignore[index]
+                assert "true_positive_example" in rule_payload
+                assert "intentional_suppression_example" in rule_payload
                 missing_finding = await session.call_tool(
                     "explain_finding_chain",
                     {"finding_id": "missing-finding"},

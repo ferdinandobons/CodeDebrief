@@ -217,6 +217,9 @@ Current checkpoint:
   `metadata.finding_rules` and exposed via MCP `finding_rules`.
 - Rule contracts include purpose, exact preconditions, caveats, evidence rationale,
   guaranteed metadata fields, review prompt, and suggested next actions.
+- Rule contracts now include concise true-positive and intentional-suppression examples,
+  so MCP/metadata consumers can distinguish actionable findings from expected review-only
+  cases without relying on long prose.
 - Diagnostics reuse the same contracts for `review_prompt` and `suggested_next_actions`,
   so CLI explanations, MCP payloads, snapshots, and the viewer stay aligned.
 - Tests now pin the public rule-contract shape for every finding kind and verify filtered
@@ -224,8 +227,6 @@ Current checkpoint:
 
 Still open:
 
-- Add concise true-positive and intentional-suppression examples to each rule contract
-  only when the example text can stay stable and not bloat MCP responses.
 - Keep metadata-field guarantees synchronized when adding new detectors or detector
   evidence.
 

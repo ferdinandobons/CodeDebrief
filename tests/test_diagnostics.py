@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
@@ -24,6 +26,24 @@ def handle(status):
         case Status.CLOSED:
             return "closed"
 """
+
+
+def test_diagnostics_import_is_lightweight() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from logicchart.diagnostics import finding_rule_contracts; "
+                "print(finding_rule_contracts('missing_branch')[0]['rule_id'])"
+            ),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.stdout.strip() == "missing_branch"
 
 
 def test_findings_carry_normalized_diagnostics(tmp_path: Path) -> None:
@@ -167,6 +187,8 @@ def test_every_finding_kind_has_a_rule_contract() -> None:
         "metadata_fields",
         "review_prompt",
         "suggested_next_actions",
+        "true_positive_example",
+        "intentional_suppression_example",
     }
     for kind, rule in rules.items():
         assert set(rule) == expected_keys
@@ -181,10 +203,15 @@ def test_every_finding_kind_has_a_rule_contract() -> None:
         assert rule["review_prompt"]
         assert rule["suggested_next_actions"]
         assert len(rule["suggested_next_actions"]) >= 2
+        assert rule["true_positive_example"]
+        assert rule["intentional_suppression_example"]
+        assert len(rule["true_positive_example"]) <= 120
+        assert len(rule["intentional_suppression_example"]) <= 120
 
     missing_branch = finding_rule_contracts("missing_branch")
     assert len(missing_branch) == 1
     assert missing_branch[0] == rules["missing_branch"]
+    assert "validator" in missing_branch[0]["intentional_suppression_example"]
     assert finding_rule_contracts("unknown_kind") == []
 
 
