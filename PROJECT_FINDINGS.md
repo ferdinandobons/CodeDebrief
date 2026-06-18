@@ -24,6 +24,8 @@ LogicChart is in a strong alpha state.
   agent orientation.
 - Python `try`/`else` blocks now model the success-only `else` path before reconnecting to
   the following flow, while skipping that path when the `try` body already terminates.
+- Python loops now expose decisions and calls inside `for`, `async for`, `while`, and loop
+  `else` bodies before reconnecting to post-loop flow.
 - The deterministic baseline is correct for the product: no API key is required, and LLM
   usage should remain optional enrichment, never a requirement for core correctness.
 - Local quality gates are currently healthy: Python tests, coverage, type checking,
@@ -612,6 +614,8 @@ Before the next release:
 - Done: add optional quality thresholds.
 - Done: model Python `try`/`else` success paths without treating terminating `try` bodies as
   fall-through.
+- Done: model Python loop bodies and loop `else` blocks so useful internal decisions/calls
+  are no longer hidden behind a single loop action node.
 
 ### Phase 5: Release Consolidation
 

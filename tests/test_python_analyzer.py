@@ -118,3 +118,127 @@ def process(order):
     flow = next(item for item in analysis.flows if item.name == "process")
 
     assert "Call persist()" not in {node.label for node in flow.nodes}
+
+
+def test_loop_body_decision_is_modeled_before_post_loop(tmp_path: Path) -> None:
+    source = tmp_path / "service.py"
+    source.write_text(
+        """
+def process(orders):
+    for order in orders:
+        if order.status == OrderStatus.OPEN:
+            approve(order)
+    return done()
+""",
+        encoding="utf-8",
+    )
+
+    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = next(item for item in analysis.flows if item.name == "process")
+    labels = [node.label for node in flow.nodes]
+
+    assert "Process each order" in labels
+    assert "order.status == OrderStatus.OPEN" in labels
+    assert "Call approve()" in labels
+    assert "Call done()" in labels
+    assert "Return done()" in labels
+
+    by_label = {node.label: node.id for node in flow.nodes}
+    assert any(
+        edge.source == by_label["Process each order"]
+        and edge.target == by_label["order.status == OrderStatus.OPEN"]
+        and edge.label == "Iteration"
+        for edge in flow.edges
+    )
+    assert any(
+        edge.source == by_label["Process each order"]
+        and edge.target == by_label["Call done()"]
+        and edge.label == "Done"
+        for edge in flow.edges
+    )
+    assert any(
+        edge.source == by_label["Call approve()"] and edge.target == by_label["Call done()"]
+        for edge in flow.edges
+    )
+
+
+def test_loop_else_body_is_modeled_on_natural_completion(tmp_path: Path) -> None:
+    source = tmp_path / "service.py"
+    source.write_text(
+        """
+def process(items):
+    for item in items:
+        inspect(item)
+    else:
+        finalize()
+    return done()
+""",
+        encoding="utf-8",
+    )
+
+    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = next(item for item in analysis.flows if item.name == "process")
+    labels = [node.label for node in flow.nodes]
+
+    assert "Process each item" in labels
+    assert "Call inspect()" in labels
+    assert "Call finalize()" in labels
+    assert "Call done()" in labels
+
+    by_label = {node.label: node.id for node in flow.nodes}
+    assert any(
+        edge.source == by_label["Process each item"]
+        and edge.target == by_label["Call inspect()"]
+        and edge.label == "Iteration"
+        for edge in flow.edges
+    )
+    assert any(
+        edge.source == by_label["Process each item"]
+        and edge.target == by_label["Call finalize()"]
+        and edge.label == "Done"
+        for edge in flow.edges
+    )
+    assert any(
+        edge.source == by_label["Call inspect()"] and edge.target == by_label["Call finalize()"]
+        for edge in flow.edges
+    )
+    assert any(
+        edge.source == by_label["Call finalize()"] and edge.target == by_label["Call done()"]
+        for edge in flow.edges
+    )
+
+
+def test_loop_continue_does_not_flow_to_post_loop(tmp_path: Path) -> None:
+    source = tmp_path / "service.py"
+    source.write_text(
+        """
+def process(items):
+    for item in items:
+        if item.status == Status.SKIP:
+            continue
+        handle(item)
+    return done()
+""",
+        encoding="utf-8",
+    )
+
+    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = next(item for item in analysis.flows if item.name == "process")
+    labels = [node.label for node in flow.nodes]
+
+    assert "Continue loop" in labels
+    assert "Call handle()" in labels
+    assert "Call done()" in labels
+
+    by_label = {node.label: node.id for node in flow.nodes}
+    assert (
+        any(
+            edge.source == by_label["Continue loop"] and edge.target == by_label["Call done()"]
+            for edge in flow.edges
+        )
+        is False
+    )
+    assert any(
+        edge.source == by_label["Call handle()"] and edge.target == by_label["Call done()"]
+        for edge in flow.edges
+    )

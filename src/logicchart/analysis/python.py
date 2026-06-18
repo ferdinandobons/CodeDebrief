@@ -192,16 +192,9 @@ class PythonAnalyzer:
                     statement, endpoints, builder, findings, source, relative
                 )
             elif isinstance(statement, (ast.For, ast.AsyncFor, ast.While)):
-                label = _loop_label(statement)
-                node = builder.add_node(
-                    NodeKind.ACTION,
-                    label,
-                    _location(relative, statement),
-                    endpoints,
-                    detail=_source_segment(source, statement),
-                    evidence=Evidence.INFERRED,
+                endpoints = self._walk_loop(
+                    statement, endpoints, builder, findings, source, relative
                 )
-                endpoints = [PendingEdge(node.id)]
             elif isinstance(statement, ast.Return):
                 value = _safe_unparse(statement.value) if statement.value else ""
                 calls = [
@@ -238,6 +231,26 @@ class PythonAnalyzer:
                     detail=_source_segment(source, statement),
                 )
                 endpoints = []
+            elif isinstance(statement, ast.Break):
+                node = builder.add_node(
+                    NodeKind.ACTION,
+                    "Break loop",
+                    _location(relative, statement),
+                    endpoints,
+                    detail=_source_segment(source, statement),
+                    metadata={"loop_control": "break"},
+                )
+                endpoints = [PendingEdge(node.id)]
+            elif isinstance(statement, ast.Continue):
+                builder.add_node(
+                    NodeKind.ACTION,
+                    "Continue loop",
+                    _location(relative, statement),
+                    endpoints,
+                    detail=_source_segment(source, statement),
+                    metadata={"loop_control": "continue"},
+                )
+                endpoints = []
             else:
                 kind, label, calls = _statement_summary(statement)
                 node = builder.add_node(
@@ -250,6 +263,51 @@ class PythonAnalyzer:
                 )
                 endpoints = [PendingEdge(node.id)]
         return endpoints
+
+    def _walk_loop(
+        self,
+        statement: ast.For | ast.AsyncFor | ast.While,
+        incoming: list[PendingEdge],
+        builder: FlowBuilder,
+        findings: list[Finding],
+        source: str,
+        relative: str,
+    ) -> list[PendingEdge]:
+        node = builder.add_node(
+            NodeKind.ACTION,
+            _loop_label(statement),
+            _location(relative, statement),
+            incoming,
+            detail=_source_segment(source, statement),
+            evidence=Evidence.INFERRED,
+            metadata={
+                "loop": True,
+                "body_outcome": _branch_outcome(statement.body),
+                "else_outcome": (
+                    _branch_outcome(statement.orelse) if statement.orelse else FALLS_THROUGH
+                ),
+                "has_else": bool(statement.orelse),
+            },
+        )
+        body_endpoints = self._walk_statements(
+            statement.body,
+            [PendingEdge(node.id, "Iteration")],
+            builder,
+            findings,
+            source,
+            relative,
+        )
+        done_endpoints = [PendingEdge(node.id, "Done")]
+        if statement.orelse:
+            return self._walk_statements(
+                statement.orelse,
+                done_endpoints + body_endpoints,
+                builder,
+                findings,
+                source,
+                relative,
+            )
+        return done_endpoints + body_endpoints
 
     def _walk_if(
         self,

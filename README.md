@@ -162,7 +162,7 @@ LogicChart currently extracts control flow for **11 language ids**:
 
 | Language | Coverage |
 |---|---|
-| Python (`.py`) | full AST analyzer, including `try`/`except` and success-path `try`/`else` flow |
+| Python (`.py`) | full AST analyzer, including loop-body flow plus `try`/`except` and success-path `try`/`else` flow |
 | TypeScript / TSX (`.ts`, `.tsx`) | tree-sitter analyzer with Next.js and React entry-point detection, including expression-bodied arrow decisions |
 | JavaScript / JSX (`.js`, `.jsx`, `.mjs`, `.cjs`) | tree-sitter analyzer, labeled separately from TypeScript, including expression-bodied arrow decisions |
 | Go (`.go`) | profile-driven tree-sitter analyzer |

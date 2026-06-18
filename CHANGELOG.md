@@ -64,6 +64,8 @@ The project follows Semantic Versioning.
   overlays, and MCP status/navigation exposure.
 - Added Python analyzer modeling for `try`/`else` success paths, so post-success work is
   connected before the flow continues.
+- Added Python loop-body flow modeling, so decisions and calls inside `for`, `async for`,
+  `while`, and loop `else` blocks stay visible before post-loop flow continues.
 - Added header-clickable collapsible Details rail sections for Project Quality, Source,
   and Logical Errors.
 
