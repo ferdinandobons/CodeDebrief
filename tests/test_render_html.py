@@ -273,6 +273,7 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "model.metadata.quality" in html
     assert "qualityMetric(" in html
     assert "Call resolution" in html
+    assert "Skipped files" in html
     assert ".quality-metrics" in html
 
     # Selecting a decision node should visually select its finding row even when the user

@@ -121,6 +121,7 @@
         const labels = quality.labels || {};
         const source = quality.source_locations || {};
         const graph = quality.graph || {};
+        const skipped = (files.skipped && typeof files.skipped === "object") ? files.skipped : { total: 0 };
 
         if (qualityCountEl) qualityCountEl.textContent = ratioPercent(source.coverage);
 
@@ -137,9 +138,11 @@
         const unresolved = Number(calls.unresolved || 0);
         const ambiguous = Number(calls.ambiguous || 0);
         const generic = Number(labels.generic_nodes || 0);
+        const skippedTotal = Number(skipped.total || 0);
         const huge = Array.isArray(flows.huge) ? flows.huge.length : 0;
         signals.append(
           qualitySignal("Call resolution", ratioPercent(calls.resolution_rate), unresolved || ambiguous ? "attention" : ""),
+          qualitySignal("Skipped files", skippedTotal, skippedTotal ? "attention" : ""),
           qualitySignal("Unresolved calls", unresolved, unresolved ? "attention" : ""),
           qualitySignal("Ambiguous calls", ambiguous, ambiguous ? "attention" : ""),
           qualitySignal("Generic labels", generic + " · " + ratioPercent(labels.generic_ratio), generic ? "attention" : ""),

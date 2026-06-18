@@ -40,6 +40,7 @@ def model_quality(model: ProjectModel) -> dict[str, Any]:
     generic_labels = _generic_label_nodes(model.flows)
     source_locations = _source_location_nodes(model.flows)
     findings = model.findings
+    skipped_files = _skipped_files(model)
     huge_flows = [
         {
             "flow_id": flow.id,
@@ -56,6 +57,11 @@ def model_quality(model: ProjectModel) -> dict[str, Any]:
             "total": len(model.files),
             "by_language": dict(Counter(record.language for record in model.files)),
             "empty": sum(1 for record in model.files if not record.flow_ids),
+            "skipped": {
+                "total": len(skipped_files),
+                "by_reason": dict(Counter(item["reason"] for item in skipped_files)),
+                "sample": skipped_files[:20],
+            },
         },
         "flows": {
             "total": len(model.flows),
@@ -104,6 +110,7 @@ def render_quality(quality: dict[str, Any]) -> str:
     lines = [
         "Analysis quality:",
         f"- Files: {files['total']} ({_format_counts(files['by_language'])})",
+        f"- Skipped files: {files['skipped']['total']}",
         f"- Flows: {flows['total']} total, {flows['entrypoints']} entrypoints "
         f"({_format_counts(flows['by_language'])})",
         f"- Calls: {calls['resolved']}/{calls['total']} resolved "
@@ -120,6 +127,11 @@ def render_quality(quality: dict[str, Any]) -> str:
         lines.extend(
             f"  - {item['name']} ({item['nodes']} nodes, {item['source']})"
             for item in flows["huge"][:5]
+        )
+    if files["skipped"]["sample"]:
+        lines.append("- Skipped file samples:")
+        lines.extend(
+            f"  - {item['path']} ({item['reason']})" for item in files["skipped"]["sample"][:5]
         )
     if labels["sample"]:
         lines.append("- Generic label samples:")
@@ -183,6 +195,28 @@ def _source_location_nodes(flows: list[Flow]) -> list[FlowNode]:
         for node in flow.nodes
         if node.location.path and node.location.start_line > 0 and node.location.end_line > 0
     ]
+
+
+def _skipped_files(model: ProjectModel) -> list[dict[str, str]]:
+    rows = model.metadata.get("skipped_files", [])
+    if not isinstance(rows, list):
+        return []
+    normalized = []
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        path = item.get("path")
+        reason = item.get("reason")
+        language = item.get("language")
+        if isinstance(path, str) and isinstance(reason, str):
+            normalized.append(
+                {
+                    "path": path,
+                    "language": language if isinstance(language, str) else "",
+                    "reason": reason,
+                }
+            )
+    return normalized
 
 
 def _ratio(numerator: int, denominator: int) -> float:

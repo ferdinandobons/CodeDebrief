@@ -252,7 +252,8 @@ logicchart validate --quality --json
 `--check-sync` re-analyzes sources and fails if the committed JSON model is stale.
 `--quality` includes deterministic analysis metrics such as files and flows by language,
 call-resolution rate, generic-label ratio, source-location coverage, finding counts, and
-graph density.
+graph density. It also reports skipped-file counts and reasons when a source file could
+not be parsed.
 Generated viewers surface the same payload in the Details rail as a compact Project
 Quality panel.
 

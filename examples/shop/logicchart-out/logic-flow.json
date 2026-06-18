@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-16T09:53:07.649210+00:00",
+  "generated_at": "2026-06-18T13:35:04.881859+00:00",
   "root": ".",
   "flows": [
     {
@@ -7814,6 +7814,7 @@
       "frontend": 6,
       "tests": 1
     },
+    "skipped_files": [],
     "finding_rules": {
       "asymmetric_return": {
         "rule_id": "asymmetric_return",
@@ -8104,7 +8105,12 @@
           "python": 9,
           "typescript": 7
         },
-        "empty": 1
+        "empty": 1,
+        "skipped": {
+          "total": 0,
+          "by_reason": {},
+          "sample": []
+        }
       },
       "flows": {
         "total": 27,

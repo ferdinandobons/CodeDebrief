@@ -28,6 +28,7 @@ def test_model_quality_counts_calls_findings_and_labels(tmp_path: Path) -> None:
     assert "language_capabilities" in model.metadata
     assert "python" in model.metadata["language_capabilities"]
     assert quality["files"]["total"] == 1
+    assert quality["files"]["skipped"]["total"] == 0
     assert quality["flows"]["total"] >= 2
     assert quality["flows"]["entrypoints"] >= 1
     assert quality["calls"]["total"] >= 2
@@ -57,6 +58,7 @@ def test_validate_quality_json_and_text_output(tmp_path: Path, capsys) -> None:
     assert main(["validate", str(tmp_path), "--quality"]) == 0
     text = capsys.readouterr().out
     assert "Analysis quality:" in text
+    assert "Skipped files:" in text
     assert "Source coverage:" in text
 
 
@@ -73,3 +75,21 @@ def test_validate_report_can_compute_quality_for_older_artifact(tmp_path: Path) 
     assert report.ok
     assert report.quality is not None
     assert report.quality["files"]["total"] == 1
+
+
+def test_skipped_file_reasons_are_persisted_and_cached(tmp_path: Path) -> None:
+    (tmp_path / "ok.py").write_text("def ok():\n    return 1\n", encoding="utf-8")
+    (tmp_path / "broken.py").write_text("def broken(:\n    return 1\n", encoding="utf-8")
+
+    first = ProjectAnalyzer(tmp_path).analyze(full=True)
+    second = ProjectAnalyzer(tmp_path).analyze()
+
+    assert first.skipped_files
+    assert second.skipped_files == first.skipped_files
+    skipped = second.model.metadata["skipped_files"]
+    assert skipped == first.model.metadata["skipped_files"]
+    assert skipped[0]["path"] == "broken.py"
+    assert skipped[0]["language"] == "python"
+    assert "invalid syntax" in skipped[0]["reason"]
+    assert second.model.metadata["quality"]["files"]["skipped"]["total"] == 1
+    assert second.model.metadata["quality"]["files"]["skipped"]["sample"][0]["path"] == "broken.py"

@@ -77,7 +77,8 @@ snapshot for large-codebase review:
 
 - file, flow, entrypoint, and source-location coverage counts;
 - call-resolution rate with unresolved and ambiguous call counts;
-- finding count, generic-label ratio, graph density, and huge-flow signals;
+- skipped-file count, finding count, generic-label ratio, graph density, and huge-flow
+  signals;
 - top language distribution from the generated model.
 
 The panel is deterministic and local-only. It must not imply that heuristic review signals

@@ -42,7 +42,7 @@ from logicchart.util import (
     write_json,
 )
 
-CACHE_VERSION = "2"
+CACHE_VERSION = "3"
 
 # One bad file (mid-edit syntax error, non-UTF-8 bytes, a merge-conflict marker,
 # or a missing lazy language grammar in the current Python environment) must never
@@ -95,7 +95,7 @@ class ProjectAnalyzer:
                 write_json(cache_file, analysis.to_dict())
                 changed_files.append(relative)
                 analyses.append(analysis)
-                new_index[relative] = {"sha256": digest, "cache": cache_file.name}
+                new_index[relative] = _index_entry(cache_file.name, digest, reason)
                 continue
             cached = previous_index.get(relative)
             reused = (
@@ -106,6 +106,8 @@ class ProjectAnalyzer:
             )
             if reused:
                 analysis = reused
+                if cached and cached.get("skip_reason"):
+                    skipped_files.append((relative, cached["skip_reason"]))
                 cache_hits += 1
             else:
                 analysis, reason = self._safe_analyze_file(path, relative, digest)
@@ -114,9 +116,13 @@ class ProjectAnalyzer:
                 write_json(cache_file, analysis.to_dict())
                 changed_files.append(relative)
             analyses.append(analysis)
-            new_index[relative] = {"sha256": digest, "cache": cache_file.name}
+            new_index[relative] = _index_entry(
+                cache_file.name,
+                digest,
+                reason if reason is not None else (cached or {}).get("skip_reason"),
+            )
 
-        model = self._combine(analyses)
+        model = self._combine(analyses, skipped_files)
         if not full and not changed_files and not deleted_files and self.previous_generated_at:
             model.generated_at = self.previous_generated_at
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -196,7 +202,13 @@ class ProjectAnalyzer:
             self.previous_generated_at = str(generated_at) if generated_at else None
             file_data = data.get("files", {})
             return {
-                str(path): {"sha256": str(item["sha256"]), "cache": str(item["cache"])}
+                str(path): {
+                    "sha256": str(item["sha256"]),
+                    "cache": str(item["cache"]),
+                    **(
+                        {"skip_reason": str(item["skip_reason"])} if item.get("skip_reason") else {}
+                    ),
+                }
                 for path, item in file_data.items()
             }
         except (ValueError, KeyError, TypeError, OSError):
@@ -205,7 +217,9 @@ class ProjectAnalyzer:
             self.previous_generated_at = None
             return {}
 
-    def _combine(self, analyses: list[FileAnalysis]) -> ProjectModel:
+    def _combine(
+        self, analyses: list[FileAnalysis], skipped_files: list[tuple[str, str]]
+    ) -> ProjectModel:
         flows = [flow for analysis in analyses for flow in analysis.flows]
         findings = [finding for analysis in analyses for finding in analysis.findings]
         self._link_calls(flows)
@@ -255,6 +269,7 @@ class ProjectAnalyzer:
                 "enums": enums,
                 "language_capabilities": language_capability_matrix(),
                 "scopes": dict(sorted(scope_counts.items())),
+                "skipped_files": _skipped_file_records(skipped_files),
             },
         )
         enrich_model_diagnostics(model)
@@ -347,6 +362,24 @@ def _skip_reason(error: Exception) -> str:
     """A one-line, human-readable reason a file was skipped."""
     text = str(error).strip() or error.__class__.__name__
     return compact_text(text, 200)
+
+
+def _index_entry(cache_name: str, digest: str, reason: str | None = None) -> dict[str, str]:
+    entry = {"sha256": digest, "cache": cache_name}
+    if reason:
+        entry["skip_reason"] = reason
+    return entry
+
+
+def _skipped_file_records(skipped_files: list[tuple[str, str]]) -> list[dict[str, str]]:
+    return [
+        {
+            "path": path,
+            "language": language_for(Path(path)),
+            "reason": reason,
+        }
+        for path, reason in sorted(skipped_files)
+    ]
 
 
 def _suppress_redundant_missing_branch(findings: list[Finding]) -> list[Finding]:
