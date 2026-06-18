@@ -32,7 +32,9 @@ from logicchart.analysis.common import (
     decision_metadata,
     domain_from_subject,
     is_functional_condition,
+    require_tree_sitter_parse_ok,
     tag_call_effects,
+    tree_sitter_parse_error,
     value_namespace,
 )
 from logicchart.analysis.detectors import dead_code_finding, single_flow_findings
@@ -88,11 +90,18 @@ class TypeScriptAnalyzer:
         )
         parser = Parser(Language(grammar))
         tree = parser.parse(source_bytes)
+        parse_error = tree_sitter_parse_error(tree.root_node, relative, ir_language)
+        definitions = list(_definitions(tree.root_node, source_bytes, relative))
+        if parse_error is not None and not definitions:
+            require_tree_sitter_parse_ok(tree.root_node, relative, ir_language)
         findings: list[Finding] = []
         flows = [
             self._analyze_definition(item, source_bytes, source, relative, ir_language, findings)
-            for item in _definitions(tree.root_node, source_bytes, relative)
+            for item in definitions
         ]
+        if parse_error is not None:
+            for flow in flows:
+                flow.metadata["parse_error"] = parse_error
         import_map = _import_map(tree.root_node, source_bytes, relative)
         module_name = _module_name(relative)
         for flow in flows:

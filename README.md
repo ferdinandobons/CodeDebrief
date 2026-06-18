@@ -316,8 +316,12 @@ logicchart validate --max-skipped-files 0 --min-call-resolution 0.5
 `--quality` includes deterministic analysis metrics such as files and flows by language,
 call-resolution rate, generic-label ratio, source-location coverage, finding counts, and
 graph density. It also reports skipped-file counts and reasons when a source file could
-not be parsed, plus per-language depth signals for files, flows, decisions, calls,
-findings, source coverage, and capability metadata.
+not be parsed. Python syntax errors and unrecoverable tree-sitter parse errors are
+recorded as skipped-file quality signals. Recoverable TypeScript/JavaScript or
+profile-driven tree-sitter error nodes that still expose flows are preserved with parse
+warnings in the quality payload instead of being silently treated as fully clean. The same
+quality payload also includes per-language depth signals for files, flows, decisions,
+calls, findings, source coverage, and capability metadata.
 `--annotations` reports validation status for an optional
 `logicchart-out/logic-annotations.json` sidecar. If that file exists, validation checks it
 even without the flag and fails when the sidecar is stale, malformed, or references ids

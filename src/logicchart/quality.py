@@ -41,6 +41,7 @@ def model_quality(model: ProjectModel) -> dict[str, Any]:
     source_locations = _source_location_nodes(model.flows)
     findings = model.findings
     skipped_files = _skipped_files(model)
+    parse_error_files = _parse_error_files(model.flows)
     huge_flows = [
         {
             "flow_id": flow.id,
@@ -61,6 +62,11 @@ def model_quality(model: ProjectModel) -> dict[str, Any]:
                 "total": len(skipped_files),
                 "by_reason": dict(Counter(item["reason"] for item in skipped_files)),
                 "sample": skipped_files[:20],
+            },
+            "parse_errors": {
+                "total": len(parse_error_files),
+                "by_language": dict(Counter(item["language"] for item in parse_error_files)),
+                "sample": parse_error_files[:20],
             },
         },
         "flows": {
@@ -89,6 +95,7 @@ def model_quality(model: ProjectModel) -> dict[str, Any]:
             findings=findings,
             generic_labels=generic_labels,
             skipped_files=skipped_files,
+            parse_error_files=parse_error_files,
         ),
         "labels": {
             "generic_nodes": len(generic_labels),
@@ -123,6 +130,7 @@ def render_quality(quality: dict[str, Any]) -> str:
         "Analysis quality:",
         f"- Files: {files['total']} ({_format_counts(files['by_language'])})",
         f"- Skipped files: {files['skipped']['total']}",
+        f"- Parse warnings: {files.get('parse_errors', {}).get('total', 0)}",
         f"- Flows: {flows['total']} total, {flows['entrypoints']} entrypoints "
         f"({_format_counts(flows['by_language'])})",
         f"- Calls: {calls['resolved']}/{calls['total']} resolved "
@@ -155,6 +163,13 @@ def render_quality(quality: dict[str, Any]) -> str:
         lines.append("- Skipped file samples:")
         lines.extend(
             f"  - {item['path']} ({item['reason']})" for item in files["skipped"]["sample"][:5]
+        )
+    parse_errors = files.get("parse_errors", {})
+    if isinstance(parse_errors, dict) and parse_errors.get("sample"):
+        lines.append("- Parse warning samples:")
+        lines.extend(
+            f"  - {item['path']}:{item['line']} ({item['reason']})"
+            for item in parse_errors["sample"][:5]
         )
     if labels["sample"]:
         lines.append("- Generic label samples:")
@@ -194,6 +209,7 @@ def _language_depth(
     findings: list[Finding],
     generic_labels: list[dict[str, Any]],
     skipped_files: list[dict[str, str]],
+    parse_error_files: list[dict[str, Any]],
 ) -> dict[str, Any]:
     file_counts = Counter(record.language for record in model.files)
     files_with_flows = Counter(
@@ -232,12 +248,14 @@ def _language_depth(
     generic_counts = Counter(_sample_language(item) for item in generic_labels)
     node_counts = Counter(flow.language for flow in non_test_flows for _node in flow.nodes)
     skipped_counts = Counter(item.get("language", "") for item in skipped_files)
+    parse_error_counts = Counter(item.get("language", "") for item in parse_error_files)
     capabilities = model.metadata.get("language_capabilities", {})
     languages = sorted(
         {
             *file_counts.keys(),
             *flow_counts.keys(),
             *skipped_counts.keys(),
+            *parse_error_counts.keys(),
         }
         - {""}
     )
@@ -249,6 +267,7 @@ def _language_depth(
         calls = call_counts[language]
         resolved = resolved_counts[language]
         skipped = skipped_counts[language]
+        parse_errors = parse_error_counts[language]
         nodes = node_counts[language]
         metrics = {
             "files": files,
@@ -266,6 +285,7 @@ def _language_depth(
             "generic_ratio": _ratio(generic_counts[language], nodes),
             "source_coverage": _ratio(source_counts[language], nodes),
             "skipped_files": skipped,
+            "parse_error_files": parse_errors,
             "capability": capabilities.get(language, {}),
         }
         signals = _language_attention_signals(metrics)
@@ -279,6 +299,8 @@ def _language_attention_signals(metrics: dict[str, Any]) -> list[str]:
     signals = []
     if metrics["skipped_files"]:
         signals.append("skipped_files")
+    if metrics.get("parse_error_files"):
+        signals.append("parse_errors")
     if metrics["files"] and not metrics["files_with_flows"]:
         signals.append("no_flow_files")
     if metrics["calls"] and metrics["call_resolution_rate"] < 0.5:
@@ -336,6 +358,28 @@ def _source_location_nodes(flows: list[Flow]) -> list[FlowNode]:
         for node in flow.nodes
         if node.location.path and node.location.start_line > 0 and node.location.end_line > 0
     ]
+
+
+def _parse_error_files(flows: list[Flow]) -> list[dict[str, Any]]:
+    by_path: dict[str, dict[str, Any]] = {}
+    for flow in flows:
+        parse_error = flow.metadata.get("parse_error")
+        if not isinstance(parse_error, dict):
+            continue
+        path = str(parse_error.get("path") or flow.location.path)
+        if not path:
+            continue
+        by_path.setdefault(
+            path,
+            {
+                "path": path,
+                "language": str(parse_error.get("language") or flow.language),
+                "line": int(parse_error.get("line") or flow.location.start_line),
+                "kind": str(parse_error.get("kind") or "ERROR"),
+                "reason": str(parse_error.get("reason") or "tree-sitter parse warning"),
+            },
+        )
+    return [by_path[path] for path in sorted(by_path)]
 
 
 def _skipped_files(model: ProjectModel) -> list[dict[str, str]]:

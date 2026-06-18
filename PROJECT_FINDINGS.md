@@ -29,6 +29,9 @@ LogicChart is in a strong alpha state.
 - TypeScript/JavaScript and profile-driven tree-sitter analyzers now expose loop-body
   decisions and calls with conservative `Iteration`/`Done` paths and explicit
   `break`/`continue` handling.
+- TypeScript/JavaScript and profile-driven tree-sitter parse errors now surface as
+  skipped-file or parse-warning quality signals instead of silently clean canonical
+  flowcharts.
 - The deterministic baseline is correct for the product: no API key is required, and LLM
   usage should remain optional enrichment, never a requirement for core correctness.
 - Local quality gates are currently healthy: Python tests, coverage, type checking,
@@ -512,6 +515,9 @@ Current checkpoint:
   findings, source coverage, skipped files, and capability metadata.
 - Generated models include `metadata.skipped_files`, and quality metrics include skipped
   counts, reason buckets, and samples.
+- Tree-sitter parse errors in TypeScript/JavaScript and profile-driven languages are
+  reported as skipped files when no flow can be extracted, or as parse-warning file
+  quality signals when useful flow context exists.
 - `logicchart validate` and MCP `validate_artifacts` can apply optional CI thresholds for
   skipped files, call-resolution rate, and generic-label ratio.
 
@@ -624,6 +630,8 @@ Before the next release:
   are no longer hidden behind a single loop action node.
 - Done: model TypeScript/JavaScript and profile-driven tree-sitter loop bodies with
   explicit `break`/`continue` control nodes.
+- Done: surface TypeScript/JavaScript and profile-driven tree-sitter parse errors as
+  skipped-file or parse-warning quality signals.
 
 ### Phase 5: Release Consolidation
 

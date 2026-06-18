@@ -132,6 +132,9 @@
         const graph = quality.graph || {};
         const languagesQuality = quality.languages || {};
         const skipped = (files.skipped && typeof files.skipped === "object") ? files.skipped : { total: 0 };
+        const parseErrors = (files.parse_errors && typeof files.parse_errors === "object")
+          ? files.parse_errors
+          : { total: 0 };
 
         if (qualityCountEl) qualityCountEl.textContent = ratioPercent(source.coverage);
 
@@ -149,6 +152,7 @@
         const ambiguous = Number(calls.ambiguous || 0);
         const generic = Number(labels.generic_nodes || 0);
         const skippedTotal = Number(skipped.total || 0);
+        const parseWarnings = Number(parseErrors.total || 0);
         const huge = Array.isArray(flows.huge) ? flows.huge.length : 0;
         const languageAttention = Array.isArray(languagesQuality.attention)
           ? languagesQuality.attention.length
@@ -156,6 +160,7 @@
         signals.append(
           qualitySignal("Call resolution", ratioPercent(calls.resolution_rate), unresolved || ambiguous ? "attention" : ""),
           qualitySignal("Skipped files", skippedTotal, skippedTotal ? "attention" : ""),
+          qualitySignal("Parse warnings", parseWarnings, parseWarnings ? "attention" : ""),
           qualitySignal("Unresolved calls", unresolved, unresolved ? "attention" : ""),
           qualitySignal("Ambiguous calls", ambiguous, ambiguous ? "attention" : ""),
           qualitySignal("Generic labels", generic + " · " + ratioPercent(labels.generic_ratio), generic ? "attention" : ""),

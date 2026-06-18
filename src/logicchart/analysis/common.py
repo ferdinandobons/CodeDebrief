@@ -124,6 +124,46 @@ class FlowBuilder:
         return edge
 
 
+def require_tree_sitter_parse_ok(root_node: Any, relative: str, language: str) -> None:
+    """Raise a clean SyntaxError when a tree-sitter parse contains error nodes.
+
+    Tree-sitter can produce a partial tree for malformed source. That is useful for
+    editors, but LogicChart's canonical model should not present a partial flow as if it
+    were trustworthy. The project analyzer catches SyntaxError and records the file as a
+    skipped-file quality signal instead.
+    """
+    parse_error = tree_sitter_parse_error(root_node, relative, language)
+    if parse_error is None:
+        return
+    raise SyntaxError(parse_error["reason"])
+
+
+def tree_sitter_parse_error(root_node: Any, relative: str, language: str) -> dict[str, Any] | None:
+    if not bool(getattr(root_node, "has_error", False)):
+        return None
+    error_node = _first_tree_sitter_error(root_node) or root_node
+    point = getattr(error_node, "start_point", None)
+    line = int(getattr(point, "row", 0)) + 1
+    kind = str(getattr(error_node, "type", "ERROR"))
+    return {
+        "language": language,
+        "path": relative,
+        "line": line,
+        "kind": kind,
+        "reason": f"{language} parse error in {relative}:{line} near {kind}",
+    }
+
+
+def _first_tree_sitter_error(node: Any) -> Any | None:
+    if str(getattr(node, "type", "")) == "ERROR":
+        return node
+    for child in getattr(node, "children", []) or []:
+        if bool(getattr(child, "has_error", False)):
+            found = _first_tree_sitter_error(child)
+            return found or child
+    return None
+
+
 def is_functional_condition(condition: str, branch_text: str = "") -> bool:
     lowered = f"{condition} {branch_text}".lower()
     tokens = set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", lowered))

@@ -39,7 +39,9 @@ from logicchart.analysis.common import (
     decision_metadata,
     domain_from_subject,
     is_functional_condition,
+    require_tree_sitter_parse_ok,
     tag_call_effects,
+    tree_sitter_parse_error,
     value_namespace,
 )
 from logicchart.analysis.common import DEFAULT as DEFAULT_LABEL
@@ -155,11 +157,15 @@ class TreeSitterAnalyzer:
         source = path.read_bytes().removeprefix(b"\xef\xbb\xbf")
         relative = relpath(path, self.root)
         tree = self.parser.parse(source)
+        parse_error = tree_sitter_parse_error(tree.root_node, relative, self.profile.language)
+        definitions = list(self.profile.definitions(tree.root_node, source, relative, self.profile))
+        if parse_error is not None and not definitions:
+            require_tree_sitter_parse_ok(tree.root_node, relative, self.profile.language)
         findings: list[Finding] = []
-        flows = [
-            self._analyze_definition(item, source, relative, findings)
-            for item in self.profile.definitions(tree.root_node, source, relative, self.profile)
-        ]
+        flows = [self._analyze_definition(item, source, relative, findings) for item in definitions]
+        if parse_error is not None:
+            for flow in flows:
+                flow.metadata["parse_error"] = parse_error
         import_map = self.profile.import_map(tree.root_node, source, relative)
         module_name = self.profile.module_name(relative)
         for flow in flows:

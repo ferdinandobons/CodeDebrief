@@ -70,6 +70,9 @@ The project follows Semantic Versioning.
   `while`, and loop `else` blocks stay visible before post-loop flow continues.
 - Added TypeScript/JavaScript and profile-driven tree-sitter loop-body flow modeling, so
   frontend and polyglot backend loop bodies expose internal decisions and calls.
+- Added tree-sitter parse-error surfacing for TypeScript/JavaScript and profile-driven
+  languages: unrecoverable malformed files are skipped, while recoverable partial parses
+  keep extracted flows and add parse-warning quality signals.
 - Added header-clickable collapsible Details rail sections for Project Quality, Source,
   and Logical Errors.
 

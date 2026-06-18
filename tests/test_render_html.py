@@ -341,6 +341,7 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "qualityMetric(" in html
     assert "Call resolution" in html
     assert "Skipped files" in html
+    assert "Parse warnings" in html
     assert "Language attention" in html
     assert ".quality-metrics" in html
 
