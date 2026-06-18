@@ -469,6 +469,9 @@ impact analysis, token-bounded deterministic SVG snapshots for flows/findings/im
 sets, review queue, context pack, artifact validation, and artifact update. Finding
 snapshots include a compact diagnostic panel with evidence tier, confidence, review
 prompt, and evidence-chain summaries.
+If the generated model is missing or malformed, model-reading MCP tools return structured
+recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
+actions instead of surfacing a raw traceback.
 `analysis_quality` returns deterministic analyzer-depth signals with guardrails and
 follow-up tool pointers. `context_pack` stays lightweight by default and returns snapshot
 follow-up tool calls; pass `include_visual=true` when an agent needs inline,

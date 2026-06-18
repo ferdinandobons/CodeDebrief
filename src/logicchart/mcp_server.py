@@ -6,7 +6,7 @@ from typing import Any
 
 from logicchart.analysis import ProjectAnalyzer
 from logicchart.annotations import load_annotations
-from logicchart.artifacts import load_model, write_artifacts
+from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import LogicChartConfig
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts
 from logicchart.model import ProjectModel
@@ -889,10 +889,57 @@ def _try_load(
     try:
         return load_model(project_root, config), None
     except _LOAD_ERRORS as error:
-        return None, {
-            "error": f"Could not load the LogicChart model: {error}. "
-            "Run `logicchart analyze --full` (or the update_logicchart tool) first."
-        }
+        return None, _model_load_error(project_root, config, error)
+
+
+def _model_load_error(
+    project_root: Path,
+    config: LogicChartConfig,
+    error: BaseException,
+) -> dict[str, Any]:
+    json_path, markdown_path, html_path = output_paths(project_root, config)
+    return {
+        "error": "Could not load the LogicChart model.",
+        "error_code": _model_load_error_code(error),
+        "detail": str(error),
+        "artifact": str(json_path),
+        "related_artifacts": {
+            "markdown": str(markdown_path),
+            "html": str(html_path),
+        },
+        "recoverable": True,
+        "guardrail": (
+            "This reports missing or invalid generated artifacts; it is not a "
+            "source-code logical finding."
+        ),
+        "next_tools": {
+            "update_model": {
+                "tool": "update_logicchart",
+                "arguments": {"full": True},
+            },
+            "validate_artifacts": {
+                "tool": "validate_artifacts",
+                "arguments": {"check_sync": True, "include_quality": True},
+            },
+        },
+        "next_cli": [
+            "logicchart analyze --full",
+            "logicchart validate --check-sync --json",
+        ],
+    }
+
+
+def _model_load_error_code(error: BaseException) -> str:
+    if isinstance(error, FileNotFoundError):
+        return "artifact_missing"
+    if isinstance(error, PermissionError):
+        return "artifact_unreadable"
+    if isinstance(error, OSError):
+        return "artifact_unreadable"
+    detail = str(error)
+    if isinstance(error, ValueError) and "invalid JSON" in detail:
+        return "artifact_malformed_json"
+    return "artifact_invalid"
 
 
 def flow_in_agent_scope(flow: Any, scope: str | None) -> bool:

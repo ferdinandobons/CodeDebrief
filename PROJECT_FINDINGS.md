@@ -372,6 +372,11 @@ Current checkpoint:
   next-tool hints so agents do not need to mine the full summary payload.
 - MCP tests now assert the structured `analysis_quality` payload, token-budget schema, and
   language-depth fields instead of relying only on text containment.
+- Model-reading MCP tools return structured recoverable artifact-load errors with
+  `error_code`, artifact paths, guardrails, and next-tool/CLI recovery actions for missing
+  or malformed generated models.
+- MCP tests cover missing and malformed artifact behavior end-to-end through the stdio
+  server.
 
 ## Finding 7: Language Support Needs Depth Metrics, Not Only a Count
 

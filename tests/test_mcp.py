@@ -259,6 +259,63 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
         }
 
 
+def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> None:
+    async def call_with_missing_artifact() -> None:
+        parameters = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", "logicchart.cli", "mcp", str(tmp_path)],
+        )
+        async with stdio_client(parameters) as streams:
+            read_stream, write_stream = streams
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                summary = await session.call_tool("logicchart_summary", {})
+                assert not summary.isError
+                payload = summary.structuredContent  # type: ignore[assignment]
+                assert payload["error_code"] == "artifact_missing"  # type: ignore[index]
+                assert payload["recoverable"] is True  # type: ignore[index]
+                assert "logical finding" in payload["guardrail"]  # type: ignore[index]
+                assert (  # type: ignore[index]
+                    payload["next_tools"]["update_model"]["tool"] == "update_logicchart"
+                )
+                assert "logicchart analyze --full" in payload["next_cli"]  # type: ignore[index]
+
+                flows = await session.call_tool("list_flows", {})
+                assert not flows.isError
+                rows = flows.structuredContent["result"]  # type: ignore[index]
+                assert rows[0]["error_code"] == "artifact_missing"
+                assert rows[0]["artifact"].endswith("logicchart-out/logic-flow.json")
+
+    asyncio.run(call_with_missing_artifact())
+
+    artifact = tmp_path / "logicchart-out" / "logic-flow.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("{", encoding="utf-8")
+
+    async def call_with_malformed_artifact() -> None:
+        parameters = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", "logicchart.cli", "mcp", str(tmp_path)],
+        )
+        async with stdio_client(parameters) as streams:
+            read_stream, write_stream = streams
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                summary = await session.call_tool("logicchart_summary", {})
+                assert not summary.isError
+                payload = summary.structuredContent  # type: ignore[assignment]
+                assert payload["error_code"] == "artifact_malformed_json"  # type: ignore[index]
+                assert "invalid JSON" in payload["detail"]  # type: ignore[index]
+
+                validation = await session.call_tool("validate_artifacts", {})
+                assert not validation.isError
+                validation_payload = validation.structuredContent  # type: ignore[assignment]
+                assert validation_payload["ok"] is False  # type: ignore[index]
+                assert "Malformed JSON" in validation_payload["errors"][0]  # type: ignore[index]
+
+    asyncio.run(call_with_malformed_artifact())
+
+
 def test_analysis_quality_report_bounds_language_attention() -> None:
     quality = {
         "files": {"skipped": {"total": 0, "sample": []}},

@@ -24,6 +24,8 @@ The project follows Semantic Versioning.
 - Added deterministic SVG MCP snapshot tools for flow, finding, and impact visual context.
 - Added `logicchart snapshot flow|finding|impact` for deterministic SVG visual context
   without requiring MCP or a browser.
+- Added structured, recoverable MCP artifact-load errors with error codes, artifact paths,
+  guardrails, and next-tool/CLI recovery actions.
 - Added token-budget handling to MCP flow, finding, and impact SVG snapshots, including
   omission counts for capped visual context.
 - Added a compact diagnostic panel to MCP finding SVG snapshots with evidence tier,
