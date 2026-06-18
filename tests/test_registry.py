@@ -32,6 +32,9 @@ def test_language_capability_matrix_tracks_registry() -> None:
     assert matrix["typescript"]["suffixes"] == [".ts", ".tsx"]
     assert matrix["javascript"]["suffixes"] == [".js", ".jsx", ".mjs", ".cjs"]
     assert matrix["python"]["features"]["enum_harvest"] == "supported"
+    assert matrix["python"]["features"]["expression_bodied_functions"] == "not_supported"
+    assert matrix["typescript"]["features"]["expression_bodied_functions"] == "supported"
+    assert matrix["javascript"]["features"]["expression_bodied_functions"] == "supported"
     assert matrix["c"]["features"]["try_catch"] == "not_supported"
     assert matrix["rust"]["features"]["returns_throws"] == "partial"
 

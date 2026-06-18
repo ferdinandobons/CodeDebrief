@@ -16,6 +16,10 @@ LogicChart is in a strong alpha state.
   source, node, decision, call, caller, and finding counts.
 - The static-analysis core is usable across 11 language ids and has a stable model shape:
   `Flow`, `FlowNode`, `FlowEdge`, `Finding`, evidence tiers, scopes, files, and metadata.
+- TypeScript/JavaScript expression-bodied arrow functions now produce real return flow,
+  and TSX/JSX ternary arrow components produce decision branches instead of shallow
+  generic action nodes. The language capability matrix marks this support explicitly for
+  agent orientation.
 - The deterministic baseline is correct for the product: no API key is required, and LLM
   usage should remain optional enrichment, never a requirement for core correctness.
 - Local quality gates are currently healthy: Python tests, coverage, type checking,
@@ -580,6 +584,8 @@ Before the next release:
 - Done: add viewer quality overview.
 - Done: add language capability matrix.
 - Done: persist skipped-file reasons.
+- Done: model expression-bodied TypeScript/JavaScript arrow returns and ternary component
+  decisions.
 - Done: add optional quality thresholds.
 
 ### Phase 5: Release Consolidation

@@ -101,3 +101,30 @@ export function UserPanel({ user }: Props) {
     assert flow.is_entrypoint
     assert flow.framework == "react"
     assert flow.entry_kind == "component"
+
+
+def test_expression_bodied_arrow_component_models_ternary_decision(tmp_path: Path) -> None:
+    source = tmp_path / "UserBadge.tsx"
+    source.write_text(
+        """
+export const UserBadge = ({ user }: Props) =>
+  user.active ? <Active user={user} /> : <Inactive />;
+""",
+        encoding="utf-8",
+    )
+
+    analysis = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = analysis.flows[0]
+
+    assert flow.is_entrypoint
+    assert flow.framework == "react"
+    assert flow.entry_kind == "component"
+    decision = next(node for node in flow.nodes if node.kind is NodeKind.DECISION)
+    assert decision.label == "user.active"
+    assert decision.metadata["branches"] == [
+        {"label": "Yes", "outcome": "returns", "implicit": False},
+        {"label": "No", "outcome": "returns", "implicit": False},
+    ]
+    assert any(node.label.startswith("Return <Active") for node in flow.nodes)
+    assert any(node.label.startswith("Return <Inactive") for node in flow.nodes)
+    assert not any(node.label == "Complete" for node in flow.nodes)

@@ -161,8 +161,8 @@ LogicChart currently extracts control flow for **11 language ids**:
 | Language | Coverage |
 |---|---|
 | Python (`.py`) | full AST analyzer |
-| TypeScript / TSX (`.ts`, `.tsx`) | tree-sitter analyzer with Next.js and React entry-point detection |
-| JavaScript / JSX (`.js`, `.jsx`, `.mjs`, `.cjs`) | tree-sitter analyzer, labeled separately from TypeScript |
+| TypeScript / TSX (`.ts`, `.tsx`) | tree-sitter analyzer with Next.js and React entry-point detection, including expression-bodied arrow decisions |
+| JavaScript / JSX (`.js`, `.jsx`, `.mjs`, `.cjs`) | tree-sitter analyzer, labeled separately from TypeScript, including expression-bodied arrow decisions |
 | Go (`.go`) | profile-driven tree-sitter analyzer |
 | Java (`.java`) | profile-driven tree-sitter analyzer, including Spring route annotations |
 | C# (`.cs`) | profile-driven tree-sitter analyzer |
@@ -176,14 +176,15 @@ Framework-aware entry points include:
 
 - FastAPI routes
 - Next.js route handlers, middleware, server actions, pages, and layouts
-- Shallow React components, hooks, and event handlers
+- React components, hooks, and event handlers, including expression-bodied arrow components
 - Spring route handlers
 - Public/exported functions, package-level functions and methods, CLI commands, and tests
 
 A new control-flow language is a `LanguageProfile` plus a registry entry, not a new
 pipeline.
 Generated models include `metadata.language_capabilities`, a deterministic support matrix
-with suffixes, analyzer frontend, and coarse feature coverage for each language id.
+with suffixes, analyzer frontend, and coarse feature coverage for each language id,
+including expression-bodied function support where the analyzer models it.
 
 ## Commands
 

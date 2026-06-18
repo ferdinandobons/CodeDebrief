@@ -151,15 +151,23 @@ class TypeScriptAnalyzer:
             [],
             metadata={"symbol": symbol},
         )
-        statements = list(_named_children(definition.body))
-        outgoing = self._walk_statements(
-            statements,
-            [PendingEdge(entry.id)],
-            builder,
-            findings,
-            source_bytes,
-            relative,
-        )
+        if definition.body.type == "statement_block":
+            outgoing = self._walk_statements(
+                list(_named_children(definition.body)),
+                [PendingEdge(entry.id)],
+                builder,
+                findings,
+                source_bytes,
+                relative,
+            )
+        else:
+            outgoing = self._walk_expression_body(
+                definition.body,
+                [PendingEdge(entry.id)],
+                builder,
+                source_bytes,
+                relative,
+            )
         if outgoing:
             builder.add_node(
                 NodeKind.TERMINAL,
@@ -267,6 +275,84 @@ class TypeScriptAnalyzer:
                 )
                 endpoints = [PendingEdge(node.id)]
         return endpoints
+
+    def _walk_expression_body(
+        self,
+        expression: Any,
+        incoming: list[PendingEdge],
+        builder: FlowBuilder,
+        source: bytes,
+        relative: str,
+    ) -> list[PendingEdge]:
+        if expression.type == "ternary_expression":
+            condition_node = expression.child_by_field_name("condition")
+            consequence = expression.child_by_field_name("consequence")
+            alternative = expression.child_by_field_name("alternative")
+            condition = _strip_parentheses(_text(condition_node or expression, source))
+            node = builder.add_node(
+                NodeKind.DECISION,
+                condition,
+                _location(relative, condition_node or expression),
+                incoming,
+                detail=_text(expression, source),
+                metadata=decision_metadata(condition),
+            )
+            node.metadata["branches"] = [
+                branch(YES, RETURNS),
+                branch(NO, RETURNS),
+            ]
+            self._walk_expression_return(
+                consequence,
+                [PendingEdge(node.id, YES)],
+                builder,
+                source,
+                relative,
+            )
+            self._walk_expression_return(
+                alternative,
+                [PendingEdge(node.id, NO)],
+                builder,
+                source,
+                relative,
+            )
+            return []
+        return self._walk_expression_return(expression, incoming, builder, source, relative)
+
+    def _walk_expression_return(
+        self,
+        expression: Any | None,
+        incoming: list[PendingEdge],
+        builder: FlowBuilder,
+        source: bytes,
+        relative: str,
+    ) -> list[PendingEdge]:
+        if expression is None:
+            return incoming
+        calls = [
+            _call_name(item, source)
+            for item in _descendants(expression)
+            if item.type == "call_expression"
+        ]
+        calls = [item for item in calls if item]
+        endpoints = incoming
+        if calls:
+            call_node = builder.add_node(
+                NodeKind.CALL,
+                f"Call {calls[0]}()",
+                _location(relative, expression),
+                endpoints,
+                detail=_text(expression, source),
+                metadata={"calls": calls},
+            )
+            endpoints = [PendingEdge(call_node.id)]
+        builder.add_node(
+            NodeKind.TERMINAL,
+            f"Return {_text(expression, source)}".strip(),
+            _location(relative, expression),
+            endpoints,
+            detail=_text(expression, source),
+        )
+        return []
 
     def _walk_if(
         self,

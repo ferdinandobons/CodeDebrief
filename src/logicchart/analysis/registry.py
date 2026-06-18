@@ -113,6 +113,7 @@ _FEATURES: tuple[str, ...] = (
     "loops",
     "calls",
     "returns_throws",
+    "expression_bodied_functions",
     "try_catch",
     "test_detection",
     "enum_harvest",
@@ -127,6 +128,7 @@ _BASE_FEATURES: dict[str, str] = {
     "loops": "supported",
     "calls": "supported",
     "returns_throws": "supported",
+    "expression_bodied_functions": "not_supported",
     "try_catch": "supported",
     "test_detection": "supported",
     "enum_harvest": "not_supported",
@@ -134,8 +136,14 @@ _BASE_FEATURES: dict[str, str] = {
 }
 
 _LANGUAGE_OVERRIDES: dict[str, dict[str, str]] = {
-    "javascript": {"enum_harvest": "not_supported"},
-    "typescript": {"enum_harvest": "supported"},
+    "javascript": {
+        "enum_harvest": "not_supported",
+        "expression_bodied_functions": "supported",
+    },
+    "typescript": {
+        "enum_harvest": "supported",
+        "expression_bodied_functions": "supported",
+    },
     "python": {"enum_harvest": "supported", "qualified_call_links": "supported"},
     "c": {
         "entrypoint_heuristics": "partial",
