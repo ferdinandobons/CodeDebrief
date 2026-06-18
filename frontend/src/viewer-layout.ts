@@ -50,6 +50,8 @@ const FLOW_CALL_OBSTACLE_GAP = 18;
 const MAX_CALL_CHILDREN_PER_ROW = 4;
 const DETAIL_CONTENT_COLLISION_GAP = 24;
 const DETAIL_CONTENT_COLLISION_MAX_PASSES = 24;
+const STRUCTURAL_COLLISION_GAP = 28;
+const STRUCTURAL_COLLISION_MAX_PASSES = 32;
 const ROOT_NODE_ID = "codebase";
 
 export interface ViewerLayoutInput {
@@ -207,6 +209,17 @@ interface InlineAnchorRecord {
   offsetY: number;
 }
 
+interface StructuralCollisionNode {
+  height: number;
+  id: string;
+  kind: "root" | "scope";
+  manual: boolean;
+  scopeIndex?: number;
+  width: number;
+  x: number;
+  y: number;
+}
+
 interface Segment {
   x1: number;
   x2: number;
@@ -256,16 +269,23 @@ export function createViewerLayout(input: ViewerLayoutInput): ViewerLayout {
       flowCount: input.layers?.flat().length ?? 0,
       expanded: true,
     };
-  const scopeNodes = scopeNodesBase.map(item =>
+  const appliedScopeNodes = scopeNodesBase.map(item =>
     applyManualNodePosition(item, input.manualNodePositions, "scope", item.scope),
   );
   const rootNodeBase = layoutRootNode(scopeNodesBase, scopeInputs);
-  const rootNode = applyManualNodePosition(
+  const appliedRootNode = applyManualNodePosition(
     rootNodeBase,
     input.manualNodePositions,
     "root",
     rootNodeBase.id,
   );
+  const resolvedStructure = resolveRootScopeCollisions(
+    appliedRootNode,
+    appliedScopeNodes,
+    input.manualNodePositions,
+  );
+  const rootNode = resolvedStructure.rootNode;
+  const scopeNodes = resolvedStructure.scopeNodes;
   const activeScopeNode =
     scopeNodes.find(item => item.scope === input.scope) ?? activeScopeNodeBase;
   const scopeBottom = Math.max(
@@ -395,6 +415,7 @@ export function createViewerLayout(input: ViewerLayoutInput): ViewerLayout {
   const resolvedDetailLayout = resolveDetailContentCollisions(
     flowPositionsSeed,
     inlineAnchorsSeed,
+    layoutBoxesFromParts(rootNode, scopeNodes, new Map(), []),
   );
   const flowPositions = resolvedDetailLayout.flowPositions;
   const inlineAnchors = resolvedDetailLayout.inlineAnchors;
@@ -715,6 +736,113 @@ function layoutRootNode(
   };
 }
 
+function resolveRootScopeCollisions(
+  rootNode: RootNodePosition,
+  scopeNodes: readonly ScopeLayoutPosition[],
+  manualNodePositions: ReadonlyMap<string, ManualNodePosition> | undefined,
+): {
+  rootNode: RootNodePosition;
+  scopeNodes: ScopeLayoutPosition[];
+} {
+  const structuralNodes: StructuralCollisionNode[] = [
+    {
+      ...rootNode,
+      id: rootNode.id,
+      kind: "root",
+      manual: manualNodePositions?.has(viewerNodeKey("root", rootNode.id)) ?? false,
+    },
+    ...scopeNodes.map((scope, scopeIndex) => ({
+      ...scope,
+      id: scope.scope,
+      kind: "scope" as const,
+      manual: manualNodePositions?.has(viewerNodeKey("scope", scope.scope)) ?? false,
+      scopeIndex,
+    })),
+  ];
+
+  for (let pass = 0; pass < STRUCTURAL_COLLISION_MAX_PASSES; pass += 1) {
+    let changed = false;
+    const sorted = [...structuralNodes].sort(
+      (a, b) => a.y - b.y || a.x - b.x || structuralSortKey(a).localeCompare(structuralSortKey(b)),
+    );
+
+    for (let i = 0; i < sorted.length; i += 1) {
+      for (let j = i + 1; j < sorted.length; j += 1) {
+        const first = sorted[i];
+        const second = sorted[j];
+        if (
+          !boxesOverlap(
+            structuralLayoutBox(first),
+            structuralLayoutBox(second),
+            STRUCTURAL_COLLISION_GAP,
+          )
+        ) {
+          continue;
+        }
+        const mover = structuralCollisionMover(first, second);
+        const obstacle = mover === first ? second : first;
+        if (moveStructuralNodePast(mover, obstacle)) changed = true;
+      }
+    }
+
+    if (!changed) break;
+  }
+
+  const resolvedRoot = structuralNodes.find(node => node.kind === "root");
+  const resolvedScopes = scopeNodes.map((scope, scopeIndex) => {
+    const resolved = structuralNodes.find(
+      node => node.kind === "scope" && node.scopeIndex === scopeIndex,
+    );
+    return resolved ? { ...scope, x: resolved.x, y: resolved.y } : scope;
+  });
+
+  return {
+    rootNode: resolvedRoot ? { ...rootNode, x: resolvedRoot.x, y: resolvedRoot.y } : rootNode,
+    scopeNodes: resolvedScopes,
+  };
+}
+
+function structuralSortKey(node: StructuralCollisionNode): string {
+  return `${node.kind}:${node.id}`;
+}
+
+function structuralCollisionMover(
+  first: StructuralCollisionNode,
+  second: StructuralCollisionNode,
+): StructuralCollisionNode {
+  if (first.kind !== second.kind) {
+    if (first.kind === "root") return first.manual && !second.manual ? second : first;
+    return second.manual && !first.manual ? first : second;
+  }
+  if (first.manual !== second.manual) return first.manual ? second : first;
+  return first.y > second.y || (first.y === second.y && first.x >= second.x) ? first : second;
+}
+
+function moveStructuralNodePast(
+  mover: StructuralCollisionNode,
+  obstacle: StructuralCollisionNode,
+): boolean {
+  const obstacleBox = structuralLayoutBox(obstacle);
+  const desiredY =
+    mover.kind === "root"
+      ? obstacleBox.minY - STRUCTURAL_COLLISION_GAP - mover.height / 2
+      : obstacleBox.maxY + STRUCTURAL_COLLISION_GAP + mover.height / 2;
+  if (Math.abs(desiredY - mover.y) <= 0.5) return false;
+  mover.y = desiredY;
+  return true;
+}
+
+function structuralLayoutBox(node: StructuralCollisionNode): LayoutBox {
+  return {
+    id: node.id,
+    kind: node.kind,
+    maxX: node.x + node.width / 2,
+    maxY: node.y + node.height / 2,
+    minX: node.x - node.width / 2,
+    minY: node.y - node.height / 2,
+  };
+}
+
 function rootScopeEdges(
   root: RootNodePosition,
   scopes: readonly ScopeLayoutPosition[],
@@ -1027,11 +1155,12 @@ function attachOpenedCallChildren({
 function resolveDetailContentCollisions(
   positions: ReadonlyMap<string, LayoutNodePosition>,
   anchors: readonly InlineAnchor[],
+  staticObstacles: readonly LayoutBox[] = [],
 ): {
   flowPositions: Map<string, LayoutNodePosition>;
   inlineAnchors: InlineAnchor[];
 } {
-  if (!anchors.length) {
+  if (!anchors.length && !staticObstacles.length) {
     return {
       flowPositions: new Map(positions),
       inlineAnchors: [...anchors],
@@ -1076,6 +1205,28 @@ function resolveDetailContentCollisions(
         (left?.x ?? 0) - (right?.x ?? 0) ||
         a.localeCompare(b)
       );
+    });
+    const sortedStaticObstacles = [...staticObstacles].sort(
+      (a, b) =>
+        a.minY - b.minY ||
+        a.minX - b.minX ||
+        a.id.localeCompare(b.id),
+    );
+
+    sortedStaticObstacles.forEach(obstacle => {
+      flowIds.forEach(flowId => {
+        if (flowId === obstacle.id) return;
+        const position = nextPositions.get(flowId);
+        if (!position) return;
+        const flowBox = flowLayoutBox(position);
+        if (!boxesOverlap(obstacle, flowBox, DETAIL_CONTENT_COLLISION_GAP)) return;
+        const dy =
+          obstacle.maxY +
+          DETAIL_CONTENT_COLLISION_GAP +
+          position.height / 2 -
+          position.y;
+        if (shiftFlow(flowId, dy)) changed = true;
+      });
     });
 
     sortedAnchors.forEach(anchor => {

@@ -474,6 +474,69 @@ describe("viewer layout composition", () => {
     );
   });
 
+  it("separates root and scope blocks after manual placement collisions", () => {
+    const base = createViewerLayout({
+      payload,
+      scope: "frontend",
+    });
+    const frontendScope = base.scopeNodes.find(node => node.scope === "frontend");
+    if (!frontendScope) throw new Error("expected frontend scope");
+
+    const layout = createViewerLayout({
+      manualNodePositions: new Map([
+        [
+          viewerNodeKey("scope", "edge"),
+          {
+            x: frontendScope.x,
+            y: frontendScope.y,
+          },
+        ],
+      ]),
+      payload,
+      scope: "frontend",
+    });
+    const movedEdge = layout.scopeNodes.find(node => node.scope === "edge");
+    const resolvedFrontend = layout.scopeNodes.find(node => node.scope === "frontend");
+
+    expect(movedEdge?.x).toBe(frontendScope.x);
+    expect(movedEdge?.y).toBe(frontendScope.y);
+    expect(resolvedFrontend?.y).toBeGreaterThan(frontendScope.y);
+    expect(overlappingLayoutBoxes(viewerLayoutBoxes(layout), 24)).toEqual([]);
+    expect(topLevelLayoutObstacleHits(layout)).toEqual([]);
+  });
+
+  it("keeps manually moved flow nodes out of root and scope blocks", () => {
+    const base = createViewerLayout({
+      payload,
+      scope: "frontend",
+    });
+    const backendScope = base.scopeNodes.find(node => node.scope === "backend");
+    const ordersRoute = base.flowPositions.get("orders-route");
+    if (!backendScope || !ordersRoute) throw new Error("expected backend scope and orders route");
+
+    const layout = createViewerLayout({
+      manualNodePositions: new Map([
+        [
+          viewerNodeKey("flow", "orders-route"),
+          {
+            x: backendScope.x,
+            y: backendScope.y,
+          },
+        ],
+      ]),
+      payload,
+      scope: "frontend",
+    });
+    const resolvedOrdersRoute = layout.flowPositions.get("orders-route");
+
+    expect(resolvedOrdersRoute?.x).toBe(backendScope.x);
+    expect(resolvedOrdersRoute?.y).toBeGreaterThan(
+      backendScope.y + backendScope.height / 2 + ordersRoute.height / 2,
+    );
+    expect(overlappingLayoutBoxes(viewerLayoutBoxes(layout), 20)).toEqual([]);
+    expect(topLevelLayoutObstacleHits(layout)).toEqual([]);
+  });
+
   it("keeps unlocked call children attached when an expanded host flow is manually moved", () => {
     const base = createViewerLayout({
       expandedMeasures,

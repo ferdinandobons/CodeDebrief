@@ -131,6 +131,8 @@ def test_render_html_includes_semantic_flow_kind_styles(tmp_path: Path) -> None:
     assert ".flow-node.flow-kind-function" in html
     assert ".flow-node.flow-kind-component" in html
     assert ".flow-node.flow-kind-service" in html
+    assert ".typed-viewer-host .flow-node.flow-open .shape" in html
+    assert ".typed-viewer-host .flow-node.flow-open.selected .shape" in html
     assert ".scope-node .shape" in html
     assert "--scope-hue" in html
     assert '[data-theme="dark"] .typed-viewer-host .scope-node .shape' in html

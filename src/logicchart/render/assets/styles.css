@@ -664,6 +664,21 @@
       fill: color-mix(in srgb, var(--node-fill) 88%, var(--panel));
       stroke: color-mix(in srgb, var(--edge) 76%, var(--blue));
     }
+    .typed-viewer-host .flow-node.flow-open .shape {
+      fill: color-mix(in srgb, var(--node-fill) 84%, var(--violet));
+      stroke: var(--violet);
+      stroke-width: 3;
+      filter: url(#typedNodeLift);
+    }
+    .typed-viewer-host .flow-node.selected .shape {
+      fill: color-mix(in srgb, var(--node-fill) 82%, var(--blue));
+      stroke-width: 3.4;
+      filter: url(#typedNodeLift);
+    }
+    .typed-viewer-host .flow-node.flow-open.selected .shape {
+      fill: color-mix(in srgb, var(--node-fill) 78%, var(--violet));
+      stroke: var(--violet);
+    }
     .typed-viewer-host .node:hover .shape,
     .typed-viewer-host .node:focus-visible .shape {
       filter: url(#typedNodeLift);
