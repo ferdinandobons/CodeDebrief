@@ -267,6 +267,14 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     # should let Logical errors use the right rail without a placeholder source panel.
     assert "sourcePanel.hidden = !flow" in html
 
+    # Project-quality metrics are surfaced in the details rail from generated metadata,
+    # giving large-codebase review a visible analyzer coverage and precision snapshot.
+    assert 'id="qualityPanel"' in html
+    assert "model.metadata.quality" in html
+    assert "qualityMetric(" in html
+    assert "Call resolution" in html
+    assert ".quality-metrics" in html
+
     # Selecting a decision node should visually select its finding row even when the user
     # did not click the finding row itself.
     assert "finding.node_id === sel.nodeId" in html

@@ -70,6 +70,20 @@ This panel must preserve the model's evidence language: `VERIFIED` means syntax-
 `INFERRED` means deterministic heuristic, and `POTENTIAL_GAP` remains a review candidate,
 not a confirmed bug.
 
+## Project Quality Panel
+
+The Details rail also renders `metadata.quality` when present. This is a compact analyzer
+snapshot for large-codebase review:
+
+- file, flow, entrypoint, and source-location coverage counts;
+- call-resolution rate with unresolved and ambiguous call counts;
+- finding count, generic-label ratio, graph density, and huge-flow signals;
+- top language distribution from the generated model.
+
+The panel is deterministic and local-only. It must not imply that heuristic review signals
+are confirmed bugs, and it should stay bounded even when a project has many findings or
+languages.
+
 ## Layout rules
 
 The viewer layout should preserve these invariants:

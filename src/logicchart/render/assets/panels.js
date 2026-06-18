@@ -22,6 +22,7 @@
       const findingsByNode = LC.findingsByNode || new Map();
       const scopeFlows = model.scopes || {};
       const findingRules = (model.metadata && model.metadata.finding_rules) || {};
+      const quality = (model.metadata && model.metadata.quality) || null;
       // File-level source store: path -> {start_line, lines}. Each file's lines are
       // embedded ONCE here (payload.attach_source_snippets), and a flow's `source` is a
       // lightweight {path, start_line, end_line, elided?} reference that slices its own
@@ -38,6 +39,9 @@
       const sourcePanel = document.getElementById("sourcePanel");
       const sourceBody = document.getElementById("source");
       const sourceFileEl = document.getElementById("sourceFile");
+      const qualityPanel = document.getElementById("qualityPanel");
+      const qualityBody = document.getElementById("quality");
+      const qualityCountEl = document.getElementById("qualityCount");
       const errorsBody = document.getElementById("errors");
       const errorsCountEl = document.getElementById("errorsCount");
       const reviewQueueBtn = document.getElementById("reviewQueueToggle");
@@ -69,6 +73,90 @@
 
       function clear(node) {
         if (node) node.replaceChildren();
+      }
+
+      function metricValue(value) {
+        if (value == null || value === "") return "0";
+        if (typeof value === "number") return String(value);
+        return String(value);
+      }
+
+      function ratioPercent(value) {
+        return typeof value === "number" ? Math.round(value * 100) + "%" : "0%";
+      }
+
+      function qualityMetric(label, value, tone) {
+        const item = el("div", "quality-metric" + (tone ? " " + tone : ""));
+        item.append(el("span", "quality-label", label), el("strong", "", metricValue(value)));
+        return item;
+      }
+
+      function qualitySignal(label, value, tone) {
+        const row = el("div", "quality-signal" + (tone ? " " + tone : ""));
+        row.append(el("span", "quality-label", label), el("span", "quality-value", metricValue(value)));
+        return row;
+      }
+
+      function countPairs(counts, limit) {
+        if (!counts || typeof counts !== "object") return [];
+        return Object.keys(counts)
+          .map(key => [key, counts[key]])
+          .filter(([, value]) => Number(value) > 0)
+          .sort((a, b) => Number(b[1]) - Number(a[1]) || String(a[0]).localeCompare(String(b[0])))
+          .slice(0, limit);
+      }
+
+      function renderQuality() {
+        if (!qualityPanel || !qualityBody) return;
+        clear(qualityBody);
+        if (!quality || typeof quality !== "object") {
+          qualityPanel.hidden = true;
+          return;
+        }
+        qualityPanel.hidden = false;
+        const files = quality.files || {};
+        const flows = quality.flows || {};
+        const calls = quality.calls || {};
+        const findingsQuality = quality.findings || {};
+        const labels = quality.labels || {};
+        const source = quality.source_locations || {};
+        const graph = quality.graph || {};
+
+        if (qualityCountEl) qualityCountEl.textContent = ratioPercent(source.coverage);
+
+        const metrics = el("div", "quality-metrics");
+        metrics.append(
+          qualityMetric("Files", files.total),
+          qualityMetric("Flows", flows.total),
+          qualityMetric("Entrypoints", flows.entrypoints),
+          qualityMetric("Source", ratioPercent(source.coverage))
+        );
+        qualityBody.appendChild(metrics);
+
+        const signals = el("div", "quality-signals");
+        const unresolved = Number(calls.unresolved || 0);
+        const ambiguous = Number(calls.ambiguous || 0);
+        const generic = Number(labels.generic_nodes || 0);
+        const huge = Array.isArray(flows.huge) ? flows.huge.length : 0;
+        signals.append(
+          qualitySignal("Call resolution", ratioPercent(calls.resolution_rate), unresolved || ambiguous ? "attention" : ""),
+          qualitySignal("Unresolved calls", unresolved, unresolved ? "attention" : ""),
+          qualitySignal("Ambiguous calls", ambiguous, ambiguous ? "attention" : ""),
+          qualitySignal("Generic labels", generic + " · " + ratioPercent(labels.generic_ratio), generic ? "attention" : ""),
+          qualitySignal("Findings", findingsQuality.total || 0, findingsQuality.total ? "attention" : ""),
+          qualitySignal("Graph density", graph.edge_to_node_ratio, graph.dense_graph_warning ? "attention" : "")
+        );
+        if (huge) signals.append(qualitySignal("Huge flows", huge, "attention"));
+        qualityBody.appendChild(signals);
+
+        const languages = countPairs(flows.by_language || files.by_language, 8);
+        if (languages.length) {
+          const chips = el("div", "quality-chips");
+          languages.forEach(([language, count]) => {
+            chips.appendChild(el("span", "quality-chip", language + " " + count));
+          });
+          qualityBody.appendChild(chips);
+        }
       }
 
       // Focus restoration across a panel re-render. Activating a finding row or a code line
@@ -681,6 +769,8 @@
       }
 
       // --- Subscribe both panels to the shared store -------------------------------
+
+      renderQuality();
 
       function onSelection(sel) {
         renderSource(sel);

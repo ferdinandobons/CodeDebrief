@@ -133,6 +133,13 @@ _HTML_TEMPLATE = r"""<!doctype html>
           <span>Details</span>
           <button class="panel-close" id="detailsClose" type="button" title="Hide source and findings" aria-label="Hide source and findings">&times;</button>
         </div>
+        <section class="panel panel-quality" id="qualityPanel" aria-label="Project quality">
+          <div class="panel-head">
+            <h2 class="rail-title">Project quality</h2>
+            <span class="panel-count" id="qualityCount" aria-hidden="true"></span>
+          </div>
+          <div class="panel-body quality-scroll" id="quality" role="region" aria-label="Analysis quality metrics"></div>
+        </section>
         <section class="panel panel-source" id="sourcePanel" aria-label="Source">
           <div class="panel-head">
             <h2 class="rail-title">Source</h2>

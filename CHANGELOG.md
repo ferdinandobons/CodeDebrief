@@ -16,6 +16,8 @@ The project follows Semantic Versioning.
 - Added deterministic SVG MCP snapshot tools for flow, finding, and impact visual context.
 - Added deterministic model-quality metrics, exposed through generated metadata,
   `logicchart validate --quality`, MCP summaries, and `validate_artifacts`.
+- Added a Project Quality panel to the generated viewer details rail, showing analyzer
+  coverage, call-resolution, finding, generic-label, graph-density, and language metrics.
 
 ### Changed
 

@@ -28,7 +28,8 @@ LogicChart is in a strong alpha state.
   for a flow, a selected finding, or an impact set without scraping the browser.
 - Analysis-quality work has started: generated models now include deterministic quality
   metrics, `logicchart validate --quality` can print or emit them as JSON, and MCP summary
-  and artifact validation can expose them to agents.
+  and artifact validation can expose them to agents, and the viewer shows the same payload
+  in a compact Project Quality panel.
 
 The main gap is no longer "make the canvas usable". The remaining gap is to keep raising
 logical diagnostics and agent/MCP visual context to the same level as the viewer.
@@ -417,20 +418,21 @@ Current checkpoint:
   `--quality --json` emits them under `quality`.
 - MCP `logicchart_summary` includes quality metrics.
 - MCP `validate_artifacts(include_quality=true)` returns the same quality payload.
+- The generated viewer Details rail includes a Project Quality panel with coverage,
+  call-resolution, findings, label, graph-density, and language metrics.
 
 Still open:
 
 - Persist skipped-file reasons directly in the artifact instead of only degraded empty-file
   counts.
 - Add a language capability matrix generated from tests.
-- Surface project quality in the viewer overview.
 - Add optional CI thresholds for selected metrics.
 
 Expose these through:
 
 - `logicchart validate --quality`;
 - Done: MCP summary;
-- Next: viewer project overview;
+- Done: viewer project overview;
 - Next: CI optional gate.
 
 ## Finding 11: Logical Error UI Should Explain, Not Just List
@@ -504,7 +506,8 @@ Before the next release:
 - Keep `examples/demo` as public polyglot viewer fixture.
 - Use private `examples/Certifexp` as local smoke test only.
 - Done: add baseline analyzer quality metrics.
-- Next: add language capability matrix and viewer quality overview.
+- Done: add viewer quality overview.
+- Next: add language capability matrix.
 
 ### Phase 5: Release Consolidation
 

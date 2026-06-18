@@ -251,6 +251,8 @@ logicchart validate --quality --json
 `--quality` includes deterministic analysis metrics such as files and flows by language,
 call-resolution rate, generic-label ratio, source-location coverage, finding counts, and
 graph density.
+Generated viewers surface the same payload in the Details rail as a compact Project
+Quality panel.
 
 ### `doctor`
 
