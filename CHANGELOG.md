@@ -60,6 +60,9 @@ The project follows Semantic Versioning.
   scanning.
 - Added a local optional `logic-annotations.json` sidecar schema, validation, viewer
   overlays, and MCP status/navigation exposure.
+- Added Python analyzer modeling for `try`/`else` success paths, so post-success work is
+  connected before the flow continues.
+- Added collapsible Details rail sections for Project Quality, Source, and Logical Errors.
 
 ### Changed
 

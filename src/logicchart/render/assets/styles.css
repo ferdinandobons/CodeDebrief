@@ -1274,15 +1274,50 @@
     .panel-quality { flex: 0 0 auto; max-height: 260px; border-bottom: 1px solid var(--line); }
     .panel-source { flex: 1 1 48%; border-bottom: 1px solid var(--line); }
     .panel-errors { flex: 1 1 42%; }
+    .panel[data-collapsed] {
+      flex: 0 0 auto;
+      max-height: none;
+    }
     .panel-head {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       gap: 8px;
       padding: 16px 20px 10px;
       border-bottom: 1px solid var(--line);
       flex: none;
     }
+    .panel[data-collapsed] .panel-head { border-bottom: 0; }
     .panel-head .rail-title { margin: 0; }
+    .panel-collapse-toggle {
+      flex: none;
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .panel-collapse-toggle:hover,
+    .panel-collapse-toggle:focus-visible {
+      border-color: var(--blue);
+      color: var(--blue);
+      outline: none;
+    }
+    .panel-chevron {
+      display: block;
+      width: 7px;
+      height: 7px;
+      border: solid currentColor;
+      border-width: 0 2px 2px 0;
+      transform: translateY(-1px) rotate(45deg);
+      transition: transform .14s ease;
+    }
+    .panel[data-collapsed] .panel-chevron {
+      transform: translateX(-1px) rotate(-45deg);
+    }
     .panel-file {
       margin-left: auto;
       color: var(--muted);

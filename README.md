@@ -128,7 +128,8 @@ large-codebase study, not just one isolated function. It shows:
 - Link selection that highlights the source node, target node, and selected connection
   while dimming unrelated blocks.
 - A synchronized source panel and logical-errors panel with selected-finding diagnostics,
-  bounded related-flow/evidence-node links, and a compact focused diagnostic subgraph.
+  bounded related-flow/evidence-node links, a compact focused diagnostic subgraph, and
+  collapsible Details sections for project quality, source, and findings.
 - Finding density on scope nodes and tree file rows, useful for scanning large systems.
 - Light/dark theme, pan/zoom, an aggregate draggable/scrollable minimap, fit-to-content,
   drag-to-arrange blocks, collapse-all reset, expand-all, full-screen canvas,
@@ -161,7 +162,7 @@ LogicChart currently extracts control flow for **11 language ids**:
 
 | Language | Coverage |
 |---|---|
-| Python (`.py`) | full AST analyzer |
+| Python (`.py`) | full AST analyzer, including `try`/`except` and success-path `try`/`else` flow |
 | TypeScript / TSX (`.ts`, `.tsx`) | tree-sitter analyzer with Next.js and React entry-point detection, including expression-bodied arrow decisions |
 | JavaScript / JSX (`.js`, `.jsx`, `.mjs`, `.cjs`) | tree-sitter analyzer, labeled separately from TypeScript, including expression-bodied arrow decisions |
 | Go (`.go`) | profile-driven tree-sitter analyzer |

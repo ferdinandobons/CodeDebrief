@@ -139,15 +139,17 @@ _HTML_TEMPLATE = r"""<!doctype html>
           <span>Details</span>
           <button class="panel-close" id="detailsClose" type="button" title="Hide source and findings" aria-label="Hide source and findings">&times;</button>
         </div>
-        <section class="panel panel-quality" id="qualityPanel" aria-label="Project quality">
+        <section class="panel panel-quality" id="qualityPanel" aria-label="Project quality" data-collapsible-panel data-panel-state="quality">
           <div class="panel-head">
+            <button class="panel-collapse-toggle" id="qualityPanelToggle" type="button" data-panel-toggle aria-expanded="true" aria-controls="quality" title="Collapse Project quality" aria-label="Collapse Project quality"><span class="panel-chevron" aria-hidden="true"></span></button>
             <h2 class="rail-title">Project quality</h2>
             <span class="panel-count" id="qualityCount" aria-hidden="true"></span>
           </div>
           <div class="panel-body quality-scroll" id="quality" role="region" aria-label="Analysis quality metrics"></div>
         </section>
-        <section class="panel panel-source" id="sourcePanel" aria-label="Source">
+        <section class="panel panel-source" id="sourcePanel" aria-label="Source" data-collapsible-panel data-panel-state="source">
           <div class="panel-head">
+            <button class="panel-collapse-toggle" id="sourcePanelToggle" type="button" data-panel-toggle aria-expanded="true" aria-controls="source" title="Collapse Source" aria-label="Collapse Source"><span class="panel-chevron" aria-hidden="true"></span></button>
             <h2 class="rail-title">Source</h2>
             <span class="panel-file" id="sourceFile"></span>
           </div>
@@ -155,8 +157,9 @@ _HTML_TEMPLATE = r"""<!doctype html>
             <p class="panel-empty">Select a flow or node to view its source.</p>
           </div>
         </section>
-        <section class="panel panel-errors" id="errorsPanel" aria-label="Logical errors">
+        <section class="panel panel-errors" id="errorsPanel" aria-label="Logical errors" data-collapsible-panel data-panel-state="errors">
           <div class="panel-head">
+            <button class="panel-collapse-toggle" id="errorsPanelToggle" type="button" data-panel-toggle aria-expanded="true" aria-controls="errors" title="Collapse Logical errors" aria-label="Collapse Logical errors"><span class="panel-chevron" aria-hidden="true"></span></button>
             <h2 class="rail-title">Logical errors</h2>
             <button class="panel-action" id="reviewQueueToggle" type="button" aria-pressed="false" title="Show prioritized review queue">Queue</button>
             <span class="panel-count" id="errorsCount" aria-hidden="true"></span>

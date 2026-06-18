@@ -250,6 +250,13 @@ def test_render_html_emits_source_and_errors_panels(tmp_path: Path) -> None:
     assert 'id="source"' in html
     assert 'id="errors"' in html
     assert 'id="reviewQueueToggle"' in html
+    assert "data-collapsible-panel" in html
+    assert 'id="qualityPanelToggle"' in html
+    assert 'id="sourcePanelToggle"' in html
+    assert 'id="errorsPanelToggle"' in html
+    assert 'aria-controls="quality"' in html
+    assert 'aria-controls="source"' in html
+    assert 'aria-controls="errors"' in html
     # panels.js is actually inlined: a structural marker unique to it (the function that
     # subscribes both panels to the shared selection store).
     assert "renderSource" in html
@@ -380,6 +387,10 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert 'role="separator"' in html
     assert "logicchart-left-rail-width" in html
     assert "logicchart-right-rail-width" in html
+    assert "initCollapsiblePanels" in html
+    assert "logicchart-panel-collapsed-" in html
+    assert ".panel-collapse-toggle" in html
+    assert ".panel[data-collapsed]" in html
     assert "resizeRailFromKeyboard" in html
     assert "scheduleCanvasLayoutRefresh" in html
     assert "data-nav-closed" in html

@@ -96,6 +96,10 @@ The panel is deterministic and local-only. It must not imply that heuristic revi
 are confirmed bugs, and it should stay bounded even when a project has many findings or
 languages.
 
+The Details rail sections for Project Quality, Source, and Logical Errors are independently
+collapsible. Each collapsed section keeps its heading visible while releasing body height to
+the other sections, and the viewer remembers the state locally in the browser.
+
 ## Layout rules
 
 The viewer layout should preserve these invariants:

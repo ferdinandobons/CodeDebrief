@@ -297,8 +297,49 @@
       });
     }
 
+    function panelTitle(panel) {
+      const title = panel && panel.querySelector ? panel.querySelector(".rail-title") : null;
+      return (title && title.textContent ? title.textContent.trim() : "section") || "section";
+    }
+
+    function setPanelCollapsed(panel, button, body, collapsed, persist) {
+      const title = panelTitle(panel);
+      panel.toggleAttribute("data-collapsed", collapsed);
+      button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      button.title = (collapsed ? "Expand " : "Collapse ") + title;
+      button.setAttribute("aria-label", (collapsed ? "Expand " : "Collapse ") + title);
+      if (body) body.hidden = collapsed;
+      if (persist) {
+        const key = panel.getAttribute("data-panel-state") || panel.id || body && body.id;
+        if (key) {
+          try { localStorage.setItem("logicchart-panel-collapsed-" + key, collapsed ? "true" : "false"); } catch (_) {}
+        }
+      }
+    }
+
+    function initCollapsiblePanels() {
+      const panels = Array.from(document.querySelectorAll("[data-collapsible-panel]"));
+      panels.forEach(panel => {
+        const button = panel.querySelector("[data-panel-toggle]");
+        if (!button) return;
+        const bodyId = button.getAttribute("aria-controls");
+        const body = bodyId ? document.getElementById(bodyId) : null;
+        const key = panel.getAttribute("data-panel-state") || panel.id || bodyId;
+        let stored = null;
+        if (key) {
+          try { stored = localStorage.getItem("logicchart-panel-collapsed-" + key); } catch (_) {}
+        }
+        setPanelCollapsed(panel, button, body, stored === "true", false);
+        button.addEventListener("click", event => {
+          event.preventDefault();
+          setPanelCollapsed(panel, button, body, !panel.hasAttribute("data-collapsed"), true);
+        });
+      });
+    }
+
     loadStoredRailWidths();
     initRailResizers();
+    initCollapsiblePanels();
     setRightRailOpen(false);
     syncRailControls();
 

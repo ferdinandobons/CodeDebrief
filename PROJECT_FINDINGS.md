@@ -12,14 +12,18 @@ LogicChart is in a strong alpha state.
 - The viewer is now the most mature surface: the official chart path is the React
   progressive flowchart runtime, with persisted expansion state, node dragging, link
   focus, aggregate minimap navigation, graph-bounds-aware PNG/JPG export, and layout
-  quality tests. Flow nodes also expose deterministic accessibility summaries for
-  source, node, decision, call, caller, and finding counts.
+  quality tests. The Details rail now lets Project Quality, Source, and Logical Errors
+  collapse independently during large-codebase inspection. Flow nodes also expose
+  deterministic accessibility summaries for source, node, decision, call, caller, and
+  finding counts.
 - The static-analysis core is usable across 11 language ids and has a stable model shape:
   `Flow`, `FlowNode`, `FlowEdge`, `Finding`, evidence tiers, scopes, files, and metadata.
 - TypeScript/JavaScript expression-bodied arrow functions now produce real return flow,
   and TSX/JSX ternary arrow components produce decision branches instead of shallow
   generic action nodes. The language capability matrix marks this support explicitly for
   agent orientation.
+- Python `try`/`else` blocks now model the success-only `else` path before reconnecting to
+  the following flow, while skipping that path when the `try` body already terminates.
 - The deterministic baseline is correct for the product: no API key is required, and LLM
   usage should remain optional enrichment, never a requirement for core correctness.
 - Local quality gates are currently healthy: Python tests, coverage, type checking,
@@ -604,6 +608,8 @@ Before the next release:
 - Done: model expression-bodied TypeScript/JavaScript arrow returns and ternary component
   decisions.
 - Done: add optional quality thresholds.
+- Done: model Python `try`/`else` success paths without treating terminating `try` bodies as
+  fall-through.
 
 ### Phase 5: Release Consolidation
 

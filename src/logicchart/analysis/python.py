@@ -394,8 +394,11 @@ class PythonAnalyzer:
                 namespace="",
             ),
         )
-        branches: list[dict[str, Any]] = [branch(SUCCESS, _branch_outcome(statement.body))]
-        endpoints = self._walk_statements(
+        success_outcome = _branch_outcome(statement.body)
+        if success_outcome == FALLS_THROUGH and statement.orelse:
+            success_outcome = _branch_outcome(statement.orelse)
+        branches: list[dict[str, Any]] = [branch(SUCCESS, success_outcome)]
+        body_endpoints = self._walk_statements(
             statement.body,
             [PendingEdge(node.id, SUCCESS)],
             builder,
@@ -403,6 +406,16 @@ class PythonAnalyzer:
             source,
             relative,
         )
+        if statement.orelse and body_endpoints:
+            body_endpoints = self._walk_statements(
+                statement.orelse,
+                body_endpoints,
+                builder,
+                findings,
+                source,
+                relative,
+            )
+        endpoints = body_endpoints
         for handler in statement.handlers:
             error_name = _safe_unparse(handler.type) if handler.type else "Any error"
             branches.append(branch(error_name, _branch_outcome(handler.body)))
