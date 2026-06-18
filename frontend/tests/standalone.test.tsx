@@ -961,6 +961,44 @@ describe("standalone viewer bridge", () => {
     container.remove();
   });
 
+  it("expands every scope and flow from the collapsed root until reset", async () => {
+    window.history.replaceState(null, "", "/#root");
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    const mounted = mountStandaloneLogicChartViewer(container, payload);
+
+    expect(container.querySelectorAll(".flow-node")).toHaveLength(0);
+
+    await act(async () => {
+      mounted.expandAll();
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+
+    expect(window.location.hash).toBe("#scope=backend");
+    expect(container.querySelector('[data-scope="backend"]')?.getAttribute("class")).toContain(
+      "expanded",
+    );
+    expect(container.querySelector('[data-scope="frontend"]')?.getAttribute("class")).toContain(
+      "expanded",
+    );
+    expect(container.querySelector('[data-flow-id="backend-auth"]')).not.toBeNull();
+    expect(container.querySelector('[data-flow-id="orders-route"]')).not.toBeNull();
+    expect(container.querySelector('[data-flow-id="users-route"]')).not.toBeNull();
+    expect(container.querySelector(".flow-detail")).not.toBeNull();
+
+    await act(async () => {
+      mounted.resetView();
+    });
+
+    expect(window.location.hash).toBe("#root");
+    expect(container.querySelectorAll(".flow-node")).toHaveLength(0);
+    expect(container.querySelector(".flow-detail")).toBeNull();
+
+    mounted.unmount();
+    container.remove();
+  });
+
   it("keeps previously opened scopes visible while expanding another scope", async () => {
     window.history.replaceState(null, "", "/#scope=frontend");
     const container = document.createElement("div");

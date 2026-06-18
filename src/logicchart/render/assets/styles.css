@@ -472,7 +472,7 @@
       background: color-mix(in srgb, var(--blue) 13%, transparent);
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue), transparent 84%);
     }
-    .reset-tool {
+    .command-tool {
       padding: 0 12px;
       font-size: 11px;
       font-weight: 800;

@@ -67,6 +67,8 @@ The viewer layout should preserve these invariants:
   expanding an arbitrary fallback scope.
 - Reset clears opened scopes, opened flows, manual positions, and viewport state, then
   returns to `#root`, the collapsed codebase map.
+- Expand all opens every non-test scope and flow from the generated payload; it must be
+  payload-driven rather than tuned to demo scope names or file paths.
 - Fit re-centers the current visible flowchart without closing expanded scopes, expanded
   flows, or manual block positions.
 - Expanded flow detail charts reserve their visual band before later rows are placed.

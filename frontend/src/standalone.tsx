@@ -25,6 +25,7 @@ export interface StandaloneViewerOptions {
 }
 
 export interface MountedStandaloneLogicChartViewer {
+  expandAll: () => void;
   exportImage: (format: ExportImageFormat) => void;
   fitView: () => void;
   resetView: () => void;
@@ -171,6 +172,25 @@ export function mountStandaloneLogicChartViewer(
   }
 
   return {
+    expandAll() {
+      scopeSummaries(payload).forEach(scope => openedScopeIds.add(scope.name));
+      payload.flows.forEach(flow => {
+        if (flow.metadata?.test) return;
+        openedFlowIds.add(flow.id);
+      });
+      persistState();
+      const hash = currentHash();
+      const isCollapsedRoot = !hash || hash === "#root";
+      if (isCollapsedRoot) {
+        const firstScope = [...openedScopeIds][0];
+        if (firstScope) {
+          navigateToHash(`#scope=${encodeHashValue(firstScope)}`);
+          publishShellScopeSelection(firstScope);
+        }
+      }
+      update();
+      mounted?.fitView();
+    },
     exportImage(format) {
       mounted?.exportImage(format);
     },

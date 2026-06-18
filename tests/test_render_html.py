@@ -168,9 +168,14 @@ def test_render_html_includes_semantic_flow_kind_styles(tmp_path: Path) -> None:
     assert 'id="fitView"' in html
     assert "Fit current flowchart" in html
     assert "typed.fitView" in html
+    assert 'id="expandView"' in html
+    assert ">EXPAND</button>" in html
+    assert "typed.expandAll" in html
+    assert "LC.expandCanvas" in html
     assert 'class="tool-group"' in html
-    assert 'class="tool reset-tool"' in html
-    assert ">Reset</button>" in html
+    assert 'class="tool reset-tool command-tool"' in html
+    assert 'class="tool expand-tool command-tool"' in html
+    assert ">RESET</button>" in html
     assert "Export current flowchart as PNG" in html
     assert "Export current flowchart as JPG" in html
     assert "themeToggle" not in html
@@ -313,7 +318,8 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "data-nav-closed" in html
     assert "body[data-nav-closed] .shell" in html
     assert "data-detail-closed" in html
-    assert "Reset expanded sections and fit current scope" in html
+    assert "Collapse all expanded sections and return to the codebase root" in html
+    assert "Expand all scopes and flows in the current graph" in html
     assert "Open ${flowDisplayName(flow)} in the progressive flowchart" in html
     assert "Select logic block on line" in html
     assert "selectedSourceRange" in html

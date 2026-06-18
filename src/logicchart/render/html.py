@@ -108,10 +108,11 @@ _HTML_TEMPLATE = r"""<!doctype html>
           <button class="tool" id="menuButton" title="Toggle codebase tree" aria-label="Toggle codebase tree">&#9776;</button>
           <button class="tool detail-tool" id="detailButton" title="Show source and findings" aria-label="Toggle source and findings" aria-pressed="false">i</button>
         </div>
-        <div class="tool-group" aria-label="Viewport">
-          <button class="tool" id="zoomOut" title="Zoom out" aria-label="Zoom out">&minus;</button>
+        <div class="tool-group" aria-label="Graph viewport">
+          <button class="tool reset-tool command-tool" id="resetView" title="Collapse all expanded sections and return to the codebase root" aria-label="Collapse all expanded sections and return to the codebase root">RESET</button>
+          <button class="tool expand-tool command-tool" id="expandView" title="Expand all scopes and flows in the current graph" aria-label="Expand all scopes and flows in the current graph">EXPAND</button>
           <button class="tool" id="fitView" title="Fit current flowchart" aria-label="Fit current flowchart">&#8982;</button>
-          <button class="tool reset-tool" id="resetView" title="Reset expanded sections and fit current scope" aria-label="Reset expanded sections and fit current scope">Reset</button>
+          <button class="tool" id="zoomOut" title="Zoom out" aria-label="Zoom out">&minus;</button>
           <button class="tool" id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
         </div>
         <div class="tool-group" aria-label="Output">

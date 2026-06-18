@@ -2257,6 +2257,27 @@
         }
         renderCanvas();
       };
+      LC.expandCanvas = function () {
+        const names = Object.keys(scopeFlows).sort();
+        const scope = canvasState.expandedScope || names[0];
+        if (!scope) return;
+        setScope(scope);
+        const flows = (scopeFlows[scope] || []).filter(flow => !flow.metadata?.test);
+        canvasState.routeFlowIds = flows.map(flow => flow.id);
+        canvasState.expandedFlowIds = new Set(
+          flows
+            .filter(flow => flow.nodes && flow.nodes.some(node => node.kind !== "entry"))
+            .map(flow => flow.id)
+        );
+        canvasState.expandedFlow = canvasState.expandedFlowIds.size
+          ? [...canvasState.expandedFlowIds][canvasState.expandedFlowIds.size - 1]
+          : null;
+        canvasState.selectedFlowId = null;
+        canvasState.selectedPath = null;
+        replaceHash("scope=" + encodeURIComponent(scope));
+        renderCanvas();
+        fitBounds(layoutExpandedCodebase(scope).bounds);
+      };
 
       svg.addEventListener("pointerdown", activateRouteEdgeRecord, true);
       svg.addEventListener("mousedown", activateRouteEdgeRecord, true);

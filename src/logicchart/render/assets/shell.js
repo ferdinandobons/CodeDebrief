@@ -1224,15 +1224,15 @@
       updateViewBox();
     }
 
-    document.getElementById("zoomIn").addEventListener("click", () => zoom(.82));
-    document.getElementById("zoomOut").addEventListener("click", () => zoom(1.22));
-    document.getElementById("fitView").addEventListener("click", fitView);
-    if (exportPngButton) {
-      exportPngButton.addEventListener("click", () => exportCurrentCanvas("png"));
+    function expandView() {
+      const typed = activeTypedViewer();
+      if (typed && typeof typed.expandAll === "function") {
+        typed.expandAll();
+        return;
+      }
+      if (LC.expandCanvas) LC.expandCanvas();
     }
-    if (exportJpgButton) {
-      exportJpgButton.addEventListener("click", () => exportCurrentCanvas("jpg"));
-    }
+
     document.getElementById("resetView").addEventListener("click", () => {
       const typed = activeTypedViewer();
       if (typed && typeof typed.resetView === "function") {
@@ -1249,6 +1249,16 @@
         LC.resetCanvas();
       }
     });
+    document.getElementById("expandView").addEventListener("click", expandView);
+    document.getElementById("fitView").addEventListener("click", fitView);
+    document.getElementById("zoomOut").addEventListener("click", () => zoom(1.22));
+    document.getElementById("zoomIn").addEventListener("click", () => zoom(.82));
+    if (exportPngButton) {
+      exportPngButton.addEventListener("click", () => exportCurrentCanvas("png"));
+    }
+    if (exportJpgButton) {
+      exportJpgButton.addEventListener("click", () => exportCurrentCanvas("jpg"));
+    }
     if (menuButton) {
       menuButton.addEventListener("click", () => setLeftRailOpen(!leftRailOpen()));
     }
