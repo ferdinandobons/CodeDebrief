@@ -100,6 +100,8 @@ The project follows Semantic Versioning.
 - Added tree-sitter parse-error surfacing for TypeScript/JavaScript and profile-driven
   languages: unrecoverable malformed files are skipped, while recoverable partial parses
   keep extracted flows and add parse-warning quality signals.
+- Added language capability smoke tests for every supported language id, checking declared
+  function, decision, switch/match, call, and return support against real analyzer output.
 - Added header-clickable collapsible Details rail sections for Project Quality, Source,
   and Logical Errors.
 

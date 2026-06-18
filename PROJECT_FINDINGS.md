@@ -451,6 +451,23 @@ Add a language capability matrix generated from tests:
 
 This should appear in docs and in `logicchart doctor` or `logicchart validate --quality`.
 
+Current checkpoint:
+
+- Generated models include `metadata.language_capabilities` for every supported language
+  id, including analyzer frontend, suffixes, and coarse feature statuses.
+- The quality payload includes per-language depth metrics for files, flows, decisions,
+  calls, findings, source coverage, skipped files, and capability metadata.
+- Registry tests now smoke-check every supported language id against real analyzer output
+  for declared function/method, decision, switch/match, call, and return support, so the
+  matrix is a pinned product contract rather than only a documentation table.
+
+Still open:
+
+- Extend the generated matrix with explicit limitation notes per feature once those notes
+  can be kept concise and stable.
+- Consider surfacing the capability smoke coverage in `doctor` only if it can remain fast
+  and local without running the full test suite.
+
 ## Finding 8: Query and Impact Are Deterministic but Still Basic
 
 ### Current status

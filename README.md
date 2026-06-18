@@ -187,7 +187,10 @@ A new control-flow language is a `LanguageProfile` plus a registry entry, not a 
 pipeline.
 Generated models include `metadata.language_capabilities`, a deterministic support matrix
 with suffixes, analyzer frontend, and coarse feature coverage for each language id,
-including expression-bodied function support where the analyzer models it.
+including expression-bodied function support where the analyzer models it. The registry
+test suite smoke-checks those declared baseline capabilities against real analysis
+fixtures for every supported language id, so the matrix is treated as a product contract
+for agents rather than a loose documentation table.
 
 ## Commands
 
