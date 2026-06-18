@@ -28,6 +28,7 @@ from logicchart.query import (
     IDENTITY_WEIGHT,
     NODE_WEIGHT,
     QueryMatch,
+    finding_context,
     query_model,
 )
 
@@ -245,6 +246,106 @@ def test_query_match_to_dict_shape() -> None:
         "source": "app.py:1",
     }
     assert "source" not in match.to_dict(include_source=False)
+
+
+def test_finding_context_collects_related_subject_subgraph() -> None:
+    focus_node = FlowNode(
+        id="dispatch:status",
+        kind=NodeKind.DECISION,
+        label="if order.status == OPEN",
+        location=_loc("orders.py", 10),
+        metadata={
+            "subject": "order.status",
+            "value_namespace": "OrderStatus",
+            "values": ["OPEN"],
+            "branches": [{"label": "OPEN", "outcome": "return open"}],
+        },
+    )
+    sibling_node = FlowNode(
+        id="cancel:status",
+        kind=NodeKind.DECISION,
+        label="if order.status == CANCELLED",
+        location=_loc("orders.py", 30),
+        metadata={
+            "subject": "order.status",
+            "value_namespace": "OrderStatus",
+            "values": ["CANCELLED"],
+            "branches": [{"label": "CANCELLED", "outcome": "return cancel"}],
+        },
+    )
+    focus_flow = Flow(
+        id="dispatch",
+        name="dispatch",
+        symbol="dispatch",
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=True,
+        location=_loc("orders.py", 1),
+        nodes=[focus_node],
+        calls=["audit"],
+    )
+    sibling_flow = Flow(
+        id="cancel",
+        name="cancel",
+        symbol="cancel",
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=True,
+        location=_loc("orders.py", 24),
+        nodes=[sibling_node],
+    )
+    audit_flow = _flow("audit", "audit")
+    finding = Finding(
+        id="dispatch-find",
+        kind="enum_exhaustiveness",
+        severity=Severity.WARNING,
+        message="Declared OrderStatus members not handled for order.status: CANCELLED",
+        evidence=Evidence.INFERRED,
+        flow_id="dispatch",
+        node_id="dispatch:status",
+        location=_loc("orders.py", 10),
+        metadata={
+            "category": "cross_flow",
+            "subject": "order.status",
+            "value_namespace": "OrderStatus",
+            "missing": ["CANCELLED"],
+            "declared": ["OPEN", "CANCELLED"],
+        },
+    )
+    related_finding = Finding(
+        id="cancel-find",
+        kind="missing_branch",
+        severity=Severity.WARNING,
+        message="Decision has no explicit fallback: order.status",
+        evidence=Evidence.POTENTIAL_GAP,
+        flow_id="cancel",
+        node_id="cancel:status",
+        location=_loc("orders.py", 30),
+        metadata={
+            "category": "single_flow",
+            "subject": "order.status",
+            "value_namespace": "OrderStatus",
+        },
+    )
+    model = _model([focus_flow, sibling_flow, audit_flow], [finding, related_finding])
+
+    context = finding_context(model, "dispatch-find", token_budget=160)
+
+    assert context is not None
+    assert context["evidence_guardrail"]["tier"] == "INFERRED"
+    assert context["diagnostic_summary"]["missing"] == ["CANCELLED"]
+    assert context["focus_flow"]["id"] == "dispatch"
+    assert context["focus_node"]["node_id"] == "dispatch:status"
+    by_flow = {item["id"]: item for item in context["related_flows"]}
+    assert "called_by_finding_flow" in by_flow["audit"]["roles"]
+    assert "handles_missing_value" in by_flow["cancel"]["roles"]
+    by_node = {item["node_id"]: item for item in context["related_nodes"]}
+    assert "finding_evidence" in by_node["dispatch:status"]["reasons"]
+    assert "handles_missing_value" in by_node["cancel:status"]["reasons"]
+    assert context["related_findings"][0]["id"] == "cancel-find"
+    assert context["next_tools"]["visual_snapshot"]["tool"] == "get_finding_snapshot"
 
 
 def _demo_source(tmp_path: Path) -> Path:

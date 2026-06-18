@@ -54,6 +54,7 @@ def authorize(user):
                 assert {
                     "logicchart_summary",
                     "explain_finding_chain",
+                    "get_finding_context",
                     "finding_rules",
                     "get_flow_navigation",
                     "get_flow_snapshot",
@@ -73,6 +74,7 @@ def authorize(user):
                     "get_flow_navigation",
                     "query_logic",
                     "explain_finding_chain",
+                    "get_finding_context",
                     "finding_rules",
                     "analyze_impact",
                     "review_queue",
@@ -240,6 +242,26 @@ def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
                 )
                 assert not snapshot.isError
                 assert "<svg" in str(snapshot.content)
+                context = await session.call_tool(
+                    "get_finding_context",
+                    {"finding_id": captured[0]["id"], "token_budget": 160},
+                )
+                assert not context.isError
+                payload = context.structuredContent  # type: ignore[assignment]
+                assert payload["finding"]["id"] == captured[0]["id"]  # type: ignore[index]
+                assert payload["evidence_guardrail"]["tier"] == "POTENTIAL_GAP"  # type: ignore[index]
+                assert payload["focus_flow"]["name"] == "dispatch"  # type: ignore[index]
+                assert payload["related_nodes"]  # type: ignore[index]
+                assert (
+                    payload["next_tools"]["visual_snapshot"]["tool"]  # type: ignore[index]
+                    == "get_finding_snapshot"
+                )
+                explanation = await session.call_tool(
+                    "explain_finding_chain",
+                    {"finding_id": captured[0]["id"], "token_budget": 160},
+                )
+                assert not explanation.isError
+                assert "get_finding_context" in str(explanation.content)
 
     asyncio.run(call_review_queue())
 

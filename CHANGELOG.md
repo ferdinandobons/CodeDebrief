@@ -24,6 +24,8 @@ The project follows Semantic Versioning.
 - Added optional quality thresholds for CI-oriented `validate` and MCP artifact validation.
 - Added MCP flow-navigation packs with callers, callees, decisions, findings, and next-tool
   hints for token-bounded agent workflows.
+- Added MCP finding-context packs with focus flow, related evidence nodes, related flows,
+  evidence guardrails, and next-tool hints for logical-error review.
 - Added deterministic accessibility summaries to viewer flow nodes for broad-canvas
   scanning.
 - Added a local optional `logic-annotations.json` sidecar schema, validation, viewer

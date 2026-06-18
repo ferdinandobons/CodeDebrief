@@ -108,6 +108,8 @@ Current checkpoint:
 - A shared detector-rule registry is emitted under `model.metadata.finding_rules`.
 - `explain_finding_chain`, `get_findings`, `review_queue`, and `context_pack` expose the
   diagnostic object over MCP.
+- `get_finding_context` exposes a bounded deterministic subgraph with the focus flow,
+  evidence nodes, related flows/findings, evidence guardrail, and next-tool hints.
 - The viewer shows selected-finding diagnostics with confidence, missing/expected/actual
   state, rule purpose, review prompt, and next actions.
 
@@ -115,7 +117,8 @@ Still open:
 
 - Promote diagnostics into a stricter schema version only when the backward-compatibility
   and consumer story are ready.
-- Add related-flow subgraph rendering for each diagnostic.
+- Share the same finding-context semantics with viewer-side diagnostic focus when the UI
+  needs deeper related-flow navigation.
 - Add richer detector-specific evidence chains where the current metadata is still shallow.
 
 ### Resulting UX
@@ -510,7 +513,9 @@ Before the next release:
 - Done: add tool contract tests for snapshot discovery and output shape.
 - Done: add a flow-navigation MCP pack for caller/callee, decision, finding, and next-tool
   orientation.
-- Next: add token-budget behavior for visual context and optional raster outputs.
+- Done: add a finding-context MCP pack for focus flow, related nodes/flows/findings,
+  evidence guardrails, and next-tool orientation.
+- Next: add token-budget behavior for visual snapshots and optional raster outputs.
 
 ### Phase 3: LLM Enrichment
 

@@ -20,6 +20,7 @@ METADATA_WEIGHT = 2
 # Tie-breaker only: nudges an entrypoint above an otherwise-equal non-entrypoint. Added
 # only when the term-overlap score is already > 0, so it never manufactures a match.
 ENTRYPOINT_BONUS = 1
+FINDING_CONTEXT_TOKENS_PER_ITEM = 80
 
 
 @dataclass(slots=True)
@@ -291,6 +292,70 @@ def explain_finding(model: ProjectModel, finding_id: str) -> dict[str, Any] | No
     }
 
 
+def finding_context(
+    model: ProjectModel, finding_id: str, token_budget: int = 0
+) -> dict[str, Any] | None:
+    """A bounded deterministic subgraph around one finding for agents and MCP clients."""
+    finding = next((item for item in model.findings if item.id == finding_id), None)
+    if finding is None:
+        return None
+    flow = next((item for item in model.flows if item.id == finding.flow_id), None)
+    node = None
+    if flow is not None and finding.node_id:
+        node = next((item for item in flow.nodes if item.id == finding.node_id), None)
+    diagnostic = finding.metadata.get("diagnostic")
+    if not isinstance(diagnostic, dict):
+        diagnostic = diagnostic_for_finding(finding, flow=flow, node=node)
+    related_flows = _finding_related_flows(model, finding, flow)
+    related_nodes = _finding_related_nodes(related_flows, finding, diagnostic)
+    related_flow_ids = {item.id for item, _roles in related_flows}
+    related_findings = [
+        _finding_context_finding(candidate)
+        for candidate in model.findings
+        if candidate.id != finding.id
+        and candidate.flow_id in related_flow_ids
+        and _finding_matches_context(candidate, finding)
+    ]
+    return {
+        "finding": _finding_context_finding(finding),
+        "evidence_guardrail": _evidence_guardrail(finding),
+        "diagnostic_summary": {
+            "rule_id": diagnostic.get("rule_id"),
+            "category": diagnostic.get("category"),
+            "confidence": diagnostic.get("confidence"),
+            "missing": diagnostic.get("missing"),
+            "expected": diagnostic.get("expected"),
+            "actual": diagnostic.get("actual"),
+            "review_prompt": diagnostic.get("review_prompt"),
+        },
+        "focus_flow": _context_flow_summary(flow, ["finding_flow"], model) if flow else None,
+        "focus_node": _context_node_summary(flow, node, ["finding_node"]) if node else None,
+        "related_flows": _context_cap(
+            [
+                _context_flow_summary(related_flow, roles, model)
+                for related_flow, roles in related_flows
+                if related_flow.id != finding.flow_id
+            ],
+            token_budget,
+        ),
+        "related_nodes": _context_cap(related_nodes, token_budget),
+        "related_findings": _context_cap(related_findings, token_budget),
+        "evidence_chain": diagnostic.get("evidence_chain", []),
+        "suggested_next_actions": diagnostic.get("suggested_next_actions", []),
+        "next_tools": {
+            "visual_snapshot": {
+                "tool": "get_finding_snapshot",
+                "arguments": {"finding_id": finding.id, "format": "svg"},
+            },
+            "flow_navigation": {
+                "tool": "get_flow_navigation",
+                "arguments": {"flow_id": finding.flow_id},
+            },
+            "complete_flow": {"tool": "get_flow", "arguments": {"flow_id": finding.flow_id}},
+        },
+    }
+
+
 def where_is_state_handled(
     model: ProjectModel, domain: str, value: str | None = None
 ) -> list[dict[str, Any]]:
@@ -368,6 +433,219 @@ def find_decisions(
                 }
             )
     return results
+
+
+def _finding_related_flows(
+    model: ProjectModel, finding: Finding, focus_flow: Flow | None
+) -> list[tuple[Flow, list[str]]]:
+    metadata = _query_metadata(finding.metadata)
+    roles_by_flow: dict[str, set[str]] = {}
+    flows_by_id = {flow.id: flow for flow in model.flows}
+
+    def add(flow_id: str | None, role: str) -> None:
+        if flow_id is None or flow_id not in flows_by_id:
+            return
+        roles_by_flow.setdefault(flow_id, set()).add(role)
+
+    add(finding.flow_id, "finding_flow")
+    if focus_flow is not None:
+        for flow_id in focus_flow.calls:
+            add(flow_id, "called_by_finding_flow")
+        for flow_id in focus_flow.called_by:
+            add(flow_id, "caller_of_finding_flow")
+
+    subject = _metadata_string(metadata.get("subject"))
+    namespace = _metadata_string(metadata.get("value_namespace"))
+    condition = _metadata_string(metadata.get("condition"))
+    missing_values = {str(item) for item in _list_value(metadata.get("missing"))}
+    expected_value = _metadata_string(metadata.get("expected"))
+    outcome_value = _metadata_string(metadata.get("outcome"))
+
+    for flow in model.flows:
+        for node in flow.nodes:
+            if node.kind is not NodeKind.DECISION:
+                continue
+            if subject and node.metadata.get("subject") == subject:
+                if namespace and node.metadata.get("value_namespace") == namespace:
+                    add(flow.id, "same_subject_namespace")
+                elif not namespace:
+                    add(flow.id, "same_subject")
+            if condition and node.metadata.get("condition") == condition:
+                add(flow.id, "same_condition")
+            handled_values = {str(item) for item in node.metadata.get("values", [])}
+            if missing_values and missing_values & handled_values:
+                add(flow.id, "handles_missing_value")
+            branches = node.metadata.get("branches", [])
+            if isinstance(branches, list) and (expected_value or outcome_value):
+                branch_text = _metadata_text(branches)
+                if expected_value and expected_value in branch_text:
+                    add(flow.id, "matches_expected_outcome")
+                if outcome_value and outcome_value in branch_text:
+                    add(flow.id, "matches_actual_outcome")
+
+    return [
+        (flows_by_id[flow_id], sorted(roles))
+        for flow_id, roles in sorted(
+            roles_by_flow.items(),
+            key=lambda item: (
+                0 if item[0] == finding.flow_id else 1,
+                flows_by_id[item[0]].name,
+                item[0],
+            ),
+        )
+    ]
+
+
+def _finding_related_nodes(
+    related_flows: list[tuple[Flow, list[str]]],
+    finding: Finding,
+    diagnostic: dict[str, Any],
+) -> list[dict[str, Any]]:
+    metadata = _query_metadata(finding.metadata)
+    subject = _metadata_string(metadata.get("subject"))
+    namespace = _metadata_string(metadata.get("value_namespace"))
+    condition = _metadata_string(metadata.get("condition"))
+    missing_values = {str(item) for item in _list_value(metadata.get("missing"))}
+    evidence_node_ids = set(_list_value(diagnostic.get("scope", {}).get("related_node_ids")))
+    if finding.node_id:
+        evidence_node_ids.add(finding.node_id)
+    rows: list[dict[str, Any]] = []
+    for flow, flow_roles in related_flows:
+        for node in flow.nodes:
+            reasons: list[str] = []
+            if node.id in evidence_node_ids:
+                reasons.append("finding_evidence")
+            if (
+                node.kind is NodeKind.DECISION
+                and subject
+                and node.metadata.get("subject") == subject
+            ):
+                if namespace and node.metadata.get("value_namespace") == namespace:
+                    reasons.append("same_subject_namespace")
+                elif not namespace:
+                    reasons.append("same_subject")
+            if (
+                node.kind is NodeKind.DECISION
+                and condition
+                and node.metadata.get("condition") == condition
+            ):
+                reasons.append("same_condition")
+            handled_values = {str(item) for item in node.metadata.get("values", [])}
+            if missing_values and missing_values & handled_values:
+                reasons.append("handles_missing_value")
+            if not reasons:
+                continue
+            rows.append(_context_node_summary(flow, node, sorted(set(reasons)), flow_roles))
+    return sorted(
+        rows,
+        key=lambda item: (
+            0 if item["flow_id"] == finding.flow_id else 1,
+            item["flow_name"],
+            item["node_id"],
+        ),
+    )
+
+
+def _finding_matches_context(candidate: Finding, finding: Finding) -> bool:
+    candidate_metadata = _query_metadata(candidate.metadata)
+    metadata = _query_metadata(finding.metadata)
+    if candidate.kind == finding.kind:
+        return True
+    for key in ("subject", "value_namespace", "condition", "rule"):
+        if metadata.get(key) is not None and candidate_metadata.get(key) == metadata.get(key):
+            return True
+    missing = {str(item) for item in _list_value(metadata.get("missing"))}
+    candidate_missing = {str(item) for item in _list_value(candidate_metadata.get("missing"))}
+    return bool(missing and missing & candidate_missing)
+
+
+def _finding_context_finding(finding: Finding) -> dict[str, Any]:
+    return {
+        "id": finding.id,
+        "kind": _enum_text(finding.kind),
+        "severity": _enum_text(finding.severity),
+        "evidence": _enum_text(finding.evidence),
+        "message": finding.message,
+        "flow_id": finding.flow_id,
+        "node_id": finding.node_id,
+        "source": f"{finding.location.path}:{finding.location.start_line}",
+    }
+
+
+def _context_flow_summary(flow: Flow, roles: list[str], model: ProjectModel) -> dict[str, Any]:
+    return {
+        "id": flow.id,
+        "name": flow.name,
+        "roles": roles,
+        "language": flow.language,
+        "entry_kind": flow.entry_kind,
+        "source": f"{flow.location.path}:{flow.location.start_line}",
+        "scope": flow.metadata.get("scope", []),
+        "nodes": len(flow.nodes),
+        "decisions": sum(node.kind is NodeKind.DECISION for node in flow.nodes),
+        "calls": len(flow.calls),
+        "callers": len(flow.called_by),
+        "findings": sum(item.flow_id == flow.id for item in model.findings),
+    }
+
+
+def _context_node_summary(
+    flow: Flow | None,
+    node: Any,
+    reasons: list[str],
+    flow_roles: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "flow_id": flow.id if flow is not None else None,
+        "flow_name": flow.name if flow is not None else None,
+        "flow_roles": flow_roles or [],
+        "node_id": node.id,
+        "label": node.label,
+        "kind": _enum_text(node.kind),
+        "reasons": reasons,
+        "source": f"{node.location.path}:{node.location.start_line}",
+        "condition": node.metadata.get("condition"),
+        "subject": node.metadata.get("subject"),
+        "value_namespace": node.metadata.get("value_namespace"),
+        "values": node.metadata.get("values", []),
+        "branches": node.metadata.get("branches", []),
+    }
+
+
+def _evidence_guardrail(finding: Finding) -> dict[str, str]:
+    if finding.evidence.value == "VERIFIED":
+        meaning = "syntax-backed fact"
+    elif finding.evidence.value == "INFERRED":
+        meaning = "deterministic heuristic; inspect before treating as a bug"
+    else:
+        meaning = "review candidate; never treat as a confirmed bug without inspection"
+    return {"tier": finding.evidence.value, "meaning": meaning}
+
+
+def _context_cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]:
+    if token_budget <= 0:
+        return items
+    return items[: max(1, token_budget // FINDING_CONTEXT_TOKENS_PER_ITEM)]
+
+
+def _metadata_string(value: Any) -> str:
+    if value is None:
+        return ""
+    return value if isinstance(value, str) else _metadata_text(value)
+
+
+def _list_value(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple | set):
+        return list(value)
+    return [value]
+
+
+def _enum_text(value: Any) -> str:
+    return value.value if hasattr(value, "value") else str(value)
 
 
 def git_changed_files(root: Path) -> list[str]:

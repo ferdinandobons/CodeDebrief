@@ -13,6 +13,7 @@ from logicchart.model import NodeKind, ProjectModel
 from logicchart.query import (
     explain_finding,
     find_decisions,
+    finding_context,
     git_changed_files,
     impact_model,
     model_summary,
@@ -38,10 +39,11 @@ _LOAD_ERRORS = (OSError, ValueError, KeyError, TypeError)
 
 MCP_INSTRUCTIONS = """Use LogicChart as a CLI-first, MCP-enhanced code reasoning tool.
 Prefer context_pack, query_logic, review_queue, and analyze_impact for bounded orientation
-before broad file-by-file search. After substantial code edits, call update_logicchart and
-validate_artifacts, then commit the synchronized logic-flow.json and logic-flow.md artifacts
-when they changed. Treat VERIFIED as syntax-backed, INFERRED as deterministic heuristic, and
-POTENTIAL_GAP as a review candidate, not a confirmed bug."""
+before broad file-by-file search. Use get_finding_context and get_finding_snapshot before
+treating a logical error as actionable. After substantial code edits, call update_logicchart
+and validate_artifacts, then commit the synchronized logic-flow.json and logic-flow.md
+artifacts when they changed. Treat VERIFIED as syntax-backed, INFERRED as deterministic
+heuristic, and POTENTIAL_GAP as a review candidate, not a confirmed bug."""
 
 
 def _cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]:
@@ -228,6 +230,28 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             return error
         assert model is not None
         result = explain_finding(model, finding_id)
+        if result is None:
+            return {"error": f"Unknown finding: {finding_id}"}
+        result["next_tools"] = {
+            "finding_context": {
+                "tool": "get_finding_context",
+                "arguments": {"finding_id": finding_id, "token_budget": token_budget},
+            },
+            "visual_snapshot": {
+                "tool": "get_finding_snapshot",
+                "arguments": {"finding_id": finding_id, "format": "svg"},
+            },
+        }
+        return result
+
+    @server.tool()
+    def get_finding_context(finding_id: str, token_budget: int = 0) -> dict[str, Any]:
+        """Return a bounded deterministic subgraph around one logical finding."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        result = finding_context(model, finding_id, token_budget)
         return result if result is not None else {"error": f"Unknown finding: {finding_id}"}
 
     @server.tool()
@@ -559,7 +583,25 @@ def _finding_dict(finding: Any, model: ProjectModel | None = None) -> dict[str, 
             if flow is not None and finding.node_id:
                 node = next((item for item in flow.nodes if item.id == finding.node_id), None)
         metadata["diagnostic"] = diagnostic_for_finding(finding, flow=flow, node=node)
+    data["next_tools"] = _finding_next_tools(finding)
     return data
+
+
+def _finding_next_tools(finding: Any) -> dict[str, dict[str, Any]]:
+    return {
+        "finding_context": {
+            "tool": "get_finding_context",
+            "arguments": {"finding_id": finding.id},
+        },
+        "visual_snapshot": {
+            "tool": "get_finding_snapshot",
+            "arguments": {"finding_id": finding.id, "format": "svg"},
+        },
+        "flow_navigation": {
+            "tool": "get_flow_navigation",
+            "arguments": {"flow_id": finding.flow_id},
+        },
+    }
 
 
 def _try_load(
