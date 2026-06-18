@@ -5,6 +5,8 @@ import { ViewerApp, type ViewerAppProps } from "./ViewerApp";
 
 export type ExportImageFormat = "png" | "jpg";
 
+const MAX_OVERVIEW_SCROLL_DELTA = 48;
+
 export interface MountedLogicChartViewer {
   exportImage: (format: ExportImageFormat) => void;
   fitView: () => void;
@@ -513,15 +515,14 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
   const panOverview = (event: WheelEvent) => {
     if (!contentBounds) return;
     const current = readViewBox(svg);
-    const mapBounds = current ? overviewMapBounds(contentBounds, current) : null;
-    const scale = mapBounds ? overviewMapScale(overviewSvg, mapBounds) : null;
-    if (!current || !scale) return;
-    const deltaX = event.deltaX || (event.shiftKey ? event.deltaY : 0);
-    const deltaY = event.shiftKey ? 0 : event.deltaY;
+    const panScale = current ? overviewPanScale(overviewSvg, current) : null;
+    if (!current || !panScale) return;
+    const deltaX = clampOverviewScrollDelta(event.deltaX || (event.shiftKey ? event.deltaY : 0));
+    const deltaY = event.shiftKey ? 0 : clampOverviewScrollDelta(event.deltaY);
     writeViewBox(svg, {
       ...current,
-      x: current.x + deltaX / scale,
-      y: current.y + deltaY / scale,
+      x: current.x + deltaX * panScale.x,
+      y: current.y + deltaY * panScale.y,
     });
     event.preventDefault();
     event.stopPropagation();
@@ -603,18 +604,21 @@ function overviewMapBounds(contentBounds: ViewBox, viewport: ViewBox): ViewBox {
   };
 }
 
-function overviewMapScale(
+function overviewPanScale(
   overviewSvg: SVGSVGElement,
-  mapBounds: ViewBox,
-): number | null {
+  viewport: ViewBox,
+): { x: number; y: number } | null {
   const rect = overviewSvg.getBoundingClientRect();
   if (!rect.width || !rect.height) return null;
-  const scale = Math.min(
-    rect.width / Math.max(1, mapBounds.width),
-    rect.height / Math.max(1, mapBounds.height),
-  );
-  if (!Number.isFinite(scale) || scale <= 0) return null;
-  return scale;
+  const x = viewport.width / Math.max(1, rect.width);
+  const y = viewport.height / Math.max(1, rect.height);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || x <= 0 || y <= 0) return null;
+  return { x, y };
+}
+
+function clampOverviewScrollDelta(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(-MAX_OVERVIEW_SCROLL_DELTA, Math.min(MAX_OVERVIEW_SCROLL_DELTA, value));
 }
 
 function cssVar(name: string, fallback: string): string {
