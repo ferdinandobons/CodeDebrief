@@ -70,6 +70,8 @@ def authorize(user):
 
                 # Spec §5.2: every query/list tool exposes a token_budget cap.
                 schema_by_name = {tool.name: tool.inputSchema for tool in tools.tools}
+                validation_properties = schema_by_name["validate_artifacts"].get("properties", {})
+                assert "max_parse_warnings" in validation_properties
                 for budget_tool in (
                     "get_flow",
                     "get_flow_navigation",
@@ -222,7 +224,7 @@ def authorize(user):
                 assert "quality" in str(validation_quality.content)
                 validation_threshold = await session.call_tool(
                     "validate_artifacts",
-                    {"max_skipped_files": 0},
+                    {"max_skipped_files": 0, "max_parse_warnings": 0},
                 )
                 assert not validation_threshold.isError
                 assert "quality" in str(validation_threshold.content)

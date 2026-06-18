@@ -623,7 +623,8 @@ Before the next release:
 - Done: persist skipped-file reasons.
 - Done: model expression-bodied TypeScript/JavaScript arrow returns and ternary component
   decisions.
-- Done: add optional quality thresholds.
+- Done: add optional quality thresholds, including parse-warning thresholds for
+  recoverable tree-sitter parse errors.
 - Done: model Python `try`/`else` success paths without treating terminating `try` bodies as
   fall-through.
 - Done: model Python loop bodies and loop `else` blocks so useful internal decisions/calls

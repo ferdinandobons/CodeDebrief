@@ -32,6 +32,8 @@ The project follows Semantic Versioning.
   confidence, review prompt, and evidence-chain summaries.
 - Added deterministic model-quality metrics, exposed through generated metadata,
   `logicchart validate --quality`, MCP summaries, and `validate_artifacts`.
+- Added optional parse-warning quality thresholds to CLI `validate` and MCP
+  `validate_artifacts`.
 - Added per-language depth metrics to the quality payload, including file/flow coverage,
   decisions, calls, findings, source coverage, capability metadata, and attention signals.
 - Added TypeScript/JavaScript expression-bodied arrow function support, including ternary

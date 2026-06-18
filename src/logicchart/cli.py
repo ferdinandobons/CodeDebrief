@@ -193,6 +193,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fail validation when skipped-file count exceeds this value.",
     )
     validate.add_argument(
+        "--max-parse-warnings",
+        type=int,
+        help="Fail validation when parse-warning count exceeds this value.",
+    )
+    validate.add_argument(
         "--min-call-resolution",
         type=float,
         help="Fail validation when call-resolution rate is below this 0..1 value.",
@@ -666,6 +671,8 @@ def _quality_thresholds(args: argparse.Namespace) -> dict[str, float | int]:
     thresholds: dict[str, float | int] = {}
     if args.max_skipped_files is not None:
         thresholds["max_skipped_files"] = args.max_skipped_files
+    if args.max_parse_warnings is not None:
+        thresholds["max_parse_warnings"] = args.max_parse_warnings
     if args.min_call_resolution is not None:
         thresholds["min_call_resolution"] = args.min_call_resolution
     if args.max_generic_label_ratio is not None:

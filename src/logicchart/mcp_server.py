@@ -543,6 +543,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         check_sync: bool = False,
         include_quality: bool = False,
         max_skipped_files: int | None = None,
+        max_parse_warnings: int | None = None,
         min_call_resolution: float | None = None,
         max_generic_label_ratio: float | None = None,
     ) -> dict[str, Any]:
@@ -550,6 +551,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         thresholds: dict[str, float | int] = {}
         if max_skipped_files is not None:
             thresholds["max_skipped_files"] = max_skipped_files
+        if max_parse_warnings is not None:
+            thresholds["max_parse_warnings"] = max_parse_warnings
         if min_call_resolution is not None:
             thresholds["min_call_resolution"] = min_call_resolution
         if max_generic_label_ratio is not None:

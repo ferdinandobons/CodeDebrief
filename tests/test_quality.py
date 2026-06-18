@@ -108,16 +108,31 @@ def test_skipped_file_reasons_are_persisted_and_cached(tmp_path: Path) -> None:
     assert second.model.metadata["quality"]["files"]["skipped"]["sample"][0]["path"] == "broken.py"
 
 
-def test_quality_thresholds_fail_and_pass(tmp_path: Path) -> None:
+def test_quality_thresholds_fail_and_pass(tmp_path: Path, capsys) -> None:
     (tmp_path / "ok.py").write_text("def ok():\n    return 1\n", encoding="utf-8")
     (tmp_path / "broken.py").write_text("def broken(:\n    return 1\n", encoding="utf-8")
+    (tmp_path / "partial.ts").write_text(
+        "export function partial() {\n  return 1;\n}\n@",
+        encoding="utf-8",
+    )
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     write_artifacts(tmp_path, result.model, include_html=False)
 
     failed = validate_logicchart(tmp_path, quality_thresholds={"max_skipped_files": 0})
     passed = validate_logicchart(tmp_path, quality_thresholds={"max_skipped_files": 1})
+    parse_failed = validate_logicchart(tmp_path, quality_thresholds={"max_parse_warnings": 0})
+    parse_passed = validate_logicchart(tmp_path, quality_thresholds={"max_parse_warnings": 1})
 
     assert not failed.ok
     assert failed.quality is not None
     assert failed.errors == ["quality threshold failed: skipped files 1 > max 0"]
     assert passed.ok
+    assert not parse_failed.ok
+    assert parse_failed.quality is not None
+    assert parse_failed.errors == ["quality threshold failed: parse warnings 1 > max 0"]
+    assert parse_passed.ok
+    assert main(["validate", str(tmp_path), "--max-parse-warnings", "0"]) == 1
+    cli_output = capsys.readouterr()
+    assert "quality threshold failed: parse warnings 1 > max 0" in cli_output.err
+    assert main(["validate", str(tmp_path), "--max-parse-warnings", "1"]) == 0
+    capsys.readouterr()

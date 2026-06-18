@@ -170,12 +170,21 @@ def _validate_quality_thresholds(
     calls = quality.get("calls", {})
     labels = quality.get("labels", {})
     skipped = files.get("skipped", {}) if isinstance(files, dict) else {}
+    parse_errors = files.get("parse_errors", {}) if isinstance(files, dict) else {}
     if "max_skipped_files" in thresholds:
         actual_skipped = int(_number(skipped.get("total"), 0))
         skipped_limit = int(thresholds["max_skipped_files"])
         if actual_skipped > skipped_limit:
             report.add_error(
                 f"quality threshold failed: skipped files {actual_skipped} > max {skipped_limit}"
+            )
+    if "max_parse_warnings" in thresholds:
+        actual_parse_warnings = int(_number(parse_errors.get("total"), 0))
+        parse_warning_limit = int(thresholds["max_parse_warnings"])
+        if actual_parse_warnings > parse_warning_limit:
+            report.add_error(
+                "quality threshold failed: parse warnings "
+                f"{actual_parse_warnings} > max {parse_warning_limit}"
             )
     if "min_call_resolution" in thresholds:
         actual_resolution = _number(calls.get("resolution_rate"), 0.0)

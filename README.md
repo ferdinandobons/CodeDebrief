@@ -309,7 +309,7 @@ logicchart validate
 logicchart validate --check-sync
 logicchart validate --quality --json
 logicchart validate --annotations --json
-logicchart validate --max-skipped-files 0 --min-call-resolution 0.5
+logicchart validate --max-skipped-files 0 --max-parse-warnings 0 --min-call-resolution 0.5
 ```
 
 `--check-sync` re-analyzes sources and fails if the committed JSON model is stale.
@@ -329,6 +329,7 @@ that are not in the current model.
 Optional CI gates can fail validation on selected metrics:
 
 - `--max-skipped-files N`
+- `--max-parse-warnings N`
 - `--min-call-resolution 0..1`
 - `--max-generic-label-ratio 0..1`
 
