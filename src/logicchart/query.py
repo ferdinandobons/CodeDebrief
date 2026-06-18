@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts_by_kind
 from logicchart.model import Finding, FindingKind, Flow, NodeKind, ProjectModel
 
 # Per-bucket relevance weights. Named constants instead of inline magic numbers so the
@@ -110,7 +111,7 @@ def query_model(
         finding_tokens = _tokenize(
             " ".join(
                 f"{finding.kind} {finding.evidence.value} {finding.severity.value} "
-                f"{finding.message} {_metadata_text(finding.metadata)}"
+                f"{finding.message} {_metadata_text(_query_metadata(finding.metadata))}"
                 for finding in flow_findings
             )
         )
@@ -221,6 +222,7 @@ def render_impact(result: ImpactResult) -> str:
 
 def model_summary(model: ProjectModel) -> dict[str, Any]:
     """An orientation snapshot: counts of flows, findings by kind/severity/evidence."""
+    rules = model.metadata.get("finding_rules") or finding_rule_contracts_by_kind()
     return {
         "flows": len(model.flows),
         "entrypoints": sum(flow.is_entrypoint for flow in model.flows),
@@ -230,6 +232,12 @@ def model_summary(model: ProjectModel) -> dict[str, Any]:
             "by_kind": dict(Counter(item.kind for item in model.findings)),
             "by_severity": dict(Counter(item.severity.value for item in model.findings)),
             "by_evidence": dict(Counter(item.evidence.value for item in model.findings)),
+        },
+        "finding_rules": {
+            "total": len(rules),
+            "by_category": dict(
+                Counter(str(item.get("category", "project")) for item in rules.values())
+            ),
         },
         "enums": {
             language: sorted(members)
@@ -261,6 +269,9 @@ def explain_finding(model: ProjectModel, finding_id: str) -> dict[str, Any] | No
             "subject": node.metadata.get("subject"),
             "branches": node.metadata.get("branches"),
         }
+    diagnostic = finding.metadata.get("diagnostic")
+    if not isinstance(diagnostic, dict):
+        diagnostic = diagnostic_for_finding(finding, flow=flow, node=node)
     return {
         "id": finding.id,
         "kind": finding.kind,
@@ -272,6 +283,7 @@ def explain_finding(model: ProjectModel, finding_id: str) -> dict[str, Any] | No
         "flow": flow.name if flow else None,
         "decision": decision,
         "metadata": finding.metadata,
+        "diagnostic": diagnostic,
     }
 
 
@@ -431,6 +443,10 @@ def _metadata_text(value: Any) -> str:
     if isinstance(value, (list, tuple, set)):
         return " ".join(_metadata_text(item) for item in value)
     return str(value)
+
+
+def _query_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in metadata.items() if key != "diagnostic"}
 
 
 def _normalize_path(value: str) -> str:

@@ -205,6 +205,9 @@ def test_render_html_emits_source_and_errors_panels(tmp_path: Path) -> None:
     assert "renderSource" in html
     assert "renderErrors" in html
     assert "prioritizedFindings" in html
+    assert "appendFindingDiagnostic" in html
+    assert "diagnostic-grid" in html
+    assert "finding_rules" in html
     # The full-screen toggle on the canvas toolbar (aria-pressed, data-action hook).
     assert 'data-action="fullscreen"' in html
     assert 'id="detailButton"' in html

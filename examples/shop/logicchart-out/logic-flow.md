@@ -44,23 +44,23 @@ flowchart LR
 
 ## Findings
 
-- **INFO · INFERRED · no_op_branch** Branch 'Yes' has an empty body ([`backend/orders_service.py:22`](../backend/orders_service.py#L22))
-- **INFO · INFERRED · logging_asymmetry** Guard 'order.total\_cents \<= 0' is logged in a sibling flow but silent here ([`backend/payments_service.py:41`](../backend/payments_service.py#L41))
-- **WARNING · INFERRED · enum_exhaustiveness** Declared AccountStatus members not handled for account.status: AccountStatus.ACTIVE, AccountStatus.PENDING\_VERIFICATION ([`backend/api/users_routes.py:15`](../backend/api/users_routes.py#L15))
-- **WARNING · INFERRED · enum_exhaustiveness** Declared OrderStatus members not handled for order.status: OrderStatus.CANCELLED, OrderStatus.DELIVERED, OrderStatus.REFUNDED ([`backend/orders_service.py:8`](../backend/orders_service.py#L8))
-- **WARNING · INFERRED · enum_exhaustiveness** Declared PaymentResult members not handled for result: PaymentResult.FRAUD\_REVIEW ([`backend/payments_service.py:11`](../backend/payments_service.py#L11))
-- **WARNING · INFERRED · broad_except_swallow** Exception handler 'Error' swallows the error ([`frontend/app/api/checkout/route.ts:5`](../frontend/app/api/checkout/route.ts#L5))
-- **WARNING · INFERRED · broad_except_swallow** Exception handler 'Exception' swallows the error ([`backend/payments_service.py:23`](../backend/payments_service.py#L23))
-- **WARNING · INFERRED · dead_guard** Guard on the constant ENABLE\_DOUBLE\_CHARGE\_GUARD is always False ([`backend/payments_service.py:21`](../backend/payments_service.py#L21))
-- **WARNING · INFERRED · dead_code** Unreachable code after all paths return or raise \(line 30\) ([`backend/users_service.py:30`](../backend/users_service.py#L30))
+- **INFO · INFERRED · no_op_branch** Branch 'Yes' has an empty body ([`backend/orders_service.py:22`](../backend/orders_service.py#L22)) Review: Is this branch intentionally empty, or is it missing behavior?
+- **INFO · INFERRED · logging_asymmetry** Guard 'order.total\_cents \<= 0' is logged in a sibling flow but silent here ([`backend/payments_service.py:41`](../backend/payments_service.py#L41)) Review: Should this guard log or alert like its sibling error path?
+- **WARNING · INFERRED · enum_exhaustiveness** Declared AccountStatus members not handled for account.status: AccountStatus.ACTIVE, AccountStatus.PENDING\_VERIFICATION ([`backend/api/users_routes.py:15`](../backend/api/users_routes.py#L15)) Review: Should this dispatch handle every declared member or add an explicit default?
+- **WARNING · INFERRED · enum_exhaustiveness** Declared OrderStatus members not handled for order.status: OrderStatus.CANCELLED, OrderStatus.DELIVERED, OrderStatus.REFUNDED ([`backend/orders_service.py:8`](../backend/orders_service.py#L8)) Review: Should this dispatch handle every declared member or add an explicit default?
+- **WARNING · INFERRED · enum_exhaustiveness** Declared PaymentResult members not handled for result: PaymentResult.FRAUD\_REVIEW ([`backend/payments_service.py:11`](../backend/payments_service.py#L11)) Review: Should this dispatch handle every declared member or add an explicit default?
+- **WARNING · INFERRED · broad_except_swallow** Exception handler 'Error' swallows the error ([`frontend/app/api/checkout/route.ts:5`](../frontend/app/api/checkout/route.ts#L5)) Review: Should this handler re-raise, return an error result, or explicitly document suppression?
+- **WARNING · INFERRED · broad_except_swallow** Exception handler 'Exception' swallows the error ([`backend/payments_service.py:23`](../backend/payments_service.py#L23)) Review: Should this handler re-raise, return an error result, or explicitly document suppression?
+- **WARNING · INFERRED · dead_guard** Guard on the constant ENABLE\_DOUBLE\_CHARGE\_GUARD is always False ([`backend/payments_service.py:21`](../backend/payments_service.py#L21)) Review: Is this constant guard still needed, or should the dead branch be removed?
+- **WARNING · INFERRED · dead_code** Unreachable code after all paths return or raise \(line 30\) ([`backend/users_service.py:30`](../backend/users_service.py#L30)) Review: Can the unreachable statement be removed, or should an earlier branch stop exiting?
 
 <details>
 <summary>Review-only - 4 POTENTIAL_GAP (heuristic candidates, not confirmed)</summary>
 
-- **WARNING · POTENTIAL_GAP · missing_branch** Decision has no explicit fallback: if/elif on order.status ([`frontend/app/orders/page.tsx:3`](../frontend/app/orders/page.tsx#L3))
-- **WARNING · POTENTIAL_GAP · missing_branch** Decision has no explicit fallback: switch order.status ([`frontend/app/api/orders/route.ts:6`](../frontend/app/api/orders/route.ts#L6))
-- **WARNING · POTENTIAL_GAP · auth_divergence** load\_profile skips the authorization check its sibling entry points perform ([`backend/users_service.py:26`](../backend/users_service.py#L26))
-- **WARNING · POTENTIAL_GAP · auth_divergence** purge\_user skips the authorization check its sibling entry points perform ([`backend/api/admin_routes.py:13`](../backend/api/admin_routes.py#L13))
+- **WARNING · POTENTIAL_GAP · missing_branch** Decision has no explicit fallback: if/elif on order.status ([`frontend/app/orders/page.tsx:3`](../frontend/app/orders/page.tsx#L3)) Review: Should this decision define an explicit else/default for unhandled states?
+- **WARNING · POTENTIAL_GAP · missing_branch** Decision has no explicit fallback: switch order.status ([`frontend/app/api/orders/route.ts:6`](../frontend/app/api/orders/route.ts#L6)) Review: Should this decision define an explicit else/default for unhandled states?
+- **WARNING · POTENTIAL_GAP · auth_divergence** load\_profile skips the authorization check its sibling entry points perform ([`backend/users_service.py:26`](../backend/users_service.py#L26)) Review: Is authorization enforced for this entrypoint outside the visible flow?
+- **WARNING · POTENTIAL_GAP · auth_divergence** purge\_user skips the authorization check its sibling entry points perform ([`backend/api/admin_routes.py:13`](../backend/api/admin_routes.py#L13)) Review: Is authorization enforced for this entrypoint outside the visible flow?
 
 </details>
 

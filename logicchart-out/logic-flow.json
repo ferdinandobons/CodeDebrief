@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-18T10:14:42.256312+00:00",
+  "generated_at": "2026-06-18T12:48:55.025677+00:00",
   "root": ".",
   "flows": [
     {
@@ -19876,7 +19876,128 @@
       "node_id": "flow-cfef4e8dba6238fd:n4",
       "detail": "The branch is taken but performs no work - likely unfinished.",
       "metadata": {
-        "category": "single_flow"
+        "category": "single_flow",
+        "diagnostic": {
+          "rule_id": "no_op_branch",
+          "category": "single_flow",
+          "severity": "info",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "single_flow",
+            "flow_id": "flow-cfef4e8dba6238fd",
+            "flow_name": "summarize",
+            "node_id": "flow-cfef4e8dba6238fd:n4",
+            "node_label": "order.status == OrderStatus.REFUNDED",
+            "source": "examples/shop/backend/orders_service.py:22",
+            "path": "examples/shop/backend/orders_service.py",
+            "line": 22,
+            "end_line": 22,
+            "language": "python",
+            "entry_kind": "function",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-cfef4e8dba6238fd"
+            ],
+            "related_node_ids": [
+              "flow-cfef4e8dba6238fd:n4"
+            ]
+          },
+          "inputs": {
+            "decision": {
+              "condition": "order.status == OrderStatus.REFUNDED",
+              "subject": "order.status",
+              "operator": "==",
+              "values": [
+                "OrderStatus.REFUNDED"
+              ],
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "empty",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": false
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Branch 'Yes' has an empty body",
+              "detail": "The branch is taken but performs no work - likely unfinished.",
+              "source": "examples/shop/backend/orders_service.py:22"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-cfef4e8dba6238fd",
+              "name": "summarize",
+              "language": "python",
+              "entry_kind": "function",
+              "source": "examples/shop/backend/orders_service.py:19"
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-cfef4e8dba6238fd:n4",
+              "label": "order.status == OrderStatus.REFUNDED",
+              "condition": "order.status == OrderStatus.REFUNDED",
+              "subject": "order.status",
+              "values": [
+                "OrderStatus.REFUNDED"
+              ],
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "empty",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": false
+                }
+              ],
+              "source": "examples/shop/backend/orders_service.py:22"
+            }
+          ],
+          "expected": {
+            "explicit_review_of_branches": true
+          },
+          "actual": {
+            "condition": "order.status == OrderStatus.REFUNDED",
+            "handled_values": [
+              "OrderStatus.REFUNDED"
+            ],
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "empty",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": false
+              }
+            ]
+          },
+          "missing": null,
+          "review_prompt": "Is this branch intentionally empty, or is it missing behavior?",
+          "suggested_next_actions": [
+            "Inspect the selected branch.",
+            "Add the missing behavior or remove the dead branch.",
+            "Leave an explicit comment when the no-op is intentional."
+          ]
+        }
       }
     },
     {
@@ -19895,7 +20016,123 @@
       "detail": "A sibling flow logs or alerts on the same guard while this one proceeds silently - an observability gap on a shared condition.",
       "metadata": {
         "category": "cross_flow",
-        "condition": "order.total_cents <= 0"
+        "condition": "order.total_cents <= 0",
+        "diagnostic": {
+          "rule_id": "logging_asymmetry",
+          "category": "cross_flow",
+          "severity": "info",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "cross_flow",
+            "flow_id": "flow-3b15514408bbb3ee",
+            "flow_name": "capture_payment",
+            "node_id": "flow-3b15514408bbb3ee:n3",
+            "node_label": "order.total_cents <= 0",
+            "source": "examples/shop/backend/payments_service.py:41",
+            "path": "examples/shop/backend/payments_service.py",
+            "line": 41,
+            "end_line": 41,
+            "language": "python",
+            "entry_kind": "function",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-3b15514408bbb3ee"
+            ],
+            "related_node_ids": [
+              "flow-3b15514408bbb3ee:n3"
+            ]
+          },
+          "inputs": {
+            "condition": "order.total_cents <= 0",
+            "decision": {
+              "condition": "order.total_cents <= 0",
+              "subject": "order.total_cents <= 0",
+              "operator": "",
+              "values": [],
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Guard 'order.total_cents <= 0' is logged in a sibling flow but silent here",
+              "detail": "A sibling flow logs or alerts on the same guard while this one proceeds silently - an observability gap on a shared condition.",
+              "source": "examples/shop/backend/payments_service.py:41"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-3b15514408bbb3ee",
+              "name": "capture_payment",
+              "language": "python",
+              "entry_kind": "function",
+              "source": "examples/shop/backend/payments_service.py:39"
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-3b15514408bbb3ee:n3",
+              "label": "order.total_cents <= 0",
+              "condition": "order.total_cents <= 0",
+              "subject": "order.total_cents <= 0",
+              "values": [],
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ],
+              "source": "examples/shop/backend/payments_service.py:41"
+            }
+          ],
+          "expected": {
+            "explicit_review_of_branches": true
+          },
+          "actual": {
+            "condition": "order.total_cents <= 0",
+            "handled_values": [],
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ]
+          },
+          "missing": null,
+          "review_prompt": "Should this guard log or alert like its sibling error path?",
+          "suggested_next_actions": [
+            "Inspect the selected guard and sibling error path.",
+            "Add logging or alerting when observability is required.",
+            "Document intentional silence when noise reduction is deliberate."
+          ]
+        }
       }
     },
     {
@@ -19913,7 +20150,128 @@
       "node_id": "flow-a14422f6dd2875d3:n2",
       "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
       "metadata": {
-        "category": "single_flow"
+        "category": "single_flow",
+        "diagnostic": {
+          "rule_id": "missing_branch",
+          "category": "single_flow",
+          "severity": "warning",
+          "evidence": "POTENTIAL_GAP",
+          "confidence": {
+            "score": 0.4,
+            "basis": "review candidate, not a confirmed bug"
+          },
+          "scope": {
+            "category": "single_flow",
+            "flow_id": "flow-a14422f6dd2875d3",
+            "flow_name": "OrdersPage",
+            "node_id": "flow-a14422f6dd2875d3:n2",
+            "node_label": "order.status === \"cart\"",
+            "source": "examples/shop/frontend/app/orders/page.tsx:3",
+            "path": "examples/shop/frontend/app/orders/page.tsx",
+            "line": 3,
+            "end_line": 3,
+            "language": "typescript",
+            "entry_kind": "component",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-a14422f6dd2875d3"
+            ],
+            "related_node_ids": [
+              "flow-a14422f6dd2875d3:n2"
+            ]
+          },
+          "inputs": {
+            "decision": {
+              "condition": "order.status === \"cart\"",
+              "subject": "order.status",
+              "operator": "==",
+              "values": [
+                "cart"
+              ],
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": false
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Decision has no explicit fallback: if/elif on order.status",
+              "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
+              "source": "examples/shop/frontend/app/orders/page.tsx:3"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-a14422f6dd2875d3",
+              "name": "OrdersPage",
+              "language": "typescript",
+              "entry_kind": "component",
+              "source": "examples/shop/frontend/app/orders/page.tsx:2"
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-a14422f6dd2875d3:n2",
+              "label": "order.status === \"cart\"",
+              "condition": "order.status === \"cart\"",
+              "subject": "order.status",
+              "values": [
+                "cart"
+              ],
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": false
+                }
+              ],
+              "source": "examples/shop/frontend/app/orders/page.tsx:3"
+            }
+          ],
+          "expected": {
+            "explicit_review_of_branches": true
+          },
+          "actual": {
+            "condition": "order.status === \"cart\"",
+            "handled_values": [
+              "cart"
+            ],
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": false
+              }
+            ]
+          },
+          "missing": null,
+          "review_prompt": "Should this decision define an explicit else/default for unhandled states?",
+          "suggested_next_actions": [
+            "Inspect the selected decision node and source range.",
+            "Add an explicit else/default when the omitted path is real.",
+            "Suppress or document the finding when an upstream invariant proves exhaustiveness."
+          ]
+        }
       }
     },
     {
@@ -19931,7 +20289,164 @@
       "node_id": "flow-484f0b6804aa2ba6:n3",
       "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
       "metadata": {
-        "category": "single_flow"
+        "category": "single_flow",
+        "diagnostic": {
+          "rule_id": "missing_branch",
+          "category": "single_flow",
+          "severity": "warning",
+          "evidence": "POTENTIAL_GAP",
+          "confidence": {
+            "score": 0.4,
+            "basis": "review candidate, not a confirmed bug"
+          },
+          "scope": {
+            "category": "single_flow",
+            "flow_id": "flow-484f0b6804aa2ba6",
+            "flow_name": "POST",
+            "node_id": "flow-484f0b6804aa2ba6:n3",
+            "node_label": "Switch on order.status",
+            "source": "examples/shop/frontend/app/api/orders/route.ts:6",
+            "path": "examples/shop/frontend/app/api/orders/route.ts",
+            "line": 6,
+            "end_line": 13,
+            "language": "typescript",
+            "entry_kind": "route",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-484f0b6804aa2ba6"
+            ],
+            "related_node_ids": [
+              "flow-484f0b6804aa2ba6:n3"
+            ]
+          },
+          "inputs": {
+            "decision": {
+              "condition": "order.status",
+              "subject": "order.status",
+              "operator": "switch",
+              "values": [
+                "\"cart\"",
+                "\"paid\"",
+                "\"shipped\""
+              ],
+              "branches": [
+                {
+                  "label": "\"cart\"",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "\"paid\"",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "\"shipped\"",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "default",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Decision has no explicit fallback: switch order.status",
+              "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
+              "source": "examples/shop/frontend/app/api/orders/route.ts:6"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-484f0b6804aa2ba6",
+              "name": "POST",
+              "language": "typescript",
+              "entry_kind": "route",
+              "source": "examples/shop/frontend/app/api/orders/route.ts:4"
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-484f0b6804aa2ba6:n3",
+              "label": "Switch on order.status",
+              "condition": "order.status",
+              "subject": "order.status",
+              "values": [
+                "\"cart\"",
+                "\"paid\"",
+                "\"shipped\""
+              ],
+              "branches": [
+                {
+                  "label": "\"cart\"",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "\"paid\"",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "\"shipped\"",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "default",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ],
+              "source": "examples/shop/frontend/app/api/orders/route.ts:6"
+            }
+          ],
+          "expected": {
+            "explicit_review_of_branches": true
+          },
+          "actual": {
+            "condition": "order.status",
+            "handled_values": [
+              "\"cart\"",
+              "\"paid\"",
+              "\"shipped\""
+            ],
+            "branches": [
+              {
+                "label": "\"cart\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "\"paid\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "\"shipped\"",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ]
+          },
+          "missing": null,
+          "review_prompt": "Should this decision define an explicit else/default for unhandled states?",
+          "suggested_next_actions": [
+            "Inspect the selected decision node and source range.",
+            "Add an explicit else/default when the omitted path is real.",
+            "Suppress or document the finding when an upstream invariant proves exhaustiveness."
+          ]
+        }
       }
     },
     {
@@ -19961,7 +20476,165 @@
           "AccountStatus.SUSPENDED",
           "AccountStatus.DELETED",
           "AccountStatus.PENDING_VERIFICATION"
-        ]
+        ],
+        "diagnostic": {
+          "rule_id": "enum_exhaustiveness",
+          "category": "cross_flow",
+          "severity": "warning",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "cross_flow",
+            "flow_id": "flow-bf4bdbe9cee93085",
+            "flow_name": "change_email",
+            "node_id": "flow-bf4bdbe9cee93085:n3",
+            "node_label": "account.status == AccountStatus.SUSPENDED",
+            "source": "examples/shop/backend/api/users_routes.py:15",
+            "path": "examples/shop/backend/api/users_routes.py",
+            "line": 15,
+            "end_line": 15,
+            "language": "python",
+            "entry_kind": "function",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-bf4bdbe9cee93085"
+            ],
+            "related_node_ids": [
+              "flow-bf4bdbe9cee93085:n3"
+            ]
+          },
+          "inputs": {
+            "subject": "account.status",
+            "value_namespace": "AccountStatus",
+            "missing": [
+              "AccountStatus.ACTIVE",
+              "AccountStatus.PENDING_VERIFICATION"
+            ],
+            "declared": [
+              "AccountStatus.ACTIVE",
+              "AccountStatus.SUSPENDED",
+              "AccountStatus.DELETED",
+              "AccountStatus.PENDING_VERIFICATION"
+            ],
+            "decision": {
+              "condition": "account.status == AccountStatus.SUSPENDED",
+              "subject": "account.status",
+              "operator": "==",
+              "values": [
+                "AccountStatus.SUSPENDED"
+              ],
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "raises",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": false
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Declared AccountStatus members not handled for account.status: AccountStatus.ACTIVE, AccountStatus.PENDING_VERIFICATION",
+              "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
+              "source": "examples/shop/backend/api/users_routes.py:15"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-bf4bdbe9cee93085",
+              "name": "change_email",
+              "language": "python",
+              "entry_kind": "function",
+              "source": "examples/shop/backend/api/users_routes.py:13"
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-bf4bdbe9cee93085:n3",
+              "label": "account.status == AccountStatus.SUSPENDED",
+              "condition": "account.status == AccountStatus.SUSPENDED",
+              "subject": "account.status",
+              "values": [
+                "AccountStatus.SUSPENDED"
+              ],
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "raises",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": false
+                }
+              ],
+              "source": "examples/shop/backend/api/users_routes.py:15"
+            },
+            {
+              "type": "declared_values",
+              "value_namespace": "AccountStatus",
+              "values": [
+                "AccountStatus.ACTIVE",
+                "AccountStatus.SUSPENDED",
+                "AccountStatus.DELETED",
+                "AccountStatus.PENDING_VERIFICATION"
+              ]
+            },
+            {
+              "type": "missing_values",
+              "values": [
+                "AccountStatus.ACTIVE",
+                "AccountStatus.PENDING_VERIFICATION"
+              ]
+            }
+          ],
+          "expected": {
+            "handle_declared_values": [
+              "AccountStatus.ACTIVE",
+              "AccountStatus.SUSPENDED",
+              "AccountStatus.DELETED",
+              "AccountStatus.PENDING_VERIFICATION"
+            ]
+          },
+          "actual": {
+            "condition": "account.status == AccountStatus.SUSPENDED",
+            "handled_values": [
+              "AccountStatus.SUSPENDED"
+            ],
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "raises",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": false
+              }
+            ]
+          },
+          "missing": [
+            "AccountStatus.ACTIVE",
+            "AccountStatus.PENDING_VERIFICATION"
+          ],
+          "review_prompt": "Should this dispatch handle every declared member or add an explicit default?",
+          "suggested_next_actions": [
+            "Inspect the selected dispatch and declared value set.",
+            "Add missing cases for real states.",
+            "Add an explicit default or suppression when upstream validation proves the subset."
+          ]
+        }
       }
     },
     {
@@ -19997,7 +20670,273 @@
           "OrderState.RETURNED",
           "OrderState.CHARGEBACK",
           "OrderState.BACKORDERED"
-        ]
+        ],
+        "diagnostic": {
+          "rule_id": "enum_exhaustiveness",
+          "category": "cross_flow",
+          "severity": "warning",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "cross_flow",
+            "flow_id": "flow-e18a3a55b37ae612",
+            "flow_name": "GET",
+            "node_id": "flow-e18a3a55b37ae612:n4",
+            "node_label": "Switch on order.state",
+            "source": "examples/demo/frontend/app/api/orders/route.ts:9",
+            "path": "examples/demo/frontend/app/api/orders/route.ts",
+            "line": 9,
+            "end_line": 22,
+            "language": "typescript",
+            "entry_kind": "route",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-e18a3a55b37ae612"
+            ],
+            "related_node_ids": [
+              "flow-e18a3a55b37ae612:n4"
+            ]
+          },
+          "inputs": {
+            "subject": "order.state",
+            "value_namespace": "OrderState",
+            "missing": [
+              "OrderState.BACKORDERED",
+              "OrderState.CHARGEBACK",
+              "OrderState.RETURNED"
+            ],
+            "declared": [
+              "OrderState.DRAFT",
+              "OrderState.OPEN",
+              "OrderState.PAID",
+              "OrderState.FRAUD_REVIEW",
+              "OrderState.CLOSED",
+              "OrderState.CANCELLED",
+              "OrderState.RETURNED",
+              "OrderState.CHARGEBACK",
+              "OrderState.BACKORDERED"
+            ],
+            "decision": {
+              "condition": "order.state",
+              "subject": "order.state",
+              "operator": "switch",
+              "values": [
+                "OrderState.CANCELLED",
+                "OrderState.CLOSED",
+                "OrderState.DRAFT",
+                "OrderState.FRAUD_REVIEW",
+                "OrderState.OPEN",
+                "OrderState.PAID"
+              ],
+              "branches": [
+                {
+                  "label": "OrderState.DRAFT",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.OPEN",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.PAID",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.FRAUD_REVIEW",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.CLOSED",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.CANCELLED",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "default",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Declared OrderState members not handled for order.state: OrderState.BACKORDERED, OrderState.CHARGEBACK, OrderState.RETURNED",
+              "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
+              "source": "examples/demo/frontend/app/api/orders/route.ts:9"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-e18a3a55b37ae612",
+              "name": "GET",
+              "language": "typescript",
+              "entry_kind": "route",
+              "source": "examples/demo/frontend/app/api/orders/route.ts:5"
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-e18a3a55b37ae612:n4",
+              "label": "Switch on order.state",
+              "condition": "order.state",
+              "subject": "order.state",
+              "values": [
+                "OrderState.CANCELLED",
+                "OrderState.CLOSED",
+                "OrderState.DRAFT",
+                "OrderState.FRAUD_REVIEW",
+                "OrderState.OPEN",
+                "OrderState.PAID"
+              ],
+              "branches": [
+                {
+                  "label": "OrderState.DRAFT",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.OPEN",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.PAID",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.FRAUD_REVIEW",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.CLOSED",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.CANCELLED",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "default",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ],
+              "source": "examples/demo/frontend/app/api/orders/route.ts:9"
+            },
+            {
+              "type": "declared_values",
+              "value_namespace": "OrderState",
+              "values": [
+                "OrderState.DRAFT",
+                "OrderState.OPEN",
+                "OrderState.PAID",
+                "OrderState.FRAUD_REVIEW",
+                "OrderState.CLOSED",
+                "OrderState.CANCELLED",
+                "OrderState.RETURNED",
+                "OrderState.CHARGEBACK",
+                "OrderState.BACKORDERED"
+              ]
+            },
+            {
+              "type": "missing_values",
+              "values": [
+                "OrderState.BACKORDERED",
+                "OrderState.CHARGEBACK",
+                "OrderState.RETURNED"
+              ]
+            }
+          ],
+          "expected": {
+            "handle_declared_values": [
+              "OrderState.DRAFT",
+              "OrderState.OPEN",
+              "OrderState.PAID",
+              "OrderState.FRAUD_REVIEW",
+              "OrderState.CLOSED",
+              "OrderState.CANCELLED",
+              "OrderState.RETURNED",
+              "OrderState.CHARGEBACK",
+              "OrderState.BACKORDERED"
+            ]
+          },
+          "actual": {
+            "condition": "order.state",
+            "handled_values": [
+              "OrderState.CANCELLED",
+              "OrderState.CLOSED",
+              "OrderState.DRAFT",
+              "OrderState.FRAUD_REVIEW",
+              "OrderState.OPEN",
+              "OrderState.PAID"
+            ],
+            "branches": [
+              {
+                "label": "OrderState.DRAFT",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "OrderState.OPEN",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "OrderState.PAID",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "OrderState.FRAUD_REVIEW",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "OrderState.CLOSED",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "OrderState.CANCELLED",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ]
+          },
+          "missing": [
+            "OrderState.BACKORDERED",
+            "OrderState.CHARGEBACK",
+            "OrderState.RETURNED"
+          ],
+          "review_prompt": "Should this dispatch handle every declared member or add an explicit default?",
+          "suggested_next_actions": [
+            "Inspect the selected dispatch and declared value set.",
+            "Add missing cases for real states.",
+            "Add an explicit default or suppression when upstream validation proves the subset."
+          ]
+        }
       }
     },
     {
@@ -20031,7 +20970,231 @@
           "OrderStatus.DELIVERED",
           "OrderStatus.CANCELLED",
           "OrderStatus.REFUNDED"
-        ]
+        ],
+        "diagnostic": {
+          "rule_id": "enum_exhaustiveness",
+          "category": "cross_flow",
+          "severity": "warning",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "cross_flow",
+            "flow_id": "flow-4e833d53a700855c",
+            "flow_name": "transition",
+            "node_id": "flow-4e833d53a700855c:n3",
+            "node_label": "Match order.status",
+            "source": "examples/shop/backend/orders_service.py:8",
+            "path": "examples/shop/backend/orders_service.py",
+            "line": 8,
+            "end_line": 16,
+            "language": "python",
+            "entry_kind": "function",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-4e833d53a700855c"
+            ],
+            "related_node_ids": [
+              "flow-4e833d53a700855c:n3"
+            ]
+          },
+          "inputs": {
+            "subject": "order.status",
+            "value_namespace": "OrderStatus",
+            "missing": [
+              "OrderStatus.CANCELLED",
+              "OrderStatus.DELIVERED",
+              "OrderStatus.REFUNDED"
+            ],
+            "declared": [
+              "OrderStatus.CART",
+              "OrderStatus.PLACED",
+              "OrderStatus.PAID",
+              "OrderStatus.SHIPPED",
+              "OrderStatus.DELIVERED",
+              "OrderStatus.CANCELLED",
+              "OrderStatus.REFUNDED"
+            ],
+            "decision": {
+              "condition": "order.status",
+              "subject": "order.status",
+              "operator": "match",
+              "values": [
+                "OrderStatus.CART",
+                "OrderStatus.PAID",
+                "OrderStatus.PLACED",
+                "OrderStatus.SHIPPED"
+              ],
+              "branches": [
+                {
+                  "label": "OrderStatus.CART",
+                  "outcome": "falls_through",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderStatus.PLACED",
+                  "outcome": "falls_through",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderStatus.PAID",
+                  "outcome": "falls_through",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderStatus.SHIPPED",
+                  "outcome": "falls_through",
+                  "implicit": false
+                },
+                {
+                  "label": "_",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Declared OrderStatus members not handled for order.status: OrderStatus.CANCELLED, OrderStatus.DELIVERED, OrderStatus.REFUNDED",
+              "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
+              "source": "examples/shop/backend/orders_service.py:8"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-4e833d53a700855c",
+              "name": "transition",
+              "language": "python",
+              "entry_kind": "function",
+              "source": "examples/shop/backend/orders_service.py:6"
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-4e833d53a700855c:n3",
+              "label": "Match order.status",
+              "condition": "order.status",
+              "subject": "order.status",
+              "values": [
+                "OrderStatus.CART",
+                "OrderStatus.PAID",
+                "OrderStatus.PLACED",
+                "OrderStatus.SHIPPED"
+              ],
+              "branches": [
+                {
+                  "label": "OrderStatus.CART",
+                  "outcome": "falls_through",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderStatus.PLACED",
+                  "outcome": "falls_through",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderStatus.PAID",
+                  "outcome": "falls_through",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderStatus.SHIPPED",
+                  "outcome": "falls_through",
+                  "implicit": false
+                },
+                {
+                  "label": "_",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ],
+              "source": "examples/shop/backend/orders_service.py:8"
+            },
+            {
+              "type": "declared_values",
+              "value_namespace": "OrderStatus",
+              "values": [
+                "OrderStatus.CART",
+                "OrderStatus.PLACED",
+                "OrderStatus.PAID",
+                "OrderStatus.SHIPPED",
+                "OrderStatus.DELIVERED",
+                "OrderStatus.CANCELLED",
+                "OrderStatus.REFUNDED"
+              ]
+            },
+            {
+              "type": "missing_values",
+              "values": [
+                "OrderStatus.CANCELLED",
+                "OrderStatus.DELIVERED",
+                "OrderStatus.REFUNDED"
+              ]
+            }
+          ],
+          "expected": {
+            "handle_declared_values": [
+              "OrderStatus.CART",
+              "OrderStatus.PLACED",
+              "OrderStatus.PAID",
+              "OrderStatus.SHIPPED",
+              "OrderStatus.DELIVERED",
+              "OrderStatus.CANCELLED",
+              "OrderStatus.REFUNDED"
+            ]
+          },
+          "actual": {
+            "condition": "order.status",
+            "handled_values": [
+              "OrderStatus.CART",
+              "OrderStatus.PAID",
+              "OrderStatus.PLACED",
+              "OrderStatus.SHIPPED"
+            ],
+            "branches": [
+              {
+                "label": "OrderStatus.CART",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "OrderStatus.PLACED",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "OrderStatus.PAID",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "OrderStatus.SHIPPED",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "_",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ]
+          },
+          "missing": [
+            "OrderStatus.CANCELLED",
+            "OrderStatus.DELIVERED",
+            "OrderStatus.REFUNDED"
+          ],
+          "review_prompt": "Should this dispatch handle every declared member or add an explicit default?",
+          "suggested_next_actions": [
+            "Inspect the selected dispatch and declared value set.",
+            "Add missing cases for real states.",
+            "Add an explicit default or suppression when upstream validation proves the subset."
+          ]
+        }
       }
     },
     {
@@ -20060,7 +21223,162 @@
           "PaymentResult.DECLINED",
           "PaymentResult.PENDING",
           "PaymentResult.FRAUD_REVIEW"
-        ]
+        ],
+        "diagnostic": {
+          "rule_id": "enum_exhaustiveness",
+          "category": "cross_flow",
+          "severity": "warning",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "cross_flow",
+            "flow_id": "flow-d8c77f3ddc158387",
+            "flow_name": "handle_result",
+            "node_id": "flow-d8c77f3ddc158387:n3",
+            "node_label": "result == PaymentResult.APPROVED",
+            "source": "examples/shop/backend/payments_service.py:11",
+            "path": "examples/shop/backend/payments_service.py",
+            "line": 11,
+            "end_line": 11,
+            "language": "python",
+            "entry_kind": "event_handler",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-d8c77f3ddc158387"
+            ],
+            "related_node_ids": [
+              "flow-d8c77f3ddc158387:n3"
+            ]
+          },
+          "inputs": {
+            "subject": "result",
+            "value_namespace": "PaymentResult",
+            "missing": [
+              "PaymentResult.FRAUD_REVIEW"
+            ],
+            "declared": [
+              "PaymentResult.APPROVED",
+              "PaymentResult.DECLINED",
+              "PaymentResult.PENDING",
+              "PaymentResult.FRAUD_REVIEW"
+            ],
+            "decision": {
+              "condition": "result == PaymentResult.APPROVED",
+              "subject": "result",
+              "operator": "==",
+              "values": [
+                "PaymentResult.APPROVED"
+              ],
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": false
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Declared PaymentResult members not handled for result: PaymentResult.FRAUD_REVIEW",
+              "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
+              "source": "examples/shop/backend/payments_service.py:11"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-d8c77f3ddc158387",
+              "name": "handle_result",
+              "language": "python",
+              "entry_kind": "event_handler",
+              "source": "examples/shop/backend/payments_service.py:9"
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-d8c77f3ddc158387:n3",
+              "label": "result == PaymentResult.APPROVED",
+              "condition": "result == PaymentResult.APPROVED",
+              "subject": "result",
+              "values": [
+                "PaymentResult.APPROVED"
+              ],
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": false
+                }
+              ],
+              "source": "examples/shop/backend/payments_service.py:11"
+            },
+            {
+              "type": "declared_values",
+              "value_namespace": "PaymentResult",
+              "values": [
+                "PaymentResult.APPROVED",
+                "PaymentResult.DECLINED",
+                "PaymentResult.PENDING",
+                "PaymentResult.FRAUD_REVIEW"
+              ]
+            },
+            {
+              "type": "missing_values",
+              "values": [
+                "PaymentResult.FRAUD_REVIEW"
+              ]
+            }
+          ],
+          "expected": {
+            "handle_declared_values": [
+              "PaymentResult.APPROVED",
+              "PaymentResult.DECLINED",
+              "PaymentResult.PENDING",
+              "PaymentResult.FRAUD_REVIEW"
+            ]
+          },
+          "actual": {
+            "condition": "result == PaymentResult.APPROVED",
+            "handled_values": [
+              "PaymentResult.APPROVED"
+            ],
+            "branches": [
+              {
+                "label": "Yes",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "No",
+                "outcome": "falls_through",
+                "implicit": false
+              }
+            ]
+          },
+          "missing": [
+            "PaymentResult.FRAUD_REVIEW"
+          ],
+          "review_prompt": "Should this dispatch handle every declared member or add an explicit default?",
+          "suggested_next_actions": [
+            "Inspect the selected dispatch and declared value set.",
+            "Add missing cases for real states.",
+            "Add an explicit default or suppression when upstream validation proves the subset."
+          ]
+        }
       }
     },
     {
@@ -20092,7 +21410,189 @@
           "UserStatus.DELETED",
           "UserStatus.ARCHIVED",
           "UserStatus.LOCKED"
-        ]
+        ],
+        "diagnostic": {
+          "rule_id": "enum_exhaustiveness",
+          "category": "cross_flow",
+          "severity": "warning",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "cross_flow",
+            "flow_id": "flow-f74e7243a59c82e6",
+            "flow_name": "POST",
+            "node_id": "flow-f74e7243a59c82e6:n5",
+            "node_label": "Switch on user.status",
+            "source": "examples/demo/frontend/app/api/users/route.ts:25",
+            "path": "examples/demo/frontend/app/api/users/route.ts",
+            "line": 25,
+            "end_line": 31,
+            "language": "typescript",
+            "entry_kind": "route",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-f74e7243a59c82e6"
+            ],
+            "related_node_ids": [
+              "flow-f74e7243a59c82e6:n5"
+            ]
+          },
+          "inputs": {
+            "subject": "user.status",
+            "value_namespace": "UserStatus",
+            "missing": [
+              "UserStatus.ARCHIVED",
+              "UserStatus.DELETED",
+              "UserStatus.LOCKED"
+            ],
+            "declared": [
+              "UserStatus.ACTIVE",
+              "UserStatus.SUSPENDED",
+              "UserStatus.DELETED",
+              "UserStatus.ARCHIVED",
+              "UserStatus.LOCKED"
+            ],
+            "decision": {
+              "condition": "user.status",
+              "subject": "user.status",
+              "operator": "switch",
+              "values": [
+                "UserStatus.ACTIVE",
+                "UserStatus.SUSPENDED"
+              ],
+              "branches": [
+                {
+                  "label": "UserStatus.ACTIVE",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "UserStatus.SUSPENDED",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "default",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Declared UserStatus members not handled for user.status: UserStatus.ARCHIVED, UserStatus.DELETED, UserStatus.LOCKED",
+              "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
+              "source": "examples/demo/frontend/app/api/users/route.ts:25"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-f74e7243a59c82e6",
+              "name": "POST",
+              "language": "typescript",
+              "entry_kind": "route",
+              "source": "examples/demo/frontend/app/api/users/route.ts:17"
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-f74e7243a59c82e6:n5",
+              "label": "Switch on user.status",
+              "condition": "user.status",
+              "subject": "user.status",
+              "values": [
+                "UserStatus.ACTIVE",
+                "UserStatus.SUSPENDED"
+              ],
+              "branches": [
+                {
+                  "label": "UserStatus.ACTIVE",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "UserStatus.SUSPENDED",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "default",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ],
+              "source": "examples/demo/frontend/app/api/users/route.ts:25"
+            },
+            {
+              "type": "declared_values",
+              "value_namespace": "UserStatus",
+              "values": [
+                "UserStatus.ACTIVE",
+                "UserStatus.SUSPENDED",
+                "UserStatus.DELETED",
+                "UserStatus.ARCHIVED",
+                "UserStatus.LOCKED"
+              ]
+            },
+            {
+              "type": "missing_values",
+              "values": [
+                "UserStatus.ARCHIVED",
+                "UserStatus.DELETED",
+                "UserStatus.LOCKED"
+              ]
+            }
+          ],
+          "expected": {
+            "handle_declared_values": [
+              "UserStatus.ACTIVE",
+              "UserStatus.SUSPENDED",
+              "UserStatus.DELETED",
+              "UserStatus.ARCHIVED",
+              "UserStatus.LOCKED"
+            ]
+          },
+          "actual": {
+            "condition": "user.status",
+            "handled_values": [
+              "UserStatus.ACTIVE",
+              "UserStatus.SUSPENDED"
+            ],
+            "branches": [
+              {
+                "label": "UserStatus.ACTIVE",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "UserStatus.SUSPENDED",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ]
+          },
+          "missing": [
+            "UserStatus.ARCHIVED",
+            "UserStatus.DELETED",
+            "UserStatus.LOCKED"
+          ],
+          "review_prompt": "Should this dispatch handle every declared member or add an explicit default?",
+          "suggested_next_actions": [
+            "Inspect the selected dispatch and declared value set.",
+            "Add missing cases for real states.",
+            "Add an explicit default or suppression when upstream validation proves the subset."
+          ]
+        }
       }
     },
     {
@@ -20110,7 +21610,122 @@
       "node_id": "flow-f9ae842409a8d60d:n2",
       "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
       "metadata": {
-        "category": "single_flow"
+        "category": "single_flow",
+        "diagnostic": {
+          "rule_id": "broad_except_swallow",
+          "category": "single_flow",
+          "severity": "warning",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "single_flow",
+            "flow_id": "flow-f9ae842409a8d60d",
+            "flow_name": "processCheckout",
+            "node_id": "flow-f9ae842409a8d60d:n2",
+            "node_label": "Operation succeeds?",
+            "source": "examples/shop/frontend/app/api/checkout/route.ts:5",
+            "path": "examples/shop/frontend/app/api/checkout/route.ts",
+            "line": 5,
+            "end_line": 9,
+            "language": "typescript",
+            "entry_kind": "server_action",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-f9ae842409a8d60d"
+            ],
+            "related_node_ids": [
+              "flow-f9ae842409a8d60d:n2"
+            ]
+          },
+          "inputs": {
+            "decision": {
+              "condition": "exception boundary",
+              "subject": "exception",
+              "operator": "",
+              "values": [],
+              "branches": [
+                {
+                  "label": "Success",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "Error",
+                  "outcome": "empty",
+                  "implicit": false
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Exception handler 'Error' swallows the error",
+              "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
+              "source": "examples/shop/frontend/app/api/checkout/route.ts:5"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-f9ae842409a8d60d",
+              "name": "processCheckout",
+              "language": "typescript",
+              "entry_kind": "server_action",
+              "source": "examples/shop/frontend/app/api/checkout/route.ts:4"
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-f9ae842409a8d60d:n2",
+              "label": "Operation succeeds?",
+              "condition": "exception boundary",
+              "subject": "exception",
+              "values": [],
+              "branches": [
+                {
+                  "label": "Success",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "Error",
+                  "outcome": "empty",
+                  "implicit": false
+                }
+              ],
+              "source": "examples/shop/frontend/app/api/checkout/route.ts:5"
+            }
+          ],
+          "expected": {
+            "explicit_review_of_branches": true
+          },
+          "actual": {
+            "condition": "exception boundary",
+            "handled_values": [],
+            "branches": [
+              {
+                "label": "Success",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "Error",
+                "outcome": "empty",
+                "implicit": false
+              }
+            ]
+          },
+          "missing": null,
+          "review_prompt": "Should this handler re-raise, return an error result, or explicitly document suppression?",
+          "suggested_next_actions": [
+            "Inspect the handler body.",
+            "Return or raise an explicit failure path when callers need to know.",
+            "Document intentional suppression when the failure is safely absorbed."
+          ]
+        }
       }
     },
     {
@@ -20128,7 +21743,122 @@
       "node_id": "flow-3fb7f77aa3ec9fd5:n5",
       "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
       "metadata": {
-        "category": "single_flow"
+        "category": "single_flow",
+        "diagnostic": {
+          "rule_id": "broad_except_swallow",
+          "category": "single_flow",
+          "severity": "warning",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "single_flow",
+            "flow_id": "flow-3fb7f77aa3ec9fd5",
+            "flow_name": "charge",
+            "node_id": "flow-3fb7f77aa3ec9fd5:n5",
+            "node_label": "Operation succeeds?",
+            "source": "examples/shop/backend/payments_service.py:23",
+            "path": "examples/shop/backend/payments_service.py",
+            "line": 23,
+            "end_line": 26,
+            "language": "python",
+            "entry_kind": "function",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-3fb7f77aa3ec9fd5"
+            ],
+            "related_node_ids": [
+              "flow-3fb7f77aa3ec9fd5:n5"
+            ]
+          },
+          "inputs": {
+            "decision": {
+              "condition": "exception boundary",
+              "subject": "exception",
+              "operator": "",
+              "values": [],
+              "branches": [
+                {
+                  "label": "Success",
+                  "outcome": "falls_through",
+                  "implicit": false
+                },
+                {
+                  "label": "Exception",
+                  "outcome": "empty",
+                  "implicit": false
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Exception handler 'Exception' swallows the error",
+              "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
+              "source": "examples/shop/backend/payments_service.py:23"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-3fb7f77aa3ec9fd5",
+              "name": "charge",
+              "language": "python",
+              "entry_kind": "function",
+              "source": "examples/shop/backend/payments_service.py:19"
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-3fb7f77aa3ec9fd5:n5",
+              "label": "Operation succeeds?",
+              "condition": "exception boundary",
+              "subject": "exception",
+              "values": [],
+              "branches": [
+                {
+                  "label": "Success",
+                  "outcome": "falls_through",
+                  "implicit": false
+                },
+                {
+                  "label": "Exception",
+                  "outcome": "empty",
+                  "implicit": false
+                }
+              ],
+              "source": "examples/shop/backend/payments_service.py:23"
+            }
+          ],
+          "expected": {
+            "explicit_review_of_branches": true
+          },
+          "actual": {
+            "condition": "exception boundary",
+            "handled_values": [],
+            "branches": [
+              {
+                "label": "Success",
+                "outcome": "falls_through",
+                "implicit": false
+              },
+              {
+                "label": "Exception",
+                "outcome": "empty",
+                "implicit": false
+              }
+            ]
+          },
+          "missing": null,
+          "review_prompt": "Should this handler re-raise, return an error result, or explicitly document suppression?",
+          "suggested_next_actions": [
+            "Inspect the handler body.",
+            "Return or raise an explicit failure path when callers need to know.",
+            "Document intentional suppression when the failure is safely absorbed."
+          ]
+        }
       }
     },
     {
@@ -20148,7 +21878,111 @@
       "metadata": {
         "category": "single_flow",
         "constant": "ENABLE_DOUBLE_CHARGE_GUARD",
-        "always": false
+        "always": false,
+        "diagnostic": {
+          "rule_id": "dead_guard",
+          "category": "single_flow",
+          "severity": "warning",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "single_flow",
+            "flow_id": "flow-3fb7f77aa3ec9fd5",
+            "flow_name": "charge",
+            "node_id": "flow-3fb7f77aa3ec9fd5:n3",
+            "node_label": "ENABLE_DOUBLE_CHARGE_GUARD",
+            "source": "examples/shop/backend/payments_service.py:21",
+            "path": "examples/shop/backend/payments_service.py",
+            "line": 21,
+            "end_line": 21,
+            "language": "python",
+            "entry_kind": "function",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-3fb7f77aa3ec9fd5"
+            ],
+            "related_node_ids": [
+              "flow-3fb7f77aa3ec9fd5:n3"
+            ]
+          },
+          "inputs": {
+            "constant": "ENABLE_DOUBLE_CHARGE_GUARD",
+            "always": false,
+            "decision": {
+              "condition": "ENABLE_DOUBLE_CHARGE_GUARD",
+              "subject": "ENABLE_DOUBLE_CHARGE_GUARD",
+              "operator": "",
+              "values": [],
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "raises",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Guard on the constant ENABLE_DOUBLE_CHARGE_GUARD is always False",
+              "detail": "The condition is a module-level boolean constant, so one branch is dead. Confirm the constant is not reassigned elsewhere.",
+              "source": "examples/shop/backend/payments_service.py:21"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-3fb7f77aa3ec9fd5",
+              "name": "charge",
+              "language": "python",
+              "entry_kind": "function",
+              "source": "examples/shop/backend/payments_service.py:19"
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-3fb7f77aa3ec9fd5:n3",
+              "label": "ENABLE_DOUBLE_CHARGE_GUARD",
+              "condition": "ENABLE_DOUBLE_CHARGE_GUARD",
+              "subject": "ENABLE_DOUBLE_CHARGE_GUARD",
+              "values": [],
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "raises",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ],
+              "source": "examples/shop/backend/payments_service.py:21"
+            }
+          ],
+          "expected": {
+            "reachable_guard": true
+          },
+          "actual": {
+            "guard_always": false
+          },
+          "missing": null,
+          "review_prompt": "Is this constant guard still needed, or should the dead branch be removed?",
+          "suggested_next_actions": [
+            "Inspect the constant definition and selected guard.",
+            "Remove unreachable branch logic when the constant is fixed.",
+            "Avoid flagging by making runtime configuration explicit when it is mutable."
+          ]
+        }
       }
     },
     {
@@ -20166,7 +22000,63 @@
       "node_id": null,
       "detail": "profile[\"leaked\"] = \"true\"",
       "metadata": {
-        "category": "single_flow"
+        "category": "single_flow",
+        "diagnostic": {
+          "rule_id": "dead_code",
+          "category": "single_flow",
+          "severity": "warning",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "single_flow",
+            "flow_id": "flow-68e9ed308389b179",
+            "flow_name": "load_profile",
+            "node_id": null,
+            "node_label": null,
+            "source": "examples/shop/backend/users_service.py:30",
+            "path": "examples/shop/backend/users_service.py",
+            "line": 30,
+            "end_line": 30,
+            "language": "python",
+            "entry_kind": "function",
+            "scopes": [
+              "examples"
+            ],
+            "related_flow_ids": [
+              "flow-68e9ed308389b179"
+            ],
+            "related_node_ids": []
+          },
+          "inputs": {},
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Unreachable code after all paths return or raise (line 30)",
+              "detail": "profile[\"leaked\"] = \"true\"",
+              "source": "examples/shop/backend/users_service.py:30"
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-68e9ed308389b179",
+              "name": "load_profile",
+              "language": "python",
+              "entry_kind": "function",
+              "source": "examples/shop/backend/users_service.py:26"
+            }
+          ],
+          "expected": null,
+          "actual": null,
+          "missing": null,
+          "review_prompt": "Can the unreachable statement be removed, or should an earlier branch stop exiting?",
+          "suggested_next_actions": [
+            "Inspect the previous return/raise paths.",
+            "Remove dead code when it is accidental.",
+            "Refactor the branch when the later code should still run."
+          ]
+        }
       }
     }
   ],
@@ -20597,6 +22487,289 @@
     },
     "scopes": {
       "examples": 89
+    },
+    "finding_rules": {
+      "asymmetric_return": {
+        "rule_id": "asymmetric_return",
+        "category": "single_flow",
+        "title": "Asymmetric dispatch return",
+        "purpose": "Find dispatch cases where most branches exit but at least one falls through.",
+        "preconditions": [
+          "The decision is a switch/match-style dispatch.",
+          "Most explicit cases return or raise.",
+          "At least one explicit case falls through after doing work."
+        ],
+        "evidence_rationale": "Inferred from deterministic branch outcome comparison.",
+        "caveats": [
+          "A fall-through branch may intentionally continue shared tail logic."
+        ],
+        "metadata_fields": [
+          "category"
+        ],
+        "review_prompt": "Should the fall-through case return/raise like its sibling cases?",
+        "suggested_next_actions": [
+          "Inspect the fall-through case and shared tail.",
+          "Add an explicit return or raise when the fall-through is accidental.",
+          "Document intentional fall-through when shared tail logic is required."
+        ]
+      },
+      "auth_divergence": {
+        "rule_id": "auth_divergence",
+        "category": "cross_flow",
+        "title": "Authorization divergence",
+        "purpose": "Find sibling entrypoints where one skips an authorization check others perform.",
+        "preconditions": [
+          "The gated detector is enabled.",
+          "Sibling entrypoints live in the same file.",
+          "At least one sibling performs an authorization check.",
+          "The flagged entrypoint has no visible authorization check."
+        ],
+        "evidence_rationale": "Review-only because middleware, dependency injection, or route configuration can authorize invisibly.",
+        "caveats": [
+          "Middleware or decorators may enforce authorization outside the function body."
+        ],
+        "metadata_fields": [
+          "category",
+          "rule"
+        ],
+        "review_prompt": "Is authorization enforced for this entrypoint outside the visible flow?",
+        "suggested_next_actions": [
+          "Inspect route middleware, dependencies, and decorators.",
+          "Add an explicit authorization check if none exists.",
+          "Suppress or document the finding when external enforcement is confirmed."
+        ]
+      },
+      "broad_except_swallow": {
+        "rule_id": "broad_except_swallow",
+        "category": "single_flow",
+        "title": "Swallowed exception",
+        "purpose": "Find exception handlers that hide failures by doing nothing or only logging.",
+        "preconditions": [
+          "The decision is an error/exception branch.",
+          "The handler neither re-raises nor returns an explicit error path."
+        ],
+        "evidence_rationale": "Inferred from deterministic branch outcome and call-effect metadata.",
+        "caveats": [
+          "A custom logging helper may persist or escalate outside LogicChart's current effect model."
+        ],
+        "metadata_fields": [
+          "category"
+        ],
+        "review_prompt": "Should this handler re-raise, return an error result, or explicitly document suppression?",
+        "suggested_next_actions": [
+          "Inspect the handler body.",
+          "Return or raise an explicit failure path when callers need to know.",
+          "Document intentional suppression when the failure is safely absorbed."
+        ]
+      },
+      "dead_code": {
+        "rule_id": "dead_code",
+        "category": "single_flow",
+        "title": "Unreachable code",
+        "purpose": "Find statements after all currently modeled paths return or raise.",
+        "preconditions": [
+          "The analyzer observed a point where all predecessor paths already exit.",
+          "A later statement remains in the same flow after that exit point."
+        ],
+        "evidence_rationale": "Inferred from deterministic control-flow reachability.",
+        "caveats": [
+          "Dynamic exceptions, decorators, or language-specific control effects may be invisible."
+        ],
+        "metadata_fields": [
+          "category"
+        ],
+        "review_prompt": "Can the unreachable statement be removed, or should an earlier branch stop exiting?",
+        "suggested_next_actions": [
+          "Inspect the previous return/raise paths.",
+          "Remove dead code when it is accidental.",
+          "Refactor the branch when the later code should still run."
+        ]
+      },
+      "dead_guard": {
+        "rule_id": "dead_guard",
+        "category": "single_flow",
+        "title": "Constant guard",
+        "purpose": "Find guards on module-level boolean constants that are always true or false.",
+        "preconditions": [
+          "The guard subject resolves to a module-level boolean constant.",
+          "The subject is not shadowed inside the flow."
+        ],
+        "evidence_rationale": "Inferred because the constant could still be reassigned dynamically elsewhere.",
+        "caveats": [
+          "Runtime mutation or configuration injection can change the value."
+        ],
+        "metadata_fields": [
+          "category",
+          "constant",
+          "always"
+        ],
+        "review_prompt": "Is this constant guard still needed, or should the dead branch be removed?",
+        "suggested_next_actions": [
+          "Inspect the constant definition and selected guard.",
+          "Remove unreachable branch logic when the constant is fixed.",
+          "Avoid flagging by making runtime configuration explicit when it is mutable."
+        ]
+      },
+      "enum_exhaustiveness": {
+        "rule_id": "enum_exhaustiveness",
+        "category": "cross_flow",
+        "title": "Non-exhaustive declared enum dispatch",
+        "purpose": "Find dispatches that omit declared enum or union members without a default.",
+        "preconditions": [
+          "The analyzer extracted a declared closed set for the value namespace.",
+          "One dispatch handles multiple declared members.",
+          "The dispatch omits at least one declared member and has no explicit default."
+        ],
+        "evidence_rationale": "Inferred from deterministic declared-set extraction and branch coverage.",
+        "caveats": [
+          "The declared set can include values that are impossible in this narrower flow.",
+          "A framework or validator may reject omitted values before this function runs."
+        ],
+        "metadata_fields": [
+          "category",
+          "subject",
+          "value_namespace",
+          "missing",
+          "declared"
+        ],
+        "review_prompt": "Should this dispatch handle every declared member or add an explicit default?",
+        "suggested_next_actions": [
+          "Inspect the selected dispatch and declared value set.",
+          "Add missing cases for real states.",
+          "Add an explicit default or suppression when upstream validation proves the subset."
+        ]
+      },
+      "inconsistent_case_handling": {
+        "rule_id": "inconsistent_case_handling",
+        "category": "cross_flow",
+        "title": "Inconsistent sibling case handling",
+        "purpose": "Find sibling flows that omit values handled by a strict majority.",
+        "preconditions": [
+          "At least three sibling flows branch on the same language, subject, and value namespace.",
+          "A strict majority handles the missing value.",
+          "The flagged flow has no explicit default for that subject and namespace."
+        ],
+        "evidence_rationale": "Review-only because quorum detects an inconsistency pattern, not a declared contract.",
+        "caveats": [
+          "The flagged flow may intentionally support a narrower state set.",
+          "Sibling grouping is deterministic but still heuristic."
+        ],
+        "metadata_fields": [
+          "category",
+          "subject",
+          "value_namespace",
+          "missing",
+          "confidence",
+          "quorum"
+        ],
+        "review_prompt": "Should this flow handle the values that its sibling flows usually cover?",
+        "suggested_next_actions": [
+          "Compare the selected flow with the sibling flows in the same value namespace.",
+          "Add missing cases or an explicit default when the omission is accidental.",
+          "Document the narrower contract when the omission is intentional."
+        ]
+      },
+      "logging_asymmetry": {
+        "rule_id": "logging_asymmetry",
+        "category": "cross_flow",
+        "title": "Logging asymmetry",
+        "purpose": "Find shared error-path guards logged by one sibling flow but silent in another.",
+        "preconditions": [
+          "Sibling flows share the same guard condition.",
+          "At least one sibling logs or alerts and then raises.",
+          "The flagged flow handles the same guard silently."
+        ],
+        "evidence_rationale": "Inferred from deterministic guard, call-effect, and outcome metadata.",
+        "caveats": [
+          "Logging may happen in middleware or a callee not resolved in the graph."
+        ],
+        "metadata_fields": [
+          "category",
+          "condition"
+        ],
+        "review_prompt": "Should this guard log or alert like its sibling error path?",
+        "suggested_next_actions": [
+          "Inspect the selected guard and sibling error path.",
+          "Add logging or alerting when observability is required.",
+          "Document intentional silence when noise reduction is deliberate."
+        ]
+      },
+      "missing_branch": {
+        "rule_id": "missing_branch",
+        "category": "single_flow",
+        "title": "Missing explicit fallback",
+        "purpose": "Find state-like decisions that omit an explicit else/default path.",
+        "preconditions": [
+          "The node is a decision over a state-like subject, domain, or value namespace.",
+          "The decision has at least one implicit fallback branch."
+        ],
+        "evidence_rationale": "Review-only because an omitted fallback can be intentional for closed or externally constrained states.",
+        "caveats": [
+          "A framework, validator, or earlier guard can make the implicit path unreachable.",
+          "A data-driven dispatch may be exhaustive outside the visible source snippet."
+        ],
+        "metadata_fields": [
+          "category"
+        ],
+        "review_prompt": "Should this decision define an explicit else/default for unhandled states?",
+        "suggested_next_actions": [
+          "Inspect the selected decision node and source range.",
+          "Add an explicit else/default when the omitted path is real.",
+          "Suppress or document the finding when an upstream invariant proves exhaustiveness."
+        ]
+      },
+      "no_op_branch": {
+        "rule_id": "no_op_branch",
+        "category": "single_flow",
+        "title": "Empty branch",
+        "purpose": "Find explicit branches whose body performs no modeled work.",
+        "preconditions": [
+          "The branch is explicit rather than an implicit fallback.",
+          "The branch outcome is empty and is not an error handler or dispatch case."
+        ],
+        "evidence_rationale": "Inferred from deterministic branch body analysis.",
+        "caveats": [
+          "A placeholder branch may be intentional during development."
+        ],
+        "metadata_fields": [
+          "category"
+        ],
+        "review_prompt": "Is this branch intentionally empty, or is it missing behavior?",
+        "suggested_next_actions": [
+          "Inspect the selected branch.",
+          "Add the missing behavior or remove the dead branch.",
+          "Leave an explicit comment when the no-op is intentional."
+        ]
+      },
+      "outcome_inconsistency": {
+        "rule_id": "outcome_inconsistency",
+        "category": "cross_flow",
+        "title": "Inconsistent sibling outcome",
+        "purpose": "Find equivalent conditions that resolve to different material outcomes.",
+        "preconditions": [
+          "At least three sibling flows contain the same positive subject/value condition.",
+          "A strict majority resolves that condition to one outcome.",
+          "The flagged flow resolves the same condition differently."
+        ],
+        "evidence_rationale": "Inferred from deterministic condition and terminal outcome comparison.",
+        "caveats": [
+          "Different routes may intentionally return different errors for the same state.",
+          "Outcome signatures are compact and may not capture every domain-specific distinction."
+        ],
+        "metadata_fields": [
+          "category",
+          "subject",
+          "value",
+          "outcome",
+          "expected"
+        ],
+        "review_prompt": "Is this different outcome intentional for the same condition?",
+        "suggested_next_actions": [
+          "Compare the selected flow with sibling outcomes for the same condition.",
+          "Align the outcome when consistency is required.",
+          "Document the intentional divergence when the route contract differs."
+        ]
+      }
     }
   }
 }

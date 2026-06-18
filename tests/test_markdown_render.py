@@ -70,6 +70,13 @@ def test_evidence_level_is_rendered_inline() -> None:
     assert "INFERRED" in out
 
 
+def test_diagnostic_review_prompt_is_rendered_when_present() -> None:
+    finding = _finding("dead_code", Evidence.INFERRED, "x")
+    finding.metadata["diagnostic"] = {"review_prompt": "Can this code be removed?"}
+    out = render_markdown(_model([finding]))
+    assert "Review: Can this code be removed?" in out
+
+
 def test_finding_kind_enum_is_rendered_as_public_wire_value() -> None:
     out = render_markdown(
         _model([_finding(FindingKind.MISSING_BRANCH, Evidence.POTENTIAL_GAP, "x")])

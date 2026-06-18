@@ -16,6 +16,7 @@ from logicchart.analysis.cross_flow import cross_flow_findings
 from logicchart.analysis.discovery import discover_source_files
 from logicchart.analysis.registry import LanguageAnalyzer, language_for, spec_for_language
 from logicchart.config import LogicChartConfig
+from logicchart.diagnostics import enrich_model_diagnostics
 from logicchart.model import (
     FileAnalysis,
     FileRecord,
@@ -233,7 +234,7 @@ class ProjectAnalyzer:
             )
             for analysis in analyses
         ]
-        return ProjectModel(
+        model = ProjectModel(
             schema_version="1.1",
             generated_at=datetime.now(timezone.utc).isoformat(),
             root=".",
@@ -249,6 +250,8 @@ class ProjectAnalyzer:
                 "scopes": dict(sorted(scope_counts.items())),
             },
         )
+        enrich_model_diagnostics(model)
+        return model
 
     def _link_calls(self, flows: list[Flow]) -> None:
         # Import-aware first (`qualified_calls` from the analyzers), short name as a

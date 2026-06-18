@@ -332,6 +332,17 @@ Cross-flow findings:
 - `logging_asymmetry`
 - `auth_divergence` when `gated_detectors = true`
 
+Every finding also carries normalized diagnostic metadata:
+
+- a stable `rule_id`, detector category, severity, evidence tier, and confidence basis;
+- source scope linking the finding to its flow, node, file, and line range;
+- detector inputs, expected/actual state, missing values when applicable, and an evidence
+  chain;
+- a review prompt and suggested next actions for humans and agents.
+
+The shared rule registry is emitted under `metadata.finding_rules`, so CLI artifacts, the
+HTML viewer, and MCP tools all explain findings with the same detector contracts.
+
 ## Limitations
 
 LogicChart does not run your code, trace runtime behavior, perform full symbolic execution,
@@ -371,8 +382,9 @@ logicchart mcp .
 ```
 
 Available MCP tools include summary, flow listing, flow retrieval, query, findings,
-finding-chain explanation, state-handling lookup, decision-node search, impact analysis,
-review queue, context pack, artifact validation, and artifact update.
+finding-rule contracts, finding-chain explanation, state-handling lookup, decision-node
+search, impact analysis, review queue, context pack, artifact validation, and artifact
+update.
 
 ## Roadmap
 

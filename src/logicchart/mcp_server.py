@@ -7,6 +7,7 @@ from typing import Any
 from logicchart.analysis import ProjectAnalyzer
 from logicchart.artifacts import load_model, write_artifacts
 from logicchart.config import LogicChartConfig
+from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts
 from logicchart.model import ProjectModel
 from logicchart.query import (
     explain_finding,
@@ -105,7 +106,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         return {
             "flow": flow_dict,
             "findings": _cap(
-                [_finding_dict(item) for item in model.findings if item.flow_id == flow.id],
+                [_finding_dict(item, model) for item in model.findings if item.flow_id == flow.id],
                 token_budget,
             ),
         }
@@ -141,19 +142,24 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
 
     @server.tool()
     def get_findings(flow_id: str | None = None, token_budget: int = 0) -> list[dict[str, Any]]:
-        """List potential gaps and inconsistent case handling."""
+        """List findings with structured diagnostics, confidence, and next actions."""
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return [error]
         assert model is not None
         return _cap(
             [
-                _finding_dict(item)
+                _finding_dict(item, model)
                 for item in model.findings
                 if flow_id is None or item.flow_id == flow_id
             ],
             token_budget,
         )
+
+    @server.tool()
+    def finding_rules(kind: str | None = None, token_budget: int = 0) -> list[dict[str, Any]]:
+        """Return stable detector contracts: purpose, preconditions, caveats, remediation."""
+        return _cap(finding_rule_contracts(kind), token_budget)
 
     @server.tool()
     def logicchart_summary() -> dict[str, Any]:
@@ -228,7 +234,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             "changed_files": result.changed_files,
             "direct": _cap(direct, token_budget),
             "transitive": _cap(transitive, token_budget),
-            "findings": _cap([_finding_dict(item) for item in result.findings], token_budget),
+            "findings": _cap(
+                [_finding_dict(item, model) for item in result.findings], token_budget
+            ),
         }
 
     @server.tool()
@@ -255,7 +263,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             flow = flows[finding.flow_id]
             rows.append(
                 {
-                    **_finding_dict(finding),
+                    **_finding_dict(finding, model),
                     "flow": _flow_summary(flow),
                     "priority": _finding_priority(finding),
                 }
@@ -282,7 +290,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             match.flow.id for match in matches
         }
         review_rows = [
-            _finding_dict(finding)
+            _finding_dict(finding, model)
             for finding in model.findings
             if not review_flow_ids or finding.flow_id in review_flow_ids
         ]
@@ -352,8 +360,18 @@ def _flow_dict(flow: Any) -> dict[str, Any]:
     return asdict(flow)
 
 
-def _finding_dict(finding: Any) -> dict[str, Any]:
-    return asdict(finding)
+def _finding_dict(finding: Any, model: ProjectModel | None = None) -> dict[str, Any]:
+    data = asdict(finding)
+    metadata = data.setdefault("metadata", {})
+    if not isinstance(metadata.get("diagnostic"), dict):
+        flow = None
+        node = None
+        if model is not None:
+            flow = next((item for item in model.flows if item.id == finding.flow_id), None)
+            if flow is not None and finding.node_id:
+                node = next((item for item in flow.nodes if item.id == finding.node_id), None)
+        metadata["diagnostic"] = diagnostic_for_finding(finding, flow=flow, node=node)
+    return data
 
 
 def _try_load(

@@ -114,8 +114,8 @@ flowchart LR
 
 ## Findings
 
-- **WARNING · INFERRED · enum_exhaustiveness** Declared OrderState members not handled for order.state: OrderState.BACKORDERED, OrderState.CHARGEBACK, OrderState.RETURNED ([`frontend/app/api/orders/route.ts:9`](../frontend/app/api/orders/route.ts#L9))
-- **WARNING · INFERRED · enum_exhaustiveness** Declared UserStatus members not handled for user.status: UserStatus.ARCHIVED, UserStatus.DELETED, UserStatus.LOCKED ([`frontend/app/api/users/route.ts:25`](../frontend/app/api/users/route.ts#L25))
+- **WARNING · INFERRED · enum_exhaustiveness** Declared OrderState members not handled for order.state: OrderState.BACKORDERED, OrderState.CHARGEBACK, OrderState.RETURNED ([`frontend/app/api/orders/route.ts:9`](../frontend/app/api/orders/route.ts#L9)) Review: Should this dispatch handle every declared member or add an explicit default?
+- **WARNING · INFERRED · enum_exhaustiveness** Declared UserStatus members not handled for user.status: UserStatus.ARCHIVED, UserStatus.DELETED, UserStatus.LOCKED ([`frontend/app/api/users/route.ts:25`](../frontend/app/api/users/route.ts#L25)) Review: Should this dispatch handle every declared member or add an explicit default?
 
 ## Entry Point Flows
 

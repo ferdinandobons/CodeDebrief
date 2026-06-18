@@ -17,3 +17,7 @@ __pycache__/
 *.min.js
 *.generated.*
 *.d.ts
+
+# Private local real-world fixture used only for opt-in/local validation. It must
+# never be included in the public root LogicChart artifact.
+examples/Certifexp/

@@ -54,6 +54,22 @@ such as:
 #edge=<encoded scope-entry connection>
 ```
 
+## Logical Errors Panel
+
+The Logical Errors panel is both a bounded review queue and a selected-finding inspector.
+At broad scope it lists or summarizes findings without rendering unbounded rows. Selecting a
+finding opens the related flow, selects the target node, highlights the source range, and
+expands the row with the normalized diagnostic metadata from the model:
+
+- severity, evidence tier, category, and confidence basis;
+- missing values, expected state, and actual handled values when the detector provides
+  them;
+- the detector purpose, review prompt, and suggested next actions.
+
+This panel must preserve the model's evidence language: `VERIFIED` means syntax-backed,
+`INFERRED` means deterministic heuristic, and `POTENTIAL_GAP` remains a review candidate,
+not a confirmed bug.
+
 ## Layout rules
 
 The viewer layout should preserve these invariants:

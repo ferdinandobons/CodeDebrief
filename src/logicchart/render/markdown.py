@@ -129,10 +129,14 @@ def _flow_section(flow: Flow, model: ProjectModel) -> list[str]:
 
 def _finding_line(finding: Finding) -> str:
     source = _source_reference(finding.location.path, finding.location.start_line)
-    return (
+    line = (
         f"- **{finding.severity.value.upper()} · {finding.evidence.value} · "
         f"{_enum_value(finding.kind)}** {_md_inline(finding.message)} ({source})"
     )
+    diagnostic = finding.metadata.get("diagnostic")
+    if isinstance(diagnostic, dict) and diagnostic.get("review_prompt"):
+        line += f" Review: {_md_inline(str(diagnostic['review_prompt']))}"
+    return line
 
 
 def _enum_value(value: object) -> str:

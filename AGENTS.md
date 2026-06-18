@@ -25,6 +25,15 @@ For viewer/UI changes:
    `logicchart view examples/demo --render-only --no-open`.
 3. Check the generated demo viewer with a cache-buster URL.
 
+For local real-world regression checks:
+
+1. Keep `examples/Certifexp/` private and untracked.
+2. If `examples/Certifexp/` exists locally, run
+   `UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest tests/test_certifexp_local.py`
+   in addition to the tracked demo/shop checks.
+3. Do not commit Certifexp source, generated artifacts, caches, nested repository data, or
+   analysis output.
+
 Do not present inferred findings as confirmed bugs. LogicChart marks syntax-backed facts as
 `VERIFIED`, deterministic heuristics as `INFERRED`, and review candidates as `POTENTIAL_GAP`.
 <!-- logicchart:instructions:end -->

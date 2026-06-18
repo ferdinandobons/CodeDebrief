@@ -42,6 +42,7 @@ def authorize(user):
                 assert {
                     "logicchart_summary",
                     "explain_finding_chain",
+                    "finding_rules",
                     "where_state_handled",
                     "find_decision_nodes",
                     "review_queue",
@@ -55,6 +56,7 @@ def authorize(user):
                     "get_flow",
                     "query_logic",
                     "explain_finding_chain",
+                    "finding_rules",
                     "analyze_impact",
                     "review_queue",
                     "context_pack",
@@ -72,6 +74,11 @@ def authorize(user):
                 summary = await session.call_tool("logicchart_summary", {})
                 assert not summary.isError
                 assert "flows" in str(summary.content)
+                assert "finding_rules" in str(summary.content)
+
+                rules = await session.call_tool("finding_rules", {"kind": "missing_branch"})
+                assert not rules.isError
+                assert "Missing explicit fallback" in str(rules.content)
 
                 context = await session.call_tool(
                     "context_pack",
@@ -177,6 +184,10 @@ def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
     assert captured
     assert captured[0]["kind"] == "missing_branch"
     assert "flow" in captured[0]
+    diagnostic = captured[0]["metadata"]["diagnostic"]
+    assert diagnostic["rule_id"] == "missing_branch"
+    assert diagnostic["review_prompt"]
+    assert diagnostic["suggested_next_actions"]
 
 
 def test_get_flow_subgraph_is_internally_consistent(tmp_path: Path) -> None:

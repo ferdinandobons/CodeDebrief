@@ -6,6 +6,26 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+### Added
+
+- Added structured diagnostic metadata for every finding, including stable detector rule
+  ids, confidence basis, expected/actual/missing state, evidence chains, review prompts,
+  and suggested next actions.
+- Added a shared finding-rule registry to generated model metadata and exposed it through
+  MCP with a new `finding_rules` tool.
+
+### Changed
+
+- Updated MCP finding responses, review queues, context packs, and finding explanations to
+  include normalized diagnostic details.
+- Updated the Logical Errors panel so selected findings expand into a compact diagnostic
+  inspector while keeping broad finding lists bounded.
+
+### Fixed
+
+- Fixed finding/source panel activation so opening a flow no longer clears the more precise
+  selected finding or source-line selection.
+
 ## 0.8.0 - 2026-06-17
 
 ### Added

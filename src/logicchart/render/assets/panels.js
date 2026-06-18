@@ -21,6 +21,7 @@
       const findings = LC.findings || model.findings || [];
       const findingsByNode = LC.findingsByNode || new Map();
       const scopeFlows = model.scopes || {};
+      const findingRules = (model.metadata && model.metadata.finding_rules) || {};
       // File-level source store: path -> {start_line, lines}. Each file's lines are
       // embedded ONCE here (payload.attach_source_snippets), and a flow's `source` is a
       // lightweight {path, start_line, end_line, elided?} reference that slices its own
@@ -86,6 +87,15 @@
         if (typeof queueMicrotask === "function") queueMicrotask(fn);
         else if (typeof setTimeout === "function") setTimeout(fn, 0);
         else fn();
+      }
+      // Opening a flow updates location.hash and the chart reacts to that hash after the
+      // immediate selection notification. Publish the exact source/finding selection one
+      // timer tick later so it wins over the broader flow-open state.
+      function afterFlowOpen(fn) {
+        afterCascade(() => {
+          if (typeof setTimeout === "function") setTimeout(fn, 0);
+          else fn();
+        });
       }
       // Restore focus to the panel element carrying the pending stable id, if it is still in
       // the DOM. data-line for the source panel, data-finding-id for the errors panel.
@@ -171,7 +181,116 @@
         return "tier-" + String(evidence || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
       }
 
-      function findingRow(finding) {
+      function findingDiagnostic(finding) {
+        const metadata = finding && finding.metadata;
+        const diagnostic = metadata && metadata.diagnostic;
+        return diagnostic && typeof diagnostic === "object" ? diagnostic : null;
+      }
+
+      function findingRule(finding, diagnostic) {
+        const ruleId = diagnostic && diagnostic.rule_id ? diagnostic.rule_id : finding.kind;
+        const rule = findingRules && findingRules[ruleId];
+        return rule && typeof rule === "object" ? rule : null;
+      }
+
+      function confidenceLabel(diagnostic) {
+        const confidence = diagnostic && diagnostic.confidence;
+        if (!confidence || typeof confidence !== "object") return "";
+        const parts = [];
+        if (typeof confidence.score === "number") {
+          parts.push(Math.round(confidence.score * 100) + "%");
+        }
+        if (confidence.basis) parts.push(String(confidence.basis));
+        return parts.join(" · ");
+      }
+
+      function compactValue(value) {
+        if (value == null) return "";
+        if (Array.isArray(value)) return value.map(compactValue).filter(Boolean).join(", ");
+        if (typeof value === "object") {
+          try {
+            return JSON.stringify(value);
+          } catch {
+            return String(value);
+          }
+        }
+        return String(value);
+      }
+
+      function compactList(values, maxItems) {
+        if (!Array.isArray(values)) return compactValue(values);
+        const kept = values.slice(0, maxItems).map(compactValue).filter(Boolean);
+        const remaining = values.length - kept.length;
+        return kept.join(", ") + (remaining > 0 ? " +" + remaining + " more" : "");
+      }
+
+      function diagnosticDisplayValue(label, value) {
+        if (!value || typeof value !== "object" || Array.isArray(value)) {
+          return compactValue(value);
+        }
+        if (Array.isArray(value.handle_declared_values)) {
+          return "Declared values: " + compactList(value.handle_declared_values, 6);
+        }
+        if (Array.isArray(value.handle_quorum_values)) {
+          return "Quorum values: " + compactList(value.handle_quorum_values, 6);
+        }
+        if (Array.isArray(value.handled_values)) {
+          const parts = ["Handled values: " + compactList(value.handled_values, 6)];
+          if (value.condition) parts.unshift("Condition: " + compactValue(value.condition));
+          return parts.join(" · ");
+        }
+        if (value.guard_always != null) return "Guard always: " + compactValue(value.guard_always);
+        if (value.reachable_guard != null) return "Reachable guard expected";
+        return compactValue(value);
+      }
+
+      function diagnosticLine(label, value) {
+        const text = diagnosticDisplayValue(label, value);
+        if (!text) return null;
+        const line = el("div", "diagnostic-line");
+        line.append(el("span", "diagnostic-label", label), el("span", "diagnostic-value", text));
+        return line;
+      }
+
+      function appendFindingDiagnostic(row, finding) {
+        const diagnostic = findingDiagnostic(finding);
+        if (!diagnostic) return;
+        const rule = findingRule(finding, diagnostic);
+        const wrap = el("div", "finding-diagnostic");
+        const grid = el("div", "diagnostic-grid");
+        [
+          diagnosticLine("Severity", diagnostic.severity || finding.severity),
+          diagnosticLine("Confidence", confidenceLabel(diagnostic)),
+          diagnosticLine("Category", diagnostic.category),
+          diagnosticLine("Missing", diagnostic.missing),
+          diagnosticLine("Expected", diagnostic.expected),
+          diagnosticLine("Actual", diagnostic.actual),
+        ].forEach(line => {
+          if (line) grid.appendChild(line);
+        });
+        if (grid.childNodes.length) wrap.appendChild(grid);
+        if (rule && rule.purpose) {
+          const ruleText = el("p", "diagnostic-copy", rule.purpose);
+          wrap.appendChild(ruleText);
+        }
+        if (diagnostic.review_prompt) {
+          const prompt = el("p", "diagnostic-copy diagnostic-review", diagnostic.review_prompt);
+          wrap.appendChild(prompt);
+        }
+        const actions = Array.isArray(diagnostic.suggested_next_actions)
+          ? diagnostic.suggested_next_actions.slice(0, 3)
+          : [];
+        if (actions.length) {
+          const actionList = el("ul", "diagnostic-actions");
+          actions.forEach(action => {
+            actionList.appendChild(el("li", "", action));
+          });
+          wrap.appendChild(actionList);
+        }
+        row.appendChild(wrap);
+      }
+
+      function findingRow(finding, expanded) {
         // A finding row is an activatable listitem. It must NOT be a <button role="listitem">
         // (a button is not a valid listitem child of role="list"); use a div with
         // role="listitem", made keyboard-activatable via tabindex + an Enter/Space handler.
@@ -199,7 +318,12 @@
             )
           );
         }
-        row.title = finding.detail || `Open finding ${finding.kind || "review item"} in the flowchart`;
+        const diagnostic = findingDiagnostic(finding);
+        row.title =
+          (diagnostic && diagnostic.review_prompt) ||
+          finding.detail ||
+          `Open finding ${finding.kind || "review item"} in the flowchart`;
+        if (expanded) appendFindingDiagnostic(row, finding);
 
         // Activating a finding selects its flow + node (bidirectional: lights the block,
         // the source line, and the tree file). selectFlow opens the flow inline so its
@@ -209,18 +333,23 @@
         // from THIS panel, so record the finding id to restore focus after the re-render.
         function activate() {
           pendingFocus = { panel: "errors", id: finding.id };
+          const publishFindingSelection = () => {
+            LC.select({
+              flowId: finding.flow_id || null,
+              nodeId: finding.node_id || null,
+              path: (finding.location && finding.location.path) || null,
+              findingId: finding.id,
+              line: (finding.location && finding.location.start_line) || null,
+              endLine:
+                (finding.location && (finding.location.end_line || finding.location.start_line)) || null,
+            });
+          };
           if (finding.flow_id && LC.selectFlow) {
             LC.selectFlow(finding.flow_id);
+            afterFlowOpen(publishFindingSelection);
+          } else {
+            publishFindingSelection();
           }
-          LC.select({
-            flowId: finding.flow_id || null,
-            nodeId: finding.node_id || null,
-            path: (finding.location && finding.location.path) || null,
-            findingId: finding.id,
-            line: (finding.location && finding.location.start_line) || null,
-            endLine:
-              (finding.location && (finding.location.end_line || finding.location.start_line)) || null,
-          });
         }
         row.addEventListener("click", activate);
         row.addEventListener("keydown", event => {
@@ -276,7 +405,7 @@
         // instead of an unbounded list, so the panel stays bounded at the top level.
         if (reviewQueueMode && list.length > MAX_FINDING_ROWS) {
           list.slice(0, MAX_FINDING_ROWS).forEach(finding => {
-            errorsBody.appendChild(findingRow(finding));
+            errorsBody.appendChild(findingRow(finding, sel.findingId === finding.id));
           });
           errorsBody.appendChild(
             el("p", "panel-empty", String(list.length - MAX_FINDING_ROWS) + " more findings not shown.")
@@ -289,7 +418,10 @@
           return;
         }
         list.forEach(finding => {
-          const row = findingRow(finding);
+          const expanded =
+            (sel.findingId && finding.id === sel.findingId) ||
+            (sel.nodeId && finding.node_id === sel.nodeId && list.length <= 3);
+          const row = findingRow(finding, expanded);
           if (
             (sel.findingId && finding.id === sel.findingId) ||
             (sel.nodeId && finding.node_id === sel.nodeId)
@@ -504,8 +636,7 @@
               // line -- all from the one store. Record the line so focus returns to the
               // equivalent line after the re-render this triggers (else it drops to <body>).
               pendingFocus = { panel: "source", id: lineNo };
-              if (LC.selectFlow) LC.selectFlow(flow.id);
-              LC.select({
+              const publishLineSelection = () => LC.select({
                 flowId: flow.id,
                 nodeId: nodeId,
                 path: flow.location.path,
@@ -513,6 +644,12 @@
                 line: lineNo,
                 endLine: lineNo,
               });
+              if (LC.selectFlow) {
+                LC.selectFlow(flow.id);
+                afterFlowOpen(publishLineSelection);
+              } else {
+                publishLineSelection();
+              }
             };
             lineEl.addEventListener("click", activateLine);
             lineEl.addEventListener("keydown", event => {
