@@ -6,6 +6,7 @@ from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.model import NodeKind, ProjectModel
+from logicchart.query import impact_model
 
 _HANDLER = """package svc
 
@@ -106,6 +107,38 @@ def test_go_same_package_call_resolves(tmp_path: Path) -> None:
     assert call.metadata["link_confidence"] == "high"
     assert call.metadata["target_flow"] == persist.id
     assert persist.id in handle.calls
+
+
+def test_go_import_dependencies_drive_changed_file_impact(tmp_path: Path) -> None:
+    flags = tmp_path / "svc" / "flags"
+    flags.mkdir(parents=True)
+    (flags / "flags.go").write_text(
+        "package flags\n\nfunc Enabled() bool {\n\treturn true\n}\n",
+        encoding="utf-8",
+    )
+    (flags / "flags_test.go").write_text(
+        "package flags\n\nfunc TestEnabled(t *testing.T) {}\n",
+        encoding="utf-8",
+    )
+    route = tmp_path / "svc" / "route"
+    route.mkdir()
+    (route / "route.go").write_text(
+        "package route\n\n"
+        'import "svc/flags"\n\n'
+        "func Handle() bool {\n"
+        "\treturn flags.Enabled()\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    route_record = next(item for item in model.files if item.path == "svc/route/route.go")
+    assert route_record.dependencies == ["svc/flags/flags.go"]
+
+    handle = _flow(model, "Handle")
+    result = impact_model(model, ["svc/flags/flags.go"])
+    assert handle.id in {flow.id for flow in result.directly_impacted}
+    assert result.impact_reasons[handle.id] == ["depends on changed file `svc/flags/flags.go`"]
 
 
 def test_go_loop_body_is_modeled_before_post_loop(tmp_path: Path) -> None:

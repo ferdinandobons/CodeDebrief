@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -371,6 +371,8 @@ def dependency_paths_from_import_map(
     *,
     module_suffixes: tuple[str, ...],
     package_files: tuple[str, ...] = (),
+    package_directories: bool = False,
+    include_path: Callable[[str], bool] = lambda relative: True,
 ) -> list[str]:
     """Resolve import-map modules to first-party source paths under ``root``.
 
@@ -391,10 +393,28 @@ def dependency_paths_from_import_map(
             if not path.is_file():
                 continue
             relative = relpath(path, root)
+            if not include_path(relative):
+                continue
             if relative not in seen:
                 dependencies.append(relative)
                 seen.add(relative)
             break
+        else:
+            if not package_directories:
+                continue
+            package_dir = root / module_path
+            if not package_dir.is_dir():
+                continue
+            for suffix in module_suffixes:
+                for path in sorted(package_dir.glob(f"*{suffix}")):
+                    if not path.is_file():
+                        continue
+                    relative = relpath(path, root)
+                    if not include_path(relative):
+                        continue
+                    if relative not in seen:
+                        dependencies.append(relative)
+                        seen.add(relative)
     return dependencies
 
 

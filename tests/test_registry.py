@@ -35,7 +35,11 @@ def test_language_capability_matrix_tracks_registry() -> None:
     assert matrix["python"]["features"]["expression_bodied_functions"] == "not_supported"
     assert matrix["typescript"]["features"]["expression_bodied_functions"] == "supported"
     assert matrix["javascript"]["features"]["expression_bodied_functions"] == "supported"
+    assert matrix["go"]["features"]["import_dependencies"] == "supported"
+    assert matrix["java"]["features"]["qualified_call_links"] == "partial"
+    assert matrix["java"]["features"]["import_dependencies"] == "supported"
     assert matrix["c"]["features"]["try_catch"] == "not_supported"
+    assert matrix["c"]["features"]["import_dependencies"] == "not_supported"
     assert matrix["rust"]["features"]["returns_throws"] == "partial"
 
 

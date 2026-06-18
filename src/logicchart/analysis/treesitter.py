@@ -37,6 +37,7 @@ from logicchart.analysis.common import (
     call_is_boundary,
     decision_identity,
     decision_metadata,
+    dependency_paths_from_import_map,
     domain_from_subject,
     is_functional_condition,
     require_tree_sitter_parse_ok,
@@ -79,6 +80,10 @@ class LanguageProfile:
     is_test: Callable[[str, str], bool]
     module_name: Callable[[str], str]
     import_map: Callable[[Any, bytes, str], dict[str, str]] = lambda root, src, rel: {}
+    dependency_module_suffixes: tuple[str, ...] = ()
+    dependency_package_files: tuple[str, ...] = ()
+    dependency_package_directories: bool = False
+    dependency_path_filter: Callable[[str], bool] = lambda relative: True
     entry_label: Callable[[Flow], str] | None = None
     harvest_enums: Callable[[Any, bytes], dict[str, list[str]]] | None = None
     # Node-type vocabulary (C-family defaults).
@@ -168,6 +173,18 @@ class TreeSitterAnalyzer:
                 flow.metadata["parse_error"] = parse_error
         import_map = self.profile.import_map(tree.root_node, source, relative)
         module_name = self.profile.module_name(relative)
+        dependencies = [
+            item
+            for item in dependency_paths_from_import_map(
+                import_map,
+                self.root,
+                module_suffixes=self.profile.dependency_module_suffixes,
+                package_files=self.profile.dependency_package_files,
+                package_directories=self.profile.dependency_package_directories,
+                include_path=self.profile.dependency_path_filter,
+            )
+            if item != relative
+        ]
         for flow in flows:
             attach_qualified_calls(flow, import_map, module_name)
             tag_call_effects(flow)
@@ -178,6 +195,7 @@ class TreeSitterAnalyzer:
             language=self.profile.language,
             sha256=file_sha256(path),
             enums=enums,
+            dependencies=dependencies,
             flows=flows,
             findings=findings,
         )

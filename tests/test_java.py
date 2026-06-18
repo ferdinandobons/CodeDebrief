@@ -6,6 +6,7 @@ from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.model import NodeKind, ProjectModel
+from logicchart.query import impact_model
 
 _SVC = """package com.svc;
 
@@ -75,6 +76,39 @@ def test_java_same_class_call_resolves(tmp_path: Path) -> None:
     handle = _flow(model, "Svc.handle")
     persist = _flow(model, "Svc.persist")
     assert persist.id in handle.calls
+
+
+def test_java_import_dependencies_drive_changed_file_impact(tmp_path: Path) -> None:
+    flags = tmp_path / "com" / "svc" / "flags"
+    flags.mkdir(parents=True)
+    (flags / "FeatureFlags.java").write_text(
+        "package com.svc.flags;\n\n"
+        "public class FeatureFlags {\n"
+        "  public boolean enabled() { return true; }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    route = tmp_path / "com" / "svc" / "routes"
+    route.mkdir(parents=True)
+    (route / "Route.java").write_text(
+        "package com.svc.routes;\n\n"
+        "import com.svc.flags.FeatureFlags;\n\n"
+        "public class Route {\n"
+        "  public boolean handle() { return new FeatureFlags().enabled(); }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    route_record = next(item for item in model.files if item.path == "com/svc/routes/Route.java")
+    assert route_record.dependencies == ["com/svc/flags/FeatureFlags.java"]
+
+    handle = _flow(model, "Route.handle")
+    result = impact_model(model, ["com/svc/flags/FeatureFlags.java"])
+    assert handle.id in {flow.id for flow in result.directly_impacted}
+    assert result.impact_reasons[handle.id] == [
+        "depends on changed file `com/svc/flags/FeatureFlags.java`"
+    ]
 
 
 def test_java_try_catch_log_only_swallow(tmp_path: Path) -> None:

@@ -479,14 +479,15 @@ Current checkpoint:
 - MCP `context_pack` accepts the same explicit impact targets and preserves per-flow
   impact reasons plus subgraph ids, so agents can request a bounded context pack for an
   exact flow, symbol, finding, or source subtree without inventing a changed file.
-- Generated `files[]` records now include first-party `dependencies` for Python and
-  TypeScript/JavaScript imports; `impact` uses those edges to include flows from files that
-  import a changed file even when the changed file has no modeled flow of its own.
+- Generated `files[]` records now include first-party `dependencies` for Python,
+  TypeScript/JavaScript, Go, and Java imports; `impact` uses those edges to include flows
+  from files that import a changed file even when the changed file has no modeled flow of
+  its own.
 
 Still open:
 
-- Extend dependency-edge-aware impact beyond Python/TypeScript/JavaScript imports when
-  profile-driven languages expose equally precise first-party import metadata.
+- Extend dependency-edge-aware impact to more profile-driven languages only when their
+  import metadata is precise enough to avoid noisy dependency edges.
 
 Optional LLM query reformulation could help map natural language to deterministic query
 fields, but final retrieval should still be model-backed.

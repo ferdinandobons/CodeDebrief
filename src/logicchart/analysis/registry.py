@@ -118,6 +118,7 @@ _FEATURES: tuple[str, ...] = (
     "test_detection",
     "enum_harvest",
     "qualified_call_links",
+    "import_dependencies",
 )
 
 _BASE_FEATURES: dict[str, str] = {
@@ -133,18 +134,25 @@ _BASE_FEATURES: dict[str, str] = {
     "test_detection": "supported",
     "enum_harvest": "not_supported",
     "qualified_call_links": "partial",
+    "import_dependencies": "not_supported",
 }
 
 _LANGUAGE_OVERRIDES: dict[str, dict[str, str]] = {
     "javascript": {
         "enum_harvest": "not_supported",
         "expression_bodied_functions": "supported",
+        "import_dependencies": "supported",
     },
     "typescript": {
         "enum_harvest": "supported",
         "expression_bodied_functions": "supported",
+        "import_dependencies": "supported",
     },
-    "python": {"enum_harvest": "supported", "qualified_call_links": "supported"},
+    "python": {
+        "enum_harvest": "supported",
+        "qualified_call_links": "supported",
+        "import_dependencies": "supported",
+    },
     "c": {
         "entrypoint_heuristics": "partial",
         "try_catch": "not_supported",
@@ -155,9 +163,14 @@ _LANGUAGE_OVERRIDES: dict[str, dict[str, str]] = {
     "go": {
         "entrypoint_heuristics": "partial",
         "try_catch": "not_supported",
-        "qualified_call_links": "not_supported",
+        "qualified_call_links": "supported",
+        "import_dependencies": "supported",
     },
-    "java": {"entrypoint_heuristics": "partial", "qualified_call_links": "not_supported"},
+    "java": {
+        "entrypoint_heuristics": "partial",
+        "qualified_call_links": "partial",
+        "import_dependencies": "supported",
+    },
     "php": {"entrypoint_heuristics": "partial", "qualified_call_links": "not_supported"},
     "ruby": {
         "entrypoint_heuristics": "partial",

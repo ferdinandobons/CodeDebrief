@@ -42,7 +42,7 @@ from logicchart.util import (
     write_json,
 )
 
-CACHE_VERSION = "4"
+CACHE_VERSION = "5"
 
 # One bad file (mid-edit syntax error, non-UTF-8 bytes, a merge-conflict marker,
 # or a missing lazy language grammar in the current Python environment) must never
