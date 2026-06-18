@@ -360,10 +360,10 @@ Current checkpoint:
 - `logicchart navigate <flow-id>` exposes the same bounded flow-navigation contract over
   the CLI, so agents can inspect callers, callees, decisions, findings, and next steps
   without requiring MCP.
-- `context_pack(include_visual=true)` can include inline SVG impact, flow, and finding
-  snapshots while the default response stays lightweight with follow-up snapshot tools.
-  Inline SVGs are additionally capped by `visual_byte_budget`; omitted visuals are counted
-  and remain recoverable through the returned snapshot tool calls.
+- `context_pack(include_visual=true)` can include inline SVG impact, subgraph, flow, and
+  finding snapshots while the default response stays lightweight with follow-up snapshot
+  tools. Inline SVGs are additionally capped by `visual_byte_budget`; omitted visuals are
+  counted and remain recoverable through the returned snapshot tool calls.
 
 Still open:
 
@@ -646,6 +646,8 @@ Before the next release:
   omitted visuals available through follow-up snapshot tools.
 - Done: add explicit flow/finding subgraph snapshots across MCP and CLI so agents can
   render the `subgraph_flow_ids`/`subgraph_finding_ids` they already receive.
+- Done: include the explicit subgraph snapshot inline in `context_pack(include_visual=true)`
+  when it fits the deterministic visual byte budget.
 - Next: add optional raster outputs if a local renderer path is worth the dependency.
 
 ### Phase 3: LLM Enrichment

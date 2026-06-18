@@ -76,8 +76,8 @@ The project follows Semantic Versioning.
   each direct or caller impact was selected.
 - Added deterministic query filters for source paths, symbols/names, decision domains, and
   handled values across CLI and MCP.
-- Added optional inline visual context to MCP `context_pack`, with SVG impact, flow, and
-  finding snapshots gated by `include_visual` and capped by `token_budget`.
+- Added optional inline visual context to MCP `context_pack`, with SVG impact, subgraph,
+  flow, and finding snapshots gated by `include_visual` and capped by `token_budget`.
 - Added a deterministic `visual_byte_budget` cap for inline MCP `context_pack` SVG
   snapshots, with omission counts and recovery through returned snapshot tools.
 - Added explicit flow/symbol/finding impact targets and per-flow impact reasons to MCP

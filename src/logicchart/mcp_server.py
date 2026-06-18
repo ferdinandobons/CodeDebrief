@@ -798,6 +798,19 @@ def _context_visual_pack(
     else:
         payload["impact_snapshot_omitted_reason"] = "visual_byte_budget"
 
+    if subgraph_flow_ids or subgraph_finding_ids:
+        subgraph_snapshot = render_subgraph_snapshot(
+            model,
+            flow_ids=subgraph_flow_ids,
+            finding_ids=subgraph_finding_ids,
+            max_flows=_snapshot_flow_budget(token_budget),
+            max_nodes=_snapshot_node_budget(token_budget),
+        )
+        if include_snapshot(subgraph_snapshot):
+            payload["subgraph_snapshot"] = subgraph_snapshot
+        else:
+            payload["subgraph_snapshot_omitted_reason"] = "visual_byte_budget"
+
     flow_snapshots = []
     for flow in flow_candidates[:flow_limit]:
         snapshot = render_flow_snapshot(

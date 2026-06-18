@@ -707,6 +707,9 @@ def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
                 assert visual["impact_snapshot"]["format"] == "svg"
                 assert "unresolved_targets" in visual["impact_snapshot"]
                 assert "<svg" in visual["impact_snapshot"]["svg"]
+                assert visual["subgraph_snapshot"]["format"] == "svg"
+                assert visual["subgraph_snapshot"]["finding_ids"] == [captured[0]["id"]]
+                assert "<svg" in visual["subgraph_snapshot"]["svg"]
                 assert visual["flow_snapshots"]
                 assert visual["finding_snapshots"]
                 assert visual["flow_snapshots"][0]["rendered_node_count"] >= 1
@@ -731,6 +734,8 @@ def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
                 assert capped_visual["snapshot_budget"]["used_visual_bytes"] == 0
                 assert "impact_snapshot" not in capped_visual
                 assert capped_visual["impact_snapshot_omitted_reason"] == "visual_byte_budget"
+                assert "subgraph_snapshot" not in capped_visual
+                assert capped_visual["subgraph_snapshot_omitted_reason"] == "visual_byte_budget"
                 assert capped_visual["flow_snapshots"] == []
                 assert capped_visual["finding_snapshots"] == []
                 assert capped_visual["omitted_visual_snapshot_count"] >= 3

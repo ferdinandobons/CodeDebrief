@@ -519,9 +519,9 @@ snapshot targets use the same structured error shape with recovery hints.
 follow-up tool pointers, including parse-warning attention when tree-sitter recovered
 flows from partially malformed files. `context_pack` stays lightweight by default and
 returns snapshot follow-up tool calls; pass `include_visual=true` when an agent needs
-inline, budget-capped SVG context in the same response. `visual_byte_budget` caps the
-total inline SVG bytes deterministically; omitted visuals remain available through the
-returned snapshot follow-up tools.
+inline, budget-capped SVG impact, subgraph, flow, and finding context in the same
+response. `visual_byte_budget` caps the total inline SVG bytes deterministically; omitted
+visuals remain available through the returned snapshot follow-up tools.
 
 ## Roadmap
 
