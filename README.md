@@ -573,8 +573,11 @@ embedded in generated HTML artifacts. Use a cache-buster query string when check
 changes in the browser.
 
 The canonical artifact format is documented by
-[schema/logic-flow.schema.json](schema/logic-flow.schema.json). Optional annotation sidecars
-use [schema/logic-annotations.schema.json](schema/logic-annotations.schema.json).
+[schema/logic-flow.schema.json](schema/logic-flow.schema.json). Schema 1.1 validates the
+core model plus optional generated metadata contracts for finding diagnostics, finding
+rules, quality, language capabilities, and skipped files while remaining forward-compatible
+for custom metadata. Optional annotation sidecars use
+[schema/logic-annotations.schema.json](schema/logic-annotations.schema.json).
 
 ## License
 

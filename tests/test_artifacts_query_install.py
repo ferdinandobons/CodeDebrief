@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -85,6 +86,37 @@ def test_validate_logicchart_reports_ok_for_current_artifact(tmp_path: Path) -> 
     assert report.ok
     assert report.errors == []
     assert report.artifact == str(json_path)
+
+
+def test_schema_pins_optional_diagnostic_metadata_contract(tmp_path: Path) -> None:
+    (tmp_path / "orders.py").write_text(
+        "def route(order):\n"
+        "    if order.status == 'draft':\n"
+        "        return draft(order)\n"
+        "    elif order.status == 'paid':\n"
+        "        return paid(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    artifact = result.model.to_dict()
+    finding = artifact["findings"][0]
+    schema = read_json(Path(__file__).parents[1] / "schema" / "logic-flow.schema.json")
+    validator = Draft202012Validator(schema)
+
+    validator.validate(artifact)
+    assert "finding_rules" in schema["$defs"]["project_metadata"]["properties"]
+    assert "diagnostic" in schema["$defs"]["finding_metadata"]["properties"]
+    assert "quality" in schema["$defs"]["project_metadata"]["properties"]
+
+    legacy_compatible = deepcopy(artifact)
+    legacy_compatible["findings"][0]["metadata"].pop("diagnostic")
+    validator.validate(legacy_compatible)
+
+    malformed = deepcopy(artifact)
+    malformed["findings"][0]["metadata"]["diagnostic"]["confidence"]["score"] = "high"
+    errors = list(validator.iter_errors(malformed))
+    assert any("is not of type" in error.message for error in errors)
+    assert finding["metadata"]["diagnostic"]["rule_id"] == finding["kind"]
 
 
 def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:

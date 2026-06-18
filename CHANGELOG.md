@@ -97,6 +97,9 @@ The project follows Semantic Versioning.
   recoverable helper payloads, complementing end-to-end stdio coverage.
 - Added stricter finding-rule contract tests that pin every detector's public purpose,
   preconditions, caveats, metadata fields, review prompt, and next-action shape.
+- Added JSON Schema coverage for optional generated diagnostic, finding-rule, quality,
+  language-capability, and skipped-file metadata while keeping artifact schema 1.1
+  forward-compatible for custom metadata.
 - Added deterministic accessibility summaries to viewer flow nodes for broad-canvas
   scanning.
 - Added a local optional `logic-annotations.json` sidecar schema, validation, viewer

@@ -238,6 +238,14 @@ Still open:
 is flexible, but it means consumers cannot reliably build advanced UI or agent behavior
 without detector-specific assumptions.
 
+Current checkpoint:
+
+- Schema 1.1 now validates optional generated metadata contracts for finding diagnostics,
+  finding-rule registry entries, quality metrics, language capability records, and skipped
+  files while still allowing custom metadata for forward compatibility.
+- The schema still intentionally avoids enumerating `finding.kind` or bumping to 1.2 until
+  the migration and consumer story is ready.
+
 ### Improvement
 
 Introduce schema 1.2 with:

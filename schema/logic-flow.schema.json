@@ -43,10 +43,48 @@
       }
     },
     "metadata": {
-      "type": "object"
+      "$ref": "#/$defs/project_metadata"
     }
   },
   "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "non_negative_integer": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ratio": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "json_value": {
+      "description": "Detector-specific structured metadata value.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
     "location": {
       "type": "object",
       "required": ["path", "start_line", "end_line"],
@@ -256,7 +294,7 @@
           "type": "string"
         },
         "metadata": {
-          "type": "object"
+          "$ref": "#/$defs/finding_metadata"
         }
       },
       "additionalProperties": false
@@ -304,6 +342,425 @@
     },
     "evidence": {
       "enum": ["VERIFIED", "INFERRED", "POTENTIAL_GAP"]
+    },
+    "finding_metadata": {
+      "type": "object",
+      "properties": {
+        "diagnostic": {
+          "$ref": "#/$defs/finding_diagnostic"
+        },
+        "category": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "subject": {
+          "type": "string"
+        },
+        "value_namespace": {
+          "type": "string"
+        },
+        "condition": {
+          "type": "string"
+        },
+        "constant": {
+          "type": "string"
+        },
+        "always": {
+          "type": "boolean"
+        },
+        "missing": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/json_value"
+              }
+            }
+          ]
+        },
+        "declared": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/json_value"
+          }
+        },
+        "expected": {
+          "$ref": "#/$defs/json_value"
+        },
+        "actual": {
+          "$ref": "#/$defs/json_value"
+        },
+        "outcome": {
+          "$ref": "#/$defs/json_value"
+        }
+      },
+      "additionalProperties": true
+    },
+    "finding_diagnostic": {
+      "type": "object",
+      "required": [
+        "rule_id",
+        "category",
+        "severity",
+        "evidence",
+        "confidence",
+        "scope",
+        "inputs",
+        "evidence_chain",
+        "expected",
+        "actual",
+        "missing",
+        "review_prompt",
+        "suggested_next_actions"
+      ],
+      "properties": {
+        "rule_id": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": ["info", "warning", "error"]
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        },
+        "confidence": {
+          "$ref": "#/$defs/diagnostic_confidence"
+        },
+        "scope": {
+          "$ref": "#/$defs/diagnostic_scope"
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "evidence_chain": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "expected": {
+          "$ref": "#/$defs/json_value"
+        },
+        "actual": {
+          "$ref": "#/$defs/json_value"
+        },
+        "missing": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/json_value"
+              }
+            }
+          ]
+        },
+        "review_prompt": {
+          "type": "string"
+        },
+        "suggested_next_actions": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": true
+    },
+    "diagnostic_confidence": {
+      "type": "object",
+      "required": ["score", "basis"],
+      "properties": {
+        "score": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "basis": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "diagnostic_scope": {
+      "type": "object",
+      "required": ["flow_id", "source", "path", "line", "related_flow_ids", "related_node_ids"],
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "flow_id": {
+          "type": "string"
+        },
+        "flow_name": {
+          "type": ["string", "null"]
+        },
+        "node_id": {
+          "type": ["string", "null"]
+        },
+        "node_label": {
+          "type": ["string", "null"]
+        },
+        "source": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "end_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "language": {
+          "type": ["string", "null"]
+        },
+        "related_flow_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "related_node_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "related_decision_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "finding_rule": {
+      "type": "object",
+      "required": [
+        "rule_id",
+        "category",
+        "title",
+        "purpose",
+        "preconditions",
+        "evidence_rationale",
+        "caveats",
+        "metadata_fields",
+        "review_prompt",
+        "suggested_next_actions"
+      ],
+      "properties": {
+        "rule_id": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "preconditions": {
+          "$ref": "#/$defs/string_array"
+        },
+        "evidence_rationale": {
+          "type": "string"
+        },
+        "caveats": {
+          "$ref": "#/$defs/string_array"
+        },
+        "metadata_fields": {
+          "$ref": "#/$defs/string_array"
+        },
+        "review_prompt": {
+          "type": "string"
+        },
+        "suggested_next_actions": {
+          "$ref": "#/$defs/string_array"
+        },
+        "true_positive_example": {
+          "type": "string"
+        },
+        "intentional_suppression_example": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "project_metadata": {
+      "type": "object",
+      "properties": {
+        "flow_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "entrypoint_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "finding_count": {
+          "$ref": "#/$defs/non_negative_integer"
+        },
+        "languages": {
+          "$ref": "#/$defs/string_array"
+        },
+        "scopes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/non_negative_integer"
+          }
+        },
+        "enums": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/string_array"
+            }
+          }
+        },
+        "finding_rules": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/finding_rule"
+          }
+        },
+        "quality": {
+          "$ref": "#/$defs/quality"
+        },
+        "language_capabilities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/language_capability"
+          }
+        },
+        "skipped_files": {
+          "$ref": "#/$defs/skipped_files"
+        }
+      },
+      "additionalProperties": true
+    },
+    "quality": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "object"
+        },
+        "flows": {
+          "type": "object"
+        },
+        "calls": {
+          "type": "object"
+        },
+        "findings": {
+          "type": "object"
+        },
+        "labels": {
+          "type": "object"
+        },
+        "source_locations": {
+          "type": "object"
+        },
+        "graph": {
+          "type": "object"
+        },
+        "languages": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "language_capability": {
+      "type": "object",
+      "required": ["status", "frontend", "suffixes", "features", "limitations"],
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "frontend": {
+          "type": "string"
+        },
+        "suffixes": {
+          "$ref": "#/$defs/string_array"
+        },
+        "features": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "limitations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "skipped_files": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "language", "reason"],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "language": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        {
+          "type": "object",
+          "required": ["total", "by_reason", "sample"],
+          "properties": {
+            "total": {
+              "$ref": "#/$defs/non_negative_integer"
+            },
+            "by_reason": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/non_negative_integer"
+              }
+            },
+            "sample": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["path", "language", "reason"],
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "language": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
     }
   },
   "additionalProperties": false
