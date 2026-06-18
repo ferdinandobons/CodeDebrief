@@ -72,6 +72,16 @@ const payload: LogicChartPayload = {
       metadata: { scope: ["backend"] },
     },
   ],
+  findings: [
+    {
+      evidence: "POTENTIAL_GAP",
+      flow_id: "orders-route",
+      id: "missing-order-state",
+      kind: "missing_branch",
+      node_id: "orders-route:n2",
+      severity: "warning",
+    },
+  ],
 };
 
 describe("ViewerApp", () => {
@@ -97,6 +107,12 @@ describe("ViewerApp", () => {
     expect(html).toContain('data-called-flow-id="load-order"');
     expect(html).toContain('class="flow-call-hit"');
     expect(html).toContain('class="edge flow-call-link"');
+    expect(html).toContain(
+      'aria-label="GET · route in typescript · 3 nodes · 1 decision · 1 call · 0 callers · 1 finding · frontend/app/api/orders/route.ts:3"',
+    );
+    expect(html).toContain(
+      'data-flow-summary="GET · route in typescript · 3 nodes · 1 decision · 1 call · 0 callers · 1 finding · frontend/app/api/orders/route.ts:3"',
+    );
     expect(html).toContain('class="node flow-node movable flow-kind-route flow-open"');
     expect(html).toContain('class="node flow-node movable flow-kind-function"');
     expect(html).toContain('href="#edge=');

@@ -38,8 +38,18 @@ export interface LogicChartFlow extends ProgressiveFlowNode {
   };
 }
 
+export interface LogicChartFinding {
+  id?: string;
+  kind?: string;
+  severity?: string;
+  evidence?: string;
+  flow_id?: string;
+  node_id?: string | null;
+}
+
 export interface LogicChartPayload {
   flows: LogicChartFlow[];
+  findings?: LogicChartFinding[];
   metadata?: {
     scopes?: Record<string, number>;
     [key: string]: unknown;

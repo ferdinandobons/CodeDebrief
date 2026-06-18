@@ -65,6 +65,7 @@ export type {
   ScopeNodePosition,
 } from "./flowchart-layout";
 export type {
+  LogicChartFinding,
   LogicChartFlow,
   LogicChartLocation,
   LogicChartPayload,

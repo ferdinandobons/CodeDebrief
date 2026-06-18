@@ -120,6 +120,9 @@ The viewer layout should preserve these invariants:
 - The left tree may normalize display labels for scanning, such as HTTP-method routes or
   camelCase symbols, but tooltips and source panels must preserve the original symbol and
   source location.
+- Flow nodes expose deterministic accessibility summaries with source, node, decision,
+  call, caller, and finding counts so broad canvas scans do not depend on tiny visible
+  labels alone.
 - Large entrypoint rows wrap instead of forcing unbounded horizontal overflow.
 
 The frontend tests expose reusable layout checks through `viewerLayoutBoxes`,

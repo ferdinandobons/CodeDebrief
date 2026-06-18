@@ -12,7 +12,8 @@ LogicChart is in a strong alpha state.
 - The viewer is now the most mature surface: the official chart path is the React
   progressive flowchart runtime, with persisted expansion state, node dragging, link
   focus, aggregate minimap navigation, graph-bounds-aware PNG/JPG export, and layout
-  quality tests.
+  quality tests. Flow nodes also expose deterministic accessibility summaries for
+  source, node, decision, call, caller, and finding counts.
 - The static-analysis core is usable across 11 language ids and has a stable model shape:
   `Flow`, `FlowNode`, `FlowEdge`, `Finding`, evidence tiers, scopes, files, and metadata.
 - The deterministic baseline is correct for the product: no API key is required, and LLM

@@ -151,6 +151,14 @@ export function ViewerApp({
   const [selectedRoot, setSelectedRoot] = useState(false);
   const [selectedScopeId, setSelectedScopeId] = useState<string | null>(null);
   const selectedConnectionPropKey = selectionKey(selectedConnectionProp);
+  const findingCountsByFlowId = useMemo(() => {
+    const counts = new Map<string, number>();
+    (payload?.findings || []).forEach(finding => {
+      if (!finding.flow_id) return;
+      counts.set(finding.flow_id, (counts.get(finding.flow_id) || 0) + 1);
+    });
+    return counts;
+  }, [payload]);
   useEffect(() => {
     manualPositionsChangeRef.current = onManualNodePositionsChange;
   }, [onManualNodePositionsChange]);
@@ -1156,6 +1164,12 @@ export function ViewerApp({
       <g className="flow-nodes">
         {[...flowPositions.values()].map(position => {
           const flow = flowById.get(position.id);
+          const flowFindingCount =
+            flow && isLogicChartFlow(flow) ? findingCountsByFlowId.get(flow.id) || 0 : 0;
+          const flowSummary =
+            flow && isLogicChartFlow(flow)
+              ? flowAccessibilitySummary(asLogicChartFlow(flow), flowFindingCount)
+              : position.id;
           const flowOpen = routeFlowIds.includes(position.id);
           const targetSelected =
             currentSelection?.kind === "scope-entry" &&
@@ -1201,8 +1215,10 @@ export function ViewerApp({
             .join(" ");
           return (
             <g
+              aria-label={flowSummary}
               className={flowClassName}
               data-flow-id={position.id}
+              data-flow-summary={flowSummary}
               key={position.id}
               role="button"
               tabIndex={0}
@@ -1241,7 +1257,7 @@ export function ViewerApp({
                 </text>
               ) : null}
               {flow && flowPath(flow) ? (
-                <title>{flowPath(flow)}</title>
+                <title>{flowSummary}</title>
               ) : null}
             </g>
           );
@@ -2254,6 +2270,27 @@ function flowMeta(flow: ProgressiveFlowNode): string[] {
   if (!isLogicChartFlow(flow)) return [];
   const item = asLogicChartFlow(flow);
   return [item.entry_kind, item.language].filter((value): value is string => Boolean(value));
+}
+
+function flowAccessibilitySummary(flow: LogicChartFlow, findingCount: number): string {
+  const nodes = flow.nodes || [];
+  const decisionCount = nodes.filter(node => node.kind === "decision").length;
+  const pieces = [
+    flowLabel(flow),
+    flowMeta(flow).join(" in ") || "flow",
+    plural(nodes.length, "node"),
+    plural(decisionCount, "decision"),
+    plural((flow.calls || []).length, "call"),
+    plural((flow.called_by || []).length, "caller"),
+    plural(findingCount, "finding"),
+  ];
+  const source = flowPath(flow);
+  if (source) pieces.push(source);
+  return pieces.join(" · ");
+}
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 function flowKindClass(flow: ProgressiveFlowNode | undefined): string {
