@@ -110,6 +110,8 @@ Current checkpoint:
   diagnostic object over MCP.
 - `get_finding_context` exposes a bounded deterministic subgraph with the focus flow,
   evidence nodes, related flows/findings, evidence guardrail, and next-tool hints.
+- Cross-flow diagnostics include bounded related-decision scope with related flow/node ids
+  and structured source ranges in the evidence chain.
 - The viewer shows selected-finding diagnostics with confidence, missing/expected/actual
   state, rule purpose, review prompt, next actions, related flows, and evidence nodes.
 
@@ -119,7 +121,8 @@ Still open:
   and consumer story are ready.
 - Consider a small focused chart for the diagnostic subgraph if related-flow links are not
   enough for large findings.
-- Add richer detector-specific evidence chains where the current metadata is still shallow.
+- Add richer detector-specific evidence chains where non-cross-flow metadata is still
+  shallow.
 
 ### Resulting UX
 
@@ -517,7 +520,8 @@ Before the next release:
 
 - Done: add a detector registry.
 - Done: normalize finding metadata under a compatibility-preserving diagnostic object.
-- Done: add baseline diagnostic evidence chains.
+- Done: add baseline diagnostic evidence chains and bounded related-decision scope for
+  cross-flow findings.
 - Done: add tests for each detector's structured output.
 - Done: update viewer Logical Errors panel to show diagnostic details and related
   flow/evidence-node links.

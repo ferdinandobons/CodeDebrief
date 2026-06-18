@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-18T14:40:53.872583+00:00",
+  "generated_at": "2026-06-18T14:53:02.481140+00:00",
   "root": ".",
   "flows": [
     {
@@ -19935,7 +19935,12 @@
               "type": "finding",
               "message": "Branch 'Yes' has an empty body",
               "detail": "The branch is taken but performs no work - likely unfinished.",
-              "source": "examples/shop/backend/orders_service.py:22"
+              "source": "examples/shop/backend/orders_service.py:22",
+              "location": {
+                "path": "examples/shop/backend/orders_service.py",
+                "start_line": 22,
+                "end_line": 22
+              }
             },
             {
               "type": "flow",
@@ -19943,7 +19948,12 @@
               "name": "summarize",
               "language": "python",
               "entry_kind": "function",
-              "source": "examples/shop/backend/orders_service.py:19"
+              "source": "examples/shop/backend/orders_service.py:19",
+              "location": {
+                "path": "examples/shop/backend/orders_service.py",
+                "start_line": 19,
+                "end_line": 26
+              }
             },
             {
               "type": "decision",
@@ -19966,7 +19976,12 @@
                   "implicit": false
                 }
               ],
-              "source": "examples/shop/backend/orders_service.py:22"
+              "source": "examples/shop/backend/orders_service.py:22",
+              "location": {
+                "path": "examples/shop/backend/orders_service.py",
+                "start_line": 22,
+                "end_line": 22
+              }
             }
           ],
           "expected": {
@@ -20042,10 +20057,12 @@
               "examples"
             ],
             "related_flow_ids": [
-              "flow-3b15514408bbb3ee"
+              "flow-3b15514408bbb3ee",
+              "flow-7dfa5d0eac72e588"
             ],
             "related_node_ids": [
-              "flow-3b15514408bbb3ee:n3"
+              "flow-3b15514408bbb3ee:n3",
+              "flow-7dfa5d0eac72e588:n3"
             ]
           },
           "inputs": {
@@ -20074,7 +20091,12 @@
               "type": "finding",
               "message": "Guard 'order.total_cents <= 0' is logged in a sibling flow but silent here",
               "detail": "A sibling flow logs or alerts on the same guard while this one proceeds silently - an observability gap on a shared condition.",
-              "source": "examples/shop/backend/payments_service.py:41"
+              "source": "examples/shop/backend/payments_service.py:41",
+              "location": {
+                "path": "examples/shop/backend/payments_service.py",
+                "start_line": 41,
+                "end_line": 41
+              }
             },
             {
               "type": "flow",
@@ -20082,7 +20104,12 @@
               "name": "capture_payment",
               "language": "python",
               "entry_kind": "function",
-              "source": "examples/shop/backend/payments_service.py:39"
+              "source": "examples/shop/backend/payments_service.py:39",
+              "location": {
+                "path": "examples/shop/backend/payments_service.py",
+                "start_line": 39,
+                "end_line": 43
+              }
             },
             {
               "type": "decision",
@@ -20103,7 +20130,33 @@
                   "implicit": true
                 }
               ],
-              "source": "examples/shop/backend/payments_service.py:41"
+              "source": "examples/shop/backend/payments_service.py:41",
+              "location": {
+                "path": "examples/shop/backend/payments_service.py",
+                "start_line": 41,
+                "end_line": 41
+              }
+            },
+            {
+              "type": "related_decisions",
+              "nodes": [
+                {
+                  "flow_id": "flow-7dfa5d0eac72e588",
+                  "flow_name": "refund_payment",
+                  "node_id": "flow-7dfa5d0eac72e588:n3",
+                  "label": "order.total_cents <= 0",
+                  "reasons": [
+                    "same_subject",
+                    "same_condition"
+                  ],
+                  "source": "examples/shop/backend/payments_service.py:32",
+                  "location": {
+                    "path": "examples/shop/backend/payments_service.py",
+                    "start_line": 32,
+                    "end_line": 32
+                  }
+                }
+              ]
             }
           ],
           "expected": {
@@ -20209,7 +20262,12 @@
               "type": "finding",
               "message": "Decision has no explicit fallback: if/elif on order.status",
               "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-              "source": "examples/shop/frontend/app/orders/page.tsx:3"
+              "source": "examples/shop/frontend/app/orders/page.tsx:3",
+              "location": {
+                "path": "examples/shop/frontend/app/orders/page.tsx",
+                "start_line": 3,
+                "end_line": 3
+              }
             },
             {
               "type": "flow",
@@ -20217,7 +20275,12 @@
               "name": "OrdersPage",
               "language": "typescript",
               "entry_kind": "component",
-              "source": "examples/shop/frontend/app/orders/page.tsx:2"
+              "source": "examples/shop/frontend/app/orders/page.tsx:2",
+              "location": {
+                "path": "examples/shop/frontend/app/orders/page.tsx",
+                "start_line": 2,
+                "end_line": 8
+              }
             },
             {
               "type": "decision",
@@ -20240,7 +20303,12 @@
                   "implicit": false
                 }
               ],
-              "source": "examples/shop/frontend/app/orders/page.tsx:3"
+              "source": "examples/shop/frontend/app/orders/page.tsx:3",
+              "location": {
+                "path": "examples/shop/frontend/app/orders/page.tsx",
+                "start_line": 3,
+                "end_line": 3
+              }
             }
           ],
           "expected": {
@@ -20360,7 +20428,12 @@
               "type": "finding",
               "message": "Decision has no explicit fallback: switch order.status",
               "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-              "source": "examples/shop/frontend/app/api/orders/route.ts:6"
+              "source": "examples/shop/frontend/app/api/orders/route.ts:6",
+              "location": {
+                "path": "examples/shop/frontend/app/api/orders/route.ts",
+                "start_line": 6,
+                "end_line": 13
+              }
             },
             {
               "type": "flow",
@@ -20368,7 +20441,12 @@
               "name": "POST",
               "language": "typescript",
               "entry_kind": "route",
-              "source": "examples/shop/frontend/app/api/orders/route.ts:4"
+              "source": "examples/shop/frontend/app/api/orders/route.ts:4",
+              "location": {
+                "path": "examples/shop/frontend/app/api/orders/route.ts",
+                "start_line": 4,
+                "end_line": 14
+              }
             },
             {
               "type": "decision",
@@ -20403,7 +20481,12 @@
                   "implicit": true
                 }
               ],
-              "source": "examples/shop/frontend/app/api/orders/route.ts:6"
+              "source": "examples/shop/frontend/app/api/orders/route.ts:6",
+              "location": {
+                "path": "examples/shop/frontend/app/api/orders/route.ts",
+                "start_line": 6,
+                "end_line": 13
+              }
             }
           ],
           "expected": {
@@ -20502,10 +20585,20 @@
               "examples"
             ],
             "related_flow_ids": [
-              "flow-bf4bdbe9cee93085"
+              "flow-bf4bdbe9cee93085",
+              "flow-c00fda52066729a3",
+              "flow-694730b8745d57de",
+              "flow-836bfa1aef528de0"
             ],
             "related_node_ids": [
-              "flow-bf4bdbe9cee93085:n3"
+              "flow-bf4bdbe9cee93085:n3",
+              "flow-c00fda52066729a3:n10",
+              "flow-c00fda52066729a3:n4",
+              "flow-c00fda52066729a3:n6",
+              "flow-c00fda52066729a3:n8",
+              "flow-bf4bdbe9cee93085:n5",
+              "flow-694730b8745d57de:n3",
+              "flow-836bfa1aef528de0:n3"
             ]
           },
           "inputs": {
@@ -20547,7 +20640,12 @@
               "type": "finding",
               "message": "Declared AccountStatus members not handled for account.status: AccountStatus.ACTIVE, AccountStatus.PENDING_VERIFICATION",
               "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
-              "source": "examples/shop/backend/api/users_routes.py:15"
+              "source": "examples/shop/backend/api/users_routes.py:15",
+              "location": {
+                "path": "examples/shop/backend/api/users_routes.py",
+                "start_line": 15,
+                "end_line": 15
+              }
             },
             {
               "type": "flow",
@@ -20555,7 +20653,12 @@
               "name": "change_email",
               "language": "python",
               "entry_kind": "function",
-              "source": "examples/shop/backend/api/users_routes.py:13"
+              "source": "examples/shop/backend/api/users_routes.py:13",
+              "location": {
+                "path": "examples/shop/backend/api/users_routes.py",
+                "start_line": 13,
+                "end_line": 19
+              }
             },
             {
               "type": "decision",
@@ -20578,7 +20681,12 @@
                   "implicit": false
                 }
               ],
-              "source": "examples/shop/backend/api/users_routes.py:15"
+              "source": "examples/shop/backend/api/users_routes.py:15",
+              "location": {
+                "path": "examples/shop/backend/api/users_routes.py",
+                "start_line": 15,
+                "end_line": 15
+              }
             },
             {
               "type": "declared_values",
@@ -20595,6 +20703,120 @@
               "values": [
                 "AccountStatus.ACTIVE",
                 "AccountStatus.PENDING_VERIFICATION"
+              ]
+            },
+            {
+              "type": "related_decisions",
+              "nodes": [
+                {
+                  "flow_id": "flow-c00fda52066729a3",
+                  "flow_name": "authenticate",
+                  "node_id": "flow-c00fda52066729a3:n10",
+                  "label": "account.status == AccountStatus.ACTIVE",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "examples/shop/backend/users_service.py:20",
+                  "location": {
+                    "path": "examples/shop/backend/users_service.py",
+                    "start_line": 20,
+                    "end_line": 20
+                  }
+                },
+                {
+                  "flow_id": "flow-c00fda52066729a3",
+                  "flow_name": "authenticate",
+                  "node_id": "flow-c00fda52066729a3:n4",
+                  "label": "account.status == AccountStatus.SUSPENDED",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "same_condition"
+                  ],
+                  "source": "examples/shop/backend/users_service.py:14",
+                  "location": {
+                    "path": "examples/shop/backend/users_service.py",
+                    "start_line": 14,
+                    "end_line": 14
+                  }
+                },
+                {
+                  "flow_id": "flow-c00fda52066729a3",
+                  "flow_name": "authenticate",
+                  "node_id": "flow-c00fda52066729a3:n6",
+                  "label": "account.status == AccountStatus.DELETED",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "examples/shop/backend/users_service.py:16",
+                  "location": {
+                    "path": "examples/shop/backend/users_service.py",
+                    "start_line": 16,
+                    "end_line": 16
+                  }
+                },
+                {
+                  "flow_id": "flow-c00fda52066729a3",
+                  "flow_name": "authenticate",
+                  "node_id": "flow-c00fda52066729a3:n8",
+                  "label": "account.status == AccountStatus.PENDING_VERIFICATION",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "examples/shop/backend/users_service.py:18",
+                  "location": {
+                    "path": "examples/shop/backend/users_service.py",
+                    "start_line": 18,
+                    "end_line": 18
+                  }
+                },
+                {
+                  "flow_id": "flow-bf4bdbe9cee93085",
+                  "flow_name": "change_email",
+                  "node_id": "flow-bf4bdbe9cee93085:n5",
+                  "label": "account.status == AccountStatus.DELETED",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "examples/shop/backend/api/users_routes.py:17",
+                  "location": {
+                    "path": "examples/shop/backend/api/users_routes.py",
+                    "start_line": 17,
+                    "end_line": 17
+                  }
+                },
+                {
+                  "flow_id": "flow-694730b8745d57de",
+                  "flow_name": "get_profile",
+                  "node_id": "flow-694730b8745d57de:n3",
+                  "label": "account.status == AccountStatus.DELETED",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "examples/shop/backend/api/users_routes.py:24",
+                  "location": {
+                    "path": "examples/shop/backend/api/users_routes.py",
+                    "start_line": 24,
+                    "end_line": 24
+                  }
+                },
+                {
+                  "flow_id": "flow-836bfa1aef528de0",
+                  "flow_name": "reset_password",
+                  "node_id": "flow-836bfa1aef528de0:n3",
+                  "label": "account.status == AccountStatus.SUSPENDED",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "same_condition"
+                  ],
+                  "source": "examples/shop/backend/api/users_routes.py:8",
+                  "location": {
+                    "path": "examples/shop/backend/api/users_routes.py",
+                    "start_line": 8,
+                    "end_line": 8
+                  }
+                }
               ]
             }
           ],
@@ -20696,10 +20918,14 @@
               "examples"
             ],
             "related_flow_ids": [
-              "flow-e18a3a55b37ae612"
+              "flow-e18a3a55b37ae612",
+              "flow-99b872ff61adb8e0",
+              "flow-b0e24f566e5e2350"
             ],
             "related_node_ids": [
-              "flow-e18a3a55b37ae612:n4"
+              "flow-e18a3a55b37ae612:n4",
+              "flow-99b872ff61adb8e0:n5",
+              "flow-b0e24f566e5e2350:n4"
             ]
           },
           "inputs": {
@@ -20777,7 +21003,12 @@
               "type": "finding",
               "message": "Declared OrderState members not handled for order.state: OrderState.BACKORDERED, OrderState.CHARGEBACK, OrderState.RETURNED",
               "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
-              "source": "examples/demo/frontend/app/api/orders/route.ts:9"
+              "source": "examples/demo/frontend/app/api/orders/route.ts:9",
+              "location": {
+                "path": "examples/demo/frontend/app/api/orders/route.ts",
+                "start_line": 9,
+                "end_line": 22
+              }
             },
             {
               "type": "flow",
@@ -20785,7 +21016,12 @@
               "name": "GET",
               "language": "typescript",
               "entry_kind": "route",
-              "source": "examples/demo/frontend/app/api/orders/route.ts:5"
+              "source": "examples/demo/frontend/app/api/orders/route.ts:5",
+              "location": {
+                "path": "examples/demo/frontend/app/api/orders/route.ts",
+                "start_line": 5,
+                "end_line": 23
+              }
             },
             {
               "type": "decision",
@@ -20838,7 +21074,12 @@
                   "implicit": true
                 }
               ],
-              "source": "examples/demo/frontend/app/api/orders/route.ts:9"
+              "source": "examples/demo/frontend/app/api/orders/route.ts:9",
+              "location": {
+                "path": "examples/demo/frontend/app/api/orders/route.ts",
+                "start_line": 9,
+                "end_line": 22
+              }
             },
             {
               "type": "declared_values",
@@ -20861,6 +21102,41 @@
                 "OrderState.BACKORDERED",
                 "OrderState.CHARGEBACK",
                 "OrderState.RETURNED"
+              ]
+            },
+            {
+              "type": "related_decisions",
+              "nodes": [
+                {
+                  "flow_id": "flow-99b872ff61adb8e0",
+                  "flow_name": "applyOrderAction",
+                  "node_id": "flow-99b872ff61adb8e0:n5",
+                  "label": "order.state === OrderState.DRAFT",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "examples/demo/frontend/app/api/orders/route.ts:103",
+                  "location": {
+                    "path": "examples/demo/frontend/app/api/orders/route.ts",
+                    "start_line": 103,
+                    "end_line": 103
+                  }
+                },
+                {
+                  "flow_id": "flow-b0e24f566e5e2350",
+                  "flow_name": "decideOrderAction",
+                  "node_id": "flow-b0e24f566e5e2350:n4",
+                  "label": "order.state === OrderState.FRAUD_REVIEW",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "examples/demo/frontend/app/api/orders/route.ts:90",
+                  "location": {
+                    "path": "examples/demo/frontend/app/api/orders/route.ts",
+                    "start_line": 90,
+                    "end_line": 90
+                  }
+                }
               ]
             }
           ],
@@ -20996,10 +21272,18 @@
               "examples"
             ],
             "related_flow_ids": [
-              "flow-4e833d53a700855c"
+              "flow-4e833d53a700855c",
+              "flow-484f0b6804aa2ba6",
+              "flow-1128bc0f809cd8d6",
+              "flow-08a786dcbded8185",
+              "flow-cfef4e8dba6238fd"
             ],
             "related_node_ids": [
-              "flow-4e833d53a700855c:n3"
+              "flow-4e833d53a700855c:n3",
+              "flow-484f0b6804aa2ba6:n3",
+              "flow-1128bc0f809cd8d6:n3",
+              "flow-08a786dcbded8185:n3",
+              "flow-cfef4e8dba6238fd:n4"
             ]
           },
           "inputs": {
@@ -21063,7 +21347,12 @@
               "type": "finding",
               "message": "Declared OrderStatus members not handled for order.status: OrderStatus.CANCELLED, OrderStatus.DELIVERED, OrderStatus.REFUNDED",
               "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
-              "source": "examples/shop/backend/orders_service.py:8"
+              "source": "examples/shop/backend/orders_service.py:8",
+              "location": {
+                "path": "examples/shop/backend/orders_service.py",
+                "start_line": 8,
+                "end_line": 16
+              }
             },
             {
               "type": "flow",
@@ -21071,7 +21360,12 @@
               "name": "transition",
               "language": "python",
               "entry_kind": "function",
-              "source": "examples/shop/backend/orders_service.py:6"
+              "source": "examples/shop/backend/orders_service.py:6",
+              "location": {
+                "path": "examples/shop/backend/orders_service.py",
+                "start_line": 6,
+                "end_line": 16
+              }
             },
             {
               "type": "decision",
@@ -21112,7 +21406,12 @@
                   "implicit": true
                 }
               ],
-              "source": "examples/shop/backend/orders_service.py:8"
+              "source": "examples/shop/backend/orders_service.py:8",
+              "location": {
+                "path": "examples/shop/backend/orders_service.py",
+                "start_line": 8,
+                "end_line": 16
+              }
             },
             {
               "type": "declared_values",
@@ -21133,6 +21432,73 @@
                 "OrderStatus.CANCELLED",
                 "OrderStatus.DELIVERED",
                 "OrderStatus.REFUNDED"
+              ]
+            },
+            {
+              "type": "related_decisions",
+              "nodes": [
+                {
+                  "flow_id": "flow-484f0b6804aa2ba6",
+                  "flow_name": "POST",
+                  "node_id": "flow-484f0b6804aa2ba6:n3",
+                  "label": "Switch on order.status",
+                  "reasons": [
+                    "same_condition"
+                  ],
+                  "source": "examples/shop/frontend/app/api/orders/route.ts:6",
+                  "location": {
+                    "path": "examples/shop/frontend/app/api/orders/route.ts",
+                    "start_line": 6,
+                    "end_line": 13
+                  }
+                },
+                {
+                  "flow_id": "flow-1128bc0f809cd8d6",
+                  "flow_name": "cancel",
+                  "node_id": "flow-1128bc0f809cd8d6:n3",
+                  "label": "order.status not in (OrderStatus.PLACED, OrderStatus.PAID)",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "examples/shop/backend/api/orders_routes.py:8",
+                  "location": {
+                    "path": "examples/shop/backend/api/orders_routes.py",
+                    "start_line": 8,
+                    "end_line": 8
+                  }
+                },
+                {
+                  "flow_id": "flow-08a786dcbded8185",
+                  "flow_name": "request_refund",
+                  "node_id": "flow-08a786dcbded8185:n3",
+                  "label": "order.status not in (OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED)",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "examples/shop/backend/api/orders_routes.py:16",
+                  "location": {
+                    "path": "examples/shop/backend/api/orders_routes.py",
+                    "start_line": 16,
+                    "end_line": 16
+                  }
+                },
+                {
+                  "flow_id": "flow-cfef4e8dba6238fd",
+                  "flow_name": "summarize",
+                  "node_id": "flow-cfef4e8dba6238fd:n4",
+                  "label": "order.status == OrderStatus.REFUNDED",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "examples/shop/backend/orders_service.py:22",
+                  "location": {
+                    "path": "examples/shop/backend/orders_service.py",
+                    "start_line": 22,
+                    "end_line": 22
+                  }
+                }
               ]
             }
           ],
@@ -21252,7 +21618,9 @@
               "flow-d8c77f3ddc158387"
             ],
             "related_node_ids": [
-              "flow-d8c77f3ddc158387:n3"
+              "flow-d8c77f3ddc158387:n3",
+              "flow-d8c77f3ddc158387:n5",
+              "flow-d8c77f3ddc158387:n7"
             ]
           },
           "inputs": {
@@ -21293,7 +21661,12 @@
               "type": "finding",
               "message": "Declared PaymentResult members not handled for result: PaymentResult.FRAUD_REVIEW",
               "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
-              "source": "examples/shop/backend/payments_service.py:11"
+              "source": "examples/shop/backend/payments_service.py:11",
+              "location": {
+                "path": "examples/shop/backend/payments_service.py",
+                "start_line": 11,
+                "end_line": 11
+              }
             },
             {
               "type": "flow",
@@ -21301,7 +21674,12 @@
               "name": "handle_result",
               "language": "python",
               "entry_kind": "event_handler",
-              "source": "examples/shop/backend/payments_service.py:9"
+              "source": "examples/shop/backend/payments_service.py:9",
+              "location": {
+                "path": "examples/shop/backend/payments_service.py",
+                "start_line": 9,
+                "end_line": 16
+              }
             },
             {
               "type": "decision",
@@ -21324,7 +21702,12 @@
                   "implicit": false
                 }
               ],
-              "source": "examples/shop/backend/payments_service.py:11"
+              "source": "examples/shop/backend/payments_service.py:11",
+              "location": {
+                "path": "examples/shop/backend/payments_service.py",
+                "start_line": 11,
+                "end_line": 11
+              }
             },
             {
               "type": "declared_values",
@@ -21340,6 +21723,41 @@
               "type": "missing_values",
               "values": [
                 "PaymentResult.FRAUD_REVIEW"
+              ]
+            },
+            {
+              "type": "related_decisions",
+              "nodes": [
+                {
+                  "flow_id": "flow-d8c77f3ddc158387",
+                  "flow_name": "handle_result",
+                  "node_id": "flow-d8c77f3ddc158387:n5",
+                  "label": "result == PaymentResult.DECLINED",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "examples/shop/backend/payments_service.py:13",
+                  "location": {
+                    "path": "examples/shop/backend/payments_service.py",
+                    "start_line": 13,
+                    "end_line": 13
+                  }
+                },
+                {
+                  "flow_id": "flow-d8c77f3ddc158387",
+                  "flow_name": "handle_result",
+                  "node_id": "flow-d8c77f3ddc158387:n7",
+                  "label": "result == PaymentResult.PENDING",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "examples/shop/backend/payments_service.py:15",
+                  "location": {
+                    "path": "examples/shop/backend/payments_service.py",
+                    "start_line": 15,
+                    "end_line": 15
+                  }
+                }
               ]
             }
           ],
@@ -21436,10 +21854,21 @@
               "examples"
             ],
             "related_flow_ids": [
-              "flow-f74e7243a59c82e6"
+              "flow-f74e7243a59c82e6",
+              "flow-b0e24f566e5e2350",
+              "flow-f6e3d6b7fe12b83f",
+              "flow-0018c3465f63c7a0",
+              "flow-90d927fdd439f656",
+              "flow-764cb8abc18ad0eb"
             ],
             "related_node_ids": [
-              "flow-f74e7243a59c82e6:n5"
+              "flow-f74e7243a59c82e6:n5",
+              "flow-b0e24f566e5e2350:n2",
+              "flow-f6e3d6b7fe12b83f:n5",
+              "flow-0018c3465f63c7a0:n2",
+              "flow-0018c3465f63c7a0:n4",
+              "flow-90d927fdd439f656:n2",
+              "flow-764cb8abc18ad0eb:n2"
             ]
           },
           "inputs": {
@@ -21489,7 +21918,12 @@
               "type": "finding",
               "message": "Declared UserStatus members not handled for user.status: UserStatus.ARCHIVED, UserStatus.DELETED, UserStatus.LOCKED",
               "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
-              "source": "examples/demo/frontend/app/api/users/route.ts:25"
+              "source": "examples/demo/frontend/app/api/users/route.ts:25",
+              "location": {
+                "path": "examples/demo/frontend/app/api/users/route.ts",
+                "start_line": 25,
+                "end_line": 31
+              }
             },
             {
               "type": "flow",
@@ -21497,7 +21931,12 @@
               "name": "POST",
               "language": "typescript",
               "entry_kind": "route",
-              "source": "examples/demo/frontend/app/api/users/route.ts:17"
+              "source": "examples/demo/frontend/app/api/users/route.ts:17",
+              "location": {
+                "path": "examples/demo/frontend/app/api/users/route.ts",
+                "start_line": 17,
+                "end_line": 32
+              }
             },
             {
               "type": "decision",
@@ -21526,7 +21965,12 @@
                   "implicit": true
                 }
               ],
-              "source": "examples/demo/frontend/app/api/users/route.ts:25"
+              "source": "examples/demo/frontend/app/api/users/route.ts:25",
+              "location": {
+                "path": "examples/demo/frontend/app/api/users/route.ts",
+                "start_line": 25,
+                "end_line": 31
+              }
             },
             {
               "type": "declared_values",
@@ -21545,6 +21989,106 @@
                 "UserStatus.ARCHIVED",
                 "UserStatus.DELETED",
                 "UserStatus.LOCKED"
+              ]
+            },
+            {
+              "type": "related_decisions",
+              "nodes": [
+                {
+                  "flow_id": "flow-b0e24f566e5e2350",
+                  "flow_name": "decideOrderAction",
+                  "node_id": "flow-b0e24f566e5e2350:n2",
+                  "label": "user.status === UserStatus.SUSPENDED",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "examples/demo/frontend/app/api/orders/route.ts:87",
+                  "location": {
+                    "path": "examples/demo/frontend/app/api/orders/route.ts",
+                    "start_line": 87,
+                    "end_line": 87
+                  }
+                },
+                {
+                  "flow_id": "flow-f6e3d6b7fe12b83f",
+                  "flow_name": "get_user",
+                  "node_id": "flow-f6e3d6b7fe12b83f:n5",
+                  "label": "user.status == UserStatus.SUSPENDED",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "examples/demo/backend/users.py:27",
+                  "location": {
+                    "path": "examples/demo/backend/users.py",
+                    "start_line": 27,
+                    "end_line": 27
+                  }
+                },
+                {
+                  "flow_id": "flow-0018c3465f63c7a0",
+                  "flow_name": "moderationAction",
+                  "node_id": "flow-0018c3465f63c7a0:n2",
+                  "label": "user.status === UserStatus.SUSPENDED || user.status === UserStatus.LOCKED",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "examples/demo/frontend/app/api/users/route.ts:56",
+                  "location": {
+                    "path": "examples/demo/frontend/app/api/users/route.ts",
+                    "start_line": 56,
+                    "end_line": 56
+                  }
+                },
+                {
+                  "flow_id": "flow-0018c3465f63c7a0",
+                  "flow_name": "moderationAction",
+                  "node_id": "flow-0018c3465f63c7a0:n4",
+                  "label": "user.status === UserStatus.ARCHIVED",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "examples/demo/frontend/app/api/users/route.ts:59",
+                  "location": {
+                    "path": "examples/demo/frontend/app/api/users/route.ts",
+                    "start_line": 59,
+                    "end_line": 59
+                  }
+                },
+                {
+                  "flow_id": "flow-90d927fdd439f656",
+                  "flow_name": "resolveUserAccess",
+                  "node_id": "flow-90d927fdd439f656:n2",
+                  "label": "Switch on user.status",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "same_condition",
+                    "handles_missing_value"
+                  ],
+                  "source": "examples/demo/frontend/app/api/users/route.ts:39",
+                  "location": {
+                    "path": "examples/demo/frontend/app/api/users/route.ts",
+                    "start_line": 39,
+                    "end_line": 52
+                  }
+                },
+                {
+                  "flow_id": "flow-764cb8abc18ad0eb",
+                  "flow_name": "user_action",
+                  "node_id": "flow-764cb8abc18ad0eb:n2",
+                  "label": "user.status == UserStatus.DELETED",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "examples/demo/backend/users.py:52",
+                  "location": {
+                    "path": "examples/demo/backend/users.py",
+                    "start_line": 52,
+                    "end_line": 52
+                  }
+                }
               ]
             }
           ],
@@ -21667,7 +22211,12 @@
               "type": "finding",
               "message": "Exception handler 'Error' swallows the error",
               "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
-              "source": "examples/shop/frontend/app/api/checkout/route.ts:5"
+              "source": "examples/shop/frontend/app/api/checkout/route.ts:5",
+              "location": {
+                "path": "examples/shop/frontend/app/api/checkout/route.ts",
+                "start_line": 5,
+                "end_line": 9
+              }
             },
             {
               "type": "flow",
@@ -21675,7 +22224,12 @@
               "name": "processCheckout",
               "language": "typescript",
               "entry_kind": "server_action",
-              "source": "examples/shop/frontend/app/api/checkout/route.ts:4"
+              "source": "examples/shop/frontend/app/api/checkout/route.ts:4",
+              "location": {
+                "path": "examples/shop/frontend/app/api/checkout/route.ts",
+                "start_line": 4,
+                "end_line": 11
+              }
             },
             {
               "type": "decision",
@@ -21696,7 +22250,12 @@
                   "implicit": false
                 }
               ],
-              "source": "examples/shop/frontend/app/api/checkout/route.ts:5"
+              "source": "examples/shop/frontend/app/api/checkout/route.ts:5",
+              "location": {
+                "path": "examples/shop/frontend/app/api/checkout/route.ts",
+                "start_line": 5,
+                "end_line": 9
+              }
             }
           ],
           "expected": {
@@ -21800,7 +22359,12 @@
               "type": "finding",
               "message": "Exception handler 'Exception' swallows the error",
               "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
-              "source": "examples/shop/backend/payments_service.py:23"
+              "source": "examples/shop/backend/payments_service.py:23",
+              "location": {
+                "path": "examples/shop/backend/payments_service.py",
+                "start_line": 23,
+                "end_line": 26
+              }
             },
             {
               "type": "flow",
@@ -21808,7 +22372,12 @@
               "name": "charge",
               "language": "python",
               "entry_kind": "function",
-              "source": "examples/shop/backend/payments_service.py:19"
+              "source": "examples/shop/backend/payments_service.py:19",
+              "location": {
+                "path": "examples/shop/backend/payments_service.py",
+                "start_line": 19,
+                "end_line": 27
+              }
             },
             {
               "type": "decision",
@@ -21829,7 +22398,12 @@
                   "implicit": false
                 }
               ],
-              "source": "examples/shop/backend/payments_service.py:23"
+              "source": "examples/shop/backend/payments_service.py:23",
+              "location": {
+                "path": "examples/shop/backend/payments_service.py",
+                "start_line": 23,
+                "end_line": 26
+              }
             }
           ],
           "expected": {
@@ -21937,7 +22511,12 @@
               "type": "finding",
               "message": "Guard on the constant ENABLE_DOUBLE_CHARGE_GUARD is always False",
               "detail": "The condition is a module-level boolean constant, so one branch is dead. Confirm the constant is not reassigned elsewhere.",
-              "source": "examples/shop/backend/payments_service.py:21"
+              "source": "examples/shop/backend/payments_service.py:21",
+              "location": {
+                "path": "examples/shop/backend/payments_service.py",
+                "start_line": 21,
+                "end_line": 21
+              }
             },
             {
               "type": "flow",
@@ -21945,7 +22524,12 @@
               "name": "charge",
               "language": "python",
               "entry_kind": "function",
-              "source": "examples/shop/backend/payments_service.py:19"
+              "source": "examples/shop/backend/payments_service.py:19",
+              "location": {
+                "path": "examples/shop/backend/payments_service.py",
+                "start_line": 19,
+                "end_line": 27
+              }
             },
             {
               "type": "decision",
@@ -21966,7 +22550,12 @@
                   "implicit": true
                 }
               ],
-              "source": "examples/shop/backend/payments_service.py:21"
+              "source": "examples/shop/backend/payments_service.py:21",
+              "location": {
+                "path": "examples/shop/backend/payments_service.py",
+                "start_line": 21,
+                "end_line": 21
+              }
             }
           ],
           "expected": {
@@ -22036,7 +22625,12 @@
               "type": "finding",
               "message": "Unreachable code after all paths return or raise (line 30)",
               "detail": "profile[\"leaked\"] = \"true\"",
-              "source": "examples/shop/backend/users_service.py:30"
+              "source": "examples/shop/backend/users_service.py:30",
+              "location": {
+                "path": "examples/shop/backend/users_service.py",
+                "start_line": 30,
+                "end_line": 30
+              }
             },
             {
               "type": "flow",
@@ -22044,7 +22638,12 @@
               "name": "load_profile",
               "language": "python",
               "entry_kind": "function",
-              "source": "examples/shop/backend/users_service.py:26"
+              "source": "examples/shop/backend/users_service.py:26",
+              "location": {
+                "path": "examples/shop/backend/users_service.py",
+                "start_line": 26,
+                "end_line": 31
+              }
             }
           ],
           "expected": null,

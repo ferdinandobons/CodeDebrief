@@ -441,7 +441,7 @@ def explain_finding(model: ProjectModel, finding_id: str) -> dict[str, Any] | No
         }
     diagnostic = finding.metadata.get("diagnostic")
     if not isinstance(diagnostic, dict):
-        diagnostic = diagnostic_for_finding(finding, flow=flow, node=node)
+        diagnostic = diagnostic_for_finding(finding, flow=flow, node=node, model=model)
     return {
         "id": finding.id,
         "kind": finding.kind,
@@ -470,7 +470,7 @@ def finding_context(
         node = next((item for item in flow.nodes if item.id == finding.node_id), None)
     diagnostic = finding.metadata.get("diagnostic")
     if not isinstance(diagnostic, dict):
-        diagnostic = diagnostic_for_finding(finding, flow=flow, node=node)
+        diagnostic = diagnostic_for_finding(finding, flow=flow, node=node, model=model)
     related_flows = _finding_related_flows(model, finding, flow)
     related_nodes = _finding_related_nodes(related_flows, finding, diagnostic)
     related_flow_ids = {item.id for item, _roles in related_flows}

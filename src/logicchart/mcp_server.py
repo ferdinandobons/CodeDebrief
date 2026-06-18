@@ -779,7 +779,12 @@ def _finding_dict(finding: Any, model: ProjectModel | None = None) -> dict[str, 
             flow = next((item for item in model.flows if item.id == finding.flow_id), None)
             if flow is not None and finding.node_id:
                 node = next((item for item in flow.nodes if item.id == finding.node_id), None)
-        metadata["diagnostic"] = diagnostic_for_finding(finding, flow=flow, node=node)
+        metadata["diagnostic"] = diagnostic_for_finding(
+            finding,
+            flow=flow,
+            node=node,
+            model=model,
+        )
     data["next_tools"] = _finding_next_tools(finding)
     return data
 

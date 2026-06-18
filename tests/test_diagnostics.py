@@ -55,6 +55,65 @@ def test_findings_carry_normalized_diagnostics(tmp_path: Path) -> None:
     assert enum_finding.evidence is Evidence.INFERRED
 
 
+def test_cross_flow_diagnostics_include_related_decision_scope(tmp_path: Path) -> None:
+    (tmp_path / "svc.py").write_text(
+        """
+def handle_a(account):
+    if account.status == Status.ACTIVE:
+        return ok()
+    if account.status == Status.SUSPENDED:
+        return s()
+    if account.status == Status.DELETED:
+        return d()
+
+
+def handle_b(account):
+    if account.status == Status.ACTIVE:
+        return ok()
+    if account.status == Status.SUSPENDED:
+        return s()
+    if account.status == Status.DELETED:
+        return d()
+
+
+def handle_c(account):
+    if account.status == Status.ACTIVE:
+        return ok()
+    if account.status == Status.SUSPENDED:
+        return s()
+    if account.status == Status.DELETED:
+        return d()
+
+
+def handle_partial(account):
+    if account.status == Status.ACTIVE:
+        return ok()
+    if account.status == Status.SUSPENDED:
+        return s()
+""",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    partial = next(flow for flow in model.flows if flow.name == "handle_partial")
+    finding = next(
+        item
+        for item in model.findings
+        if item.kind == FindingKind.INCONSISTENT_CASE_HANDLING and item.flow_id == partial.id
+    )
+
+    diagnostic = finding.metadata["diagnostic"]
+    scope = diagnostic["scope"]
+    assert scope["related_flow_ids"][0] == partial.id
+    assert len(scope["related_flow_ids"]) > 1
+    assert finding.node_id in scope["related_node_ids"]
+    related = next(
+        item for item in diagnostic["evidence_chain"] if item["type"] == "related_decisions"
+    )
+    assert len(related["nodes"]) <= 12
+    assert any("handles_missing_value" in node["reasons"] for node in related["nodes"])
+    assert all("location" in node for node in related["nodes"])
+
+
 def test_every_finding_kind_has_a_rule_contract() -> None:
     rules = finding_rule_contracts_by_kind()
     assert set(rules) == {kind.value for kind in FindingKind}

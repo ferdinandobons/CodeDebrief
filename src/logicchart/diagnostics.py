@@ -4,7 +4,9 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any
 
-from logicchart.model import Evidence, Finding, FindingKind, Flow, FlowNode
+from logicchart.model import Evidence, Finding, FindingKind, Flow, FlowNode, NodeKind
+
+DIAGNOSTIC_RELATED_LIMIT = 12
 
 
 @dataclass(frozen=True, slots=True)
@@ -316,7 +318,12 @@ def enrich_model_diagnostics(model: Any) -> None:
     for finding in model.findings:
         flow = flows_by_id.get(finding.flow_id)
         node = nodes_by_key.get((finding.flow_id, finding.node_id))
-        finding.metadata["diagnostic"] = diagnostic_for_finding(finding, flow=flow, node=node)
+        finding.metadata["diagnostic"] = diagnostic_for_finding(
+            finding,
+            flow=flow,
+            node=node,
+            model=model,
+        )
 
 
 def diagnostic_for_finding(
@@ -324,20 +331,22 @@ def diagnostic_for_finding(
     *,
     flow: Flow | None = None,
     node: FlowNode | None = None,
+    model: Any | None = None,
 ) -> dict[str, Any]:
     kind = _kind_value(finding.kind)
     rule = FINDING_RULES.get(kind, _fallback_rule(kind))
     metadata = _metadata_without_diagnostic(finding.metadata)
     category = str(metadata.get("category") or rule.category)
+    related_decisions = _related_decisions(finding, flow, node, metadata, model)
     return {
         "rule_id": rule.rule_id,
         "category": category,
         "severity": _enum_value(finding.severity),
         "evidence": _enum_value(finding.evidence),
         "confidence": _confidence(finding),
-        "scope": _scope(finding, flow, node, category),
+        "scope": _scope(finding, flow, node, category, related_decisions),
         "inputs": _inputs(metadata, node),
-        "evidence_chain": _evidence_chain(finding, flow, node, metadata),
+        "evidence_chain": _evidence_chain(finding, flow, node, metadata, related_decisions),
         "expected": _expected(metadata, node),
         "actual": _actual(metadata, node),
         "missing": _as_list(metadata.get("missing")),
@@ -371,9 +380,16 @@ def _scope(
     flow: Flow | None,
     node: FlowNode | None,
     category: str,
+    related_decisions: list[dict[str, Any]],
 ) -> dict[str, Any]:
     location = finding.location
-    related_node_ids = [finding.node_id] if finding.node_id else []
+    related_flow_ids = _unique([finding.flow_id, *(item["flow_id"] for item in related_decisions)])
+    related_node_ids = _unique(
+        [
+            *([finding.node_id] if finding.node_id else []),
+            *(item["node_id"] for item in related_decisions),
+        ]
+    )
     return {
         "category": category,
         "flow_id": finding.flow_id,
@@ -387,7 +403,7 @@ def _scope(
         "language": flow.language if flow is not None else None,
         "entry_kind": flow.entry_kind if flow is not None else None,
         "scopes": list(flow.metadata.get("scope", [])) if flow is not None else [],
-        "related_flow_ids": [finding.flow_id],
+        "related_flow_ids": related_flow_ids,
         "related_node_ids": related_node_ids,
     }
 
@@ -410,6 +426,7 @@ def _evidence_chain(
     flow: Flow | None,
     node: FlowNode | None,
     metadata: dict[str, Any],
+    related_decisions: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     chain: list[dict[str, Any]] = [
         {
@@ -417,6 +434,7 @@ def _evidence_chain(
             "message": finding.message,
             "detail": finding.detail,
             "source": f"{finding.location.path}:{finding.location.start_line}",
+            "location": _location_dict(finding.location),
         }
     ]
     if flow is not None:
@@ -428,6 +446,7 @@ def _evidence_chain(
                 "language": flow.language,
                 "entry_kind": flow.entry_kind,
                 "source": f"{flow.location.path}:{flow.location.start_line}",
+                "location": _location_dict(flow.location),
             }
         )
     if node is not None:
@@ -441,6 +460,7 @@ def _evidence_chain(
                 "values": node.metadata.get("values", []),
                 "branches": node.metadata.get("branches", []),
                 "source": f"{node.location.path}:{node.location.start_line}",
+                "location": _location_dict(node.location),
             }
         )
     if metadata.get("declared"):
@@ -455,7 +475,91 @@ def _evidence_chain(
         chain.append({"type": "sibling_quorum", "quorum": metadata["quorum"]})
     if metadata.get("missing"):
         chain.append({"type": "missing_values", "values": _as_list(metadata.get("missing"))})
+    if related_decisions:
+        chain.append({"type": "related_decisions", "nodes": related_decisions})
     return chain
+
+
+def _related_decisions(
+    finding: Finding,
+    flow: Flow | None,
+    node: FlowNode | None,
+    metadata: dict[str, Any],
+    model: Any | None,
+) -> list[dict[str, Any]]:
+    if model is None:
+        return []
+    if metadata.get("category") != "cross_flow":
+        return []
+    subject = metadata.get("subject") or (node.metadata.get("subject") if node else None)
+    namespace = metadata.get("value_namespace") or (
+        node.metadata.get("value_namespace") if node else None
+    )
+    condition = metadata.get("condition") or (node.metadata.get("condition") if node else None)
+    missing_values = {str(item) for item in (_as_list(metadata.get("missing")) or [])}
+    if not any((subject, namespace, condition, missing_values)):
+        return []
+    rows: list[dict[str, Any]] = []
+    for candidate_flow in getattr(model, "flows", []):
+        for candidate_node in getattr(candidate_flow, "nodes", []):
+            if candidate_flow.id == finding.flow_id and candidate_node.id == finding.node_id:
+                continue
+            if candidate_node.kind is not NodeKind.DECISION:
+                continue
+            reasons = _related_decision_reasons(
+                candidate_node,
+                subject=subject,
+                namespace=namespace,
+                condition=condition,
+                missing_values=missing_values,
+            )
+            if not reasons:
+                continue
+            rows.append(
+                {
+                    "flow_id": candidate_flow.id,
+                    "flow_name": candidate_flow.name,
+                    "node_id": candidate_node.id,
+                    "label": candidate_node.label,
+                    "reasons": reasons,
+                    "source": (
+                        f"{candidate_node.location.path}:{candidate_node.location.start_line}"
+                    ),
+                    "location": _location_dict(candidate_node.location),
+                }
+            )
+    rows.sort(key=lambda item: (item["flow_name"], item["flow_id"], item["node_id"]))
+    return rows[:DIAGNOSTIC_RELATED_LIMIT]
+
+
+def _related_decision_reasons(
+    node: FlowNode,
+    *,
+    subject: Any,
+    namespace: Any,
+    condition: Any,
+    missing_values: set[str],
+) -> list[str]:
+    metadata = node.metadata
+    reasons: list[str] = []
+    if subject and metadata.get("subject") == subject:
+        if namespace and metadata.get("value_namespace") == namespace:
+            reasons.append("same_subject_namespace")
+        elif not namespace:
+            reasons.append("same_subject")
+    if condition and metadata.get("condition") == condition:
+        reasons.append("same_condition")
+    if missing_values and missing_values & _handled_values(node):
+        reasons.append("handles_missing_value")
+    return _unique(reasons)
+
+
+def _handled_values(node: FlowNode) -> set[str]:
+    values = {str(item) for item in node.metadata.get("values", [])}
+    for branch in node.metadata.get("branches", []):
+        if isinstance(branch, dict) and branch.get("label") is not None:
+            values.add(str(branch["label"]))
+    return values
 
 
 def _expected(metadata: dict[str, Any], node: FlowNode | None) -> Any:
@@ -504,6 +608,25 @@ def _confidence(finding: Finding) -> dict[str, Any]:
     if evidence is Evidence.POTENTIAL_GAP:
         return {"score": 0.4, "basis": "review candidate, not a confirmed bug"}
     return {"score": None, "basis": "unknown evidence tier"}
+
+
+def _location_dict(location: Any) -> dict[str, Any]:
+    return {
+        "path": location.path,
+        "start_line": location.start_line,
+        "end_line": location.end_line,
+    }
+
+
+def _unique(values: list[Any]) -> list[Any]:
+    seen = set()
+    result = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
 
 
 def _metadata_without_diagnostic(metadata: dict[str, Any]) -> dict[str, Any]:
