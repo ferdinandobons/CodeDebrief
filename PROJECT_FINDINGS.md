@@ -383,6 +383,8 @@ Current checkpoint:
   next-tool hints so agents do not need to mine the full summary payload.
 - MCP tests now assert the structured `analysis_quality` payload, token-budget schema, and
   language-depth fields instead of relying only on text containment.
+- `analysis_quality` now surfaces parse warnings as a first-class attention item and bounds
+  parse-warning samples under token budgets.
 - Model-reading MCP tools return structured recoverable artifact-load errors with
   `error_code`, artifact paths, guardrails, and next-tool/CLI recovery actions for missing
   or malformed generated models.
@@ -519,7 +521,7 @@ Current checkpoint:
   reported as skipped files when no flow can be extracted, or as parse-warning file
   quality signals when useful flow context exists.
 - `logicchart validate` and MCP `validate_artifacts` can apply optional CI thresholds for
-  skipped files, call-resolution rate, and generic-label ratio.
+  skipped files, parse warnings, call-resolution rate, and generic-label ratio.
 
 Expose these through:
 

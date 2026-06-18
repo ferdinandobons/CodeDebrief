@@ -348,7 +348,16 @@ def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> 
 
 def test_analysis_quality_report_bounds_language_attention() -> None:
     quality = {
-        "files": {"skipped": {"total": 0, "sample": []}},
+        "files": {
+            "skipped": {"total": 0, "sample": []},
+            "parse_errors": {
+                "total": 2,
+                "sample": [
+                    {"path": "partial.ts", "language": "typescript", "line": 4},
+                    {"path": "partial.go", "language": "go", "line": 9},
+                ],
+            },
+        },
         "flows": {"huge": []},
         "calls": {"unresolved": 0, "ambiguous": 0},
         "labels": {"generic_nodes": 0, "sample": []},
@@ -373,9 +382,21 @@ def test_analysis_quality_report_bounds_language_attention() -> None:
     assert list(languages["depth"]) == ["python"]
     assert languages["attention"] == [{"language": "python", "signals": ["low_call_resolution"]}]
     assert languages["omitted_language_count"] == 1
-    assert [item["language"] for item in report["attention"]] == ["python", "typescript"]
+    assert report["quality"]["files"]["parse_errors"]["sample"] == [
+        {"path": "partial.ts", "language": "typescript", "line": 4}
+    ]
+    assert report["attention"][0]["type"] == "parse_warnings"
     assert (
-        report["attention"][0]["next_tools"]["query_language"]["arguments"]["language"] == "python"
+        report["attention"][0]["next_tools"]["validate_parse_warnings"]["arguments"][
+            "max_parse_warnings"
+        ]
+        == 0
+    )
+    assert [item.get("language") for item in report["attention"][1:]] == [
+        "python",
+    ]
+    assert (
+        report["attention"][1]["next_tools"]["query_language"]["arguments"]["language"] == "python"
     )
 
 

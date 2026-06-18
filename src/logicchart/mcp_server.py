@@ -776,6 +776,12 @@ def _bounded_quality(quality: dict[str, Any], token_budget: int) -> dict[str, An
                 **skipped,
                 "sample": _list_dicts(skipped.get("sample"))[:item_limit],
             }
+        parse_errors = files.get("parse_errors")
+        if isinstance(parse_errors, dict):
+            bounded_files["parse_errors"] = {
+                **parse_errors,
+                "sample": _list_dicts(parse_errors.get("sample"))[:item_limit],
+            }
         bounded["files"] = bounded_files
 
     flows = quality.get("flows")
@@ -812,6 +818,23 @@ def _quality_attention_items(quality: dict[str, Any], token_budget: int) -> list
                     "validate_quality": {
                         "tool": "validate_artifacts",
                         "arguments": {"include_quality": True},
+                    }
+                },
+            }
+        )
+
+    parse_errors = files.get("parse_errors") if isinstance(files, dict) else None
+    parse_error_total = parse_errors.get("total", 0) if isinstance(parse_errors, dict) else 0
+    if parse_error_total:
+        items.append(
+            {
+                "type": "parse_warnings",
+                "signals": ["parse_errors"],
+                "count": parse_error_total,
+                "next_tools": {
+                    "validate_parse_warnings": {
+                        "tool": "validate_artifacts",
+                        "arguments": {"include_quality": True, "max_parse_warnings": 0},
                     }
                 },
             }

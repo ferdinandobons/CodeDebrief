@@ -40,6 +40,8 @@ The project follows Semantic Versioning.
   React component decisions with explicit return branches and capability-matrix metadata.
 - Added an MCP `analysis_quality` tool with bounded analyzer-quality payloads, guardrails,
   and next-tool hints for agent review workflows.
+- Added parse-warning attention signals and bounded parse-warning samples to MCP
+  `analysis_quality`.
 - Added a Project Quality panel to the generated viewer details rail, showing analyzer
   coverage, call-resolution, finding, generic-label, graph-density, and language metrics.
 - Added a deterministic language capability matrix to generated metadata and MCP summaries.

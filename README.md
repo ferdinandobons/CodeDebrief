@@ -486,9 +486,10 @@ If the generated model is missing or malformed, model-reading MCP tools return s
 recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
 actions instead of surfacing a raw traceback.
 `analysis_quality` returns deterministic analyzer-depth signals with guardrails and
-follow-up tool pointers. `context_pack` stays lightweight by default and returns snapshot
-follow-up tool calls; pass `include_visual=true` when an agent needs inline,
-budget-capped SVG context in the same response.
+follow-up tool pointers, including parse-warning attention when tree-sitter recovered
+flows from partially malformed files. `context_pack` stays lightweight by default and
+returns snapshot follow-up tool calls; pass `include_visual=true` when an agent needs
+inline, budget-capped SVG context in the same response.
 
 ## Roadmap
 
