@@ -26,6 +26,8 @@ The project follows Semantic Versioning.
   without requiring MCP or a browser.
 - Added structured, recoverable MCP artifact-load errors with error codes, artifact paths,
   guardrails, and next-tool/CLI recovery actions.
+- Added MCP artifact workflow hints for update/validate/review sequencing, including stale
+  model recovery through `update_logicchart`.
 - Added token-budget handling to MCP flow, finding, and impact SVG snapshots, including
   omission counts for capped visual context.
 - Added a compact diagnostic panel to MCP finding SVG snapshots with evidence tier,

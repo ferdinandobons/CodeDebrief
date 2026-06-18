@@ -557,13 +557,14 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             thresholds["min_call_resolution"] = min_call_resolution
         if max_generic_label_ratio is not None:
             thresholds["max_generic_label_ratio"] = max_generic_label_ratio
-        return validate_logicchart(
+        report = validate_logicchart(
             project_root,
             config=active_config,
             check_sync=check_sync,
             include_quality=include_quality,
             quality_thresholds=thresholds,
-        ).to_dict()
+        )
+        return _validation_payload(report.to_dict())
 
     @server.tool()
     def update_logicchart(full: bool = False) -> dict[str, Any]:
@@ -585,6 +586,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 str(markdown_path),
                 str(html_path) if html_path else "",
             ],
+            **_update_workflow_payload(json_path, markdown_path, html_path),
         }
 
     server.run(transport="stdio")
@@ -901,6 +903,85 @@ def _quality_attention_items(quality: dict[str, Any], token_budget: int) -> list
             )
 
     return _cap(items, token_budget)
+
+
+def _validation_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    next_tools: dict[str, dict[str, Any]] = {
+        "analysis_quality": {
+            "tool": "analysis_quality",
+            "arguments": {"token_budget": 600},
+        },
+        "review_queue": {
+            "tool": "review_queue",
+            "arguments": {"token_budget": 600},
+        },
+    }
+    if not payload.get("ok"):
+        next_tools = {
+            "update_model": {
+                "tool": "update_logicchart",
+                "arguments": {"full": True},
+            },
+            **next_tools,
+        }
+    return {
+        **payload,
+        "guardrail": (
+            "Artifact validation checks generated model freshness, schema, annotations, "
+            "and optional analyzer-quality thresholds; it does not confirm or dismiss "
+            "logical findings."
+        ),
+        "next_tools": next_tools,
+        "next_cli": _validation_next_cli(bool(payload.get("ok"))),
+    }
+
+
+def _validation_next_cli(ok: bool) -> list[str]:
+    if ok:
+        return [
+            "logicchart validate --quality --json",
+            "logicchart query <question>",
+            "logicchart explain <finding-id>",
+        ]
+    return [
+        "logicchart update",
+        "logicchart validate --check-sync --json",
+    ]
+
+
+def _update_workflow_payload(
+    json_path: Path,
+    markdown_path: Path,
+    html_path: Path | None,
+) -> dict[str, Any]:
+    return {
+        "guardrail": (
+            "The model has been regenerated from local source files. Validate sync and "
+            "quality before relying on MCP context or committing generated artifacts."
+        ),
+        "next_tools": {
+            "validate_artifacts": {
+                "tool": "validate_artifacts",
+                "arguments": {"check_sync": True, "include_quality": True},
+            },
+            "analysis_quality": {
+                "tool": "analysis_quality",
+                "arguments": {"token_budget": 600},
+            },
+            "review_queue": {
+                "tool": "review_queue",
+                "arguments": {"token_budget": 600},
+            },
+        },
+        "next_artifacts": {
+            "commit": [str(json_path), str(markdown_path)],
+            "local_html": str(html_path) if html_path else None,
+        },
+        "next_cli": [
+            "logicchart validate --check-sync --json",
+            "logicchart validate --quality",
+        ],
+    }
 
 
 def _list_dicts(value: Any) -> list[dict[str, Any]]:

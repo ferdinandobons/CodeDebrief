@@ -390,6 +390,10 @@ Current checkpoint:
   or malformed generated models.
 - MCP tests cover missing and malformed artifact behavior end-to-end through the stdio
   server.
+- MCP `validate_artifacts` and `update_logicchart` now return structured workflow hints for
+  stale-model recovery and the update -> validate -> review sequence.
+- MCP tests cover a source-change cycle where validation detects stale artifacts,
+  `update_logicchart` regenerates the model, and validation passes afterward.
 
 ## Finding 7: Language Support Needs Depth Metrics, Not Only a Count
 

@@ -346,6 +346,77 @@ def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> 
     asyncio.run(call_with_malformed_artifact())
 
 
+def test_mcp_update_validate_sequence_after_source_change(tmp_path: Path) -> None:
+    source = tmp_path / "app.py"
+    source.write_text(
+        "def primary(flag):\n    if flag:\n        return 'yes'\n    return 'no'\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    write_artifacts(tmp_path, result.model)
+    source.write_text(
+        "def primary(flag):\n"
+        "    if flag:\n"
+        "        return 'yes'\n"
+        "    return 'no'\n\n"
+        "def secondary(value):\n"
+        "    if value == 'open':\n"
+        "        return primary(True)\n"
+        "    return primary(False)\n",
+        encoding="utf-8",
+    )
+
+    async def exercise_update_validate() -> None:
+        parameters = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", "logicchart.cli", "mcp", str(tmp_path)],
+        )
+        async with stdio_client(parameters) as streams:
+            read_stream, write_stream = streams
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                stale = await session.call_tool("validate_artifacts", {"check_sync": True})
+                assert not stale.isError
+                stale_payload = stale.structuredContent  # type: ignore[assignment]
+                assert stale_payload["ok"] is False  # type: ignore[index]
+                assert "stale" in stale_payload["errors"][0]  # type: ignore[index]
+                assert (  # type: ignore[index]
+                    stale_payload["next_tools"]["update_model"]["tool"] == "update_logicchart"
+                )
+                assert "logicchart update" in stale_payload["next_cli"]  # type: ignore[index]
+
+                update = await session.call_tool("update_logicchart", {"full": True})
+                assert not update.isError
+                update_payload = update.structuredContent  # type: ignore[assignment]
+                assert "app.py" in update_payload["changed_files"]  # type: ignore[index]
+                assert update_payload["flows"] >= 2  # type: ignore[index]
+                assert (  # type: ignore[index]
+                    update_payload["next_tools"]["validate_artifacts"]["arguments"]
+                    == {"check_sync": True, "include_quality": True}
+                )
+                assert update_payload["next_artifacts"]["commit"][0].endswith(  # type: ignore[index]
+                    "logic-flow.json"
+                )
+
+                fresh = await session.call_tool(
+                    "validate_artifacts",
+                    {"check_sync": True, "include_quality": True},
+                )
+                assert not fresh.isError
+                fresh_payload = fresh.structuredContent  # type: ignore[assignment]
+                assert fresh_payload["ok"] is True  # type: ignore[index]
+                assert "quality" in fresh_payload
+                assert (  # type: ignore[index]
+                    fresh_payload["next_tools"]["analysis_quality"]["tool"] == "analysis_quality"
+                )
+
+                query = await session.call_tool("query_logic", {"question": "secondary"})
+                assert not query.isError
+                assert "secondary" in str(query.content)
+
+    asyncio.run(exercise_update_validate())
+
+
 def test_analysis_quality_report_bounds_language_attention() -> None:
     quality = {
         "files": {
