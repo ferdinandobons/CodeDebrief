@@ -93,14 +93,14 @@
     .shell {
       display: grid;
       grid-template-columns: var(--left-rail-width) minmax(0, 1fr) var(--right-rail-width);
-      grid-template-rows: 66px minmax(0, 1fr);
+      grid-template-rows: 56px minmax(0, 1fr);
       height: 100%;
     }
     header {
       grid-column: 1 / -1;
       display: flex;
       align-items: center;
-      gap: 18px;
+      gap: 16px;
       padding: 0 18px;
       background: var(--header);
       border-bottom: 1px solid var(--line);
@@ -110,8 +110,8 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 11px;
-      min-width: 220px;
+      gap: 9px;
+      min-width: 160px;
     }
     .brand-mark {
       flex: none;
@@ -120,29 +120,21 @@
     }
     /* Mini decision flow: entry node (circle) linked to a decision (diamond), in the
        same blue/amber the chart uses for those node kinds. */
-    .brand-mark svg { height: 30px; width: auto; display: block; overflow: visible; }
+    .brand-mark svg { height: 24px; width: auto; display: block; overflow: visible; }
     .logo-node { fill: var(--blue); }
     .logo-link { stroke: var(--violet); stroke-width: 3; stroke-linecap: round; }
     .logo-decision { fill: var(--amber); }
     .brand h1 {
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: 20px;
+      font-size: 15px;
+      font-weight: 800;
       letter-spacing: 0;
       margin: 0;
-    }
-    .brand small {
-      display: block;
-      color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 9px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
     }
     .flow-heading { min-width: 0; flex: 1; }
     .flow-heading .eyebrow {
       color: var(--blue);
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -152,21 +144,24 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 18px;
+      font-size: 17px;
     }
     .metrics { display: flex; gap: 8px; }
     .metric {
-      padding: 7px 10px;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      padding: 5px 9px;
       border: 1px solid var(--line);
       border-radius: var(--radius-sm);
-      background: var(--panel);
-      min-width: 66px;
+      background: color-mix(in srgb, var(--panel) 78%, transparent);
+      min-width: 0;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
     }
-    .metric strong { display: block; font-size: 15px; }
+    .metric strong { display: block; font-size: 14px; }
     .metric span {
       color: var(--muted);
-      font-size: 10px;
+      font-size: 9px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
@@ -216,20 +211,52 @@
       flex-direction: column;
       min-height: 0;
     }
-    .rail-head { padding: 20px; border-bottom: 1px solid var(--line); }
+    .rail-head { padding: 16px; border-bottom: 1px solid var(--line); }
+    .rail-head-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
     .rail-title {
-      margin: 0 0 12px;
+      margin: 0;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 11px;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--muted);
     }
+    .rail-toggle {
+      min-height: 28px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper);
+      color: var(--muted);
+      padding: 0 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .rail-toggle:hover,
+    .rail-toggle:focus-visible {
+      border-color: var(--line-strong);
+      color: var(--ink);
+      outline: none;
+    }
+    .rail-toggle[aria-pressed="true"] {
+      border-color: var(--amber);
+      background: color-mix(in srgb, var(--amber) 16%, transparent);
+      color: var(--amber);
+    }
     /* Language dropdown above the tree (shown only for polyglot repos). */
     .filter {
       width: 100%;
       min-width: 0;
-      margin-top: 4px;
+      margin-top: 8px;
       border: 1px solid var(--line);
       border-radius: var(--radius-sm);
       background: var(--paper);
@@ -238,6 +265,12 @@
       font-size: 12px;
       outline: none;
       cursor: pointer;
+    }
+    .codebase-head .filter:first-of-type { margin-top: 0; }
+    .compact-filter {
+      min-height: 32px;
+      padding-block: 5px;
+      color: var(--muted);
     }
     input.filter { cursor: text; }
     .filter:focus { border-color: var(--blue); }

@@ -33,6 +33,8 @@ def test_render_html_emits_shell(tmp_path: Path) -> None:
     assert "logicchart-data" in html
     # The main canvas the viewer draws into is wired up.
     assert 'id="canvas"' in html
+    # The header stays compact and avoids decorative product-tagline copy.
+    assert "Decision flow index" not in html
 
 
 def test_build_payload_has_flows(tmp_path: Path) -> None:
@@ -45,15 +47,18 @@ def test_render_html_emits_directory_tree(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
     # The directory tree container the left rail renders into is wired up.
     assert 'id="tree"' in html
-    # The language dropdown above the tree is present (hidden until >1 language).
+    # Codebase search, review triage, and language filter are wired above the tree.
+    assert 'id="reviewFilter"' in html
+    assert "Show only flows with review findings" in html
     assert 'id="langFilter"' in html
-    # Search-driven navigation is wired into the same tree surface.
     assert 'id="globalSearch"' in html
+    assert "Find path, symbol, finding" in html
     # tree.js is actually inlined into the page (a function unique to it). Asserting a
     # runtime-only DOM attribute like data-flow-id would pass vacuously just because the
     # script source mentions it, so we pin a structural marker instead.
     assert "refreshRovingTarget" in html
     assert "flowMatchesQuery" in html
+    assert "setupReviewFilter" in html
 
     # The embedded JSON payload carries a non-empty directory tree (file leaves with
     # flow ids), not just the literal key. Parse the data <script> and check it.

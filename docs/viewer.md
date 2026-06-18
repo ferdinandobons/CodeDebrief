@@ -73,6 +73,8 @@ The viewer layout should preserve these invariants:
   vertical bands instead of one unbounded horizontal strip.
 - Fit re-centers the current visible flowchart without closing expanded scopes, expanded
   flows, or manual block positions.
+- The codebase rail should stay operational: path/symbol/finding search, review-only
+  triage, and optional language filtering when the payload is polyglot.
 - Expanded flow detail charts reserve their visual band before later rows are placed.
 - Every visible flow node is reachable from the codebase root through root-scope,
   scope-entry, or flow-call edges.

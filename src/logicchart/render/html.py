@@ -71,25 +71,28 @@ _HTML_TEMPLATE = r"""<!doctype html>
             <polygon class="logo-decision" points="13,25 19.5,31 13,37 6.5,31"></polygon>
           </svg>
         </div>
-        <div><h1>LogicChart</h1><small>Decision flow index</small></div>
+        <div><h1>LogicChart</h1></div>
       </div>
       <div class="flow-heading">
         <div class="eyebrow" id="flowKind">No flow selected</div>
         <h2 id="flowTitle">Analyze a project to begin</h2>
       </div>
       <div class="metrics">
-        <div class="metric"><strong id="flowCount">0</strong><span>flows</span></div>
-        <div class="metric"><strong id="entryCount">0</strong><span>entries</span></div>
-        <div class="metric"><strong id="findingCount">0</strong><span>review</span></div>
+        <div class="metric"><strong id="flowCount">0</strong> <span>flows</span></div>
+        <div class="metric"><strong id="entryCount">0</strong> <span>entries</span></div>
+        <div class="metric"><strong id="findingCount">0</strong> <span>review</span></div>
       </div>
     </header>
 
     <aside class="left-rail" id="leftRail">
       <div class="rail-inner">
-        <div class="rail-head">
-          <h2 class="rail-title">Codebase</h2>
-          <input class="filter" id="globalSearch" type="search" placeholder="Search flows" aria-label="Search flows">
-          <select class="filter" id="langFilter" aria-label="Filter by language" style="display:none"></select>
+        <div class="rail-head codebase-head">
+          <div class="rail-head-row">
+            <h2 class="rail-title">Codebase</h2>
+            <button class="rail-toggle" id="reviewFilter" type="button" aria-pressed="false" title="Show only flows with review findings" aria-label="Show only flows with review findings" hidden>Review</button>
+          </div>
+          <input class="filter" id="globalSearch" type="search" placeholder="Find path, symbol, finding" aria-label="Find path, symbol, or finding">
+          <select class="filter compact-filter" id="langFilter" aria-label="Filter by language" style="display:none"></select>
         </div>
         <div class="tree" id="tree" role="tree" aria-label="Directory tree"></div>
         <div class="legend">

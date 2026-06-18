@@ -16,6 +16,7 @@
       const byId = LC.byId || new Map();
       const treeEl = document.getElementById("tree");
       const langFilterEl = document.getElementById("langFilter");
+      const reviewFilterEl = document.getElementById("reviewFilter");
       const searchEl = document.getElementById("globalSearch");
       if (!treeEl || !fullTree) return;
 
@@ -34,6 +35,7 @@
       });
       let activeLang = "";
       let activeQuery = "";
+      let reviewOnly = false;
 
       // Per-render lookup maps, rebuilt every time the tree is (re)rendered so a language
       // change cleanly replaces them.
@@ -147,7 +149,10 @@
       function flowsForFile(file) {
         const flows = (file.flow_ids || []).map(id => byId.get(id)).filter(Boolean);
         const byLanguage = activeLang ? flows.filter(f => f.language === activeLang) : flows;
-        const visible = activeQuery ? byLanguage.filter(flowMatchesQuery) : byLanguage;
+        const byReview = reviewOnly
+          ? byLanguage.filter(flow => findingsByFlow.has(flow.id))
+          : byLanguage;
+        const visible = activeQuery ? byReview.filter(flowMatchesQuery) : byReview;
         return sortFlows(visible);
       }
 
@@ -578,6 +583,23 @@
         });
       }
 
+      function setupReviewFilter() {
+        if (!reviewFilterEl) return;
+        if (!findings.length) {
+          reviewFilterEl.hidden = true;
+          return;
+        }
+        const flowCount = new Set(findings.map(finding => finding.flow_id).filter(Boolean)).size;
+        reviewFilterEl.hidden = false;
+        reviewFilterEl.textContent = `Review ${flowCount}`;
+        reviewFilterEl.addEventListener("click", () => {
+          reviewOnly = !reviewOnly;
+          reviewFilterEl.setAttribute("aria-pressed", String(reviewOnly));
+          render();
+          clearCanvasSelectionForLanguageFilter();
+        });
+      }
+
       function setupSearch() {
         if (!searchEl) return;
         searchEl.addEventListener("input", () => {
@@ -589,6 +611,7 @@
 
       setupSearch();
       setupLanguageFilter();
+      setupReviewFilter();
       render();
 
       LC.onFlowSelected = function (flow) {
