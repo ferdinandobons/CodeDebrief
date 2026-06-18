@@ -66,6 +66,8 @@ The project follows Semantic Versioning.
   connected before the flow continues.
 - Added Python loop-body flow modeling, so decisions and calls inside `for`, `async for`,
   `while`, and loop `else` blocks stay visible before post-loop flow continues.
+- Added TypeScript/JavaScript and profile-driven tree-sitter loop-body flow modeling, so
+  frontend and polyglot backend loop bodies expose internal decisions and calls.
 - Added header-clickable collapsible Details rail sections for Project Quality, Source,
   and Logical Errors.
 

@@ -163,16 +163,16 @@ LogicChart currently extracts control flow for **11 language ids**:
 | Language | Coverage |
 |---|---|
 | Python (`.py`) | full AST analyzer, including loop-body flow plus `try`/`except` and success-path `try`/`else` flow |
-| TypeScript / TSX (`.ts`, `.tsx`) | tree-sitter analyzer with Next.js and React entry-point detection, including expression-bodied arrow decisions |
-| JavaScript / JSX (`.js`, `.jsx`, `.mjs`, `.cjs`) | tree-sitter analyzer, labeled separately from TypeScript, including expression-bodied arrow decisions |
-| Go (`.go`) | profile-driven tree-sitter analyzer |
-| Java (`.java`) | profile-driven tree-sitter analyzer, including Spring route annotations |
-| C# (`.cs`) | profile-driven tree-sitter analyzer |
-| PHP (`.php`) | profile-driven tree-sitter analyzer |
-| C (`.c`, `.h`) | profile-driven tree-sitter analyzer |
-| C++ (`.cc`, `.cpp`, `.cxx`, `.hh`, `.hpp`, `.hxx`, `.ipp`, `.tpp`) | profile-driven tree-sitter analyzer |
-| Rust (`.rs`) | profile-driven tree-sitter analyzer; Rust `match` is treated as compiler-exhaustive |
-| Ruby (`.rb`) | profile-driven tree-sitter analyzer |
+| TypeScript / TSX (`.ts`, `.tsx`) | tree-sitter analyzer with Next.js and React entry-point detection, loop-body flow, and expression-bodied arrow decisions |
+| JavaScript / JSX (`.js`, `.jsx`, `.mjs`, `.cjs`) | tree-sitter analyzer, labeled separately from TypeScript, with loop-body flow and expression-bodied arrow decisions |
+| Go (`.go`) | profile-driven tree-sitter analyzer with loop-body flow |
+| Java (`.java`) | profile-driven tree-sitter analyzer with loop-body flow, including Spring route annotations |
+| C# (`.cs`) | profile-driven tree-sitter analyzer with loop-body flow |
+| PHP (`.php`) | profile-driven tree-sitter analyzer with loop-body flow |
+| C (`.c`, `.h`) | profile-driven tree-sitter analyzer with loop-body flow |
+| C++ (`.cc`, `.cpp`, `.cxx`, `.hh`, `.hpp`, `.hxx`, `.ipp`, `.tpp`) | profile-driven tree-sitter analyzer with loop-body flow |
+| Rust (`.rs`) | profile-driven tree-sitter analyzer with loop-body flow; Rust `match` is treated as compiler-exhaustive |
+| Ruby (`.rb`) | profile-driven tree-sitter analyzer with loop-body flow |
 
 Framework-aware entry points include:
 

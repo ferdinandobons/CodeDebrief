@@ -262,15 +262,9 @@ class TreeSitterAnalyzer:
                     statement, endpoints, builder, findings, source, relative
                 )
             elif node_type in profile.loop_types:
-                node = builder.add_node(
-                    NodeKind.ACTION,
-                    _loop_label(statement, source),
-                    _location(relative, statement),
-                    endpoints,
-                    detail=_text(statement, source),
-                    evidence=Evidence.INFERRED,
+                endpoints = self._walk_loop(
+                    statement, endpoints, builder, findings, source, relative
                 )
-                endpoints = [PendingEdge(node.id)]
             elif node_type == profile.return_type:
                 endpoints = self._walk_return(statement, endpoints, builder, source, relative)
             elif node_type in profile.throw_types:
@@ -281,6 +275,26 @@ class TreeSitterAnalyzer:
                     _location(relative, statement),
                     endpoints,
                     detail=_text(statement, source),
+                )
+                endpoints = []
+            elif node_type in profile.break_types:
+                node = builder.add_node(
+                    NodeKind.ACTION,
+                    "Break loop",
+                    _location(relative, statement),
+                    endpoints,
+                    detail=_text(statement, source),
+                    metadata={"loop_control": "break"},
+                )
+                endpoints = [PendingEdge(node.id)]
+            elif node_type in profile.continue_types:
+                builder.add_node(
+                    NodeKind.ACTION,
+                    "Continue loop",
+                    _location(relative, statement),
+                    endpoints,
+                    detail=_text(statement, source),
+                    metadata={"loop_control": "continue"},
                 )
                 endpoints = []
             elif node_type in profile.function_types or node_type in profile.nested_def_types:
@@ -327,6 +341,40 @@ class TreeSitterAnalyzer:
             detail=_text(statement, source),
         )
         return []
+
+    def _walk_loop(
+        self,
+        statement: Any,
+        incoming: list[PendingEdge],
+        builder: FlowBuilder,
+        findings: list[Finding],
+        source: bytes,
+        relative: str,
+    ) -> list[PendingEdge]:
+        body = self._loop_body(statement)
+        body_statements = self._statement_children(body)
+        node = builder.add_node(
+            NodeKind.ACTION,
+            _loop_label(statement, source),
+            _location(relative, statement),
+            incoming,
+            detail=_text(statement, source),
+            evidence=Evidence.INFERRED,
+            metadata={
+                "loop": True,
+                "body_outcome": self._branch_outcome(body_statements),
+                "has_else": False,
+            },
+        )
+        body_endpoints = self._walk_statements(
+            body_statements,
+            [PendingEdge(node.id, "Iteration")],
+            builder,
+            findings,
+            source,
+            relative,
+        )
+        return [PendingEdge(node.id, "Done"), *body_endpoints]
 
     def _walk_if(
         self,
@@ -689,6 +737,18 @@ class TreeSitterAnalyzer:
         if blocks:
             return list(_named_children(blocks[-1]))
         return [node]
+
+    def _loop_body(self, statement: Any) -> Any | None:
+        body = statement.child_by_field_name("body")
+        if body is not None:
+            return body
+        blocks = [
+            child for child in _named_children(statement) if child.type in self.profile.block_types
+        ]
+        if blocks:
+            return blocks[-1]
+        named = list(_named_children(statement))
+        return named[-1] if named else None
 
 
 def _named_children(node: Any | None) -> Iterable[Any]:

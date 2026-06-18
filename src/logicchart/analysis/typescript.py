@@ -216,15 +216,9 @@ class TypeScriptAnalyzer:
                     statement, endpoints, builder, findings, source, relative
                 )
             elif node_type in LOOP_TYPES:
-                node = builder.add_node(
-                    NodeKind.ACTION,
-                    _loop_label(statement, source),
-                    _location(relative, statement),
-                    endpoints,
-                    detail=_text(statement, source),
-                    evidence=Evidence.INFERRED,
+                endpoints = self._walk_loop(
+                    statement, endpoints, builder, findings, source, relative
                 )
-                endpoints = [PendingEdge(node.id)]
             elif node_type == "return_statement":
                 value = _text(statement, source).removeprefix("return").rstrip(";").strip()
                 calls = [
@@ -261,6 +255,26 @@ class TypeScriptAnalyzer:
                     detail=_text(statement, source),
                 )
                 endpoints = []
+            elif node_type == "break_statement":
+                node = builder.add_node(
+                    NodeKind.ACTION,
+                    "Break loop",
+                    _location(relative, statement),
+                    endpoints,
+                    detail=_text(statement, source),
+                    metadata={"loop_control": "break"},
+                )
+                endpoints = [PendingEdge(node.id)]
+            elif node_type == "continue_statement":
+                builder.add_node(
+                    NodeKind.ACTION,
+                    "Continue loop",
+                    _location(relative, statement),
+                    endpoints,
+                    detail=_text(statement, source),
+                    metadata={"loop_control": "continue"},
+                )
+                endpoints = []
             elif node_type in {"function_declaration", "class_declaration"}:
                 continue
             else:
@@ -275,6 +289,39 @@ class TypeScriptAnalyzer:
                 )
                 endpoints = [PendingEdge(node.id)]
         return endpoints
+
+    def _walk_loop(
+        self,
+        statement: Any,
+        incoming: list[PendingEdge],
+        builder: FlowBuilder,
+        findings: list[Finding],
+        source: bytes,
+        relative: str,
+    ) -> list[PendingEdge]:
+        body = _loop_body(statement)
+        node = builder.add_node(
+            NodeKind.ACTION,
+            _loop_label(statement, source),
+            _location(relative, statement),
+            incoming,
+            detail=_text(statement, source),
+            evidence=Evidence.INFERRED,
+            metadata={
+                "loop": True,
+                "body_outcome": _branch_outcome(_statement_children(body)),
+                "has_else": False,
+            },
+        )
+        body_endpoints = self._walk_statements(
+            _statement_children(body),
+            [PendingEdge(node.id, "Iteration")],
+            builder,
+            findings,
+            source,
+            relative,
+        )
+        return [PendingEdge(node.id, "Done"), *body_endpoints]
 
     def _walk_expression_body(
         self,
@@ -701,6 +748,17 @@ def _statement_children(node: Any | None) -> list[Any]:
         children = list(_named_children(node))
         return _statement_children(children[-1]) if children else []
     return [node]
+
+
+def _loop_body(statement: Any) -> Any | None:
+    body = statement.child_by_field_name("body")
+    if body is not None:
+        return body
+    blocks = [child for child in _named_children(statement) if child.type == "statement_block"]
+    if blocks:
+        return blocks[-1]
+    named = list(_named_children(statement))
+    return named[-1] if named else None
 
 
 def _named_children(node: Any | None) -> Iterable[Any]:

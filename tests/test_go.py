@@ -52,6 +52,21 @@ def _flow(model: ProjectModel, name: str):
     return next(f for f in model.flows if f.name == name)
 
 
+def _reaches(flow, start_id: str) -> set[str]:
+    out: dict[str, list[str]] = {}
+    for edge in flow.edges:
+        out.setdefault(edge.source, []).append(edge.target)
+    seen: set[str] = set()
+    stack = [start_id]
+    while stack:
+        cur = stack.pop()
+        for nxt in out.get(cur, ()):
+            if nxt not in seen:
+                seen.add(nxt)
+                stack.append(nxt)
+    return seen
+
+
 def test_go_flows_and_classification(tmp_path: Path) -> None:
     model = _analyze(tmp_path)
     by_name = {f.name: f for f in model.flows}
@@ -91,6 +106,39 @@ def test_go_same_package_call_resolves(tmp_path: Path) -> None:
     assert call.metadata["link_confidence"] == "high"
     assert call.metadata["target_flow"] == persist.id
     assert persist.id in handle.calls
+
+
+def test_go_loop_body_is_modeled_before_post_loop(tmp_path: Path) -> None:
+    fetch = _flow(_analyze(tmp_path), "Repo.Fetch")
+    labels = [node.label for node in fetch.nodes]
+
+    assert any(label.startswith("Repeat: for ") for label in labels)
+    assert "Call query()" in labels
+    assert "err != nil" in labels
+    assert "Return data, nil" in labels
+    assert 'Return "", nil' in labels
+
+    loop = next(node for node in fetch.nodes if node.label.startswith("Repeat: for "))
+    by_label = {node.label: node.id for node in fetch.nodes}
+    assert any(
+        edge.source == loop.id
+        and edge.target == by_label["Call query()"]
+        and edge.label == "Iteration"
+        for edge in fetch.edges
+    )
+    assert any(
+        edge.source == loop.id
+        and edge.target == by_label['Return "", nil']
+        and edge.label == "Done"
+        for edge in fetch.edges
+    )
+    iteration_target = next(
+        edge.target for edge in fetch.edges if edge.source == loop.id and edge.label == "Iteration"
+    )
+    reached = _reaches(fetch, iteration_target) | {iteration_target}
+    assert by_label["err != nil"] in reached
+    assert by_label["Return data, nil"] in reached
+    assert by_label['Return "", nil'] not in reached
 
 
 def test_go_multi_value_case_splits_into_individual_values(tmp_path: Path) -> None:
