@@ -598,32 +598,102 @@ function placeProgressiveSections(
   seed: ProgressiveSectionSeed;
 }> {
   const scopeByName = new Map(scopeNodes.map(scope => [scope.scope, scope]));
-  const sorted = [...seeds].sort((a, b) => {
-    const ax = scopeByName.get(a.scope)?.x ?? 0;
-    const bx = scopeByName.get(b.scope)?.x ?? 0;
-    return ax - bx || a.scope.localeCompare(b.scope);
-  });
   const gapX = Math.max(180, options.gapX * 2);
-  let cursorRight = Number.NEGATIVE_INFINITY;
-  return sorted.map(seed => {
-    const bounds = seed.layout.bounds;
-    const sectionWidth = Math.max(
-      options.flowWidth,
-      bounds.maxX - bounds.minX,
-    ) + options.decisionPad * 2;
-    const localCenter = (bounds.minX + bounds.maxX) / 2;
-    const desiredCenter = scopeByName.get(seed.scope)?.x ?? localCenter;
-    const center =
-      cursorRight === Number.NEGATIVE_INFINITY
-        ? desiredCenter
-        : Math.max(desiredCenter, cursorRight + gapX + sectionWidth / 2);
-    cursorRight = center + sectionWidth / 2;
-    return {
-      offsetX: center - localCenter,
-      offsetY: topY - bounds.minY,
-      seed,
-    };
+  const rowGapY = Math.max(220, options.layerGap * 0.7);
+  const rows = progressiveSectionRows(seeds, scopeByName);
+  const placements: Array<{
+    offsetX: number;
+    offsetY: number;
+    seed: ProgressiveSectionSeed;
+  }> = [];
+  let cursorTop = topY;
+
+  rows.forEach(row => {
+    const rowTop = Math.max(
+      cursorTop,
+      topY,
+      ...row.map(seed => {
+        const scopeNode = scopeByName.get(seed.scope);
+        return scopeNode ? scopeNode.y + scopeNode.height / 2 + 150 : topY;
+      }),
+    );
+    let cursorRight = Number.NEGATIVE_INFINITY;
+    let rowBottom = rowTop;
+
+    row.forEach(seed => {
+      const { bounds, localCenterX, sectionHeight, sectionWidth } =
+        progressiveSectionGeometry(seed, options);
+      const desiredCenter = scopeByName.get(seed.scope)?.x ?? localCenterX;
+      const center =
+        cursorRight === Number.NEGATIVE_INFINITY
+          ? desiredCenter
+          : Math.max(desiredCenter, cursorRight + gapX + sectionWidth / 2);
+      cursorRight = center + sectionWidth / 2;
+      rowBottom = Math.max(rowBottom, rowTop + sectionHeight);
+      placements.push({
+        offsetX: center - localCenterX,
+        offsetY: rowTop - bounds.minY,
+        seed,
+      });
+    });
+
+    cursorTop = rowBottom + rowGapY;
   });
+
+  return placements;
+}
+
+function progressiveSectionRows(
+  seeds: readonly ProgressiveSectionSeed[],
+  scopeByName: ReadonlyMap<string, ScopeLayoutPosition>,
+): ProgressiveSectionSeed[][] {
+  const sorted = [...seeds].sort((a, b) => {
+    const scopeA = scopeByName.get(a.scope);
+    const scopeB = scopeByName.get(b.scope);
+    const ay = scopeA?.y ?? 0;
+    const by = scopeB?.y ?? 0;
+    const ax = scopeA?.x ?? 0;
+    const bx = scopeB?.x ?? 0;
+    return ay - by || ax - bx || a.scope.localeCompare(b.scope);
+  });
+  const rows: ProgressiveSectionSeed[][] = [];
+  sorted.forEach(seed => {
+    const scope = scopeByName.get(seed.scope);
+    const y = scope?.y ?? 0;
+    const existing = rows.find(row => {
+      const rowScope = scopeByName.get(row[0]?.scope);
+      return Math.abs((rowScope?.y ?? 0) - y) < 1;
+    });
+    if (existing) {
+      existing.push(seed);
+      existing.sort((a, b) => {
+        const ax = scopeByName.get(a.scope)?.x ?? 0;
+        const bx = scopeByName.get(b.scope)?.x ?? 0;
+        return ax - bx || a.scope.localeCompare(b.scope);
+      });
+      return;
+    }
+    rows.push([seed]);
+  });
+  return rows;
+}
+
+function progressiveSectionGeometry(
+  seed: ProgressiveSectionSeed,
+  options: ProgressiveLayoutOptions,
+): {
+  bounds: Bounds;
+  localCenterX: number;
+  sectionHeight: number;
+  sectionWidth: number;
+} {
+  const bounds = seed.layout.bounds;
+  return {
+    bounds,
+    localCenterX: (bounds.minX + bounds.maxX) / 2,
+    sectionHeight: Math.max(options.flowHeight, bounds.maxY - bounds.minY) + options.decisionPad * 2,
+    sectionWidth: Math.max(options.flowWidth, bounds.maxX - bounds.minX) + options.decisionPad * 2,
+  };
 }
 
 function layoutRootNode(

@@ -551,6 +551,48 @@ describe("viewer layout composition", () => {
     expect(layout.viewBox.maxX - layout.viewBox.minX).toBeLessThan(3000);
   });
 
+  it("packs expanded scope sections by root-map rows instead of one unbounded strip", () => {
+    const scopeNames = Array.from({ length: 9 }, (_, index) =>
+      `scope-${String(index).padStart(2, "0")}`,
+    );
+    const multiRowPayload: LogicChartPayload = {
+      flows: scopeNames.map(scope => ({
+        id: `${scope}-entry`,
+        name: `${scope} entry`,
+        language: "typescript",
+        entry_kind: "route",
+        is_entrypoint: true,
+        location: {
+          path: `${scope}/entry.ts`,
+          start_line: 1,
+        },
+        calls: [],
+        called_by: [],
+        metadata: { scope: [scope] },
+      })),
+    };
+    const layout = createViewerLayout({
+      expandedScopes: scopeNames,
+      payload: multiRowPayload,
+      scope: "scope-00",
+    });
+    const flowYByScope = new Map(
+      scopeNames.map(scope => [scope, layout.flowPositions.get(`${scope}-entry`)?.y ?? 0]),
+    );
+    const firstScopeRowY = layout.scopeNodes.find(node => node.scope === "scope-00")?.y;
+    const secondScopeRowY = layout.scopeNodes.find(node => node.scope === "scope-04")?.y;
+    const thirdScopeRowY = layout.scopeNodes.find(node => node.scope === "scope-08")?.y;
+
+    expect(firstScopeRowY).toBeLessThan(secondScopeRowY ?? 0);
+    expect(secondScopeRowY).toBeLessThan(thirdScopeRowY ?? 0);
+    expect(flowYByScope.get("scope-04")).toBeGreaterThan((flowYByScope.get("scope-00") ?? 0) + 260);
+    expect(flowYByScope.get("scope-08")).toBeGreaterThan((flowYByScope.get("scope-04") ?? 0) + 260);
+    expect(overlappingLayoutBoxes(viewerLayoutBoxes(layout), 20)).toEqual([]);
+    expect(viewerLayoutEdgeObstacleHits(layout, 12)).toEqual([]);
+    expect(viewerLayoutStructureIssues(layout)).toEqual([]);
+    expect(layout.viewBox.maxX - layout.viewBox.minX).toBeLessThan(3600);
+  });
+
   it("keeps dense multi-scope expanded codebase flows connected and collision-free", () => {
     const densePayload = denseCodebasePayload();
     const denseScopes = ["api-gateway", "mobile-app", "shared_kernel"];
