@@ -461,14 +461,15 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
   const namespace = "http://www.w3.org/2000/svg";
   container.querySelectorAll(":scope > .logicchart-overview").forEach(node => node.remove());
 
-  const overview = document.createElement("button");
+  const overview = document.createElement("div");
   overview.className = "logicchart-overview";
-  overview.type = "button";
-  overview.title = "Click to center the canvas; double-click to fit all";
+  overview.tabIndex = 0;
+  overview.title = "Scroll to pan the canvas; double-click to fit all";
   overview.setAttribute(
     "aria-label",
-    "Canvas overview. Click to center the viewport; double-click to fit all",
+    "Canvas overview. Scroll to pan the viewport; double-click to fit all",
   );
+  overview.setAttribute("role", "region");
 
   const overviewSvg = document.createElementNS(namespace, "svg");
   overviewSvg.classList.add("logicchart-overview-map");
@@ -494,6 +495,7 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
       return;
     }
     overview.hidden = false;
+    syncCanvasLevelOfDetail(svg, viewBox, contentBounds);
     overviewSvg.setAttribute(
       "viewBox",
       `${contentBounds.x} ${contentBounds.y} ${contentBounds.width} ${contentBounds.height}`,
@@ -507,25 +509,44 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
     sync();
   };
 
-  const centerOverview = (event: MouseEvent) => {
+  const panOverview = (event: WheelEvent) => {
     if (!contentBounds) return;
-    if (event.clientX === 0 && event.clientY === 0) {
-      writeViewBox(svg, contentBounds);
-      return;
-    }
     const current = readViewBox(svg);
-    const target = current
-      ? clientPointToOverviewPoint(overviewSvg, contentBounds, event.clientX, event.clientY)
-      : null;
-    if (!current || !target) {
-      writeViewBox(svg, contentBounds);
-      return;
-    }
-    writeViewBox(svg, {
-      ...current,
-      x: target.x - current.width / 2,
-      y: target.y - current.height / 2,
-    });
+    const scale = overviewMapScale(overviewSvg, contentBounds);
+    if (!current || !scale) return;
+    const deltaX = event.deltaX || (event.shiftKey ? event.deltaY : 0);
+    const deltaY = event.shiftKey ? 0 : event.deltaY;
+    writeViewBox(
+      svg,
+      constrainViewBoxToBounds(
+        {
+          ...current,
+          x: current.x + deltaX / scale,
+          y: current.y + deltaY / scale,
+        },
+        contentBounds,
+      ),
+    );
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const panOverviewWithKeyboard = (event: KeyboardEvent) => {
+    if (!contentBounds) return;
+    const current = readViewBox(svg);
+    if (!current) return;
+    const stepX = current.width * (event.shiftKey ? 0.32 : 0.14);
+    const stepY = current.height * (event.shiftKey ? 0.32 : 0.14);
+    let next: ViewBox | null = null;
+    if (event.key === "ArrowLeft") next = { ...current, x: current.x - stepX };
+    if (event.key === "ArrowRight") next = { ...current, x: current.x + stepX };
+    if (event.key === "ArrowUp") next = { ...current, y: current.y - stepY };
+    if (event.key === "ArrowDown") next = { ...current, y: current.y + stepY };
+    if (event.key === "Home") next = contentBounds;
+    if (!next) return;
+    writeViewBox(svg, constrainViewBoxToBounds(next, contentBounds));
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   const fitOverview = (event?: MouseEvent) => {
@@ -534,14 +555,16 @@ function bindCanvasOverview(container: Element, svg: SVGSVGElement): OverviewBin
   };
 
   svg.addEventListener("logicchart:viewboxchange", sync);
-  overview.addEventListener("click", centerOverview);
+  overview.addEventListener("wheel", panOverview, { passive: false });
+  overview.addEventListener("keydown", panOverviewWithKeyboard);
   overview.addEventListener("dblclick", fitOverview);
   refresh();
 
   return {
     cleanup() {
       svg.removeEventListener("logicchart:viewboxchange", sync);
-      overview.removeEventListener("click", centerOverview);
+      overview.removeEventListener("wheel", panOverview);
+      overview.removeEventListener("keydown", panOverviewWithKeyboard);
       overview.removeEventListener("dblclick", fitOverview);
       overview.remove();
     },
@@ -556,12 +579,38 @@ function setRectAttributes(rect: SVGRectElement, box: ViewBox) {
   rect.setAttribute("height", String(box.height));
 }
 
-function clientPointToOverviewPoint(
+function constrainViewBoxToBounds(viewBox: ViewBox, bounds: ViewBox): ViewBox {
+  const maxX = bounds.x + bounds.width - viewBox.width;
+  const maxY = bounds.y + bounds.height - viewBox.height;
+  return {
+    ...viewBox,
+    x:
+      viewBox.width >= bounds.width
+        ? bounds.x + (bounds.width - viewBox.width) / 2
+        : clamp(viewBox.x, bounds.x, maxX),
+    y:
+      viewBox.height >= bounds.height
+        ? bounds.y + (bounds.height - viewBox.height) / 2
+        : clamp(viewBox.y, bounds.y, maxY),
+  };
+}
+
+function syncCanvasLevelOfDetail(
+  svg: SVGSVGElement,
+  viewBox: ViewBox,
+  contentBounds: ViewBox,
+) {
+  const widthRatio = viewBox.width / Math.max(1, contentBounds.width);
+  const heightRatio = viewBox.height / Math.max(1, contentBounds.height);
+  const coverage = Math.max(widthRatio, heightRatio);
+  const lod = coverage >= 0.72 ? "overview" : coverage <= 0.34 ? "detail" : "normal";
+  svg.setAttribute("data-lod", lod);
+}
+
+function overviewMapScale(
   overviewSvg: SVGSVGElement,
   contentBounds: ViewBox,
-  clientX: number,
-  clientY: number,
-): { x: number; y: number } | null {
+): number | null {
   const rect = overviewSvg.getBoundingClientRect();
   if (!rect.width || !rect.height) return null;
   const scale = Math.min(
@@ -569,16 +618,7 @@ function clientPointToOverviewPoint(
     rect.height / Math.max(1, contentBounds.height),
   );
   if (!Number.isFinite(scale) || scale <= 0) return null;
-  const renderedWidth = contentBounds.width * scale;
-  const renderedHeight = contentBounds.height * scale;
-  const offsetX = rect.left + (rect.width - renderedWidth) / 2;
-  const offsetY = rect.top + (rect.height - renderedHeight) / 2;
-  const ratioX = clamp((clientX - offsetX) / Math.max(1, renderedWidth), 0, 1);
-  const ratioY = clamp((clientY - offsetY) / Math.max(1, renderedHeight), 0, 1);
-  return {
-    x: contentBounds.x + ratioX * contentBounds.width,
-    y: contentBounds.y + ratioY * contentBounds.height,
-  };
+  return scale;
 }
 
 function clamp(value: number, min: number, max: number): number {

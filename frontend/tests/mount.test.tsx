@@ -235,14 +235,14 @@ describe("mountLogicChartViewer", () => {
     });
 
     const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
-    const overview = container.querySelector<HTMLButtonElement>(".logicchart-overview");
+    const overview = container.querySelector<HTMLElement>(".logicchart-overview");
     const overviewMap = container.querySelector<SVGSVGElement>(".logicchart-overview-map");
     const content = container.querySelector<SVGRectElement>(".logicchart-overview-content");
     const viewport = container.querySelector<SVGRectElement>(".logicchart-overview-viewport");
     if (!svg || !overview || !overviewMap || !content || !viewport) {
       throw new Error("expected viewer overview");
     }
-    expect(overview.getAttribute("aria-label")).toContain("Click to center the viewport");
+    expect(overview.getAttribute("aria-label")).toContain("Scroll to pan the viewport");
     expect(container.querySelector(".logicchart-viewer-frame")).not.toBeNull();
     expect(container.querySelector(".logicchart-overview-node")).toBeNull();
     expect(content.getAttribute("width")).toBe("600");
@@ -252,10 +252,18 @@ describe("mountLogicChartViewer", () => {
       value: () => domRect({ height: 96, width: 150 }),
     });
 
+    await act(async () => {
+      overview.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    });
+    expect(svg.getAttribute("viewBox")).toBe("-10 30 600 440");
+    expect(svg.getAttribute("data-lod")).toBe("overview");
     const initialViewportWidth = viewport.getAttribute("width");
     mounted.zoom(0.5);
     expect(viewport.getAttribute("width")).not.toBe(initialViewportWidth);
-    const [, , zoomWidth, zoomHeight] = parseViewBox(svg);
+    expect(svg.getAttribute("data-lod")).toBe("normal");
+    mounted.zoom(0.5);
+    expect(svg.getAttribute("data-lod")).toBe("detail");
+    const zoomedViewBox = parseViewBox(svg);
 
     await act(async () => {
       overview.dispatchEvent(
@@ -266,16 +274,29 @@ describe("mountLogicChartViewer", () => {
         }),
       );
     });
-    const [centeredX, centeredY, centeredWidth, centeredHeight] = parseViewBox(svg);
-    expect(centeredWidth).toBeCloseTo(zoomWidth);
-    expect(centeredHeight).toBeCloseTo(zoomHeight);
-    expect(centeredX).toBeCloseTo(590 - zoomWidth / 2);
-    expect(centeredY).toBeCloseTo(470 - zoomHeight / 2);
+    expect(parseViewBox(svg)).toEqual(zoomedViewBox);
+
+    const scrollEvent = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaX: 22,
+      deltaY: 22,
+    });
+    await act(async () => {
+      overview.dispatchEvent(scrollEvent);
+    });
+    const scrolledViewBox = parseViewBox(svg);
+    expect(scrolledViewBox[0]).toBeGreaterThan(zoomedViewBox[0]);
+    expect(scrolledViewBox[1]).toBeGreaterThan(zoomedViewBox[1]);
+    expect(scrolledViewBox[2]).toBeCloseTo(zoomedViewBox[2]);
+    expect(scrolledViewBox[3]).toBeCloseTo(zoomedViewBox[3]);
+    expect(scrollEvent.defaultPrevented).toBe(true);
 
     await act(async () => {
-      overview.click();
+      overview.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     });
     expect(svg.getAttribute("viewBox")).toBe("-10 30 600 440");
+    expect(svg.getAttribute("data-lod")).toBe("overview");
 
     await act(async () => {
       mounted.unmount();

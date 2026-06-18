@@ -483,7 +483,7 @@
         linear-gradient(180deg, rgba(17, 20, 28, .82), rgba(8, 10, 15, .78)),
         var(--panel);
       box-shadow: 0 14px 28px rgba(0, 0, 0, .22);
-      cursor: pointer;
+      cursor: all-scroll;
       opacity: .86;
       overflow: hidden;
     }
@@ -811,6 +811,21 @@
       font-weight: 600;
       letter-spacing: .03em;
       text-transform: uppercase;
+    }
+    .typed-viewer-host .logicchart-viewer[data-lod="overview"] .node .meta,
+    .typed-viewer-host .logicchart-viewer[data-lod="overview"] .detail-kind,
+    .typed-viewer-host .logicchart-viewer[data-lod="overview"] .detail-meta,
+    .typed-viewer-host .logicchart-viewer[data-lod="overview"] .flow-detail-label {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .typed-viewer-host .logicchart-viewer[data-lod="overview"] .flow-detail-edge:not(.selected-link):not(.incident),
+    .typed-viewer-host .logicchart-viewer[data-lod="overview"] .flow-call-link:not(.selected-link):not(.incident) {
+      opacity: .48;
+    }
+    .typed-viewer-host .logicchart-viewer[data-lod="overview"] .node text:not(.meta),
+    .typed-viewer-host .logicchart-viewer[data-lod="overview"] .detail-label {
+      opacity: .82;
     }
     .empty {
       position: absolute;
