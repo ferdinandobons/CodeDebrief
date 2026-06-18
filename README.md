@@ -293,9 +293,10 @@ Impact snapshot JSON includes the same target, unresolved-target, impact-reason,
 subgraph fields as `impact --json`, so agents can detect mistyped targets without parsing
 the SVG. Snapshot JSON also includes deterministic layout metadata: canvas size, node or
 column dimensions, rendered positions, compact/omission flags, and rendered/omitted edge
-or flow counts. Invalid snapshot targets and unsupported formats return structured,
-recoverable error payloads in JSON mode. Only SVG is supported by the CLI today; raster
-export remains available in the local viewer.
+or flow counts. A `layout_quality` summary classifies the rendered snapshot as complete or
+compact and repeats the key omission counts with a guardrail for agents. Invalid snapshot
+targets and unsupported formats return structured, recoverable error payloads in JSON mode.
+Only SVG is supported by the CLI today; raster export remains available in the local viewer.
 
 ### `impact`
 
@@ -511,10 +512,10 @@ with evidence tier, confidence, review prompt, and evidence-chain summaries. MCP
 analysis and `context_pack` include per-flow `reasons` alongside a top-level
 `impact_reasons` map so agents can explain direct and transitive impact without
 reconstructing the traversal. Snapshot payloads carry deterministic layout metadata along
-with target, unresolved-target, impact-reason, and subgraph fields, so agents can reason
-about compacted or omitted visual context without parsing SVG geometry. `context_pack`
-accepts the same explicit `flow_ids`, `symbols`, `finding_ids`, and `dependency_paths`
-impact targets as `analyze_impact`.
+with target, unresolved-target, impact-reason, and subgraph fields, plus `layout_quality`
+summaries for complete versus compact renderings, so agents can reason about omitted visual
+context without parsing SVG geometry. `context_pack` accepts the same explicit `flow_ids`,
+`symbols`, `finding_ids`, and `dependency_paths` impact targets as `analyze_impact`.
 It also includes bounded flow-navigation packs for relevant flows, so agents can inspect
 callers, callees, decisions, findings, annotations, and follow-up tools before deciding
 whether to request a complete flow or visual snapshot.

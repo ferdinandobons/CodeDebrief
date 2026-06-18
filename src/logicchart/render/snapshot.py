@@ -72,6 +72,7 @@ def render_flow_snapshot(
         "rendered_node_count": len(rendered_nodes),
         "omitted_node_count": max(0, len(flow.nodes) - len(rendered_nodes)),
         "layout": _flow_layout_payload(flow, rendered_nodes, layout),
+        "layout_quality": _flow_layout_quality(flow, rendered_nodes, layout),
     }
 
 
@@ -120,6 +121,7 @@ def render_finding_snapshot(
         "diagnostic_category": diagnostic.get("category"),
         "evidence_item_count": len(diagnostic.get("evidence_chain", [])),
         "layout": _flow_layout_payload(flow, rendered_nodes, layout),
+        "layout_quality": _flow_layout_quality(flow, rendered_nodes, layout),
     }
 
 
@@ -239,6 +241,13 @@ def render_impact_snapshot(
             rendered_transitive,
             layout,
         ),
+        "layout_quality": _impact_layout_quality(
+            direct,
+            transitive,
+            rendered_direct,
+            rendered_transitive,
+            layout,
+        ),
         "svg": svg,
     }
 
@@ -337,6 +346,12 @@ def render_subgraph_snapshot(
         "rendered_node_count": rendered_node_count,
         "omitted_node_count": max(0, node_count - rendered_node_count),
         "layout": _subgraph_layout_payload(selected_flows, rendered, layout),
+        "layout_quality": _subgraph_layout_quality(
+            selected_flows,
+            rendered,
+            layout,
+            unresolved_targets,
+        ),
         "svg": svg,
     }
 
@@ -709,6 +724,26 @@ def _flow_layout_payload(
     }
 
 
+def _flow_layout_quality(
+    flow: Flow,
+    rendered_nodes: list[FlowNode],
+    layout: dict[str, Any],
+) -> dict[str, Any]:
+    omitted_nodes = max(0, len(flow.nodes) - len(rendered_nodes))
+    omitted_edges = int(layout["omitted_edge_count"])
+    return _snapshot_layout_quality(
+        compact=omitted_nodes > 0 or omitted_edges > 0,
+        counts={
+            "node_count": len(flow.nodes),
+            "rendered_node_count": len(rendered_nodes),
+            "omitted_node_count": omitted_nodes,
+            "edge_count": len(flow.edges),
+            "rendered_edge_count": int(layout["rendered_edge_count"]),
+            "omitted_edge_count": omitted_edges,
+        },
+    )
+
+
 def _impact_layout(
     changed_files: list[str],
     direct: list[Flow],
@@ -778,6 +813,30 @@ def _impact_layout_payload(
         ],
         "compact": len(rendered_direct) < len(direct) or len(rendered_transitive) < len(transitive),
     }
+
+
+def _impact_layout_quality(
+    direct: list[Flow],
+    transitive: list[Flow],
+    rendered_direct: list[Flow],
+    rendered_transitive: list[Flow],
+    layout: dict[str, Any],
+) -> dict[str, Any]:
+    omitted_direct = max(0, len(direct) - len(rendered_direct))
+    omitted_transitive = max(0, len(transitive) - len(rendered_transitive))
+    return _snapshot_layout_quality(
+        compact=omitted_direct > 0 or omitted_transitive > 0,
+        counts={
+            "direct_flow_count": len(direct),
+            "rendered_direct_flow_count": len(rendered_direct),
+            "omitted_direct_flow_count": omitted_direct,
+            "transitive_flow_count": len(transitive),
+            "rendered_transitive_flow_count": len(rendered_transitive),
+            "omitted_transitive_flow_count": omitted_transitive,
+            "finding_count": int(layout["finding_count"]),
+            "unresolved_target_count": int(layout["unresolved_target_count"]),
+        },
+    )
 
 
 def _subgraph_layout(
@@ -902,6 +961,44 @@ def _subgraph_layout_payload(
             }
             for node in rendered_nodes
         ],
+    }
+
+
+def _subgraph_layout_quality(
+    selected_flows: list[Flow],
+    rendered: list[_RenderedSubgraphFlow],
+    layout: dict[str, Any],
+    unresolved_targets: list[dict[str, str]],
+) -> dict[str, Any]:
+    omitted_flows = max(0, len(selected_flows) - len(rendered))
+    omitted_nodes = sum(int(section["omitted_node_count"]) for section in layout["sections"])
+    omitted_edges = int(layout["omitted_edge_count"])
+    return _snapshot_layout_quality(
+        compact=omitted_flows > 0 or omitted_nodes > 0 or omitted_edges > 0,
+        counts={
+            "flow_count": len(selected_flows),
+            "rendered_flow_count": len(rendered),
+            "omitted_flow_count": omitted_flows,
+            "node_count": int(layout["selected_node_count"]),
+            "rendered_node_count": int(layout["rendered_node_count"]),
+            "omitted_node_count": omitted_nodes,
+            "rendered_edge_count": int(layout["rendered_edge_count"]),
+            "omitted_edge_count": omitted_edges,
+            "unresolved_target_count": len(unresolved_targets),
+        },
+    )
+
+
+def _snapshot_layout_quality(*, compact: bool, counts: dict[str, int]) -> dict[str, Any]:
+    return {
+        "status": "compact" if compact else "complete",
+        "complete": not compact,
+        "counts": counts,
+        "guardrail": (
+            "Layout quality describes the rendered snapshot only. Compact snapshots may omit "
+            "model nodes, edges, or flows; request a higher token_budget or the follow-up "
+            "snapshot tool when omitted counts are non-zero."
+        ),
     }
 
 

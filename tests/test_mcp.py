@@ -673,11 +673,17 @@ def test_mcp_context_visual_pack_direct_contracts(tmp_path: Path) -> None:
         "token_budget": 120,
     }
     assert payload["impact_snapshot"]["format"] == "svg"
+    assert payload["impact_snapshot"]["layout_quality"]["status"] == "complete"
     assert payload["subgraph_snapshot"]["layout"]["engine"] == "static-subgraph-snapshot-v1"
+    assert payload["subgraph_snapshot"]["layout_quality"]["status"] == "compact"
+    assert payload["subgraph_snapshot"]["layout_quality"]["counts"]["omitted_node_count"] >= 1
     assert payload["subgraph_snapshot"]["rendered_flow_ids"] == [flow.id]
     assert payload["subgraph_snapshot"]["finding_ids"] == [finding.id]
     assert payload["flow_snapshots"][0]["flow_id"] == flow.id
+    assert payload["flow_snapshots"][0]["layout_quality"]["status"] == "compact"
+    assert payload["flow_snapshots"][0]["layout_quality"]["counts"]["omitted_node_count"] >= 1
     assert payload["finding_snapshots"][0]["finding_id"] == finding.id
+    assert payload["finding_snapshots"][0]["layout_quality"]["counts"]["rendered_node_count"] >= 1
     assert payload["snapshot_budget"]["used_visual_bytes"] > 0
 
     capped = _context_visual_pack(

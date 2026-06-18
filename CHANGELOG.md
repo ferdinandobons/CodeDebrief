@@ -39,6 +39,8 @@ The project follows Semantic Versioning.
   including canvas size, rendered positions, compact flags, and omitted edge/flow counts.
 - Added deterministic layout metadata to subgraph snapshot payloads, including flow
   sections, rendered node positions, compact flags, and unresolved target reporting.
+- Added snapshot `layout_quality` summaries across CLI and MCP visual payloads, reporting
+  complete versus compact rendering plus key omission counts for agents.
 - Added a compact diagnostic panel to MCP finding SVG snapshots with evidence tier,
   confidence, review prompt, and evidence-chain summaries.
 - Added deterministic model-quality metrics, exposed through generated metadata,

@@ -8,6 +8,7 @@ from logicchart.render.snapshot import (
     render_finding_snapshot,
     render_flow_snapshot,
     render_impact_snapshot,
+    render_subgraph_snapshot,
     unsupported_snapshot_format,
 )
 
@@ -40,6 +41,9 @@ def test_flow_snapshot_renders_decision_flow_svg(tmp_path: Path) -> None:
     assert snapshot["layout"]["canvas"]["width"] == 920
     assert snapshot["layout"]["rendered_edge_count"] >= 1
     assert snapshot["layout"]["node_positions"][0]["id"] == flow.nodes[0].id
+    assert snapshot["layout_quality"]["status"] == "complete"
+    assert snapshot["layout_quality"]["complete"] is True
+    assert snapshot["layout_quality"]["counts"]["omitted_node_count"] == 0
 
 
 def test_finding_snapshot_highlights_finding_node(tmp_path: Path) -> None:
@@ -68,6 +72,10 @@ def test_finding_snapshot_highlights_finding_node(tmp_path: Path) -> None:
     assert "implicit fallback" in snapshot["svg"]
     assert snapshot["layout"]["node_positions"]
     assert snapshot["layout"]["canvas"]["height"] >= 1
+    assert (
+        snapshot["layout_quality"]["counts"]["rendered_node_count"]
+        == snapshot["rendered_node_count"]
+    )
 
 
 def test_flow_snapshot_budget_omits_nodes_but_keeps_highlight() -> None:
@@ -108,6 +116,9 @@ def test_flow_snapshot_budget_omits_nodes_but_keeps_highlight() -> None:
     assert snapshot["rendered_node_count"] == 4
     assert snapshot["omitted_node_count"] == 6
     assert snapshot["layout"]["compact"] is True
+    assert snapshot["layout_quality"]["status"] == "compact"
+    assert snapshot["layout_quality"]["complete"] is False
+    assert snapshot["layout_quality"]["counts"]["omitted_node_count"] == 6
     assert snapshot["layout"]["omitted_edge_count"] == 0
     snapshot_nodes = [nodes[0], nodes[1], nodes[2], nodes[9]]
     assert [item["id"] for item in snapshot["layout"]["node_positions"]] == [
@@ -130,6 +141,8 @@ def test_impact_snapshot_renders_empty_state() -> None:
     assert snapshot["direct_flow_ids"] == []
     assert snapshot["layout"]["engine"] == "static-impact-snapshot-v1"
     assert snapshot["layout"]["columns"][0]["id"] == "direct"
+    assert snapshot["layout_quality"]["status"] == "complete"
+    assert snapshot["layout_quality"]["counts"]["direct_flow_count"] == 0
     assert "No modeled flows are affected" in snapshot["svg"]
 
 
@@ -187,9 +200,61 @@ def test_impact_snapshot_budget_reports_omitted_flows() -> None:
     assert snapshot["omitted_direct_flow_count"] == 1
     assert snapshot["omitted_transitive_flow_count"] == 1
     assert snapshot["layout"]["compact"] is True
+    assert snapshot["layout_quality"]["status"] == "compact"
+    assert snapshot["layout_quality"]["counts"]["omitted_direct_flow_count"] == 1
+    assert snapshot["layout_quality"]["counts"]["omitted_transitive_flow_count"] == 1
     assert snapshot["layout"]["columns"][0]["rendered_flow_count"] == 1
     assert snapshot["layout"]["columns"][1]["omitted_flow_count"] == 1
     assert "1 direct and 1 caller flows omitted" in snapshot["svg"]
+
+
+def test_subgraph_snapshot_layout_quality_reports_compaction() -> None:
+    flows = [
+        Flow(
+            id=f"flow-{index}",
+            name=f"flow {index}",
+            symbol=f"flow_{index}",
+            language="python",
+            framework="generic",
+            entry_kind="function",
+            is_entrypoint=True,
+            location=SourceLocation(path=f"app{index}.py", start_line=1, end_line=1),
+            nodes=[
+                FlowNode(
+                    id=f"flow-{index}-node-{node_index}",
+                    kind=NodeKind.ACTION,
+                    label=f"node {node_index}",
+                    location=SourceLocation(
+                        path=f"app{index}.py",
+                        start_line=node_index + 1,
+                        end_line=node_index + 1,
+                    ),
+                )
+                for node_index in range(3)
+            ],
+        )
+        for index in range(3)
+    ]
+    model = ProjectModel(
+        schema_version="1.1",
+        generated_at="2026-06-18T00:00:00+00:00",
+        root=".",
+        flows=flows,
+    )
+
+    snapshot = render_subgraph_snapshot(
+        model,
+        flow_ids=[flow.id for flow in flows],
+        max_flows=2,
+        max_nodes=2,
+    )
+
+    assert snapshot["layout"]["compact"] is True
+    assert snapshot["layout_quality"]["status"] == "compact"
+    assert snapshot["layout_quality"]["counts"]["flow_count"] == 3
+    assert snapshot["layout_quality"]["counts"]["rendered_flow_count"] == 2
+    assert snapshot["layout_quality"]["counts"]["omitted_flow_count"] == 1
+    assert snapshot["layout_quality"]["counts"]["omitted_node_count"] == 2
 
 
 def test_snapshot_target_errors_are_structured() -> None:

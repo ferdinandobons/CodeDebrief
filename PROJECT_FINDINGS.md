@@ -373,6 +373,9 @@ Current checkpoint:
 - Subgraph snapshots render explicit flow/finding id sets from query, impact, finding
   context, or context-pack results, highlight selected finding nodes, report unresolved
   targets, and include deterministic section/node layout metadata.
+- Snapshot payloads now include `layout_quality`, a compact/complete status plus key
+  omission counts and a guardrail for agents, so MCP/CLI consumers can tell whether the
+  SVG is complete without parsing geometry.
 - MCP exposes `get_flow_navigation` for token-bounded caller/callee, decision, finding,
   and next-tool orientation before an agent pulls the complete graph.
 - `logicchart navigate <flow-id>` exposes the same bounded flow-navigation contract over
@@ -385,8 +388,8 @@ Current checkpoint:
 
 Still open:
 
-- Keep evaluating whether snapshot layout metadata should converge further with the React
-  viewer's full layout-quality report for very large subgraphs.
+- Keep evaluating whether snapshot `layout_quality` should adopt more of the React
+  viewer's obstacle/overlap quality report for very large subgraphs.
 - Add optional SVG-to-PNG/JPG rasterization.
 - Tune the default context-pack visual byte budget after more real agent usage.
 
