@@ -54,7 +54,13 @@ def test_finding_snapshot_highlights_finding_node(tmp_path: Path) -> None:
     assert snapshot["finding_id"] == finding.id
     assert snapshot["flow_id"] == finding.flow_id
     assert snapshot["highlighted_node_ids"] == [finding.node_id]
+    assert snapshot["diagnostic_category"] == "single_flow"
+    assert snapshot["evidence_item_count"] >= 4
     assert "highlight" in snapshot["svg"]
+    assert "Finding context" in snapshot["svg"]
+    assert "Evidence: POTENTIAL_GAP" in snapshot["svg"]
+    assert "Evidence chain:" in snapshot["svg"]
+    assert "implicit fallback" in snapshot["svg"]
 
 
 def test_flow_snapshot_budget_omits_nodes_but_keeps_highlight() -> None:

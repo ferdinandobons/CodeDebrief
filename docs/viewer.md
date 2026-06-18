@@ -74,6 +74,11 @@ This panel must preserve the model's evidence language: `VERIFIED` means syntax-
 `INFERRED` means deterministic heuristic, and `POTENTIAL_GAP` remains a review candidate,
 not a confirmed bug.
 
+The deterministic MCP finding snapshot uses the same diagnostic metadata in a compact SVG
+side panel, so agents can inspect the highlighted flow node together with evidence tier,
+confidence, review prompt, and bounded evidence-chain summaries without opening the full
+browser viewer.
+
 ## Project Quality Panel
 
 The Details rail also renders `metadata.quality` when present. This is a compact analyzer

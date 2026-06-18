@@ -20,6 +20,8 @@ The project follows Semantic Versioning.
 - Added deterministic SVG MCP snapshot tools for flow, finding, and impact visual context.
 - Added token-budget handling to MCP flow, finding, and impact SVG snapshots, including
   omission counts for capped visual context.
+- Added a compact diagnostic panel to MCP finding SVG snapshots with evidence tier,
+  confidence, review prompt, and evidence-chain summaries.
 - Added deterministic model-quality metrics, exposed through generated metadata,
   `logicchart validate --quality`, MCP summaries, and `validate_artifacts`.
 - Added per-language depth metrics to the quality payload, including file/flow coverage,

@@ -3,6 +3,7 @@ from __future__ import annotations
 from html import escape
 from typing import Any
 
+from logicchart.diagnostics import diagnostic_for_finding
 from logicchart.model import Finding, Flow, FlowNode, NodeKind, ProjectModel
 
 SNAPSHOT_FORMATS = ("svg",)
@@ -49,15 +50,36 @@ def render_finding_snapshot(
     finding = next((item for item in model.findings if item.id == finding_id), None)
     if finding is None:
         return {"error": f"Unknown finding: {finding_id}"}
-    result = render_flow_snapshot(
-        model,
-        finding.flow_id,
-        highlight_node_ids={finding.node_id} if finding.node_id else set(),
-        title=f"{finding.kind}: {finding.message}",
-        max_nodes=max_nodes,
+    flow = next((item for item in model.flows if item.id == finding.flow_id), None)
+    if flow is None:
+        return {"error": f"Unknown flow: {finding.flow_id}"}
+    node = next((item for item in flow.nodes if item.id == finding.node_id), None)
+    highlighted = {finding.node_id} if finding.node_id else set()
+    rendered_nodes = _select_flow_nodes(flow, highlighted, max_nodes)
+    diagnostic = _diagnostic_for_snapshot(model, finding, flow, node)
+    title = f"{finding.kind}: {finding.message}"
+    svg = _flow_svg(
+        flow,
+        [item for item in model.findings if item.flow_id == flow.id],
+        highlighted,
+        rendered_nodes=rendered_nodes,
+        title=title,
+        finding=finding,
+        diagnostic=diagnostic,
     )
-    result["finding_id"] = finding.id
-    return result
+    return {
+        "format": "svg",
+        "flow_id": flow.id,
+        "title": title,
+        "svg": svg,
+        "highlighted_node_ids": sorted(highlighted),
+        "node_count": len(flow.nodes),
+        "rendered_node_count": len(rendered_nodes),
+        "omitted_node_count": max(0, len(flow.nodes) - len(rendered_nodes)),
+        "finding_id": finding.id,
+        "diagnostic_category": diagnostic.get("category"),
+        "evidence_item_count": len(diagnostic.get("evidence_chain", [])),
+    }
 
 
 def render_impact_snapshot(
@@ -99,6 +121,8 @@ def _flow_svg(
     *,
     rendered_nodes: list[FlowNode],
     title: str | None,
+    finding: Finding | None = None,
+    diagnostic: dict[str, Any] | None = None,
 ) -> str:
     nodes = rendered_nodes
     omitted = max(0, len(flow.nodes) - len(nodes))
@@ -112,7 +136,9 @@ def _flow_svg(
         node.id: (x, header_height + index * (node_height + row_gap))
         for index, node in enumerate(nodes)
     }
-    height = header_height + max(1, len(nodes)) * (node_height + row_gap) + 86
+    graph_height = header_height + max(1, len(nodes)) * (node_height + row_gap) + 86
+    panel = _finding_panel(finding, diagnostic) if finding and diagnostic else None
+    height = max(graph_height, (panel["height"] + 132) if panel else graph_height)
     parts = [
         _svg_open(width, height, title or flow.name),
         _style(),
@@ -159,6 +185,8 @@ def _flow_svg(
                 "meta",
             )
         )
+    if panel:
+        parts.append(str(panel["svg"]))
     parts.append("</svg>")
     return "\n".join(parts)
 
@@ -334,6 +362,117 @@ def _impact_box(flow: Flow, x: int, y: int, height: int) -> str:
     return "\n".join(lines)
 
 
+def _finding_panel(finding: Finding, diagnostic: dict[str, Any]) -> dict[str, Any]:
+    x = 646
+    y = 116
+    width = 246
+    lines = _finding_panel_lines(finding, diagnostic)
+    row_height = 17
+    height = 44 + len(lines) * row_height
+    parts = [
+        f'<rect class="diagnostic-panel" x="{x}" y="{y}" width="{width}" '
+        f'height="{height}" rx="12" />',
+        _text(x + 14, y + 24, "Finding context", "panel-title"),
+    ]
+    cursor = y + 48
+    for line in lines:
+        parts.append(_text(x + 14, cursor, line, "panel-text"))
+        cursor += row_height
+    return {"height": height, "svg": "\n".join(parts)}
+
+
+def _finding_panel_lines(finding: Finding, diagnostic: dict[str, Any]) -> list[str]:
+    lines = [
+        f"Evidence: {_enum_text(finding.evidence)}",
+        f"Severity: {_enum_text(finding.severity)}",
+    ]
+    confidence = diagnostic.get("confidence")
+    if isinstance(confidence, dict):
+        lines.append(
+            "Confidence: "
+            + _compact(
+                f"{confidence.get('score', 'n/a')} {confidence.get('basis', '')}",
+                34,
+            )
+        )
+    missing = diagnostic.get("missing")
+    if missing:
+        lines.append(f"Missing: {_compact(_value_summary(missing), 36)}")
+    expected = diagnostic.get("expected")
+    if expected:
+        lines.append(f"Expected: {_compact(_value_summary(expected), 34)}")
+    actual = diagnostic.get("actual")
+    if actual:
+        lines.append(f"Actual: {_compact(_value_summary(actual), 36)}")
+    review = diagnostic.get("review_prompt")
+    if review:
+        lines.extend(f"Review: {line}" for line in _wrap(str(review), 34, 2))
+    evidence = _evidence_lines(diagnostic.get("evidence_chain", []))
+    if evidence:
+        lines.append("Evidence chain:")
+        lines.extend(evidence)
+    return lines[:18]
+
+
+def _evidence_lines(chain: Any) -> list[str]:
+    if not isinstance(chain, list):
+        return []
+    useful = [
+        item
+        for item in chain
+        if isinstance(item, dict) and item.get("type") not in {"finding", "flow"}
+    ]
+    return [_compact(f"- {_evidence_summary(item)}", 36) for item in useful[:6]]
+
+
+def _evidence_summary(item: dict[str, Any]) -> str:
+    item_type = str(item.get("type", "evidence"))
+    if item_type == "implicit_fallback":
+        values = _value_summary(item.get("handled_values"))
+        return f"implicit fallback after {values}"
+    if item_type == "constant_guard":
+        return f"{item.get('constant')} always {item.get('guard_always')}"
+    if item_type == "handler_outcomes":
+        return "handler outcome can swallow error"
+    if item_type == "empty_branches":
+        return "empty branch performs no modeled work"
+    if item_type == "dispatch_outcomes":
+        return "dispatch fallthrough differs from exits"
+    if item_type == "related_decisions":
+        nodes = item.get("nodes")
+        count = len(nodes) if isinstance(nodes, list) else 0
+        return f"{count} related decision nodes"
+    if item.get("source"):
+        return f"{item_type} at {item.get('source')}"
+    return item_type.replace("_", " ")
+
+
+def _diagnostic_for_snapshot(
+    model: ProjectModel,
+    finding: Finding,
+    flow: Flow,
+    node: FlowNode | None,
+) -> dict[str, Any]:
+    diagnostic = finding.metadata.get("diagnostic")
+    if isinstance(diagnostic, dict):
+        return diagnostic
+    return diagnostic_for_finding(finding, flow=flow, node=node, model=model)
+
+
+def _value_summary(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, dict):
+        return ", ".join(f"{key}={_value_summary(item)}" for key, item in value.items())
+    if isinstance(value, list | tuple | set):
+        return ", ".join(str(item) for item in value)
+    return str(value)
+
+
+def _enum_text(value: Any) -> str:
+    return str(getattr(value, "value", value))
+
+
 def _style() -> str:
     return """
 <style>
@@ -352,6 +491,9 @@ def _style() -> str:
   .edge-label { fill: #475569; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
   .node-label { fill: #0f172a; font: 700 12px system-ui, sans-serif; }
   .node-meta { fill: #64748b; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .diagnostic-panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; }
+  .panel-title { fill: #0f172a; font: 700 13px system-ui, sans-serif; }
+  .panel-text { fill: #334155; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
 </style>
 <defs>
   <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">

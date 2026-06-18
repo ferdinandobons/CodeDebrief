@@ -421,7 +421,9 @@ Available MCP tools include summary, analysis-quality reports, flow listing, flo
 retrieval, flow-navigation packs, query, findings, finding-rule contracts, finding-chain
 explanation, finding-context subgraphs, state-handling lookup, decision-node search,
 impact analysis, token-bounded deterministic SVG snapshots for flows/findings/impact
-sets, review queue, context pack, artifact validation, and artifact update.
+sets, review queue, context pack, artifact validation, and artifact update. Finding
+snapshots include a compact diagnostic panel with evidence tier, confidence, review
+prompt, and evidence-chain summaries.
 `analysis_quality` returns deterministic analyzer-depth signals with guardrails and
 follow-up tool pointers. `context_pack` stays lightweight by default and returns snapshot
 follow-up tool calls; pass `include_visual=true` when an agent needs inline,
