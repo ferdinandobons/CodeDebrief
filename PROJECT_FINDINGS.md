@@ -517,7 +517,7 @@ explicit flow/symbol/finding targets, and caller relationships.
 Add richer query and impact modes while preserving deterministic behavior:
 
 - query by state domain and value;
-- query by detector/finding kind;
+- query by detector/finding kind, severity, and evidence tier;
 - query by source path, symbol, scope, language;
 - impact by flow id, symbol, finding id, and dependency path;
 - explain why each result was selected;
@@ -526,7 +526,8 @@ Add richer query and impact modes while preserving deterministic behavior:
 Current checkpoint:
 
 - `logicchart query` and MCP `query_logic` accept deterministic `source_path`, `symbol`,
-  `domain`, and `value` filters that can work without lexical query terms.
+  `domain`, `value`, `finding_kind`, `finding_severity`, and `finding_evidence` filters
+  that can work without lexical query terms.
 - `logicchart impact` accepts `--flow`, `--symbol`, `--finding`, and
   `--dependency-path` in addition to changed file paths, while preserving Git-diff
   defaults when no target is provided.

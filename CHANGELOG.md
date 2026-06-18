@@ -82,8 +82,9 @@ The project follows Semantic Versioning.
   the changed file has no modeled flow.
 - Added per-flow impact reasons to CLI JSON and MCP impact analysis, so agents can see why
   each direct or caller impact was selected.
-- Added deterministic query filters for source paths, symbols/names, decision domains, and
-  handled values across CLI and MCP.
+- Added deterministic query filters for source paths, symbols/names, decision domains,
+  handled values, finding kind, finding severity, and finding evidence tier across CLI and
+  MCP.
 - Added optional inline visual context to MCP `context_pack`, with SVG impact, subgraph,
   flow, and finding snapshots gated by `include_visual` and capped by `token_budget`.
 - Added a deterministic `visual_byte_budget` cap for inline MCP `context_pack` SVG

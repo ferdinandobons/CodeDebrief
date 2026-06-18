@@ -71,13 +71,20 @@ def _flow(
     )
 
 
-def _finding(flow_id: str, message: str) -> Finding:
+def _finding(
+    flow_id: str,
+    message: str,
+    *,
+    kind: str = "missing_branch",
+    severity: Severity = Severity.WARNING,
+    evidence: Evidence = Evidence.POTENTIAL_GAP,
+) -> Finding:
     return Finding(
         id=f"{flow_id}-find",
-        kind="missing_branch",
-        severity=Severity.WARNING,
+        kind=kind,
+        severity=severity,
         message=message,
-        evidence=Evidence.POTENTIAL_GAP,
+        evidence=evidence,
         flow_id=flow_id,
         location=_loc(),
     )
@@ -216,6 +223,44 @@ def test_structured_query_filters_can_match_without_terms() -> None:
         "symbol/name matches `api.orders:handle_order`",
         "decision domain matches `status`",
         "decision value matches `OPEN`",
+    ]
+
+
+def test_query_can_filter_findings_by_kind_severity_and_evidence_without_terms() -> None:
+    model = _model(
+        flows=[
+            _flow("review", "review_order"),
+            _flow("audit", "audit_order"),
+        ],
+        findings=[
+            _finding("review", "Missing fallback for review state"),
+            _finding(
+                "audit",
+                "Audit handler has inferred enum gap",
+                kind="enum_exhaustiveness",
+                evidence=Evidence.INFERRED,
+            ),
+        ],
+    )
+
+    matches = query_model(
+        model,
+        "",
+        finding_kind="missing_branch",
+        finding_severity="warning",
+        finding_evidence="POTENTIAL_GAP",
+    )
+
+    assert [match.flow.id for match in matches] == ["review"]
+    assert matches[0].score == 3 * 5
+    assert matches[0].reasons == [
+        "flow has `missing_branch` findings",
+        "finding severity matches `warning`",
+        "finding evidence matches `POTENTIAL_GAP`",
+    ]
+    assert query_model(model, "", finding_severity="error") == []
+    assert [match.flow.id for match in query_model(model, "", finding_evidence="INFERRED")] == [
+        "audit"
     ]
 
 

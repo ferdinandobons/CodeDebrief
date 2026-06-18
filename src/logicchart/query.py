@@ -85,6 +85,8 @@ def query_model(
     scope: str | None = None,
     language: str | None = None,
     finding_kind: str | None = None,
+    finding_severity: str | None = None,
+    finding_evidence: str | None = None,
     source_path: str | None = None,
     symbol: str | None = None,
     domain: str | None = None,
@@ -93,7 +95,17 @@ def query_model(
     terms = _terms(question)
     has_structured_filter = any(
         item is not None
-        for item in (scope, language, finding_kind, source_path, symbol, domain, value)
+        for item in (
+            scope,
+            language,
+            finding_kind,
+            finding_severity,
+            finding_evidence,
+            source_path,
+            symbol,
+            domain,
+            value,
+        )
     )
     if not terms and not has_structured_filter:
         # A blank or punctuation-only question has nothing to rank against. Returning []
@@ -139,12 +151,24 @@ def query_model(
         flow_findings = [
             finding
             for finding in findings_by_flow.get(flow.id, [])
-            if finding_kind is None or finding.kind == finding_kind
+            if _finding_matches_filters(
+                finding,
+                kind=finding_kind,
+                severity=finding_severity,
+                evidence=finding_evidence,
+            )
         ]
-        if finding_kind is not None and not flow_findings:
+        has_finding_filter = any(
+            item is not None for item in (finding_kind, finding_severity, finding_evidence)
+        )
+        if has_finding_filter and not flow_findings:
             continue
         if finding_kind is not None and flow_findings:
             filter_reasons.append(f"flow has `{finding_kind}` findings")
+        if finding_severity is not None and flow_findings:
+            filter_reasons.append(f"finding severity matches `{finding_severity}`")
+        if finding_evidence is not None and flow_findings:
+            filter_reasons.append(f"finding evidence matches `{finding_evidence}`")
         finding_tokens = _tokenize(
             " ".join(
                 f"{finding.kind} {finding.evidence.value} {finding.severity.value} "
@@ -837,6 +861,20 @@ def _finding_priority(finding: Finding) -> int:
         finding.evidence.value,
         3,
     )
+
+
+def _finding_matches_filters(
+    finding: Finding,
+    *,
+    kind: str | None,
+    severity: str | None,
+    evidence: str | None,
+) -> bool:
+    if kind is not None and finding.kind != kind:
+        return False
+    if severity is not None and finding.severity.value != severity:
+        return False
+    return evidence is None or finding.evidence.value == evidence
 
 
 def flow_in_scope(flow: Flow, scope: str | None) -> bool:

@@ -110,6 +110,10 @@ def authorize(user):
                 for impact_tool in ("analyze_impact", "get_impact_snapshot"):
                     impact_properties = schema_by_name[impact_tool].get("properties", {})
                     assert "dependency_paths" in impact_properties
+                query_properties = schema_by_name["query_logic"].get("properties", {})
+                assert {"finding_kind", "finding_severity", "finding_evidence"} <= set(
+                    query_properties
+                )
 
                 response = await session.call_tool(
                     "query_logic",
@@ -422,7 +426,39 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
     assert cli_main(["query", "admin authorize", "--path", str(tmp_path), "--json"]) == 0
     cli_rows = json.loads(capsys.readouterr().out)  # type: ignore[attr-defined]
 
+    (tmp_path / "orders.py").write_text(
+        "def route(order):\n"
+        "    if order.status == 'draft':\n"
+        "        return draft(order)\n"
+        "    elif order.status == 'paid':\n"
+        "        return paid(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    write_artifacts(tmp_path, result.model)
+    assert result.model.findings
+
     mcp_rows: list[dict[str, object]] = []
+    mcp_finding_rows: list[dict[str, object]] = []
+    assert (
+        cli_main(
+            [
+                "query",
+                "",
+                "--path",
+                str(tmp_path),
+                "--finding-kind",
+                "missing_branch",
+                "--finding-severity",
+                "warning",
+                "--finding-evidence",
+                "POTENTIAL_GAP",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    cli_finding_rows = json.loads(capsys.readouterr().out)  # type: ignore[attr-defined]
 
     async def call_mcp() -> None:
         parameters = StdioServerParameters(
@@ -439,11 +475,28 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
                 # (each content block is one item serialized on its own).
                 payload = response.structuredContent["result"]  # type: ignore[index]
                 mcp_rows.extend(payload)
+                finding_response = await session.call_tool(
+                    "query_logic",
+                    {
+                        "question": "",
+                        "finding_kind": "missing_branch",
+                        "finding_severity": "warning",
+                        "finding_evidence": "POTENTIAL_GAP",
+                    },
+                )
+                assert not finding_response.isError
+                finding_payload = finding_response.structuredContent["result"]  # type: ignore[index]
+                mcp_finding_rows.extend(finding_payload)
 
     asyncio.run(call_mcp())
 
     assert cli_rows == mcp_rows
     assert cli_rows
+    assert cli_finding_rows == mcp_finding_rows
+    assert cli_finding_rows
+    assert any(
+        "finding evidence matches `POTENTIAL_GAP`" in row["reasons"] for row in cli_finding_rows
+    )
     for row in cli_rows:
         assert set(row) == {
             "flow_id",

@@ -108,6 +108,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Restrict to flows with this finding kind.",
     )
+    query.add_argument(
+        "--finding-severity",
+        choices=["error", "warning", "info"],
+        default=None,
+        help="Restrict to flows with findings at this severity.",
+    )
+    query.add_argument(
+        "--finding-evidence",
+        choices=["VERIFIED", "INFERRED", "POTENTIAL_GAP"],
+        default=None,
+        help="Restrict to flows with findings at this evidence tier.",
+    )
     _add_profile_argument(query)
     query.add_argument("--json", action="store_true", dest="json_output")
 
@@ -295,6 +307,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.scope,
                 args.language,
                 args.finding_kind,
+                args.finding_severity,
+                args.finding_evidence,
                 args.source_path,
                 args.symbol,
                 args.domain,
@@ -588,6 +602,8 @@ def _query(
     scope: str | None = None,
     language: str | None = None,
     finding_kind: str | None = None,
+    finding_severity: str | None = None,
+    finding_evidence: str | None = None,
     source_path: str | None = None,
     symbol: str | None = None,
     domain: str | None = None,
@@ -619,6 +635,8 @@ def _query(
         scope,
         language=language,
         finding_kind=finding_kind,
+        finding_severity=finding_severity,
+        finding_evidence=finding_evidence,
         source_path=source_path,
         symbol=symbol,
         domain=domain,
