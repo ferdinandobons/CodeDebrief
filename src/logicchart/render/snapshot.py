@@ -22,22 +22,30 @@ def render_flow_snapshot(
     *,
     highlight_node_ids: set[str] | None = None,
     title: str | None = None,
+    max_nodes: int | None = None,
 ) -> dict[str, Any]:
     flow = next((item for item in model.flows if item.id == flow_id), None)
     if flow is None:
         return {"error": f"Unknown flow: {flow_id}"}
     findings = [item for item in model.findings if item.flow_id == flow.id]
-    svg = _flow_svg(flow, findings, highlight_node_ids or set(), title=title)
+    highlighted = highlight_node_ids or set()
+    rendered_nodes = _select_flow_nodes(flow, highlighted, max_nodes)
+    svg = _flow_svg(flow, findings, highlighted, rendered_nodes=rendered_nodes, title=title)
     return {
         "format": "svg",
         "flow_id": flow.id,
         "title": title or flow.name,
         "svg": svg,
         "highlighted_node_ids": sorted(highlight_node_ids or []),
+        "node_count": len(flow.nodes),
+        "rendered_node_count": len(rendered_nodes),
+        "omitted_node_count": max(0, len(flow.nodes) - len(rendered_nodes)),
     }
 
 
-def render_finding_snapshot(model: ProjectModel, finding_id: str) -> dict[str, Any]:
+def render_finding_snapshot(
+    model: ProjectModel, finding_id: str, *, max_nodes: int | None = None
+) -> dict[str, Any]:
     finding = next((item for item in model.findings if item.id == finding_id), None)
     if finding is None:
         return {"error": f"Unknown finding: {finding_id}"}
@@ -46,6 +54,7 @@ def render_finding_snapshot(model: ProjectModel, finding_id: str) -> dict[str, A
         finding.flow_id,
         highlight_node_ids={finding.node_id} if finding.node_id else set(),
         title=f"{finding.kind}: {finding.message}",
+        max_nodes=max_nodes,
     )
     result["finding_id"] = finding.id
     return result
@@ -57,13 +66,27 @@ def render_impact_snapshot(
     direct: list[Flow],
     transitive: list[Flow],
     findings: list[Finding],
+    max_flows: int | None = None,
 ) -> dict[str, Any]:
-    svg = _impact_svg(changed_files, direct, transitive, findings)
+    rendered_direct = _select_impact_flows(direct, max_flows)
+    rendered_transitive = _select_impact_flows(transitive, max_flows)
+    svg = _impact_svg(
+        changed_files,
+        direct,
+        transitive,
+        findings,
+        rendered_direct=rendered_direct,
+        rendered_transitive=rendered_transitive,
+    )
     return {
         "format": "svg",
         "changed_files": changed_files,
         "direct_flow_ids": [flow.id for flow in direct],
         "transitive_flow_ids": [flow.id for flow in transitive],
+        "rendered_direct_flow_ids": [flow.id for flow in rendered_direct],
+        "rendered_transitive_flow_ids": [flow.id for flow in rendered_transitive],
+        "omitted_direct_flow_count": max(0, len(direct) - len(rendered_direct)),
+        "omitted_transitive_flow_count": max(0, len(transitive) - len(rendered_transitive)),
         "finding_ids": [finding.id for finding in findings],
         "svg": svg,
     }
@@ -74,9 +97,10 @@ def _flow_svg(
     findings: list[Finding],
     highlight_node_ids: set[str],
     *,
+    rendered_nodes: list[FlowNode],
     title: str | None,
 ) -> str:
-    nodes = flow.nodes[:MAX_FLOW_NODES]
+    nodes = rendered_nodes
     omitted = max(0, len(flow.nodes) - len(nodes))
     width = 920
     header_height = 108
@@ -144,12 +168,17 @@ def _impact_svg(
     direct: list[Flow],
     transitive: list[Flow],
     findings: list[Finding],
+    *,
+    rendered_direct: list[Flow],
+    rendered_transitive: list[Flow],
 ) -> str:
     width = 920
     row_height = 84
     row_gap = 22
-    rows = max(1, max(len(direct), len(transitive)))
+    rows = max(1, max(len(rendered_direct), len(rendered_transitive)))
     height = 156 + rows * (row_height + row_gap) + 80
+    omitted_direct = max(0, len(direct) - len(rendered_direct))
+    omitted_transitive = max(0, len(transitive) - len(rendered_transitive))
     parts = [
         _svg_open(width, height, "LogicChart impact snapshot"),
         _style(),
@@ -166,14 +195,54 @@ def _impact_svg(
         _text(80, 126, "Direct impact", "column"),
         _text(530, 126, "Caller impact", "column"),
     ]
-    for index, flow in enumerate(direct):
+    for index, flow in enumerate(rendered_direct):
         parts.append(_impact_box(flow, 52, 150 + index * (row_height + row_gap), row_height))
-    for index, flow in enumerate(transitive):
+    for index, flow in enumerate(rendered_transitive):
         parts.append(_impact_box(flow, 502, 150 + index * (row_height + row_gap), row_height))
     if not direct and not transitive:
         parts.append(_text(52, 184, "No modeled flows are affected by these files.", "meta"))
+    if omitted_direct or omitted_transitive:
+        parts.append(
+            _text(
+                52,
+                height - 34,
+                f"{omitted_direct} direct and {omitted_transitive} caller flows omitted.",
+                "meta",
+            )
+        )
     parts.append("</svg>")
     return "\n".join(parts)
+
+
+def _select_flow_nodes(
+    flow: Flow,
+    highlight_node_ids: set[str],
+    max_nodes: int | None,
+) -> list[FlowNode]:
+    limit = _effective_limit(max_nodes, MAX_FLOW_NODES)
+    selected = flow.nodes[:limit]
+    selected_ids = {node.id for node in selected}
+    for node in flow.nodes:
+        if node.id not in highlight_node_ids or node.id in selected_ids:
+            continue
+        if len(selected) < limit:
+            selected.append(node)
+        elif selected:
+            selected[-1] = node
+        selected_ids = {item.id for item in selected}
+    return [node for node in flow.nodes if node.id in selected_ids]
+
+
+def _select_impact_flows(flows: list[Flow], max_flows: int | None) -> list[Flow]:
+    if max_flows is None:
+        return flows
+    return flows[: _effective_limit(max_flows, len(flows))]
+
+
+def _effective_limit(value: int | None, default: int) -> int:
+    if value is None:
+        return default
+    return max(1, min(default, value))
 
 
 def _flow_node(

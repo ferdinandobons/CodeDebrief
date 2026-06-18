@@ -72,6 +72,9 @@ def authorize(user):
                 for budget_tool in (
                     "get_flow",
                     "get_flow_navigation",
+                    "get_flow_snapshot",
+                    "get_finding_snapshot",
+                    "get_impact_snapshot",
                     "query_logic",
                     "explain_finding_chain",
                     "get_finding_context",

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
+from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel, SourceLocation
 from logicchart.render.snapshot import (
     render_finding_snapshot,
     render_flow_snapshot,
@@ -56,6 +57,47 @@ def test_finding_snapshot_highlights_finding_node(tmp_path: Path) -> None:
     assert "highlight" in snapshot["svg"]
 
 
+def test_flow_snapshot_budget_omits_nodes_but_keeps_highlight() -> None:
+    nodes = [
+        FlowNode(
+            id=f"n{index}",
+            kind=NodeKind.ACTION,
+            label=f"node {index}",
+            location=SourceLocation(path="app.py", start_line=index + 1, end_line=index + 1),
+        )
+        for index in range(10)
+    ]
+    flow = Flow(
+        id="big-flow",
+        name="big flow",
+        symbol="big_flow",
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=True,
+        location=SourceLocation(path="app.py", start_line=1, end_line=1),
+        nodes=nodes,
+    )
+    model = ProjectModel(
+        schema_version="1.1",
+        generated_at="2026-06-18T00:00:00+00:00",
+        root=".",
+        flows=[flow],
+    )
+
+    snapshot = render_flow_snapshot(
+        model,
+        flow.id,
+        highlight_node_ids={"n9"},
+        max_nodes=4,
+    )
+
+    assert snapshot["rendered_node_count"] == 4
+    assert snapshot["omitted_node_count"] == 6
+    assert "node 9" in snapshot["svg"]
+    assert "6 additional nodes omitted" in snapshot["svg"]
+
+
 def test_impact_snapshot_renders_empty_state() -> None:
     snapshot = render_impact_snapshot(
         changed_files=["docs/readme.md"],
@@ -67,6 +109,36 @@ def test_impact_snapshot_renders_empty_state() -> None:
     assert snapshot["format"] == "svg"
     assert snapshot["direct_flow_ids"] == []
     assert "No modeled flows are affected" in snapshot["svg"]
+
+
+def test_impact_snapshot_budget_reports_omitted_flows() -> None:
+    flows = [
+        Flow(
+            id=f"flow-{index}",
+            name=f"flow {index}",
+            symbol=f"flow_{index}",
+            language="python",
+            framework="generic",
+            entry_kind="function",
+            is_entrypoint=True,
+            location=SourceLocation(path=f"app{index}.py", start_line=1, end_line=1),
+        )
+        for index in range(4)
+    ]
+
+    snapshot = render_impact_snapshot(
+        changed_files=["app.py"],
+        direct=flows[:2],
+        transitive=flows[2:],
+        findings=[],
+        max_flows=1,
+    )
+
+    assert snapshot["rendered_direct_flow_ids"] == ["flow-0"]
+    assert snapshot["rendered_transitive_flow_ids"] == ["flow-2"]
+    assert snapshot["omitted_direct_flow_count"] == 1
+    assert snapshot["omitted_transitive_flow_count"] == 1
+    assert "1 direct and 1 caller flows omitted" in snapshot["svg"]
 
 
 def test_unsupported_snapshot_format_reports_supported_formats() -> None:

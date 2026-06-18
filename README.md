@@ -405,9 +405,9 @@ logicchart mcp .
 
 Available MCP tools include summary, flow listing, flow retrieval, flow-navigation packs,
 query, findings, finding-rule contracts, finding-chain explanation, finding-context
-subgraphs, state-handling lookup, decision-node search, impact analysis, deterministic SVG
-snapshots for flows/findings/impact sets, review queue, context pack, artifact validation,
-and artifact update.
+subgraphs, state-handling lookup, decision-node search, impact analysis, token-bounded
+deterministic SVG snapshots for flows/findings/impact sets, review queue, context pack,
+artifact validation, and artifact update.
 
 ## Roadmap
 

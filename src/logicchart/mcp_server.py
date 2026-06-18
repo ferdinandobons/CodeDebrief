@@ -52,6 +52,18 @@ def _cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]
     return items[: max(1, token_budget // _TOKENS_PER_ITEM)]
 
 
+def _snapshot_node_budget(token_budget: int) -> int | None:
+    if token_budget <= 0:
+        return None
+    return max(4, token_budget // 80)
+
+
+def _snapshot_flow_budget(token_budget: int) -> int | None:
+    if token_budget <= 0:
+        return None
+    return max(1, token_budget // 120)
+
+
 def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
     try:
         from mcp.server.fastmcp import FastMCP
@@ -136,7 +148,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         return _flow_navigation(model, flow, token_budget, annotation_payload)
 
     @server.tool()
-    def get_flow_snapshot(flow_id: str, format: str = "svg") -> dict[str, Any]:
+    def get_flow_snapshot(
+        flow_id: str, format: str = "svg", token_budget: int = 0
+    ) -> dict[str, Any]:
         """Return a deterministic visual SVG snapshot for one flow."""
         if format not in SNAPSHOT_FORMATS:
             return unsupported_snapshot_format(format)
@@ -144,7 +158,11 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return error
         assert model is not None
-        return render_flow_snapshot(model, flow_id)
+        return render_flow_snapshot(
+            model,
+            flow_id,
+            max_nodes=_snapshot_node_budget(token_budget),
+        )
 
     @server.tool()
     def query_logic(
@@ -197,7 +215,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         return _cap(finding_rule_contracts(kind), token_budget)
 
     @server.tool()
-    def get_finding_snapshot(finding_id: str, format: str = "svg") -> dict[str, Any]:
+    def get_finding_snapshot(
+        finding_id: str, format: str = "svg", token_budget: int = 0
+    ) -> dict[str, Any]:
         """Return a deterministic visual SVG snapshot centered on one finding."""
         if format not in SNAPSHOT_FORMATS:
             return unsupported_snapshot_format(format)
@@ -205,7 +225,11 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return error
         assert model is not None
-        return render_finding_snapshot(model, finding_id)
+        return render_finding_snapshot(
+            model,
+            finding_id,
+            max_nodes=_snapshot_node_budget(token_budget),
+        )
 
     @server.tool()
     def logicchart_summary() -> dict[str, Any]:
@@ -314,6 +338,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         changed_files: list[str],
         scope: str | None = None,
         format: str = "svg",
+        token_budget: int = 0,
     ) -> dict[str, Any]:
         """Return a deterministic visual SVG snapshot for direct and caller impact."""
         if format not in SNAPSHOT_FORMATS:
@@ -328,6 +353,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             direct=result.directly_impacted,
             transitive=result.transitively_impacted,
             findings=result.findings,
+            max_flows=_snapshot_flow_budget(token_budget),
         )
 
     @server.tool()

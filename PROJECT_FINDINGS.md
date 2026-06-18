@@ -515,7 +515,9 @@ Before the next release:
   orientation.
 - Done: add a finding-context MCP pack for focus flow, related nodes/flows/findings,
   evidence guardrails, and next-tool orientation.
-- Next: add token-budget behavior for visual snapshots and optional raster outputs.
+- Done: make MCP flow/finding/impact SVG snapshots honor `token_budget` by omitting excess
+  nodes or impact flows while reporting omission counts.
+- Next: add optional raster outputs if a local renderer path is worth the dependency.
 
 ### Phase 3: LLM Enrichment
 
