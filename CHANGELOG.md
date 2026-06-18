@@ -56,6 +56,8 @@ The project follows Semantic Versioning.
 - Added a Project Quality panel to the generated viewer details rail, showing analyzer
   coverage, call-resolution, finding, generic-label, graph-density, and language metrics.
 - Added a deterministic language capability matrix to generated metadata and MCP summaries.
+- Added a fast `logicchart doctor` language-capability summary for supported language ids,
+  feature flags, and limitation notes without running analysis or smoke tests.
 - Added persisted skipped-file reasons in generated metadata, quality metrics, and the
   viewer quality panel.
 - Added optional quality thresholds for CI-oriented `validate` and MCP artifact validation.

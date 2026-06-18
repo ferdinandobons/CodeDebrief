@@ -13,8 +13,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from logicchart.analysis.python import PythonAnalyzer
-from logicchart.analysis.typescript import TypeScriptAnalyzer
 from logicchart.config import LogicChartConfig
 from logicchart.model import FileAnalysis
 
@@ -33,6 +31,18 @@ class LanguageSpec:
     id: str
     suffixes: tuple[str, ...]
     factory: AnalyzerFactory
+
+
+def _make_python(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
+    from logicchart.analysis.python import PythonAnalyzer
+
+    return PythonAnalyzer(root, config)
+
+
+def _make_typescript(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
+    from logicchart.analysis.typescript import TypeScriptAnalyzer
+
+    return TypeScriptAnalyzer(root, config)
 
 
 def _make_go(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
@@ -86,10 +96,10 @@ def _make_ruby(root: Path, config: LogicChartConfig) -> LanguageAnalyzer:
 
 # The order is the dispatch precedence when two specs claim the same suffix (none do today).
 LANGUAGES: tuple[LanguageSpec, ...] = (
-    LanguageSpec("python", (".py",), PythonAnalyzer),
+    LanguageSpec("python", (".py",), _make_python),
     # JavaScript reuses the TypeScript analyzer (grammar superset) to keep the
     # Next.js / React entry-point detection; the IR labels it "javascript".
-    LanguageSpec("typescript", (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"), TypeScriptAnalyzer),
+    LanguageSpec("typescript", (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"), _make_typescript),
     LanguageSpec("go", (".go",), _make_go),
     LanguageSpec("java", (".java",), _make_java),
     LanguageSpec("csharp", (".cs",), _make_csharp),

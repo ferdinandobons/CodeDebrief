@@ -360,13 +360,16 @@ Quality panel.
 
 ### `doctor`
 
-Check the active install and parser dependencies:
+Check the active install, parser dependencies, and static language-capability contract:
 
 ```bash
 logicchart doctor
 ```
 
-This is useful after dependency changes or stale editable installs.
+This is useful after dependency changes or stale editable installs. The output also
+summarizes the generated `metadata.language_capabilities` contract by language id, feature
+flag count, and limitation-note count without analyzing project files or running the smoke
+test suite.
 
 ### `init`, `install`, and `mcp`
 

@@ -326,3 +326,7 @@ def test_cli_doctor_reports_active_install(capsys: pytest.CaptureFixture[str]) -
     assert payload["ok"] is True
     assert payload["package_version"] != "not installed"
     assert payload["missing_dependencies"] == []
+    assert "python" in payload["language_capabilities"]["supported_languages"]
+    assert "typescript" in payload["language_capabilities"]["supported_languages"]
+    assert payload["language_capabilities"]["feature_count"] >= 10
+    assert payload["language_capabilities"]["limitation_note_count"] > 0

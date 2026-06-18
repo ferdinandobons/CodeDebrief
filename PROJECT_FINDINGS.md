@@ -481,11 +481,14 @@ Current checkpoint:
 - Registry tests now smoke-check every supported language id against real analyzer output
   for declared function/method, decision, switch/match, call, and return support, so the
   matrix is a pinned product contract rather than only a documentation table.
+- `logicchart doctor` now surfaces a fast static language-capability summary with supported
+  language ids, feature-flag count, limitation-note count, and the smoke-test contract
+  pointer, without analyzing project files or running the full test suite.
 
 Still open:
 
-- Consider surfacing the capability smoke coverage in `doctor` only if it can remain fast
-  and local without running the full test suite.
+- Keep the doctor summary compact and static; do not turn it into a runtime smoke-test
+  runner or analyzer benchmark.
 
 ## Finding 8: Query and Impact Are Deterministic but Still Basic
 
