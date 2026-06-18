@@ -363,14 +363,26 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
 
     @server.tool()
     def validate_artifacts(
-        check_sync: bool = False, include_quality: bool = False
+        check_sync: bool = False,
+        include_quality: bool = False,
+        max_skipped_files: int | None = None,
+        min_call_resolution: float | None = None,
+        max_generic_label_ratio: float | None = None,
     ) -> dict[str, Any]:
         """Validate the generated model and optionally check source sync."""
+        thresholds: dict[str, float | int] = {}
+        if max_skipped_files is not None:
+            thresholds["max_skipped_files"] = max_skipped_files
+        if min_call_resolution is not None:
+            thresholds["min_call_resolution"] = min_call_resolution
+        if max_generic_label_ratio is not None:
+            thresholds["max_generic_label_ratio"] = max_generic_label_ratio
         return validate_logicchart(
             project_root,
             config=active_config,
             check_sync=check_sync,
             include_quality=include_quality,
+            quality_thresholds=thresholds,
         ).to_dict()
 
     @server.tool()

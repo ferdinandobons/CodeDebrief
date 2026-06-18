@@ -21,6 +21,7 @@ The project follows Semantic Versioning.
 - Added a deterministic language capability matrix to generated metadata and MCP summaries.
 - Added persisted skipped-file reasons in generated metadata, quality metrics, and the
   viewer quality panel.
+- Added optional quality thresholds for CI-oriented `validate` and MCP artifact validation.
 
 ### Changed
 

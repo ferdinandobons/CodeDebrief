@@ -116,6 +116,12 @@ def authorize(user):
                 )
                 assert not validation_quality.isError
                 assert "quality" in str(validation_quality.content)
+                validation_threshold = await session.call_tool(
+                    "validate_artifacts",
+                    {"max_skipped_files": 0},
+                )
+                assert not validation_threshold.isError
+                assert "quality" in str(validation_threshold.content)
 
                 state = await session.call_tool("where_state_handled", {"domain": "role"})
                 assert not state.isError

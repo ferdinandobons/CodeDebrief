@@ -424,10 +424,8 @@ Current checkpoint:
   registry-derived matrix for agent orientation.
 - Generated models include `metadata.skipped_files`, and quality metrics include skipped
   counts, reason buckets, and samples.
-
-Still open:
-
-- Add optional CI thresholds for selected metrics.
+- `logicchart validate` and MCP `validate_artifacts` can apply optional CI thresholds for
+  skipped files, call-resolution rate, and generic-label ratio.
 
 Expose these through:
 
@@ -436,7 +434,7 @@ Expose these through:
 - Done: viewer project overview;
 - Done: language capability matrix in metadata and MCP summary;
 - Done: skipped-file reasons in metadata and quality metrics;
-- Next: CI optional gate.
+- Done: CI optional gate.
 
 ## Finding 11: Logical Error UI Should Explain, Not Just List
 
@@ -512,7 +510,7 @@ Before the next release:
 - Done: add viewer quality overview.
 - Done: add language capability matrix.
 - Done: persist skipped-file reasons.
-- Next: add optional quality thresholds.
+- Done: add optional quality thresholds.
 
 ### Phase 5: Release Consolidation
 

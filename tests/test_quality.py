@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
+from logicchart.artifacts import write_artifacts
 from logicchart.cli import main
 from logicchart.quality import model_quality, render_quality
 from logicchart.validation import validate_logicchart
@@ -93,3 +94,18 @@ def test_skipped_file_reasons_are_persisted_and_cached(tmp_path: Path) -> None:
     assert "invalid syntax" in skipped[0]["reason"]
     assert second.model.metadata["quality"]["files"]["skipped"]["total"] == 1
     assert second.model.metadata["quality"]["files"]["skipped"]["sample"][0]["path"] == "broken.py"
+
+
+def test_quality_thresholds_fail_and_pass(tmp_path: Path) -> None:
+    (tmp_path / "ok.py").write_text("def ok():\n    return 1\n", encoding="utf-8")
+    (tmp_path / "broken.py").write_text("def broken(:\n    return 1\n", encoding="utf-8")
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    write_artifacts(tmp_path, result.model, include_html=False)
+
+    failed = validate_logicchart(tmp_path, quality_thresholds={"max_skipped_files": 0})
+    passed = validate_logicchart(tmp_path, quality_thresholds={"max_skipped_files": 1})
+
+    assert not failed.ok
+    assert failed.quality is not None
+    assert failed.errors == ["quality threshold failed: skipped files 1 > max 0"]
+    assert passed.ok

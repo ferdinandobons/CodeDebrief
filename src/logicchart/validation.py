@@ -45,6 +45,7 @@ def validate_logicchart(
     config: LogicChartConfig | None = None,
     check_sync: bool = False,
     include_quality: bool = False,
+    quality_thresholds: dict[str, float | int] | None = None,
 ) -> ValidationReport:
     """Validate the persisted LogicChart artifact and optional source sync.
 
@@ -74,8 +75,11 @@ def validate_logicchart(
 
     _validate_languages(model, report)
     _validate_json_schema(artifact, report)
-    if include_quality:
+    active_thresholds = quality_thresholds or {}
+    if include_quality or active_thresholds:
         report.quality = model.metadata.get("quality") or model_quality(model)
+    if active_thresholds and report.quality is not None:
+        _validate_quality_thresholds(report, report.quality, active_thresholds)
 
     if check_sync:
         try:
@@ -146,6 +150,42 @@ def _validate_json_schema(artifact: dict[str, Any], report: ValidationReport) ->
     for validation_error in errors:
         location = "/".join(str(part) for part in validation_error.path) or "<root>"
         report.add_error(f"{location}: {validation_error.message}")
+
+
+def _validate_quality_thresholds(
+    report: ValidationReport, quality: dict[str, Any], thresholds: dict[str, float | int]
+) -> None:
+    files = quality.get("files", {})
+    calls = quality.get("calls", {})
+    labels = quality.get("labels", {})
+    skipped = files.get("skipped", {}) if isinstance(files, dict) else {}
+    if "max_skipped_files" in thresholds:
+        actual_skipped = int(_number(skipped.get("total"), 0))
+        skipped_limit = int(thresholds["max_skipped_files"])
+        if actual_skipped > skipped_limit:
+            report.add_error(
+                f"quality threshold failed: skipped files {actual_skipped} > max {skipped_limit}"
+            )
+    if "min_call_resolution" in thresholds:
+        actual_resolution = _number(calls.get("resolution_rate"), 0.0)
+        resolution_limit = float(thresholds["min_call_resolution"])
+        if actual_resolution < resolution_limit:
+            report.add_error(
+                "quality threshold failed: call resolution "
+                f"{actual_resolution:.0%} < min {resolution_limit:.0%}"
+            )
+    if "max_generic_label_ratio" in thresholds:
+        actual_generic = _number(labels.get("generic_ratio"), 0.0)
+        generic_limit = float(thresholds["max_generic_label_ratio"])
+        if actual_generic > generic_limit:
+            report.add_error(
+                "quality threshold failed: generic label ratio "
+                f"{actual_generic:.0%} > max {generic_limit:.0%}"
+            )
+
+
+def _number(value: Any, default: float) -> float:
+    return float(value) if isinstance(value, (int, float)) else default
 
 
 def _without_generated_at(payload: dict[str, Any]) -> dict[str, Any]:

@@ -247,6 +247,7 @@ Check the artifact contract:
 logicchart validate
 logicchart validate --check-sync
 logicchart validate --quality --json
+logicchart validate --max-skipped-files 0 --min-call-resolution 0.5
 ```
 
 `--check-sync` re-analyzes sources and fails if the committed JSON model is stale.
@@ -254,6 +255,12 @@ logicchart validate --quality --json
 call-resolution rate, generic-label ratio, source-location coverage, finding counts, and
 graph density. It also reports skipped-file counts and reasons when a source file could
 not be parsed.
+Optional CI gates can fail validation on selected metrics:
+
+- `--max-skipped-files N`
+- `--min-call-resolution 0..1`
+- `--max-generic-label-ratio 0..1`
+
 Generated viewers surface the same payload in the Details rail as a compact Project
 Quality panel.
 

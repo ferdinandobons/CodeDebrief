@@ -114,6 +114,21 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Include deterministic analysis-quality metrics in the report.",
     )
+    validate.add_argument(
+        "--max-skipped-files",
+        type=int,
+        help="Fail validation when skipped-file count exceeds this value.",
+    )
+    validate.add_argument(
+        "--min-call-resolution",
+        type=float,
+        help="Fail validation when call-resolution rate is below this 0..1 value.",
+    )
+    validate.add_argument(
+        "--max-generic-label-ratio",
+        type=float,
+        help="Fail validation when generic-label ratio exceeds this 0..1 value.",
+    )
     _add_profile_argument(validate)
 
     doctor = subparsers.add_parser("doctor", help="Check the active LogicChart installation.")
@@ -188,6 +203,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.check_sync,
                 args.json_output,
                 args.quality,
+                _quality_thresholds(args),
                 args.profile,
             )
         if args.command == "doctor":
@@ -354,6 +370,7 @@ def _validate(
     check_sync: bool,
     json_output: bool,
     include_quality: bool,
+    quality_thresholds: dict[str, float | int] | None,
     profile: str | None = None,
 ) -> int:
     root = root.resolve()
@@ -363,6 +380,7 @@ def _validate(
         config=config,
         check_sync=check_sync,
         include_quality=include_quality,
+        quality_thresholds=quality_thresholds,
     )
     if json_output:
         print(json.dumps(report.to_dict(), indent=2))
@@ -376,6 +394,17 @@ def _validate(
         if report.quality is not None:
             print(render_quality(report.quality))
     return 0 if report.ok else 1
+
+
+def _quality_thresholds(args: argparse.Namespace) -> dict[str, float | int]:
+    thresholds: dict[str, float | int] = {}
+    if args.max_skipped_files is not None:
+        thresholds["max_skipped_files"] = args.max_skipped_files
+    if args.min_call_resolution is not None:
+        thresholds["min_call_resolution"] = args.min_call_resolution
+    if args.max_generic_label_ratio is not None:
+        thresholds["max_generic_label_ratio"] = args.max_generic_label_ratio
+    return thresholds
 
 
 def _install(root: Path, platform: str, mcp_config: str = "none") -> int:
