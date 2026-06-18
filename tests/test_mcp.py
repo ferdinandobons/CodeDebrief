@@ -264,6 +264,16 @@ def authorize(user):
                     context_payload["visual_context"]["next_tools"]["impact_snapshot"]["tool"]  # type: ignore[index]
                     == "get_impact_snapshot"
                 )
+                context_navigation = context_payload["navigation"]  # type: ignore[index]
+                assert context_navigation["flow_budget"] >= 1
+                assert context_navigation["flows"][0]["flow"]["id"] == flow.id
+                assert context_navigation["flows"][0]["annotations"]["flow"] == {
+                    "label": "Annotated authorization"
+                }
+                assert (
+                    context_navigation["next_tools"]["flow_navigation"][0]["tool"]
+                    == "get_flow_navigation"
+                )
                 targeted_context = await session.call_tool(
                     "context_pack",
                     {"flow_ids": [flow.id], "token_budget": 120},
@@ -284,6 +294,14 @@ def authorize(user):
                     "impact_snapshot"
                 ]["arguments"]
                 assert impact_next_args["flow_ids"] == [flow.id]
+                targeted_navigation = targeted_context_payload["navigation"]  # type: ignore[index]
+                assert targeted_navigation["flow_budget"] == 1
+                assert targeted_navigation["per_flow_token_budget"] == 120
+                assert targeted_navigation["flows"][0]["flow"]["id"] == flow.id
+                assert (
+                    targeted_navigation["flows"][0]["next_tools"]["complete_flow"]["tool"]
+                    == "get_flow"
+                )
 
                 validation = await session.call_tool("validate_artifacts", {})
                 assert not validation.isError

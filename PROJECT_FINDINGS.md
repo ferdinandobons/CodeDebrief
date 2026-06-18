@@ -404,6 +404,8 @@ Current checkpoint:
   `update_logicchart` regenerates the model, and validation passes afterward.
 - MCP tests cover unknown flow/finding targets for retrieval, navigation, explanation,
   context, and snapshot tools as structured recoverable errors.
+- MCP `context_pack` now embeds bounded flow-navigation packs for the relevant impact/query
+  flows, including caller/callee, decision, finding, annotation, and next-tool orientation.
 
 ## Finding 7: Language Support Needs Depth Metrics, Not Only a Count
 
@@ -620,6 +622,8 @@ Before the next release:
   nodes or impact flows while reporting omission counts.
 - Done: add optional inline SVG visual context to `context_pack` with lightweight default
   follow-up tools.
+- Done: add bounded flow-navigation packs directly to `context_pack` so agents can orient
+  on relevant flows before pulling full graphs.
 - Next: add optional raster outputs if a local renderer path is worth the dependency.
 
 ### Phase 3: LLM Enrichment

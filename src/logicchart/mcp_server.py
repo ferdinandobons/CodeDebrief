@@ -506,6 +506,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             key=lambda item: (_finding_priority(item), item.location.path, item.message)
         )
         review_rows = [_finding_dict(finding, model) for finding in review_findings]
+        annotations = load_annotations(project_root, model, active_config)
+        annotation_payload = annotations.annotations if annotations.ok else None
         return {
             "summary": model_summary(model),
             "query": _cap([match.to_dict() for match in matches], token_budget),
@@ -533,6 +535,13 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 "subgraph_flow_ids": impact.subgraph_flow_ids,
                 "subgraph_finding_ids": impact.subgraph_finding_ids,
             },
+            "navigation": _context_navigation_pack(
+                model,
+                impact=impact,
+                matches=matches,
+                annotations=annotation_payload,
+                token_budget=token_budget,
+            ),
             "review": _cap(review_rows, token_budget),
             "visual_context": _context_visual_pack(
                 model,
@@ -732,6 +741,52 @@ def _context_visual_flows(impact: Any, matches: list[Any]) -> list[Any]:
     for match in matches:
         flows.setdefault(match.flow.id, match.flow)
     return list(flows.values())
+
+
+def _context_navigation_pack(
+    model: ProjectModel,
+    *,
+    impact: Any,
+    matches: list[Any],
+    annotations: dict[str, Any] | None,
+    token_budget: int,
+) -> dict[str, Any]:
+    flow_candidates = _context_visual_flows(impact, matches)
+    flow_limit = _context_navigation_item_budget(token_budget)
+    per_flow_budget = _context_navigation_token_budget(token_budget, flow_limit)
+    selected = flow_candidates[:flow_limit]
+    return {
+        "flow_budget": flow_limit,
+        "per_flow_token_budget": per_flow_budget,
+        "flows": [
+            flow_navigation(model, flow.id, per_flow_budget, annotations) for flow in selected
+        ],
+        "next_tools": {
+            "flow_navigation": [
+                {
+                    "tool": "get_flow_navigation",
+                    "arguments": {
+                        "flow_id": flow.id,
+                        "token_budget": per_flow_budget,
+                    },
+                }
+                for flow in selected
+            ]
+        },
+        "omitted_flow_navigation_count": max(0, len(flow_candidates) - flow_limit),
+    }
+
+
+def _context_navigation_item_budget(token_budget: int) -> int:
+    if token_budget <= 0:
+        return 2
+    return max(1, min(3, token_budget // 300))
+
+
+def _context_navigation_token_budget(token_budget: int, flow_limit: int) -> int:
+    if token_budget <= 0:
+        return 0
+    return max(60, token_budget // max(1, flow_limit))
 
 
 def _context_visual_item_budget(token_budget: int) -> int:

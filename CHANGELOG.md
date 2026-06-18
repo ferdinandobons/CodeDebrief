@@ -70,6 +70,9 @@ The project follows Semantic Versioning.
   finding snapshots gated by `include_visual` and capped by `token_budget`.
 - Added explicit flow/symbol/finding impact targets and per-flow impact reasons to MCP
   `context_pack`, matching `analyze_impact` for agent-oriented context retrieval.
+- Added bounded flow-navigation packs to MCP `context_pack`, so agents get caller/callee,
+  decision, finding, annotation, and next-tool orientation for relevant flows without an
+  immediate second tool call.
 - Added deterministic accessibility summaries to viewer flow nodes for broad-canvas
   scanning.
 - Added a local optional `logic-annotations.json` sidecar schema, validation, viewer

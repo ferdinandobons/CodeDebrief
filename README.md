@@ -489,6 +489,9 @@ analysis and `context_pack` include per-flow `reasons` alongside a top-level
 reconstructing the traversal. Impact snapshot payloads carry the same target,
 unresolved-target, impact-reason, and subgraph fields. `context_pack` accepts the same
 explicit `flow_ids`, `symbols`, and `finding_ids` impact targets as `analyze_impact`.
+It also includes bounded flow-navigation packs for relevant flows, so agents can inspect
+callers, callees, decisions, findings, annotations, and follow-up tools before deciding
+whether to request a complete flow or visual snapshot.
 If the generated model is missing or malformed, model-reading MCP tools return structured
 recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
 actions instead of surfacing a raw traceback. Unknown flow/finding targets and invalid
