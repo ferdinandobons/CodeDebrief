@@ -131,7 +131,9 @@ def _finding_line(finding: Finding) -> str:
     source = _source_reference(finding.location.path, finding.location.start_line)
     line = (
         f"- **{finding.severity.value.upper()} · {finding.evidence.value} · "
-        f"{_enum_value(finding.kind)}** {_md_inline(finding.message)} ({source})"
+        f"{_enum_value(finding.kind)}** {_md_inline(finding.message)} ({source}) · "
+        f"id {_code_span(finding.id)} · "
+        f"explain {_code_span(f'logicchart explain {finding.id}')}"
     )
     diagnostic = finding.metadata.get("diagnostic")
     if isinstance(diagnostic, dict) and diagnostic.get("review_prompt"):

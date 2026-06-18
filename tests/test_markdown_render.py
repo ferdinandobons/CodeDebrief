@@ -17,8 +17,9 @@ from logicchart.render.markdown import render_markdown
 def _finding(
     kind: str | FindingKind, evidence: Evidence, message: str, path: str = "app.py"
 ) -> Finding:
+    public_kind = kind.value if isinstance(kind, FindingKind) else kind
     return Finding(
-        id=f"id-{kind}-{evidence.value}",
+        id=f"id-{public_kind}-{evidence.value}",
         kind=kind,
         severity=Severity.WARNING,
         message=message,
@@ -68,6 +69,13 @@ def test_include_gaps_expands_the_review_section() -> None:
 def test_evidence_level_is_rendered_inline() -> None:
     out = render_markdown(_model([_finding("dead_code", Evidence.INFERRED, "x")]))
     assert "INFERRED" in out
+
+
+def test_finding_id_and_explain_command_are_rendered_inline() -> None:
+    finding = _finding("dead_code", Evidence.INFERRED, "x")
+    out = render_markdown(_model([finding]))
+    assert f"id `{finding.id}`" in out
+    assert f"explain `logicchart explain {finding.id}`" in out
 
 
 def test_diagnostic_review_prompt_is_rendered_when_present() -> None:

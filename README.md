@@ -52,7 +52,7 @@ No `init` step is required. LogicChart analyzes `.` by default and writes:
 | File | Purpose |
 |---|---|
 | `logicchart-out/logic-flow.json` | canonical model consumed by CLI and MCP; commit it |
-| `logicchart-out/logic-flow.md` | reviewable decision flowcharts and findings; commit it |
+| `logicchart-out/logic-flow.md` | reviewable decision flowcharts and findings, including finding ids and `logicchart explain ...` commands; commit it |
 | `logicchart-out/logic-flow.html` | local interactive viewer; regenerated and normally ignored |
 | `logicchart-out/logic-annotations.json` | optional labels/summaries sidecar; never required for correctness |
 

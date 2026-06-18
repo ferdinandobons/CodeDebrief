@@ -115,6 +115,8 @@ Current checkpoint:
   diagnostic object over MCP.
 - `logicchart explain <finding-id>` exposes the same deterministic explanation payload over
   the CLI, with evidence-tier guardrails and JSON output for agents.
+- `logicchart-out/logic-flow.md` includes finding ids and ready-to-run `logicchart explain`
+  commands so agents can move from the Markdown review queue to the evidence chain.
 - `get_finding_context` exposes a bounded deterministic subgraph with the focus flow,
   evidence nodes, related flows/findings, evidence guardrail, and next-tool hints.
 - Cross-flow diagnostics include bounded related-decision scope with related flow/node ids
