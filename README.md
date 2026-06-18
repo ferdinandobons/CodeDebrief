@@ -416,13 +416,15 @@ Start the server in the analyzed project:
 logicchart mcp .
 ```
 
-Available MCP tools include summary, flow listing, flow retrieval, flow-navigation packs,
-query, findings, finding-rule contracts, finding-chain explanation, finding-context
-subgraphs, state-handling lookup, decision-node search, impact analysis, token-bounded
-deterministic SVG snapshots for flows/findings/impact sets, review queue, context pack,
-artifact validation, and artifact update. `context_pack` stays lightweight by default and
-returns snapshot follow-up tool calls; pass `include_visual=true` when an agent needs
-inline, budget-capped SVG context in the same response.
+Available MCP tools include summary, analysis-quality reports, flow listing, flow
+retrieval, flow-navigation packs, query, findings, finding-rule contracts, finding-chain
+explanation, finding-context subgraphs, state-handling lookup, decision-node search,
+impact analysis, token-bounded deterministic SVG snapshots for flows/findings/impact
+sets, review queue, context pack, artifact validation, and artifact update.
+`analysis_quality` returns deterministic analyzer-depth signals with guardrails and
+follow-up tool pointers. `context_pack` stays lightweight by default and returns snapshot
+follow-up tool calls; pass `include_visual=true` when an agent needs inline,
+budget-capped SVG context in the same response.
 
 ## Roadmap
 

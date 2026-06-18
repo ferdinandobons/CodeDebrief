@@ -10,6 +10,7 @@ from logicchart.artifacts import load_model, write_artifacts
 from logicchart.config import LogicChartConfig
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts
 from logicchart.model import NodeKind, ProjectModel
+from logicchart.quality import model_quality
 from logicchart.query import (
     explain_finding,
     find_decisions,
@@ -262,6 +263,18 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         summary = model_summary(model)
         summary["annotations"] = load_annotations(project_root, model, active_config).to_dict()
         return summary
+
+    @server.tool()
+    def analysis_quality(token_budget: int = 0) -> dict[str, Any]:
+        """Analyzer-quality metrics with attention signals and agent follow-up tools."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        quality = model.metadata.get("quality")
+        if not isinstance(quality, dict):
+            quality = model_quality(model)
+        return _quality_report(quality, token_budget)
 
     @server.tool()
     def explain_finding_chain(finding_id: str, token_budget: int = 0) -> dict[str, Any]:
@@ -661,6 +674,172 @@ def _context_visual_item_budget(token_budget: int) -> int:
     if token_budget <= 0:
         return 2
     return max(1, min(3, token_budget // 300))
+
+
+def _quality_report(quality: dict[str, Any], token_budget: int) -> dict[str, Any]:
+    return {
+        "quality": _bounded_quality(quality, token_budget),
+        "attention": _quality_attention_items(quality, token_budget),
+        "guardrail": (
+            "Quality attention signals identify analyzer limits and review targets; "
+            "they are not confirmed logical bugs by themselves."
+        ),
+        "next_tools": {
+            "validate_quality": {
+                "tool": "validate_artifacts",
+                "arguments": {"include_quality": True},
+            },
+            "review_queue": {
+                "tool": "review_queue",
+                "arguments": {"token_budget": token_budget},
+            },
+        },
+    }
+
+
+def _bounded_quality(quality: dict[str, Any], token_budget: int) -> dict[str, Any]:
+    if token_budget <= 0:
+        return quality
+    item_limit = _quality_item_budget(token_budget)
+    bounded = dict(quality)
+
+    languages = quality.get("languages")
+    if isinstance(languages, dict):
+        attention = _list_dicts(languages.get("attention"))[:item_limit]
+        depth = languages.get("depth")
+        depth_rows = depth if isinstance(depth, dict) else {}
+        attention_order = [str(item.get("language", "")) for item in attention]
+        ordered_languages = [
+            *[language for language in attention_order if language in depth_rows],
+            *sorted(language for language in depth_rows if language not in attention_order),
+        ][:item_limit]
+        bounded["languages"] = {
+            "attention": attention,
+            "depth": {language: depth_rows[language] for language in ordered_languages},
+            "omitted_language_count": max(0, len(depth_rows) - len(ordered_languages)),
+        }
+
+    files = quality.get("files")
+    if isinstance(files, dict):
+        bounded_files = dict(files)
+        skipped = files.get("skipped")
+        if isinstance(skipped, dict):
+            bounded_files["skipped"] = {
+                **skipped,
+                "sample": _list_dicts(skipped.get("sample"))[:item_limit],
+            }
+        bounded["files"] = bounded_files
+
+    flows = quality.get("flows")
+    if isinstance(flows, dict):
+        bounded["flows"] = {**flows, "huge": _list_dicts(flows.get("huge"))[:item_limit]}
+
+    labels = quality.get("labels")
+    if isinstance(labels, dict):
+        bounded["labels"] = {
+            **labels,
+            "sample": _list_dicts(labels.get("sample"))[:item_limit],
+        }
+
+    return bounded
+
+
+def _quality_attention_items(quality: dict[str, Any], token_budget: int) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    files = quality.get("files")
+    calls = quality.get("calls")
+    labels = quality.get("labels")
+    graph = quality.get("graph")
+    languages = quality.get("languages")
+
+    skipped = files.get("skipped") if isinstance(files, dict) else None
+    skipped_total = skipped.get("total", 0) if isinstance(skipped, dict) else 0
+    if skipped_total:
+        items.append(
+            {
+                "type": "skipped_files",
+                "signals": ["skipped_files"],
+                "count": skipped_total,
+                "next_tools": {
+                    "validate_quality": {
+                        "tool": "validate_artifacts",
+                        "arguments": {"include_quality": True},
+                    }
+                },
+            }
+        )
+
+    if isinstance(calls, dict) and (calls.get("unresolved", 0) or calls.get("ambiguous", 0)):
+        items.append(
+            {
+                "type": "call_resolution",
+                "signals": ["unresolved_calls", "ambiguous_calls"],
+                "resolution_rate": calls.get("resolution_rate", 0),
+                "next_tools": {
+                    "query_calls": {
+                        "tool": "query_logic",
+                        "arguments": {"question": "unresolved calls", "token_budget": token_budget},
+                    }
+                },
+            }
+        )
+
+    if isinstance(labels, dict) and labels.get("generic_nodes", 0):
+        items.append(
+            {
+                "type": "generic_labels",
+                "signals": ["generic_labels"],
+                "generic_ratio": labels.get("generic_ratio", 0),
+                "next_tools": {
+                    "query_generic_labels": {
+                        "tool": "query_logic",
+                        "arguments": {"question": "generic labels", "token_budget": token_budget},
+                    }
+                },
+            }
+        )
+
+    if isinstance(graph, dict) and graph.get("dense_graph_warning"):
+        items.append(
+            {
+                "type": "graph_density",
+                "signals": ["dense_graph"],
+                "edge_to_node_ratio": graph.get("edge_to_node_ratio", 0),
+            }
+        )
+
+    if isinstance(languages, dict):
+        for item in _list_dicts(languages.get("attention")):
+            language = str(item.get("language", ""))
+            items.append(
+                {
+                    "type": "language",
+                    "language": language,
+                    "signals": item.get("signals", []),
+                    "next_tools": {
+                        "query_language": {
+                            "tool": "query_logic",
+                            "arguments": {
+                                "question": language,
+                                "language": language,
+                                "token_budget": token_budget,
+                            },
+                        }
+                    },
+                }
+            )
+
+    return _cap(items, token_budget)
+
+
+def _list_dicts(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _quality_item_budget(token_budget: int) -> int:
+    return max(1, min(8, token_budget // 120))
 
 
 def _flow_navigation(

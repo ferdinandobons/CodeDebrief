@@ -348,6 +348,13 @@ Add tests for:
 
 The MCP should be treated as a public API, not as an internal convenience wrapper.
 
+Current checkpoint:
+
+- MCP exposes `analysis_quality`, a bounded analyzer-quality tool with guardrails and
+  next-tool hints so agents do not need to mine the full summary payload.
+- MCP tests now assert the structured `analysis_quality` payload, token-budget schema, and
+  language-depth fields instead of relying only on text containment.
+
 ## Finding 7: Language Support Needs Depth Metrics, Not Only a Count
 
 ### Current status
@@ -458,6 +465,8 @@ Current checkpoint:
 - `logicchart validate --quality` prints human-readable quality metrics, and
   `--quality --json` emits them under `quality`.
 - MCP `logicchart_summary` includes quality metrics.
+- MCP `analysis_quality` provides a dedicated, token-bounded quality report with guardrails
+  and next-tool hints.
 - MCP `validate_artifacts(include_quality=true)` returns the same quality payload.
 - The generated viewer Details rail includes a Project Quality panel with coverage,
   call-resolution, findings, label, graph-density, and language metrics.

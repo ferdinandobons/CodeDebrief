@@ -10,7 +10,7 @@ from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.annotations import annotations_path, model_hash
 from logicchart.artifacts import load_model, write_artifacts
 from logicchart.cli import main as cli_main
-from logicchart.mcp_server import MCP_INSTRUCTIONS
+from logicchart.mcp_server import MCP_INSTRUCTIONS, _quality_report
 
 
 def test_mcp_lists_and_queries_flows(tmp_path: Path) -> None:
@@ -53,6 +53,7 @@ def authorize(user):
                 assert {"list_flows", "get_flow", "query_logic", "update_logicchart"} <= names
                 assert {
                     "logicchart_summary",
+                    "analysis_quality",
                     "explain_finding_chain",
                     "get_finding_context",
                     "finding_rules",
@@ -76,6 +77,7 @@ def authorize(user):
                     "get_finding_snapshot",
                     "get_impact_snapshot",
                     "query_logic",
+                    "analysis_quality",
                     "explain_finding_chain",
                     "get_finding_context",
                     "finding_rules",
@@ -108,6 +110,23 @@ def authorize(user):
                 assert "language_capabilities" in str(summary.content)
                 assert "Annotated authorization" not in str(summary.content)
                 assert "annotations" in str(summary.content)
+
+                quality = await session.call_tool("analysis_quality", {"token_budget": 240})
+                assert not quality.isError
+                quality_payload = quality.structuredContent  # type: ignore[assignment]
+                assert "quality" in quality_payload
+                assert "guardrail" in quality_payload
+                assert (
+                    quality_payload["next_tools"]["validate_quality"]["tool"]  # type: ignore[index]
+                    == "validate_artifacts"
+                )
+                quality_metrics = quality_payload["quality"]  # type: ignore[index]
+                assert "python" in quality_metrics["languages"]["depth"]  # type: ignore[index]
+                assert (
+                    quality_metrics["languages"]["depth"]["python"]["capability"]["frontend"]  # type: ignore[index]
+                    == "python_ast"
+                )
+                assert isinstance(quality_payload["attention"], list)  # type: ignore[index]
 
                 rules = await session.call_tool("finding_rules", {"kind": "missing_branch"})
                 assert not rules.isError
@@ -238,6 +257,39 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
             "reasons",
             "source",
         }
+
+
+def test_analysis_quality_report_bounds_language_attention() -> None:
+    quality = {
+        "files": {"skipped": {"total": 0, "sample": []}},
+        "flows": {"huge": []},
+        "calls": {"unresolved": 0, "ambiguous": 0},
+        "labels": {"generic_nodes": 0, "sample": []},
+        "graph": {},
+        "languages": {
+            "attention": [
+                {"language": "python", "signals": ["low_call_resolution"]},
+                {"language": "typescript", "signals": ["generic_labels"]},
+            ],
+            "depth": {
+                "python": {"files": 3, "flows": 8},
+                "typescript": {"files": 4, "flows": 9},
+            },
+        },
+    }
+
+    report = _quality_report(quality, token_budget=120)
+
+    assert report["guardrail"].startswith("Quality attention signals")
+    assert report["next_tools"]["validate_quality"]["tool"] == "validate_artifacts"
+    languages = report["quality"]["languages"]
+    assert list(languages["depth"]) == ["python"]
+    assert languages["attention"] == [{"language": "python", "signals": ["low_call_resolution"]}]
+    assert languages["omitted_language_count"] == 1
+    assert [item["language"] for item in report["attention"]] == ["python", "typescript"]
+    assert (
+        report["attention"][0]["next_tools"]["query_language"]["arguments"]["language"] == "python"
+    )
 
 
 def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
