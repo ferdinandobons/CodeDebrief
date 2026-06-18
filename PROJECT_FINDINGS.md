@@ -237,8 +237,22 @@ The sidecar should be keyed by stable ids:
 - model hash;
 - source digest.
 
-The viewer then overlays LLM labels/descriptions only when the sidecar exists and matches
-the current model hash.
+Current checkpoint:
+
+- `logicchart-out/logic-annotations.json` has a strict local schema.
+- Sidecars are keyed by stable flow/node/finding/scope ids plus a deterministic model hash.
+- `logicchart validate` validates a present sidecar automatically and `--annotations`
+  includes sidecar status when it is absent.
+- Generated viewers embed and overlay matching flow/node labels and descriptions only when
+  the sidecar hash matches the current model.
+- MCP summaries expose sidecar status, and flow-navigation packs include matching
+  annotations for the selected flow.
+
+Still open:
+
+- Add `logicchart enrich` only after the provider/model and external-code-send boundaries
+  are explicitly approved.
+- Add finding/scoped summary overlays beyond the current flow/node label/description layer.
 
 ### Safety rules
 
@@ -500,11 +514,11 @@ Before the next release:
 
 ### Phase 3: LLM Enrichment
 
-- Add `logicchart enrich`.
-- Write `logic-annotations.json`.
-- Validate annotations against a schema.
-- Add viewer overlays for better labels and descriptions.
-- Add MCP tools that can return enriched explanations when the sidecar exists.
+- Next: add `logicchart enrich` after provider/model approval.
+- Done: write/load `logic-annotations.json`.
+- Done: validate annotations against a schema and model hash.
+- Done: add viewer overlays for better flow/node labels and descriptions.
+- Done: expose annotation status and matching flow annotations over MCP.
 
 ### Phase 4: Real-World Quality Gates
 

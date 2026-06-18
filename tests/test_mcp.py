@@ -7,6 +7,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from logicchart.analysis.project import ProjectAnalyzer
+from logicchart.annotations import annotations_path, model_hash
 from logicchart.artifacts import load_model, write_artifacts
 from logicchart.cli import main as cli_main
 from logicchart.mcp_server import MCP_INSTRUCTIONS
@@ -26,6 +27,16 @@ def authorize(user):
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     write_artifacts(tmp_path, result.model)
     flow = result.model.flows[0]
+    annotations_path(tmp_path).write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "model_hash": model_hash(result.model),
+                "flows": {flow.id: {"label": "Annotated authorization"}},
+            }
+        ),
+        encoding="utf-8",
+    )
 
     async def exercise_server() -> None:
         parameters = StdioServerParameters(
@@ -83,6 +94,8 @@ def authorize(user):
                 assert "finding_rules" in str(summary.content)
                 assert "quality" in str(summary.content)
                 assert "language_capabilities" in str(summary.content)
+                assert "Annotated authorization" not in str(summary.content)
+                assert "annotations" in str(summary.content)
 
                 rules = await session.call_tool("finding_rules", {"kind": "missing_branch"})
                 assert not rules.isError
@@ -95,6 +108,7 @@ def authorize(user):
                 assert not navigation.isError
                 assert "decision_nodes" in str(navigation.content)
                 assert "visual_snapshot" in str(navigation.content)
+                assert "Annotated authorization" in str(navigation.content)
 
                 flow_snapshot = await session.call_tool(
                     "get_flow_snapshot",

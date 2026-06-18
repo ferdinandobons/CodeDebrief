@@ -83,6 +83,19 @@ def test_cli_validate_and_profiles(tmp_path: Path, capsys: pytest.CaptureFixture
     assert "analyze_source" in capsys.readouterr().out
 
 
+def test_cli_validate_reports_absent_annotation_status(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "main.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+
+    assert main(["analyze", str(tmp_path), "--full", "--no-html"]) == 0
+    capsys.readouterr()
+    assert main(["validate", str(tmp_path), "--annotations", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["annotations"]["status"] == "absent"
+
+
 def test_cli_install_can_write_mcp_config(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

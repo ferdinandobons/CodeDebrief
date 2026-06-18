@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
+from logicchart.annotations import annotations_path, model_hash
 from logicchart.render.html import render_html
 from logicchart.render.payload import build_payload
 
@@ -42,6 +43,55 @@ def test_build_payload_has_flows(tmp_path: Path) -> None:
     payload = build_payload(_model(tmp_path), tmp_path)
     assert isinstance(payload, dict)
     assert payload["flows"]
+
+
+def test_render_html_embeds_only_matching_annotations(tmp_path: Path) -> None:
+    model = _model(tmp_path)
+    flow = model.flows[0]
+    annotations = annotations_path(tmp_path)
+    annotations.parent.mkdir(parents=True)
+    annotations.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "model_hash": model_hash(model),
+                "flows": {flow.id: {"label": "Annotated handler"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    html = render_html(model, tmp_path)
+    match = re.search(
+        r'<script id="logicchart-data" type="application/json">(.*?)</script>',
+        html,
+        re.DOTALL,
+    )
+    assert match is not None
+    payload = json.loads(match.group(1).replace("<\\/", "</"))
+    assert payload["annotations"]["flows"][flow.id]["label"] == "Annotated handler"
+    assert payload["metadata"]["annotations"]["status"] == "loaded"
+
+    annotations.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "model_hash": "stale",
+                "flows": {flow.id: {"label": "Stale handler"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    stale_html = render_html(model, tmp_path)
+    stale_match = re.search(
+        r'<script id="logicchart-data" type="application/json">(.*?)</script>',
+        stale_html,
+        re.DOTALL,
+    )
+    assert stale_match is not None
+    stale_payload = json.loads(stale_match.group(1).replace("<\\/", "</"))
+    assert "annotations" not in stale_payload
+    assert stale_payload["metadata"]["annotations"]["status"] == "stale"
 
 
 def test_render_html_emits_directory_tree(tmp_path: Path) -> None:

@@ -54,6 +54,7 @@ No `init` step is required. LogicChart analyzes `.` by default and writes:
 | `logicchart-out/logic-flow.json` | canonical model consumed by CLI and MCP; commit it |
 | `logicchart-out/logic-flow.md` | reviewable decision flowcharts and findings; commit it |
 | `logicchart-out/logic-flow.html` | local interactive viewer; regenerated and normally ignored |
+| `logicchart-out/logic-annotations.json` | optional labels/summaries sidecar; never required for correctness |
 
 For development inside this repository:
 
@@ -247,6 +248,7 @@ Check the artifact contract:
 logicchart validate
 logicchart validate --check-sync
 logicchart validate --quality --json
+logicchart validate --annotations --json
 logicchart validate --max-skipped-files 0 --min-call-resolution 0.5
 ```
 
@@ -255,6 +257,10 @@ logicchart validate --max-skipped-files 0 --min-call-resolution 0.5
 call-resolution rate, generic-label ratio, source-location coverage, finding counts, and
 graph density. It also reports skipped-file counts and reasons when a source file could
 not be parsed.
+`--annotations` reports validation status for an optional
+`logicchart-out/logic-annotations.json` sidecar. If that file exists, validation checks it
+even without the flag and fails when the sidecar is stale, malformed, or references ids
+that are not in the current model.
 Optional CI gates can fail validation on selected metrics:
 
 - `--max-skipped-files N`
@@ -437,7 +443,8 @@ embedded in generated HTML artifacts. Use a cache-buster query string when check
 changes in the browser.
 
 The canonical artifact format is documented by
-[schema/logic-flow.schema.json](schema/logic-flow.schema.json).
+[schema/logic-flow.schema.json](schema/logic-flow.schema.json). Optional annotation sidecars
+use [schema/logic-annotations.schema.json](schema/logic-annotations.schema.json).
 
 ## License
 

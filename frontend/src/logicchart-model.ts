@@ -47,7 +47,25 @@ export interface LogicChartFinding {
   node_id?: string | null;
 }
 
+export interface LogicChartAnnotationText {
+  label?: string;
+  description?: string;
+  summary?: string;
+  explanation?: string;
+  remediation?: string;
+}
+
+export interface LogicChartAnnotations {
+  schema_version?: string;
+  model_hash?: string;
+  flows?: Record<string, LogicChartAnnotationText>;
+  nodes?: Record<string, LogicChartAnnotationText>;
+  findings?: Record<string, LogicChartAnnotationText>;
+  scopes?: Record<string, LogicChartAnnotationText>;
+}
+
 export interface LogicChartPayload {
+  annotations?: LogicChartAnnotations;
   flows: LogicChartFlow[];
   findings?: LogicChartFinding[];
   metadata?: {

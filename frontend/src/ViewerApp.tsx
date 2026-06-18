@@ -28,6 +28,7 @@ import {
   flowLabel,
   flowPath,
   scopeNamesForFlow,
+  type LogicChartAnnotationText,
   type LogicChartFlow,
   type LogicChartPayload,
 } from "./logicchart-model";
@@ -1140,6 +1141,7 @@ export function ViewerApp({
           if (!detail) return null;
           return (
             <FlowDetail
+              annotations={payload?.annotations?.nodes}
               detail={detail}
               draggingNodeKey={draggingNodeKey}
               manualNodePositions={manualNodePositions}
@@ -1164,12 +1166,18 @@ export function ViewerApp({
       <g className="flow-nodes">
         {[...flowPositions.values()].map(position => {
           const flow = flowById.get(position.id);
+          const flowAnnotation = payload?.annotations?.flows?.[position.id];
           const flowFindingCount =
             flow && isLogicChartFlow(flow) ? findingCountsByFlowId.get(flow.id) || 0 : 0;
           const flowSummary =
             flow && isLogicChartFlow(flow)
-              ? flowAccessibilitySummary(asLogicChartFlow(flow), flowFindingCount)
+              ? flowAccessibilitySummary(
+                  asLogicChartFlow(flow),
+                  flowFindingCount,
+                  flowAnnotation,
+                )
               : position.id;
+          const flowTitle = annotationTitle(flowSummary, flowAnnotation);
           const flowOpen = routeFlowIds.includes(position.id);
           const targetSelected =
             currentSelection?.kind === "scope-entry" &&
@@ -1217,6 +1225,7 @@ export function ViewerApp({
             <g
               aria-label={flowSummary}
               className={flowClassName}
+              data-annotation-label={flowAnnotation?.label}
               data-flow-id={position.id}
               data-flow-summary={flowSummary}
               key={position.id}
@@ -1250,14 +1259,16 @@ export function ViewerApp({
                 x={-position.width / 2}
                 y={-position.height / 2}
               />
-              <text textAnchor="middle">{flow ? flowLabel(flow) : position.id}</text>
+              <text textAnchor="middle">
+                {flow ? displayFlowLabel(asLogicChartFlow(flow), flowAnnotation) : position.id}
+              </text>
               {flow ? (
                 <text className="meta" textAnchor="middle" y="22">
                   {flowMeta(flow).join(" · ")}
                 </text>
               ) : null}
               {flow && flowPath(flow) ? (
-                <title>{flowSummary}</title>
+                <title>{flowTitle}</title>
               ) : null}
             </g>
           );
@@ -1450,6 +1461,7 @@ function ScopeNode({
 function FlowDetail({
   anchorX,
   anchorY,
+  annotations,
   detail,
   draggingNodeKey,
   flowId,
@@ -1463,6 +1475,7 @@ function FlowDetail({
 }: {
   anchorX: number;
   anchorY: number;
+  annotations?: Record<string, LogicChartAnnotationText>;
   detail: FlowDetailLayout;
   draggingNodeKey: string | null;
   flowId: string;
@@ -1689,6 +1702,7 @@ function FlowDetail({
             topLevelDimmed={topLevelDimmed}
             anchorX={anchorX}
             anchorY={anchorY}
+            annotation={annotations?.[position.id]}
           />
         ))}
       </g>
@@ -1699,6 +1713,7 @@ function FlowDetail({
 function FlowDetailNode({
   anchorX,
   anchorY,
+  annotation,
   connectedNodeIds,
   draggingNodeKey,
   flowId,
@@ -1712,6 +1727,7 @@ function FlowDetailNode({
 }: {
   anchorX: number;
   anchorY: number;
+  annotation?: LogicChartAnnotationText;
   connectedNodeIds: ReadonlySet<string>;
   draggingNodeKey: string | null;
   flowId: string;
@@ -1745,10 +1761,13 @@ function FlowDetailNode({
   ]
     .filter(Boolean)
     .join(" ");
-  const label = position.node.label || position.id;
+  const label = displayNodeLabel(position.node.label || position.id, annotation);
+  const title = annotationTitle(label, annotation);
   return (
     <g
+      aria-label={title}
       className={className}
+      data-annotation-label={annotation?.label}
       data-detail-node-id={position.id}
       data-detail-flow-id={flowId}
       role="button"
@@ -1772,6 +1791,7 @@ function FlowDetailNode({
         })
       }
     >
+      <title>{title}</title>
       {kind === "decision" ? (
         <polygon
           className="detail-shape"
@@ -2272,11 +2292,15 @@ function flowMeta(flow: ProgressiveFlowNode): string[] {
   return [item.entry_kind, item.language].filter((value): value is string => Boolean(value));
 }
 
-function flowAccessibilitySummary(flow: LogicChartFlow, findingCount: number): string {
+function flowAccessibilitySummary(
+  flow: LogicChartFlow,
+  findingCount: number,
+  annotation?: LogicChartAnnotationText,
+): string {
   const nodes = flow.nodes || [];
   const decisionCount = nodes.filter(node => node.kind === "decision").length;
   const pieces = [
-    flowLabel(flow),
+    displayFlowLabel(flow, annotation),
     flowMeta(flow).join(" in ") || "flow",
     plural(nodes.length, "node"),
     plural(decisionCount, "decision"),
@@ -2287,6 +2311,35 @@ function flowAccessibilitySummary(flow: LogicChartFlow, findingCount: number): s
   const source = flowPath(flow);
   if (source) pieces.push(source);
   return pieces.join(" · ");
+}
+
+function displayFlowLabel(
+  flow: LogicChartFlow,
+  annotation?: LogicChartAnnotationText,
+): string {
+  return displayAnnotationLabel(flowLabel(flow), annotation);
+}
+
+function displayNodeLabel(label: string, annotation?: LogicChartAnnotationText): string {
+  return displayAnnotationLabel(label, annotation);
+}
+
+function displayAnnotationLabel(
+  fallback: string,
+  annotation?: LogicChartAnnotationText,
+): string {
+  const label = annotation?.label?.trim();
+  return label ? compactSvgText(label, 64) : fallback;
+}
+
+function annotationTitle(base: string, annotation?: LogicChartAnnotationText): string {
+  const detail = annotation?.description || annotation?.summary || annotation?.explanation;
+  return detail ? `${base}\n${detail}` : base;
+}
+
+function compactSvgText(value: string, limit: number): string {
+  const compacted = value.replace(/\s+/g, " ").trim();
+  return compacted.length <= limit ? compacted : `${compacted.slice(0, limit - 3).trim()}...`;
 }
 
 function plural(count: number, noun: string): string {

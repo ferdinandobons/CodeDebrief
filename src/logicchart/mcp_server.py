@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from logicchart.analysis import ProjectAnalyzer
+from logicchart.annotations import load_annotations
 from logicchart.artifacts import load_model, write_artifacts
 from logicchart.config import LogicChartConfig
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts
@@ -128,7 +129,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         flow = next((item for item in model.flows if item.id == flow_id), None)
         if flow is None:
             return {"error": f"Unknown flow: {flow_id}"}
-        return _flow_navigation(model, flow, token_budget)
+        annotations = load_annotations(project_root, model, active_config)
+        annotation_payload = annotations.annotations if annotations.ok else None
+        return _flow_navigation(model, flow, token_budget, annotation_payload)
 
     @server.tool()
     def get_flow_snapshot(flow_id: str, format: str = "svg") -> dict[str, Any]:
@@ -209,7 +212,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return error
         assert model is not None
-        return model_summary(model)
+        summary = model_summary(model)
+        summary["annotations"] = load_annotations(project_root, model, active_config).to_dict()
+        return summary
 
     @server.tool()
     def explain_finding_chain(finding_id: str, token_budget: int = 0) -> dict[str, Any]:
@@ -437,7 +442,12 @@ def _flow_dict(flow: Any) -> dict[str, Any]:
     return asdict(flow)
 
 
-def _flow_navigation(model: ProjectModel, flow: Any, token_budget: int) -> dict[str, Any]:
+def _flow_navigation(
+    model: ProjectModel,
+    flow: Any,
+    token_budget: int,
+    annotations: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     by_id = {item.id: item for item in model.flows}
     findings = sorted(
         [item for item in model.findings if item.flow_id == flow.id],
@@ -470,6 +480,7 @@ def _flow_navigation(model: ProjectModel, flow: Any, token_budget: int) -> dict[
             token_budget,
         ),
         "findings": _cap([_finding_dict(item, model) for item in findings], token_budget),
+        "annotations": _flow_annotations(flow, findings, annotations),
         "next_tools": {
             "complete_flow": {"tool": "get_flow", "arguments": {"flow_id": flow.id}},
             "visual_snapshot": {
@@ -487,6 +498,30 @@ def _flow_navigation(model: ProjectModel, flow: Any, token_budget: int) -> dict[
                     **({"scope": primary_scope} if primary_scope else {}),
                 },
             },
+        },
+    }
+
+
+def _flow_annotations(
+    flow: Any,
+    findings: list[Any],
+    annotations: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not annotations:
+        return {"status": "absent"}
+    flow_annotations = annotations.get("flows", {})
+    node_annotations = annotations.get("nodes", {})
+    finding_annotations = annotations.get("findings", {})
+    return {
+        "status": "loaded",
+        "flow": flow_annotations.get(flow.id),
+        "nodes": {
+            node.id: node_annotations[node.id] for node in flow.nodes if node.id in node_annotations
+        },
+        "findings": {
+            finding.id: finding_annotations[finding.id]
+            for finding in findings
+            if finding.id in finding_annotations
         },
     }
 

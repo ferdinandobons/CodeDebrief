@@ -115,6 +115,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include deterministic analysis-quality metrics in the report.",
     )
     validate.add_argument(
+        "--annotations",
+        action="store_true",
+        help="Include optional logic-annotations.json sidecar validation status.",
+    )
+    validate.add_argument(
         "--max-skipped-files",
         type=int,
         help="Fail validation when skipped-file count exceeds this value.",
@@ -202,6 +207,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 Path(args.path),
                 args.check_sync,
                 args.json_output,
+                args.annotations,
                 args.quality,
                 _quality_thresholds(args),
                 args.profile,
@@ -369,6 +375,7 @@ def _validate(
     root: Path,
     check_sync: bool,
     json_output: bool,
+    include_annotations: bool,
     include_quality: bool,
     quality_thresholds: dict[str, float | int] | None,
     profile: str | None = None,
@@ -379,6 +386,7 @@ def _validate(
         root,
         config=config,
         check_sync=check_sync,
+        include_annotations=include_annotations,
         include_quality=include_quality,
         quality_thresholds=quality_thresholds,
     )
@@ -391,6 +399,9 @@ def _validate(
             print(f"warning: {warning}")
         for error in report.errors:
             print(f"error: {error}", file=sys.stderr)
+        if report.annotations is not None:
+            status_text = report.annotations.get("status", "unknown")
+            print(f"Annotations: {status_text}")
         if report.quality is not None:
             print(render_quality(report.quality))
     return 0 if report.ok else 1

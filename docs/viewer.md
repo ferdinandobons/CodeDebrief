@@ -123,6 +123,9 @@ The viewer layout should preserve these invariants:
 - Flow nodes expose deterministic accessibility summaries with source, node, decision,
   call, caller, and finding counts so broad canvas scans do not depend on tiny visible
   labels alone.
+- Optional annotation sidecars may improve flow/node labels and descriptions, but only
+  when their model hash matches the current `logic-flow.json`; stale sidecars must be
+  reported as ignored status, never rendered as current truth.
 - Large entrypoint rows wrap instead of forcing unbounded horizontal overflow.
 
 The frontend tests expose reusable layout checks through `viewerLayoutBoxes`,

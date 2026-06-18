@@ -26,6 +26,8 @@ The project follows Semantic Versioning.
   hints for token-bounded agent workflows.
 - Added deterministic accessibility summaries to viewer flow nodes for broad-canvas
   scanning.
+- Added a local optional `logic-annotations.json` sidecar schema, validation, viewer
+  overlays, and MCP status/navigation exposure.
 
 ### Changed
 
