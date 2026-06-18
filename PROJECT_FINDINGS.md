@@ -464,22 +464,23 @@ Current checkpoint:
 
 - `logicchart query` and MCP `query_logic` accept deterministic `source_path`, `symbol`,
   `domain`, and `value` filters that can work without lexical query terms.
-- `logicchart impact` accepts `--flow`, `--symbol`, and `--finding` in addition to changed
-  file paths, while preserving Git-diff defaults when no target is provided.
+- `logicchart impact` accepts `--flow`, `--symbol`, `--finding`, and
+  `--dependency-path` in addition to changed file paths, while preserving Git-diff
+  defaults when no target is provided.
 - MCP `analyze_impact` and `get_impact_snapshot` accept the same target types.
 - JSON/MCP impact responses include target lists, unresolved targets, subgraph flow ids,
   and subgraph finding ids.
 - CLI/MCP impact snapshots include the same target, unresolved-target, impact-reason, and
   subgraph fields as the non-visual impact responses.
 - JSON/MCP impact responses include per-flow impact reasons, distinguishing changed-file
-  matches, explicit flow/symbol/finding targets, and caller propagation.
+  matches, explicit flow/symbol/finding/dependency-path targets, and caller propagation.
 - MCP `context_pack` accepts the same explicit impact targets and preserves per-flow
   impact reasons plus subgraph ids, so agents can request a bounded context pack for an
-  exact flow, symbol, or finding without inventing a changed file.
+  exact flow, symbol, finding, or source subtree without inventing a changed file.
 
 Still open:
 
-- Add dependency-path impact once call/dependency edges carry enough precision.
+- Add dependency-edge-aware impact once cross-file dependency edges carry enough precision.
 
 Optional LLM query reformulation could help map natural language to deterministic query
 fields, but final retrieval should still be model-backed.

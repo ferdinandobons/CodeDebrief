@@ -438,6 +438,38 @@ def test_impact_model_accepts_flow_symbol_and_finding_targets() -> None:
     }
 
 
+def test_impact_model_accepts_dependency_path_targets() -> None:
+    charge = _flow("charge", "chargeOrder", symbol="svc:charge")
+    charge.location = _loc("services/payments/charge.py", 10)
+    refund = _flow("refund", "refundOrder", symbol="svc:refund")
+    refund.location = _loc("services/payments/refund.py", 20)
+    caller = _flow("caller", "loadCheckout", symbol="web:checkout")
+    caller.location = _loc("frontend/checkout.py", 30)
+    caller.calls = ["charge"]
+    charge.called_by = ["caller"]
+    similar = _flow("similar", "paymentsLegacy", symbol="svc:legacy")
+    similar.location = _loc("services/payments-legacy/refund.py", 40)
+    model = _model([charge, refund, caller, similar])
+
+    result = impact_model(
+        model,
+        [],
+        dependency_paths=["./services/payments", "missing/path"],
+    )
+
+    assert result.changed_files == []
+    assert result.target_dependency_paths == ["services/payments", "missing/path"]
+    assert {flow.id for flow in result.directly_impacted} == {"charge", "refund"}
+    assert {flow.id for flow in result.transitively_impacted} == {"caller"}
+    assert result.impact_reasons["charge"] == ["dependency path target `services/payments`"]
+    assert result.impact_reasons["refund"] == ["dependency path target `services/payments`"]
+    assert result.impact_reasons["caller"] == ["calls impacted flow `chargeOrder`"]
+    assert "similar" not in result.subgraph_flow_ids
+    assert result.unresolved_targets == [
+        {"type": "dependency_path", "value": "missing/path", "reason": "not_found"}
+    ]
+
+
 def test_impact_model_marks_scope_filtered_targets() -> None:
     backend = _flow("backend", "backend", symbol="svc:backend")
     backend.metadata["scope"] = ["backend"]
@@ -450,6 +482,20 @@ def test_impact_model_marks_scope_filtered_targets() -> None:
     assert result.directly_impacted == []
     assert result.unresolved_targets == [
         {"type": "flow", "value": "backend", "reason": "scope_filtered"}
+    ]
+
+
+def test_impact_model_marks_scope_filtered_dependency_paths() -> None:
+    backend = _flow("backend", "backend", symbol="svc:backend")
+    backend.location = _loc("backend/svc.py")
+    backend.metadata["scope"] = ["backend"]
+    model = _model([backend])
+
+    result = impact_model(model, [], scope="frontend", dependency_paths=["backend"])
+
+    assert result.directly_impacted == []
+    assert result.unresolved_targets == [
+        {"type": "dependency_path", "value": "backend", "reason": "scope_filtered"}
     ]
 
 
@@ -535,6 +581,25 @@ def test_cli_impact_json_accepts_flow_target_without_changed_files(
     assert payload["directly_impacted"] == [flow.id]
     assert payload["impact_reasons"] == {
         flow.id: [f"explicit flow target `{flow.id}`"],
+    }
+    assert payload["subgraph_flow_ids"] == [flow.id]
+
+
+def test_cli_impact_json_accepts_dependency_path_target(tmp_path: Path, capsys: object) -> None:
+    root = _demo_source(tmp_path)
+    assert main(["analyze", str(root), "--full"]) == 0
+    capsys.readouterr()  # type: ignore[attr-defined]
+    flow = load_model(root).flows[0]
+
+    assert main(["impact", "--path", str(root), "--dependency-path", "./app.py", "--json"]) == 0
+    out = capsys.readouterr()  # type: ignore[attr-defined]
+    payload = json.loads(out.out)
+
+    assert payload["changed_files"] == []
+    assert payload["target_dependency_paths"] == ["app.py"]
+    assert payload["directly_impacted"] == [flow.id]
+    assert payload["impact_reasons"] == {
+        flow.id: ["dependency path target `app.py`"],
     }
     assert payload["subgraph_flow_ids"] == [flow.id]
 

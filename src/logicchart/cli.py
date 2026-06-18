@@ -79,6 +79,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="Seed impact from a finding id.",
     )
+    impact.add_argument(
+        "--dependency-path",
+        action="append",
+        default=[],
+        help="Seed impact from flows in or under a source path.",
+    )
     _add_profile_argument(impact)
     impact.add_argument("--json", action="store_true", dest="json_output")
 
@@ -139,6 +145,7 @@ def build_parser() -> argparse.ArgumentParser:
     snapshot_impact.add_argument("--flow", action="append", default=[])
     snapshot_impact.add_argument("--symbol", action="append", default=[])
     snapshot_impact.add_argument("--finding", action="append", default=[])
+    snapshot_impact.add_argument("--dependency-path", action="append", default=[])
     _add_snapshot_arguments(snapshot_impact)
 
     view = subparsers.add_parser("view", help="Generate and serve the interactive flowchart.")
@@ -269,6 +276,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.flow,
                 args.symbol,
                 args.finding,
+                args.dependency_path,
             )
         if args.command == "query":
             return _query(
@@ -360,7 +368,7 @@ def _snapshot(args: argparse.Namespace) -> int:
             max_nodes=_snapshot_node_budget(args.token_budget),
         )
     else:
-        has_targets = bool(args.flow or args.symbol or args.finding)
+        has_targets = bool(args.flow or args.symbol or args.finding or args.dependency_path)
         changed = args.files if args.files or has_targets else git_changed_files(root)
         impact = impact_model(
             model,
@@ -369,6 +377,7 @@ def _snapshot(args: argparse.Namespace) -> int:
             flow_ids=args.flow,
             symbols=args.symbol,
             finding_ids=args.finding,
+            dependency_paths=args.dependency_path,
         )
         payload = render_impact_snapshot(
             changed_files=impact.changed_files,
@@ -379,6 +388,7 @@ def _snapshot(args: argparse.Namespace) -> int:
             target_flow_ids=impact.target_flow_ids,
             target_symbols=impact.target_symbols,
             target_finding_ids=impact.target_finding_ids,
+            target_dependency_paths=impact.target_dependency_paths,
             unresolved_targets=impact.unresolved_targets,
             impact_reasons=impact.impact_reasons,
             subgraph_flow_ids=impact.subgraph_flow_ids,
@@ -514,10 +524,11 @@ def _impact(
     flow_ids: list[str] | None = None,
     symbols: list[str] | None = None,
     finding_ids: list[str] | None = None,
+    dependency_paths: list[str] | None = None,
 ) -> int:
     root = root.resolve()
     config = LogicChartConfig.load(root, profile=profile)
-    has_targets = bool(flow_ids or symbols or finding_ids)
+    has_targets = bool(flow_ids or symbols or finding_ids or dependency_paths)
     changed = files if files or has_targets else git_changed_files(root)
     result = impact_model(
         load_model(root, config),
@@ -526,6 +537,7 @@ def _impact(
         flow_ids=flow_ids,
         symbols=symbols,
         finding_ids=finding_ids,
+        dependency_paths=dependency_paths,
     )
     if json_output:
         print(
@@ -535,6 +547,7 @@ def _impact(
                     "target_flow_ids": result.target_flow_ids,
                     "target_symbols": result.target_symbols,
                     "target_finding_ids": result.target_finding_ids,
+                    "target_dependency_paths": result.target_dependency_paths,
                     "unresolved_targets": result.unresolved_targets,
                     "impact_reasons": result.impact_reasons,
                     "directly_impacted": [item.id for item in result.directly_impacted],

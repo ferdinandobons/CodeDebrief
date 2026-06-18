@@ -140,6 +140,7 @@ def test_impact_snapshot_reports_targets_and_unresolved_targets() -> None:
         transitive=[],
         findings=[],
         target_flow_ids=["missing-flow"],
+        target_dependency_paths=["backend/payments"],
         unresolved_targets=[{"type": "flow", "value": "missing-flow", "reason": "not_found"}],
         impact_reasons={},
         subgraph_flow_ids=[],
@@ -147,10 +148,13 @@ def test_impact_snapshot_reports_targets_and_unresolved_targets() -> None:
     )
 
     assert snapshot["target_flow_ids"] == ["missing-flow"]
+    assert snapshot["target_dependency_paths"] == ["backend/payments"]
+    assert snapshot["layout"]["target_count"] == 2
     assert snapshot["unresolved_targets"] == [
         {"type": "flow", "value": "missing-flow", "reason": "not_found"}
     ]
     assert snapshot["subgraph_flow_ids"] == []
+    assert "Targets: flow:missing-flow, path:backend/payments" in snapshot["svg"]
     assert "Unresolved targets: flow:missing-flow" in snapshot["svg"]
     assert "No modeled flows matched the requested targets." in snapshot["svg"]
 

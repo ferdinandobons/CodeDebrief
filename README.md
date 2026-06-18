@@ -273,11 +273,13 @@ Render deterministic SVG visual context without starting the viewer or MCP serve
 logicchart snapshot flow flow-id > flow.svg
 logicchart snapshot finding finding-id --json
 logicchart snapshot impact --flow flow-id --output impact.svg
+logicchart snapshot impact --dependency-path backend/payments --json
 ```
 
 Snapshots are generated from the committed model artifact, not from browser screenshots.
 `flow`, `finding`, and `impact` support `--token-budget`; `impact` accepts the same
-`--flow`, `--symbol`, `--finding`, `--scope`, and changed-file targets as `impact`.
+`--flow`, `--symbol`, `--finding`, `--dependency-path`, `--scope`, and changed-file
+targets as `impact`.
 Impact snapshot JSON includes the same target, unresolved-target, impact-reason, and
 subgraph fields as `impact --json`, so agents can detect mistyped targets without parsing
 the SVG. Snapshot JSON also includes deterministic layout metadata: canvas size, node or
@@ -296,13 +298,15 @@ logicchart impact --scope frontend
 logicchart impact --flow orders-route --json
 logicchart impact --symbol api.orders:handle_order
 logicchart impact --finding orders-route-missing-branch
+logicchart impact --dependency-path backend/payments
 ```
 
 With no file arguments and no explicit targets, `impact` uses `git diff` to infer changed
 files. Explicit targets are deterministic and local: `--flow` matches a flow id,
-`--symbol` matches an exact flow symbol or flow name, and `--finding` starts from a
-finding id. JSON output includes `subgraph_flow_ids`, `subgraph_finding_ids`, and any
-`unresolved_targets` so agents can chain into flow navigation or snapshots. It also emits
+`--symbol` matches an exact flow symbol or flow name, `--finding` starts from a finding id,
+and `--dependency-path` starts from every modeled flow in or under a source path. JSON
+output includes `subgraph_flow_ids`, `subgraph_finding_ids`, and any `unresolved_targets`
+so agents can chain into flow navigation or snapshots. It also emits
 `impact_reasons`, a per-flow explanation of whether each flow was selected by a changed
 source file, an explicit target, or caller propagation.
 
@@ -491,8 +495,8 @@ analysis and `context_pack` include per-flow `reasons` alongside a top-level
 reconstructing the traversal. Snapshot payloads carry deterministic layout metadata along
 with target, unresolved-target, impact-reason, and subgraph fields, so agents can reason
 about compacted or omitted visual context without parsing SVG geometry. `context_pack`
-accepts the same explicit `flow_ids`, `symbols`, and `finding_ids` impact targets as
-`analyze_impact`.
+accepts the same explicit `flow_ids`, `symbols`, `finding_ids`, and `dependency_paths`
+impact targets as `analyze_impact`.
 It also includes bounded flow-navigation packs for relevant flows, so agents can inspect
 callers, callees, decisions, findings, annotations, and follow-up tools before deciding
 whether to request a complete flow or visual snapshot.

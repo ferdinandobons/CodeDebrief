@@ -90,7 +90,12 @@ def authorize(user):
                     properties = schema_by_name[budget_tool].get("properties", {})
                     assert "token_budget" in properties, budget_tool
                 context_properties = schema_by_name["context_pack"].get("properties", {})
-                assert {"flow_ids", "symbols", "finding_ids"} <= set(context_properties)
+                assert {"flow_ids", "symbols", "finding_ids", "dependency_paths"} <= set(
+                    context_properties
+                )
+                for impact_tool in ("analyze_impact", "get_impact_snapshot"):
+                    impact_properties = schema_by_name[impact_tool].get("properties", {})
+                    assert "dependency_paths" in impact_properties
 
                 response = await session.call_tool(
                     "query_logic",
@@ -236,6 +241,26 @@ def authorize(user):
                 assert flow.id in str(targeted_snapshot.content)
                 assert targeted_snapshot_payload["target_flow_ids"] == [flow.id]  # type: ignore[index]
                 assert targeted_snapshot_payload["unresolved_targets"] == []  # type: ignore[index]
+                dependency_impact = await session.call_tool(
+                    "analyze_impact",
+                    {"dependency_paths": ["./app.py"], "token_budget": 120},
+                )
+                assert not dependency_impact.isError
+                dependency_payload = dependency_impact.structuredContent  # type: ignore[assignment]
+                assert dependency_payload["changed_files"] == []  # type: ignore[index]
+                assert dependency_payload["target_dependency_paths"] == ["app.py"]  # type: ignore[index]
+                assert dependency_payload["impact_reasons"] == {  # type: ignore[index]
+                    flow.id: ["dependency path target `app.py`"]
+                }
+                dependency_snapshot = await session.call_tool(
+                    "get_impact_snapshot",
+                    {"dependency_paths": ["./app.py"], "token_budget": 120},
+                )
+                assert not dependency_snapshot.isError
+                dependency_snapshot_payload = dependency_snapshot.structuredContent  # type: ignore[assignment]
+                assert dependency_snapshot_payload["target_dependency_paths"] == [  # type: ignore[index]
+                    "app.py"
+                ]
                 missing_target_snapshot = await session.call_tool(
                     "get_impact_snapshot",
                     {"flow_ids": ["missing-flow"], "token_budget": 120},
@@ -302,6 +327,18 @@ def authorize(user):
                     targeted_navigation["flows"][0]["next_tools"]["complete_flow"]["tool"]
                     == "get_flow"
                 )
+                dependency_context = await session.call_tool(
+                    "context_pack",
+                    {"dependency_paths": ["./app.py"], "token_budget": 120},
+                )
+                assert not dependency_context.isError
+                dependency_context_payload = dependency_context.structuredContent  # type: ignore[assignment]
+                dependency_impact_payload = dependency_context_payload["impact"]  # type: ignore[index]
+                assert dependency_impact_payload["target_dependency_paths"] == ["app.py"]
+                dependency_next_args = dependency_context_payload["visual_context"][  # type: ignore[index]
+                    "next_tools"
+                ]["impact_snapshot"]["arguments"]
+                assert dependency_next_args["dependency_paths"] == ["app.py"]
 
                 validation = await session.call_tool("validate_artifacts", {})
                 assert not validation.isError

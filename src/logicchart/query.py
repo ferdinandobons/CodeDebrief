@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -58,6 +59,7 @@ class ImpactResult:
     target_flow_ids: list[str] = field(default_factory=list)
     target_symbols: list[str] = field(default_factory=list)
     target_finding_ids: list[str] = field(default_factory=list)
+    target_dependency_paths: list[str] = field(default_factory=list)
     unresolved_targets: list[dict[str, str]] = field(default_factory=list)
 
     @property
@@ -193,6 +195,7 @@ def impact_model(
     flow_ids: list[str] | None = None,
     symbols: list[str] | None = None,
     finding_ids: list[str] | None = None,
+    dependency_paths: list[str] | None = None,
 ) -> ImpactResult:
     normalized = {_normalize_path(item) for item in changed_files}
     flows = [flow for flow in model.flows if flow_in_scope(flow, scope)]
@@ -202,6 +205,7 @@ def impact_model(
     target_flow_ids = _unique(flow_ids or [])
     target_symbols = _unique(symbols or [])
     target_finding_ids = _unique(finding_ids or [])
+    target_dependency_paths = _unique(_normalize_path(item) for item in dependency_paths or [])
     unresolved_targets: list[dict[str, str]] = []
     direct_by_id: dict[str, Flow] = {}
     impact_reasons: dict[str, list[str]] = {}
@@ -255,6 +259,31 @@ def impact_model(
             continue
         add_flow(finding_flow, "finding", finding_id, f"explicit finding target `{finding_id}`")
 
+    for dependency_path in target_dependency_paths:
+        matches = [
+            flow
+            for flow in model.flows
+            if _path_matches_dependency(_normalize_path(flow.location.path), dependency_path)
+        ]
+        if not matches:
+            unresolved_targets.append(
+                {"type": "dependency_path", "value": dependency_path, "reason": "not_found"}
+            )
+            continue
+        scoped_matches = [flow for flow in matches if flow.id in scoped_ids]
+        if not scoped_matches:
+            unresolved_targets.append(
+                {
+                    "type": "dependency_path",
+                    "value": dependency_path,
+                    "reason": "scope_filtered",
+                }
+            )
+            continue
+        for flow in scoped_matches:
+            direct_by_id[flow.id] = flow
+            add_reason(flow, f"dependency path target `{dependency_path}`")
+
     direct = list(direct_by_id.values())
     impacted_ids = set(direct_by_id)
     queue = list(impacted_ids)
@@ -290,6 +319,7 @@ def impact_model(
         target_flow_ids=target_flow_ids,
         target_symbols=target_symbols,
         target_finding_ids=target_finding_ids,
+        target_dependency_paths=target_dependency_paths,
         unresolved_targets=unresolved_targets,
     )
 
@@ -310,7 +340,10 @@ def render_query(matches: list[QueryMatch]) -> str:
 
 def render_impact(result: ImpactResult) -> str:
     target_count = (
-        len(result.target_flow_ids) + len(result.target_symbols) + len(result.target_finding_ids)
+        len(result.target_flow_ids)
+        + len(result.target_symbols)
+        + len(result.target_finding_ids)
+        + len(result.target_dependency_paths)
     )
     lines = [
         f"Changed files: {len(result.changed_files)}",
@@ -319,7 +352,12 @@ def render_impact(result: ImpactResult) -> str:
         f"Transitively impacted flows: {len(result.transitively_impacted)}",
         f"Related review findings: {len(result.findings)}",
     ]
-    if result.target_flow_ids or result.target_symbols or result.target_finding_ids:
+    if (
+        result.target_flow_ids
+        or result.target_symbols
+        or result.target_finding_ids
+        or result.target_dependency_paths
+    ):
         lines.append("\nTargets:")
         if result.target_flow_ids:
             lines.append(f"- flows: {', '.join(result.target_flow_ids)}")
@@ -327,6 +365,8 @@ def render_impact(result: ImpactResult) -> str:
             lines.append(f"- symbols: {', '.join(result.target_symbols)}")
         if result.target_finding_ids:
             lines.append(f"- findings: {', '.join(result.target_finding_ids)}")
+        if result.target_dependency_paths:
+            lines.append(f"- dependency paths: {', '.join(result.target_dependency_paths)}")
     if result.directly_impacted:
         lines.append("\nDirect impact:")
         lines.extend(
@@ -1248,7 +1288,7 @@ def git_changed_files(root: Path) -> list[str]:
     return sorted(files)
 
 
-def _unique(values: list[str]) -> list[str]:
+def _unique(values: Iterable[str]) -> list[str]:
     return list(dict.fromkeys(item for item in values if item))
 
 
@@ -1319,3 +1359,10 @@ def _normalize_path(value: str) -> str:
     # corrupt dot-prefixed paths like ".github/workflows/ci.yml".
     value = value.replace("\\", "/")
     return value[2:] if value.startswith("./") else value
+
+
+def _path_matches_dependency(source_path: str, dependency_path: str) -> bool:
+    dependency = dependency_path.rstrip("/")
+    if not dependency:
+        return False
+    return source_path == dependency or source_path.startswith(f"{dependency}/")

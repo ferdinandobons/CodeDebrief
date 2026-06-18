@@ -145,6 +145,7 @@ def render_impact_snapshot(
     target_flow_ids: list[str] | None = None,
     target_symbols: list[str] | None = None,
     target_finding_ids: list[str] | None = None,
+    target_dependency_paths: list[str] | None = None,
     unresolved_targets: list[Any] | None = None,
     impact_reasons: dict[str, list[str]] | None = None,
     subgraph_flow_ids: list[str] | None = None,
@@ -152,6 +153,12 @@ def render_impact_snapshot(
 ) -> dict[str, Any]:
     rendered_direct = _select_impact_flows(direct, max_flows)
     rendered_transitive = _select_impact_flows(transitive, max_flows)
+    target_labels = _impact_target_labels(
+        target_flow_ids=target_flow_ids or [],
+        target_symbols=target_symbols or [],
+        target_finding_ids=target_finding_ids or [],
+        target_dependency_paths=target_dependency_paths or [],
+    )
     layout = _impact_layout(
         changed_files,
         direct,
@@ -159,6 +166,7 @@ def render_impact_snapshot(
         findings,
         rendered_direct=rendered_direct,
         rendered_transitive=rendered_transitive,
+        target_labels=target_labels,
         unresolved_targets=unresolved_targets or [],
     )
     svg = _impact_svg(
@@ -168,6 +176,7 @@ def render_impact_snapshot(
         findings,
         rendered_direct=rendered_direct,
         rendered_transitive=rendered_transitive,
+        target_labels=target_labels,
         unresolved_targets=unresolved_targets or [],
         layout=layout,
     )
@@ -177,6 +186,7 @@ def render_impact_snapshot(
         "target_flow_ids": target_flow_ids or [],
         "target_symbols": target_symbols or [],
         "target_finding_ids": target_finding_ids or [],
+        "target_dependency_paths": target_dependency_paths or [],
         "unresolved_targets": unresolved_targets or [],
         "impact_reasons": impact_reasons or {},
         "subgraph_flow_ids": subgraph_flow_ids or [],
@@ -279,6 +289,7 @@ def _impact_svg(
     *,
     rendered_direct: list[Flow],
     rendered_transitive: list[Flow],
+    target_labels: list[str],
     unresolved_targets: list[Any],
     layout: dict[str, Any] | None = None,
 ) -> str:
@@ -289,6 +300,7 @@ def _impact_svg(
         findings,
         rendered_direct=rendered_direct,
         rendered_transitive=rendered_transitive,
+        target_labels=target_labels,
         unresolved_targets=unresolved_targets,
     )
     width = int(layout["width"])
@@ -298,6 +310,14 @@ def _impact_svg(
     target_offset = int(layout["target_offset"])
     omitted_direct = max(0, len(direct) - len(rendered_direct))
     omitted_transitive = max(0, len(transitive) - len(rendered_transitive))
+    meta_lines: list[str] = []
+    if changed_files:
+        meta_lines.append(_compact(f"Changed files: {', '.join(changed_files)}", 125))
+    if target_labels:
+        meta_lines.append(_compact(f"Targets: {', '.join(target_labels)}", 125))
+    if unresolved_targets:
+        unresolved_label = ", ".join(_unresolved_target_label(item) for item in unresolved_targets)
+        meta_lines.append(_compact(f"Unresolved targets: {unresolved_label}", 125))
     parts = [
         _svg_open(width, height, "LogicChart impact snapshot"),
         _style(),
@@ -310,18 +330,8 @@ def _impact_svg(
             f"{len(transitive)} caller impact - {len(findings)} findings",
             "subtitle",
         ),
-        _text(28, 84, _compact(", ".join(changed_files), 125), "meta"),
     ]
-    if unresolved_targets:
-        unresolved_label = ", ".join(_unresolved_target_label(item) for item in unresolved_targets)
-        parts.append(
-            _text(
-                28,
-                108,
-                _compact(f"Unresolved targets: {unresolved_label}", 125),
-                "meta",
-            )
-        )
+    parts.extend(_text(28, 84 + index * 24, line, "meta") for index, line in enumerate(meta_lines))
     parts.extend(
         [
             _text(80, 126 + target_offset, "Direct impact", "column"),
@@ -374,6 +384,21 @@ def _unresolved_target_label(item: Any) -> str:
             return f"{target_type}:{value}"
         return _compact(str(item), 80)
     return str(item)
+
+
+def _impact_target_labels(
+    *,
+    target_flow_ids: list[str],
+    target_symbols: list[str],
+    target_finding_ids: list[str],
+    target_dependency_paths: list[str],
+) -> list[str]:
+    labels: list[str] = []
+    labels.extend(f"flow:{item}" for item in target_flow_ids)
+    labels.extend(f"symbol:{item}" for item in target_symbols)
+    labels.extend(f"finding:{item}" for item in target_finding_ids)
+    labels.extend(f"path:{item}" for item in target_dependency_paths)
+    return labels
 
 
 def _flow_layout(
@@ -466,13 +491,17 @@ def _impact_layout(
     *,
     rendered_direct: list[Flow],
     rendered_transitive: list[Flow],
+    target_labels: list[str],
     unresolved_targets: list[Any],
 ) -> dict[str, Any]:
     width = 920
     row_height = 84
     row_gap = 22
     rows = max(1, max(len(rendered_direct), len(rendered_transitive)))
-    target_offset = 24 if unresolved_targets else 0
+    meta_line_count = (
+        int(bool(changed_files)) + int(bool(target_labels)) + int(bool(unresolved_targets))
+    )
+    target_offset = max(0, meta_line_count - 1) * 24
     height = 156 + target_offset + rows * (row_height + row_gap) + 80
     return {
         "engine": "static-impact-snapshot-v1",
@@ -486,6 +515,7 @@ def _impact_layout(
         "direct_column": {"x": 52, "y": 150 + target_offset, "width": 366},
         "transitive_column": {"x": 502, "y": 150 + target_offset, "width": 366},
         "changed_file_count": len(changed_files),
+        "target_count": len(target_labels),
         "finding_count": len(findings),
         "unresolved_target_count": len(unresolved_targets),
     }
@@ -503,6 +533,7 @@ def _impact_layout_payload(
         "direction": layout["direction"],
         "canvas": {"width": layout["width"], "height": layout["height"]},
         "row": {"height": layout["row_height"], "gap": layout["row_gap"]},
+        "target_count": layout["target_count"],
         "columns": [
             {
                 "id": "direct",
