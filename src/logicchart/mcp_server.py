@@ -18,6 +18,13 @@ from logicchart.query import (
     query_model,
     where_is_state_handled,
 )
+from logicchart.render.snapshot import (
+    SNAPSHOT_FORMATS,
+    render_finding_snapshot,
+    render_flow_snapshot,
+    render_impact_snapshot,
+    unsupported_snapshot_format,
+)
 from logicchart.validation import validate_logicchart
 
 # Rough tokens per returned list item, used to honor an agent's token_budget cap.
@@ -112,6 +119,17 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         }
 
     @server.tool()
+    def get_flow_snapshot(flow_id: str, format: str = "svg") -> dict[str, Any]:
+        """Return a deterministic visual SVG snapshot for one flow."""
+        if format not in SNAPSHOT_FORMATS:
+            return unsupported_snapshot_format(format)
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        return render_flow_snapshot(model, flow_id)
+
+    @server.tool()
     def query_logic(
         question: str,
         limit: int = 10,
@@ -160,6 +178,17 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
     def finding_rules(kind: str | None = None, token_budget: int = 0) -> list[dict[str, Any]]:
         """Return stable detector contracts: purpose, preconditions, caveats, remediation."""
         return _cap(finding_rule_contracts(kind), token_budget)
+
+    @server.tool()
+    def get_finding_snapshot(finding_id: str, format: str = "svg") -> dict[str, Any]:
+        """Return a deterministic visual SVG snapshot centered on one finding."""
+        if format not in SNAPSHOT_FORMATS:
+            return unsupported_snapshot_format(format)
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        return render_finding_snapshot(model, finding_id)
 
     @server.tool()
     def logicchart_summary() -> dict[str, Any]:
@@ -238,6 +267,27 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 [_finding_dict(item, model) for item in result.findings], token_budget
             ),
         }
+
+    @server.tool()
+    def get_impact_snapshot(
+        changed_files: list[str],
+        scope: str | None = None,
+        format: str = "svg",
+    ) -> dict[str, Any]:
+        """Return a deterministic visual SVG snapshot for direct and caller impact."""
+        if format not in SNAPSHOT_FORMATS:
+            return unsupported_snapshot_format(format)
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        result = impact_model(model, changed_files, scope)
+        return render_impact_snapshot(
+            changed_files=result.changed_files,
+            direct=result.directly_impacted,
+            transitive=result.transitively_impacted,
+            findings=result.findings,
+        )
 
     @server.tool()
     def review_queue(

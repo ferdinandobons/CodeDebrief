@@ -25,6 +25,7 @@ def authorize(user):
     )
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     write_artifacts(tmp_path, result.model)
+    flow = result.model.flows[0]
 
     async def exercise_server() -> None:
         parameters = StdioServerParameters(
@@ -43,6 +44,9 @@ def authorize(user):
                     "logicchart_summary",
                     "explain_finding_chain",
                     "finding_rules",
+                    "get_flow_snapshot",
+                    "get_finding_snapshot",
+                    "get_impact_snapshot",
                     "where_state_handled",
                     "find_decision_nodes",
                     "review_queue",
@@ -79,6 +83,20 @@ def authorize(user):
                 rules = await session.call_tool("finding_rules", {"kind": "missing_branch"})
                 assert not rules.isError
                 assert "Missing explicit fallback" in str(rules.content)
+
+                flow_snapshot = await session.call_tool(
+                    "get_flow_snapshot",
+                    {"flow_id": flow.id},
+                )
+                assert not flow_snapshot.isError
+                assert "<svg" in str(flow_snapshot.content)
+
+                impact_snapshot = await session.call_tool(
+                    "get_impact_snapshot",
+                    {"changed_files": ["app.py"]},
+                )
+                assert not impact_snapshot.isError
+                assert "Impact snapshot" in str(impact_snapshot.content)
 
                 context = await session.call_tool(
                     "context_pack",
@@ -178,6 +196,12 @@ def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
                 response = await session.call_tool("review_queue", {"token_budget": 120})
                 assert not response.isError
                 captured.extend(response.structuredContent["result"])  # type: ignore[index]
+                snapshot = await session.call_tool(
+                    "get_finding_snapshot",
+                    {"finding_id": captured[0]["id"]},
+                )
+                assert not snapshot.isError
+                assert "<svg" in str(snapshot.content)
 
     asyncio.run(call_review_queue())
 

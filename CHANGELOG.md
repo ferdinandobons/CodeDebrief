@@ -13,6 +13,7 @@ The project follows Semantic Versioning.
   and suggested next actions.
 - Added a shared finding-rule registry to generated model metadata and exposed it through
   MCP with a new `finding_rules` tool.
+- Added deterministic SVG MCP snapshot tools for flow, finding, and impact visual context.
 
 ### Changed
 

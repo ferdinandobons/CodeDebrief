@@ -24,6 +24,8 @@ LogicChart is in a strong alpha state.
   metadata, generated models include a shared detector-rule registry, MCP exposes
   `finding_rules`, and the Logical Errors panel expands selected findings into a compact
   diagnostic inspector.
+- Phase 2 visual-context work has started: MCP can now return deterministic SVG snapshots
+  for a flow, a selected finding, or an impact set without scraping the browser.
 
 The main gap is no longer "make the canvas usable". The remaining gap is to keep raising
 logical diagnostics and agent/MCP visual context to the same level as the viewer.
@@ -259,9 +261,9 @@ set being discussed.
 
 Add MCP tools such as:
 
-- `get_flow_snapshot(flow_id, format="svg|png")`
-- `get_finding_snapshot(finding_id, format="svg|png")`
-- `get_impact_snapshot(changed_files, scope=None, format="svg|png")`
+- `get_flow_snapshot(flow_id, format="svg")`
+- `get_finding_snapshot(finding_id, format="svg")`
+- `get_impact_snapshot(changed_files, scope=None, format="svg")`
 - `get_context_pack(question, include_visual=True)`
 
 These should render deterministic subgraphs from the model, not scrape the currently open
@@ -279,6 +281,20 @@ Create a shared subgraph renderer that can be used by:
 
 The renderer should accept a model slice and output SVG first. PNG/JPG can be generated
 from SVG as an optional rasterization layer.
+
+Current checkpoint:
+
+- MCP exposes `get_flow_snapshot`, `get_finding_snapshot`, and `get_impact_snapshot`.
+- Snapshots are generated from the deterministic model and returned as inline SVG.
+- Unsupported raster formats return an explicit supported-format response instead of
+  silently falling back to browser screenshots.
+
+Still open:
+
+- Share more layout intelligence with the React viewer, especially for larger subgraphs.
+- Add optional SVG-to-PNG/JPG rasterization.
+- Add visual snapshots to `context_pack` once payload size and token-budget behavior are
+  pinned.
 
 ## Finding 6: MCP Coverage and Contracts Lag Behind the Core
 
@@ -449,10 +465,11 @@ Before the next release:
 
 ### Phase 2: MCP Visual Context
 
-- Add model-slice helpers for flow/finding/impact subgraphs.
-- Add deterministic SVG snapshot rendering.
-- Expose snapshot tools over MCP.
-- Add tool contract tests and token-budget tests.
+- Done: add model-slice helpers for flow/finding/impact snapshots.
+- Done: add deterministic SVG snapshot rendering.
+- Done: expose snapshot tools over MCP.
+- Done: add tool contract tests for snapshot discovery and output shape.
+- Next: add token-budget behavior for visual context and optional raster outputs.
 
 ### Phase 3: LLM Enrichment
 
