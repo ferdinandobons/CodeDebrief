@@ -391,7 +391,14 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "initCollapsiblePanels" in html
     assert "logicchart-panel-collapsed-" in html
     assert "data-panel-heading" in html
+    assert 'id="qualityPanelToggle"' in html
+    assert 'id="sourcePanelToggle"' in html
+    assert 'id="errorsPanelToggle"' in html
+    assert 'aria-controls="quality"' in html
+    assert 'aria-controls="source"' in html
+    assert 'aria-controls="errors"' in html
     assert 'target.closest("button, a, input, select, textarea")' in html
+    assert 'heading.setAttribute("role", "button")' in html
     assert 'heading.setAttribute("tabindex", "0")' in html
     assert 'heading.setAttribute("aria-expanded"' in html
     assert 'heading.addEventListener("keydown"' in html

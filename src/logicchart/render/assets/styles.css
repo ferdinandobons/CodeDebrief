@@ -1281,8 +1281,8 @@
     .panel-head {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 16px 20px 10px;
+      gap: 10px;
+      padding: 14px 18px 10px;
       border-bottom: 1px solid var(--line);
       flex: none;
       transition: background .14s ease;
@@ -1290,6 +1290,7 @@
     .panel-head[data-panel-heading] {
       cursor: pointer;
       user-select: none;
+      position: relative;
     }
     .panel-head[data-panel-heading]:hover {
       background: color-mix(in srgb, var(--chip) 36%, transparent);
@@ -1307,18 +1308,24 @@
       flex: none;
       display: grid;
       place-items: center;
-      width: 24px;
-      height: 24px;
-      border: 1px solid var(--line-strong);
-      border-radius: 7px;
-      background: var(--chip);
-      color: var(--ink);
+      width: 30px;
+      height: 30px;
+      border: 1px solid color-mix(in srgb, var(--blue) 48%, var(--line-strong));
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--blue) 16%, transparent), transparent),
+        var(--chip);
+      color: var(--blue);
       cursor: pointer;
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--panel) 70%, transparent) inset;
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--panel) 70%, transparent) inset,
+        0 8px 24px rgba(0, 0, 0, .18);
     }
     .panel-head[data-panel-heading]:hover .panel-collapse-toggle {
-      border-color: var(--blue);
-      color: var(--blue);
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--blue) 24%, transparent), transparent),
+        var(--chip);
+      border-color: color-mix(in srgb, var(--blue) 78%, var(--line-strong));
     }
     .panel-collapse-toggle:hover,
     .panel-collapse-toggle:focus-visible {
@@ -1328,10 +1335,10 @@
     }
     .panel-chevron {
       display: block;
-      width: 7px;
-      height: 7px;
+      width: 9px;
+      height: 9px;
       border: solid currentColor;
-      border-width: 0 2px 2px 0;
+      border-width: 0 2.5px 2.5px 0;
       transform: translateY(-1px) rotate(45deg);
       transition: transform .14s ease;
     }

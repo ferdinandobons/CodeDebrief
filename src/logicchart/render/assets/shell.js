@@ -333,6 +333,7 @@
         const key = panel.getAttribute("data-panel-state") || panel.id || bodyId;
         let stored = null;
         if (heading) {
+          heading.setAttribute("role", "button");
           heading.setAttribute("tabindex", "0");
           if (bodyId) heading.setAttribute("aria-controls", bodyId);
           heading.setAttribute("aria-label", "Toggle " + panelTitle(panel));
