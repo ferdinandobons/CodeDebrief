@@ -81,6 +81,9 @@ The viewer layout should preserve these invariants:
 - The minimap is an aggregate navigator, not a second tiny node renderer: it shows the
   graph bounds and current viewport, scrolls to pan the canvas, double-clicks to fit, and
   keeps the viewport visible even when free pan moves outside the graph bounds.
+- The left tree may normalize display labels for scanning, such as HTTP-method routes or
+  camelCase symbols, but tooltips and source panels must preserve the original symbol and
+  source location.
 - Large entrypoint rows wrap instead of forcing unbounded horizontal overflow.
 
 The frontend tests expose reusable layout checks through `viewerLayoutBoxes`,

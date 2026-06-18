@@ -114,7 +114,8 @@ logicchart view
 The viewer is a local HTML artifact plus a temporary local server. It is built for
 large-codebase study, not just one isolated function. It shows:
 
-- A left codebase tree with flow search and language filtering.
+- A left codebase tree with flow search, language filtering, source-aware labels, and
+  selection states that distinguish the active file context from the active flow.
 - A central canvas that starts from top-level scopes such as `backend`, `frontend`, and
   `edge`; each scope connects directly to every visible entrypoint underneath it.
 - Progressive scope/entrypoint/call expansion: open one or more scopes, then an entrypoint,

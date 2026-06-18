@@ -69,7 +69,70 @@
       }
 
       function flowRole(flow) {
-        return flow.is_entrypoint ? "ENTRY" : "SUBFLOW";
+        return flow.is_entrypoint ? "ENTRY" : "INTERNAL";
+      }
+
+      function flowRoleClass(flow) {
+        return flow.is_entrypoint ? "entry" : "subflow";
+      }
+
+      function flowKindLabel(flow) {
+        const kind = String(flow.entry_kind || "flow").replace(/[_-]+/g, " ").trim();
+        if (!kind) return "Flow";
+        return kind
+          .split(/\s+/)
+          .map((part, index) =>
+            index === 0
+              ? part.slice(0, 1).toUpperCase() + part.slice(1).toLowerCase()
+              : part.toLowerCase()
+          )
+          .join(" ");
+      }
+
+      function flowDisplayName(flow) {
+        const name = String(flow.name || flow.symbol || flow.id || "flow");
+        const kind = String(flow.entry_kind || "").toLowerCase();
+        const httpMethod = name.match(/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/i);
+        if (kind.includes("route") && httpMethod) {
+          return `${httpMethod[1].toUpperCase()} route`;
+        }
+        if (isIdentifierLike(name) && /[A-Z_]/.test(name)) {
+          return humanizeIdentifier(name);
+        }
+        return name;
+      }
+
+      function isIdentifierLike(value) {
+        return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(value);
+      }
+
+      function humanizeIdentifier(value) {
+        const words = value
+          .replace(/^[_$]+|[_$]+$/g, "")
+          .replace(/[_$]+/g, " ")
+          .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+          .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean);
+        if (!words.length) return value;
+        return words
+          .map((word, index) => {
+            if (/^[A-Z0-9]{2,}$/.test(word)) return word;
+            const lower = word.toLowerCase();
+            return index === 0 ? lower.slice(0, 1).toUpperCase() + lower.slice(1) : lower;
+          })
+          .join(" ");
+      }
+
+      function flowSourceLabel(flow) {
+        const location = flow.location || {};
+        const path = location.path ? String(location.path) : "";
+        if (!path) return "";
+        const line = location.start_line ? `:${location.start_line}` : "";
+        const parts = path.split("/").filter(Boolean);
+        const shortPath = parts.length > 2 ? parts.slice(-2).join("/") : path;
+        return `${shortPath}${line}`;
       }
 
       function treePathLabel(node) {
@@ -123,20 +186,38 @@
           const row = makeRow("tree-flow", depth);
           row.setAttribute("data-flow-id", flow.id);
           row.setAttribute("data-path", file.path);
+          const title = document.createElement("span");
+          title.className = "tree-flow-title";
           const name = document.createElement("strong");
-          name.textContent = flow.name;
-          row.title = `Open ${flow.name} in the progressive flowchart`;
-          row.setAttribute("aria-label", `Open ${flow.name} in the progressive flowchart`);
+          name.textContent = flowDisplayName(flow);
+          const source = document.createElement("span");
+          source.className = "tree-flow-source";
+          source.textContent = flowSourceLabel(flow);
+          if (source.textContent) title.append(name, source);
+          else title.appendChild(name);
+          const fullSource = flow.location?.path
+            ? `${flow.location.path}${flow.location.start_line ? `:${flow.location.start_line}` : ""}`
+            : "";
+          row.title = [
+            flow.name || flow.id,
+            flowKindLabel(flow),
+            flow.language,
+            fullSource,
+          ].filter(Boolean).join(" · ");
+          row.setAttribute(
+            "aria-label",
+            `Open ${flowDisplayName(flow)} in the progressive flowchart`
+          );
           const badges = document.createElement("span");
           badges.className = "tree-flow-badges";
           const role = document.createElement("span");
-          role.className = "tree-flow-badge role-" + flowRole(flow).toLowerCase();
+          role.className = "tree-flow-badge role-" + flowRoleClass(flow);
           role.textContent = flowRole(flow);
           const kind = document.createElement("span");
           kind.className = "tree-flow-badge";
-          kind.textContent = flow.entry_kind || "flow";
+          kind.textContent = flowKindLabel(flow);
           badges.append(role, kind);
-          row.append(name, badges);
+          row.append(title, badges);
           row.addEventListener("click", () => {
             if (LC.selectFlow) LC.selectFlow(flow.id);
           });

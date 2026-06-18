@@ -254,6 +254,11 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     # Flow rows in the tree should render metadata as compact chips, not stacked text that
     # breaks differently for every entry kind/framework.
     assert "tree-flow-badges" in html
+    assert "tree-flow-title" in html
+    assert "tree-flow-source" in html
+    assert "flowDisplayName(" in html
+    assert "flowRoleClass(" in html
+    assert "humanizeIdentifier(" in html
 
     # The Source panel is meaningful only when a file/flow is selected; scope/root views
     # should let Logical errors use the right rail without a placeholder source panel.
@@ -309,7 +314,7 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "body[data-nav-closed] .shell" in html
     assert "data-detail-closed" in html
     assert "Reset expanded sections and fit current scope" in html
-    assert "Open ${flow.name} in the progressive flowchart" in html
+    assert "Open ${flowDisplayName(flow)} in the progressive flowchart" in html
     assert "Select logic block on line" in html
     assert "selectedSourceRange" in html
     assert "sel.flowId === flow.id" in html
