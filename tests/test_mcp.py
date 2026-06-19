@@ -541,8 +541,13 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
             "scope",
             "score",
             "reasons",
+            "next_tools",
+            "next_cli",
             "source",
         }
+        assert row["next_tools"]["flow_navigation"]["tool"] == "get_flow_navigation"
+        assert row["next_tools"]["context_pack"]["tool"] == "context_pack"
+        assert row["next_cli"][0].startswith("logicchart navigate ")
 
 
 def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> None:

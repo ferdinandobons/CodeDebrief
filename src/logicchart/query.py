@@ -43,6 +43,25 @@ class QueryMatch:
             "scope": self.flow.metadata.get("scope", []),
             "score": self.score,
             "reasons": self.reasons,
+            "next_tools": {
+                "flow_navigation": {
+                    "tool": "get_flow_navigation",
+                    "arguments": {"flow_id": self.flow.id},
+                },
+                "visual_snapshot": {
+                    "tool": "get_flow_snapshot",
+                    "arguments": {"flow_id": self.flow.id, "format": "svg"},
+                },
+                "context_pack": {
+                    "tool": "context_pack",
+                    "arguments": {"flow_ids": [self.flow.id]},
+                },
+            },
+            "next_cli": [
+                f"logicchart navigate {self.flow.id}",
+                f"logicchart snapshot flow {self.flow.id}",
+                f"logicchart impact --flow {self.flow.id}",
+            ],
         }
         if include_source:
             payload["source"] = f"{self.flow.location.path}:{self.flow.location.start_line}"

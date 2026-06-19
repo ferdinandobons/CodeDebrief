@@ -531,6 +531,9 @@ Current checkpoint:
 - `logicchart query` and MCP `query_logic` accept deterministic `source_path`, `symbol`,
   `domain`, `value`, `finding_kind`, `finding_severity`, and `finding_evidence` filters
   that can work without lexical query terms.
+- CLI/MCP query rows include follow-up hints for flow navigation, flow snapshots, impact
+  checks, and context packs, so agents can move from search result to review workflow
+  without guessing tool names or arguments.
 - `logicchart impact` accepts `--flow`, `--symbol`, `--finding`, and
   `--dependency-path` in addition to changed file paths, while preserving Git-diff
   defaults when no target is provided.

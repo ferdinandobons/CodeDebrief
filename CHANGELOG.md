@@ -85,6 +85,8 @@ The project follows Semantic Versioning.
 - Added deterministic query filters for source paths, symbols/names, decision domains,
   handled values, finding kind, finding severity, and finding evidence tier across CLI and
   MCP.
+- Added query-result follow-up hints for MCP tools and CLI commands, so agents can move
+  from a ranked match to navigation, visual snapshot, impact, or context-pack review.
 - Added optional inline visual context to MCP `context_pack`, with SVG impact, subgraph,
   flow, and finding snapshots gated by `include_visual` and capped by `token_budget`.
 - Added deterministic query filters to MCP `context_pack`, matching `query_logic` for

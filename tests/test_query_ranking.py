@@ -335,6 +335,25 @@ def test_query_match_to_dict_shape() -> None:
         "scope": [],
         "score": 6,
         "reasons": ["`widget` matches the flow identity"],
+        "next_tools": {
+            "flow_navigation": {
+                "tool": "get_flow_navigation",
+                "arguments": {"flow_id": "f1"},
+            },
+            "visual_snapshot": {
+                "tool": "get_flow_snapshot",
+                "arguments": {"flow_id": "f1", "format": "svg"},
+            },
+            "context_pack": {
+                "tool": "context_pack",
+                "arguments": {"flow_ids": ["f1"]},
+            },
+        },
+        "next_cli": [
+            "logicchart navigate f1",
+            "logicchart snapshot flow f1",
+            "logicchart impact --flow f1",
+        ],
         "source": "app.py:1",
     }
     assert "source" not in match.to_dict(include_source=False)
@@ -604,9 +623,13 @@ def test_cli_json_matches_query_match_to_dict(tmp_path: Path, capsys: object) ->
             "scope",
             "score",
             "reasons",
+            "next_tools",
+            "next_cli",
             "source",
         }
         assert ":" in row["source"]
+        assert row["next_tools"]["flow_navigation"]["tool"] == "get_flow_navigation"
+        assert row["next_cli"][0].startswith("logicchart navigate ")
 
 
 def test_cli_impact_json_accepts_flow_target_without_changed_files(

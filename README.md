@@ -242,7 +242,8 @@ logicchart query "" --domain status --value OPEN
 Use `--json` for machine-readable output. Structured filters are deterministic and can
 stand on their own with an empty question: `--source-path`, `--symbol`, `--domain`,
 `--value`, `--finding-kind`, `--finding-severity`, and `--finding-evidence` narrow the
-model before ranking.
+model before ranking. JSON rows include `next_tools` and `next_cli` hints for navigation,
+snapshots, impact checks, and context-pack follow-up.
 
 ### `explain`
 
