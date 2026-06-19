@@ -243,7 +243,11 @@ Use `--json` for machine-readable output. Structured filters are deterministic a
 stand on their own with an empty question: `--source-path`, `--symbol`, `--domain`,
 `--value`, `--finding-kind`, `--finding-severity`, and `--finding-evidence` narrow the
 model before ranking. JSON rows include `next_tools` and `next_cli` hints for navigation,
-snapshots, impact checks, and context-pack follow-up.
+snapshots, impact checks, context-pack follow-up, and explicit subgraph snapshots. Rows
+also include bounded finding metadata (`finding_count`, `finding_ids`,
+`omitted_finding_count`, `finding_kinds`, `finding_severities`, `finding_evidence`) plus
+`subgraph_flow_ids` and `subgraph_finding_ids`, so agents can move from a ranked match to
+a focused logical-error review without loading the full graph first.
 
 ### `explain`
 
@@ -530,8 +534,8 @@ tiers. The returned pack includes bounded flow-navigation packs for relevant flo
 agents can inspect callers, callees, decisions, findings, annotations, and follow-up tools
 before deciding whether to request a complete flow or visual snapshot.
 The `get_subgraph_snapshot` tool and `logicchart snapshot subgraph` CLI command are the
-bridge from query/impact/context results into one bounded SVG: pass returned `flow_ids`
-and `finding_ids` directly to render the focused model slice.
+bridge from query/impact/context results into one bounded SVG: pass returned
+`subgraph_flow_ids` and `subgraph_finding_ids` directly to render the focused model slice.
 If the generated model is missing or malformed, model-reading MCP tools return structured
 recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
 actions instead of surfacing a raw traceback. Unknown flow/finding targets and invalid

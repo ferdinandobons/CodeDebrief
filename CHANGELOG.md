@@ -87,6 +87,9 @@ The project follows Semantic Versioning.
   MCP.
 - Added query-result follow-up hints for MCP tools and CLI commands, so agents can move
   from a ranked match to navigation, visual snapshot, impact, or context-pack review.
+- Added bounded finding metadata and subgraph snapshot targets to CLI/MCP query results,
+  so agents can move from `query_logic` directly into focused logical-error review without
+  loading a full graph.
 - Added optional inline visual context to MCP `context_pack`, with SVG impact, subgraph,
   flow, and finding snapshots gated by `include_visual` and capped by `token_budget`.
 - Added deterministic query filters to MCP `context_pack`, matching `query_logic` for

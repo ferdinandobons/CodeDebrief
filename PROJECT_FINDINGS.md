@@ -450,6 +450,9 @@ Current checkpoint:
 - MCP `context_pack` now accepts the same deterministic source/language/domain/value and
   finding kind/severity/evidence filters as `query_logic`, keeping filtered review and
   visual context aligned with the requested slice.
+- CLI `query --json` and MCP `query_logic` now include bounded finding metadata,
+  `subgraph_flow_ids`, `subgraph_finding_ids`, and direct subgraph snapshot follow-up
+  commands/tools for focused logical-error review.
 - MCP tests now directly pin the visual `context_pack` helper contract, including inline
   impact/subgraph/flow/finding snapshots and `visual_byte_budget` omissions, without
   relying only on stdio integration.

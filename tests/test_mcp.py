@@ -541,13 +541,33 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
             "scope",
             "score",
             "reasons",
+            "finding_count",
+            "finding_ids",
+            "finding_kinds",
+            "finding_severities",
+            "finding_evidence",
+            "omitted_finding_count",
+            "subgraph_flow_ids",
+            "subgraph_finding_ids",
             "next_tools",
             "next_cli",
             "source",
         }
         assert row["next_tools"]["flow_navigation"]["tool"] == "get_flow_navigation"
         assert row["next_tools"]["context_pack"]["tool"] == "context_pack"
+        assert row["next_tools"]["subgraph_snapshot"]["tool"] == "get_subgraph_snapshot"
+        assert row["subgraph_flow_ids"] == [row["flow_id"]]
         assert row["next_cli"][0].startswith("logicchart navigate ")
+    for row in cli_finding_rows:
+        assert row["finding_count"] == 1
+        assert row["finding_ids"]
+        assert row["finding_kinds"] == ["missing_branch"]
+        assert row["finding_severities"] == ["warning"]
+        assert row["finding_evidence"] == ["POTENTIAL_GAP"]
+        assert row["subgraph_finding_ids"] == row["finding_ids"]
+        assert (
+            row["next_tools"]["subgraph_snapshot"]["arguments"]["finding_ids"] == row["finding_ids"]
+        )
 
 
 def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> None:

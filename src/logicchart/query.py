@@ -23,6 +23,7 @@ METADATA_WEIGHT = 2
 ENTRYPOINT_BONUS = 1
 FINDING_CONTEXT_TOKENS_PER_ITEM = 80
 NAVIGATION_TOKENS_PER_ITEM = 60
+QUERY_FINDING_ID_LIMIT = 8
 
 
 @dataclass(slots=True)
@@ -30,10 +31,26 @@ class QueryMatch:
     flow: Flow
     score: int
     reasons: list[str]
+    findings: list[Finding] = field(default_factory=list)
 
     def to_dict(self, include_source: bool = True) -> dict[str, Any]:
         """The single serialization shared by the CLI ``--json`` path and the MCP
         ``query_logic`` tool, so both surfaces emit an identical JSON shape."""
+        findings = sorted(
+            self.findings,
+            key=lambda finding: (
+                _finding_priority(finding),
+                finding.location.path,
+                finding.message,
+            ),
+        )
+        finding_ids = [finding.id for finding in findings]
+        visible_finding_ids = finding_ids[:QUERY_FINDING_ID_LIMIT]
+        subgraph_cli = "logicchart snapshot subgraph --flow " + self.flow.id
+        if visible_finding_ids:
+            subgraph_cli += " " + " ".join(
+                f"--finding {finding_id}" for finding_id in visible_finding_ids
+            )
         payload: dict[str, Any] = {
             "flow_id": self.flow.id,
             "name": self.flow.name,
@@ -43,6 +60,14 @@ class QueryMatch:
             "scope": self.flow.metadata.get("scope", []),
             "score": self.score,
             "reasons": self.reasons,
+            "finding_count": len(finding_ids),
+            "finding_ids": visible_finding_ids,
+            "finding_kinds": sorted({_enum_text(finding.kind) for finding in findings}),
+            "finding_severities": sorted({_enum_text(finding.severity) for finding in findings}),
+            "finding_evidence": sorted({_enum_text(finding.evidence) for finding in findings}),
+            "omitted_finding_count": max(0, len(finding_ids) - len(visible_finding_ids)),
+            "subgraph_flow_ids": [self.flow.id],
+            "subgraph_finding_ids": visible_finding_ids,
             "next_tools": {
                 "flow_navigation": {
                     "tool": "get_flow_navigation",
@@ -56,10 +81,19 @@ class QueryMatch:
                     "tool": "context_pack",
                     "arguments": {"flow_ids": [self.flow.id]},
                 },
+                "subgraph_snapshot": {
+                    "tool": "get_subgraph_snapshot",
+                    "arguments": {
+                        "flow_ids": [self.flow.id],
+                        "finding_ids": visible_finding_ids,
+                        "format": "svg",
+                    },
+                },
             },
             "next_cli": [
                 f"logicchart navigate {self.flow.id}",
                 f"logicchart snapshot flow {self.flow.id}",
+                subgraph_cli,
                 f"logicchart impact --flow {self.flow.id}",
             ],
         }
@@ -221,7 +255,7 @@ def query_model(
         if score:
             if flow.is_entrypoint:
                 score += ENTRYPOINT_BONUS
-            matches.append(QueryMatch(flow, score, list(dict.fromkeys(reasons))))
+            matches.append(QueryMatch(flow, score, list(dict.fromkeys(reasons)), flow_findings))
     # Deterministic order: score desc, then name, then unique id, so equal score+name is
     # stable regardless of flow insertion order.
     matches.sort(key=lambda item: (-item.score, item.flow.name, item.flow.id))

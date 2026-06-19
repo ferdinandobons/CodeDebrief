@@ -258,6 +258,25 @@ def test_query_can_filter_findings_by_kind_severity_and_evidence_without_terms()
         "finding severity matches `warning`",
         "finding evidence matches `POTENTIAL_GAP`",
     ]
+    payload = matches[0].to_dict()
+    assert payload["finding_count"] == 1
+    assert payload["finding_ids"] == ["review-find"]
+    assert payload["finding_kinds"] == ["missing_branch"]
+    assert payload["finding_severities"] == ["warning"]
+    assert payload["finding_evidence"] == ["POTENTIAL_GAP"]
+    assert payload["subgraph_flow_ids"] == ["review"]
+    assert payload["subgraph_finding_ids"] == ["review-find"]
+    assert payload["next_tools"]["subgraph_snapshot"] == {
+        "tool": "get_subgraph_snapshot",
+        "arguments": {
+            "flow_ids": ["review"],
+            "finding_ids": ["review-find"],
+            "format": "svg",
+        },
+    }
+    assert payload["next_cli"][2] == (
+        "logicchart snapshot subgraph --flow review --finding review-find"
+    )
     assert query_model(model, "", finding_severity="error") == []
     assert [match.flow.id for match in query_model(model, "", finding_evidence="INFERRED")] == [
         "audit"
@@ -335,6 +354,14 @@ def test_query_match_to_dict_shape() -> None:
         "scope": [],
         "score": 6,
         "reasons": ["`widget` matches the flow identity"],
+        "finding_count": 0,
+        "finding_ids": [],
+        "finding_kinds": [],
+        "finding_severities": [],
+        "finding_evidence": [],
+        "omitted_finding_count": 0,
+        "subgraph_flow_ids": ["f1"],
+        "subgraph_finding_ids": [],
         "next_tools": {
             "flow_navigation": {
                 "tool": "get_flow_navigation",
@@ -348,15 +375,44 @@ def test_query_match_to_dict_shape() -> None:
                 "tool": "context_pack",
                 "arguments": {"flow_ids": ["f1"]},
             },
+            "subgraph_snapshot": {
+                "tool": "get_subgraph_snapshot",
+                "arguments": {"flow_ids": ["f1"], "finding_ids": [], "format": "svg"},
+            },
         },
         "next_cli": [
             "logicchart navigate f1",
             "logicchart snapshot flow f1",
+            "logicchart snapshot subgraph --flow f1",
             "logicchart impact --flow f1",
         ],
         "source": "app.py:1",
     }
     assert "source" not in match.to_dict(include_source=False)
+
+
+def test_query_match_bounds_finding_ids_for_large_results() -> None:
+    findings = []
+    for index in range(10):
+        finding = _finding("f1", f"missing fallback {index}")
+        finding.id = f"find-{index}"
+        findings.append(finding)
+    match = QueryMatch(
+        flow=_flow("f1", "widget", symbol="widget"),
+        score=6,
+        reasons=["`widget` matches the flow identity"],
+        findings=findings,
+    )
+
+    payload = match.to_dict()
+
+    assert payload["finding_count"] == 10
+    assert payload["finding_ids"] == [f"find-{index}" for index in range(8)]
+    assert payload["subgraph_finding_ids"] == [f"find-{index}" for index in range(8)]
+    assert payload["omitted_finding_count"] == 2
+    assert payload["next_tools"]["subgraph_snapshot"]["arguments"]["finding_ids"] == [
+        f"find-{index}" for index in range(8)
+    ]
 
 
 def test_finding_context_collects_related_subject_subgraph() -> None:
@@ -623,12 +679,22 @@ def test_cli_json_matches_query_match_to_dict(tmp_path: Path, capsys: object) ->
             "scope",
             "score",
             "reasons",
+            "finding_count",
+            "finding_ids",
+            "finding_kinds",
+            "finding_severities",
+            "finding_evidence",
+            "omitted_finding_count",
+            "subgraph_flow_ids",
+            "subgraph_finding_ids",
             "next_tools",
             "next_cli",
             "source",
         }
         assert ":" in row["source"]
         assert row["next_tools"]["flow_navigation"]["tool"] == "get_flow_navigation"
+        assert row["next_tools"]["subgraph_snapshot"]["tool"] == "get_subgraph_snapshot"
+        assert row["subgraph_flow_ids"] == [row["flow_id"]]
         assert row["next_cli"][0].startswith("logicchart navigate ")
 
 
