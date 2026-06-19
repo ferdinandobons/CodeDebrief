@@ -305,43 +305,204 @@ they know.
 The viewer remains useful, but agents should be able to request compact deterministic SVG
 snapshots directly through MCP or CLI.
 
-## Product Roadmap Direction
+## Transformation Plan
 
-### Phase 1: Agent-first setup
+The transformation should be executed in stable, reviewable phases. Each phase should keep
+the deterministic core working, preserve backward compatibility where reasonable, update
+docs and tests, and avoid making the viewer or provider-managed LLM flows the center of
+the product.
 
-- Add `logicchart setup-agent`.
-- Make MCP setup and instruction refresh the default recommended path.
-- Make `doctor` and artifact validation part of setup.
-- Document common user questions instead of command-first workflows.
-- Generate or refresh agent-specific instructions/skills that explain when to use
-  LogicChart.
+### Phase 0: Product Alignment
 
-### Phase 2: Unified agent context
+Goal: make every public surface describe the same product.
+
+Deliverables:
+
+- Update README, docs, CHANGELOG, `PROJECT_FINDINGS.md`, and generated agent
+  instructions so LogicChart is presented as agent-first.
+- Explain the hierarchy clearly: MCP runtime first, CLI substrate second,
+  skills/instructions as activation, viewer as optional inspection.
+- De-emphasize provider-managed LLM enrichment as an advanced optional path.
+- Document agent-authored enrichment as the preferred path when generated summaries,
+  labels, or explanations are useful.
+- Remove stale references to old UI behavior, old install expectations, and command-first
+  workflows.
+
+Done criteria:
+
+- A new reader understands that the normal workflow is "ask the coding agent", not
+  "memorize LogicChart commands".
+- No primary docs imply that API keys or provider setup are required for the main product
+  experience.
+- Instructions tell agents to use LogicChart help surfaces when they need command or tool
+  details instead of guessing.
+
+### Phase 1: Agent-first Setup
+
+Goal: let users configure LogicChart once, then use it through their coding agent.
+
+Deliverables:
+
+- Add `logicchart setup-agent codex|claude|cursor`.
+- Make setup verify the local install, create or update `logicchart.toml` only when
+  needed, register MCP where supported, and refresh agent instructions or skills.
+- Run initial artifact generation, `doctor`, and validation as part of setup.
+- Preserve local instruction blocks that are not owned by LogicChart.
+- Explain successful setup in terms of questions users can ask the agent.
+- Keep `logicchart install` compatible or clearly route it into the new setup path.
+
+Done criteria:
+
+- A fresh project can be prepared for agent use with one command.
+- Setup does not erase important local instructions such as private-project warnings.
+- The success output is user-oriented and agent-oriented, not just command-oriented.
+
+### Phase 2: Unified Agent Context
+
+Goal: give agents one primary tool for ordinary code-logic questions.
+
+Deliverables:
 
 - Add a primary MCP `agent_context` tool.
-- Add a CLI mirror for debugging and CI.
-- Internally orchestrate query, impact, navigate, explain, and snapshot selection.
-- Return one bounded context pack with next actions.
+- Accept natural question context: question text, changed files, selected code, current
+  file, symbol, flow id, finding id, dependency path, token budget, and visual preference.
+- Internally orchestrate the existing query, impact, navigation, explain, findings, and
+  snapshot selection logic.
+- Return one bounded context pack with matched flows, selection reasons, callers,
+  callees, decisions, outcomes, findings, unresolved calls, source ranges, omissions, and
+  suggested next actions.
+- Add a CLI mirror for debugging and CI reproduction.
 
-### Phase 3: Agent-authored annotations
+Done criteria:
 
-- Add MCP write tools for validated annotations.
-- Treat provider-managed LLM enrichment as advanced and optional.
-- Keep annotation sidecars separate from deterministic model artifacts.
-- Make annotations traceable to the agent, model context, model hash, target ids, and
-  validation status without requiring provider API keys.
+- An agent can answer "how does this component work?" or "what is impacted by this
+  change?" by calling one primary LogicChart tool.
+- Lower-level MCP tools remain available for expert use, but are not required for the
+  common path.
+- `INFERRED` and `POTENTIAL_GAP` findings remain clearly distinguished from confirmed
+  defects.
 
-### Phase 4: Domain and state maps
+### Phase 3: Agent-visible Snapshots and Subgraphs
 
-- Extract state machines and domain concepts.
-- Show handled values, missing values, transitions, invalid states, and ownership.
-- Expose the same maps through MCP, CLI, and viewer.
+Goal: make the visual flowchart useful without requiring a human to open the viewer.
 
-### Phase 5: Change review intelligence
+Deliverables:
 
-- Add change-aware review packs from diff/current files.
-- Suggest logical tests from decisions and missing branches.
-- Highlight generated or modified logic that lacks callers, outcomes, or explicit handling.
+- Add deterministic snapshot/subgraph output through MCP and CLI.
+- Support flow snapshots, impact-set snapshots, finding-context snapshots, and
+  caller/callee neighborhoods.
+- Return compact SVG/PNG paths or payload references plus machine-readable metadata.
+- Make all snapshot generation budget-aware, with explicit omitted counts.
+- Keep rendering deterministic and light enough for large repositories.
+
+Done criteria:
+
+- An agent can request visual context for a focused flow or change and use it in an
+  explanation.
+- Snapshot output is useful even when the full viewer would be too large or too slow.
+
+### Phase 4: Agent-authored Annotations
+
+Goal: let the coding agent enrich LogicChart without provider keys or external LLM setup.
+
+Deliverables:
+
+- Add a validated annotation sidecar format.
+- Add MCP write tools: `preview_annotation_targets`, `write_annotations`,
+  `validate_annotations`, `clear_annotations`, and `annotation_status`.
+- Add CLI mirrors: `logicchart annotations validate`, `logicchart annotations import`,
+  and `logicchart annotations clear`.
+- Validate target ids, schema version, model hash, text limits, source type, and
+  annotation provenance.
+- Display annotations as `agent_generated` in MCP responses, snapshots, and the viewer.
+
+Done criteria:
+
+- The agent can write clearer flow names, summaries, finding explanations, remediation
+  notes, and "what to inspect next" guidance.
+- Generated annotations are never confused with deterministic analyzer facts.
+- Provider-managed enrichment remains optional and advanced, not the primary path.
+
+### Phase 5: Domain Logic Maps
+
+Goal: expose business logic, not just code structure.
+
+Deliverables:
+
+- Extract domain concepts such as enums, statuses, roles, permissions, feature flags,
+  lifecycle states, and payment states.
+- Map handled values, missing values, transitions, invalid states, owners, and related
+  flows.
+- Connect domain maps to findings, source ranges, snapshots, and `agent_context`.
+- Support questions such as "where is this state handled?", "which enum values are
+  missing?", and "what changes if I add this status?".
+
+Done criteria:
+
+- LogicChart can explain important domain state handling across a codebase.
+- Agents can reason about missing cases and change impact at the domain level.
+
+### Phase 6: Viewer as Secondary Inspection Surface
+
+Goal: keep the UI valuable, fast, and aligned with agent workflows.
+
+Deliverables:
+
+- Align the viewer with context packs, findings, annotations, snapshots, and domain maps.
+- Preserve progressive expand/collapse, focus, reset, export, zoom, pan, drag, and stable
+  selection.
+- Keep large-codebase performance healthy with layout cache, chunked expansion, and
+  lightweight overview rendering.
+- Avoid reintroducing the minimap.
+- Keep UI styling professional, solid-color based, and free of overlapping elements.
+
+Done criteria:
+
+- The viewer is useful for deep inspection and debugging but not required for the main
+  agent-first workflow.
+- Expand-heavy codebases remain responsive enough for practical use.
+
+### Phase 7: Quality, Compatibility, and Release Readiness
+
+Goal: make the transformation reliable enough to merge and release later.
+
+Deliverables:
+
+- Add focused tests for setup-agent, MCP `agent_context`, annotation validation,
+  snapshot/subgraph output, domain maps, and viewer regressions.
+- Keep generated artifacts synchronized.
+- Preserve ignored/private behavior for local real-world fixtures such as
+  `examples/Certifexp`.
+- Update all relevant Markdown files when behavior changes.
+- Track remaining gaps in `PROJECT_FINDINGS.md`.
+
+Done criteria:
+
+- The standard Python and viewer gates pass.
+- Local Certifexp checks pass when the private fixture is present.
+- The branch has clear commits for stable milestones.
+- Merge is recommended only when the agent-first workflow works end to end.
+
+Recommended verification gates:
+
+```bash
+UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run ruff check .
+UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run ruff format --check .
+UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run mypy
+UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest --cov
+UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run logicchart validate . --check-sync --json
+npm run viewer:typecheck
+npm run viewer:test
+npm run viewer:build
+UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run logicchart update
+UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run logicchart view examples/demo --render-only --no-open
+```
+
+If `examples/Certifexp` exists locally:
+
+```bash
+UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest tests/test_certifexp_local.py
+```
 
 ## Feature Acceptance Test
 
