@@ -187,7 +187,7 @@ def _build_llm_request(
             "Use only ids present in this request.",
             "Do not create, delete, or rename flow nodes.",
             "Keep labels short and specific to the code behavior.",
-            "Do not present INFERRED or POTENTIAL_GAP findings as confirmed bugs.",
+            "Do not present INFERRED or POTENTIAL_GAP review signals as confirmed defects.",
             "Return a JSON object matching logic-annotations schema_version 1.0.",
         ],
         "selection": {

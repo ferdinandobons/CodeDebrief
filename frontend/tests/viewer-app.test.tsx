@@ -108,10 +108,10 @@ describe("ViewerApp", () => {
     expect(html).toContain('class="flow-call-hit"');
     expect(html).toContain('class="edge flow-call-link"');
     expect(html).toContain(
-      'aria-label="GET · route in typescript · 3 nodes · 1 decision · 1 call · 0 callers · 1 finding · frontend/app/api/orders/route.ts:3"',
+      'aria-label="GET · route in typescript · 3 nodes · 1 decision · 1 call · 0 callers · 1 review signal · frontend/app/api/orders/route.ts:3"',
     );
     expect(html).toContain(
-      'data-flow-summary="GET · route in typescript · 3 nodes · 1 decision · 1 call · 0 callers · 1 finding · frontend/app/api/orders/route.ts:3"',
+      'data-flow-summary="GET · route in typescript · 3 nodes · 1 decision · 1 call · 0 callers · 1 review signal · frontend/app/api/orders/route.ts:3"',
     );
     expect(html).toContain('class="node flow-node movable flow-kind-route flow-open"');
     expect(html).toContain('class="node flow-node movable flow-kind-function"');

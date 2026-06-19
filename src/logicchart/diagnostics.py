@@ -821,7 +821,7 @@ def _confidence(finding: Finding) -> dict[str, Any]:
     if evidence is Evidence.INFERRED:
         return {"score": 0.7, "basis": "deterministic heuristic"}
     if evidence is Evidence.POTENTIAL_GAP:
-        return {"score": 0.4, "basis": "review candidate, not a confirmed bug"}
+        return {"score": 0.4, "basis": "review candidate, not a confirmed defect"}
     return {"score": None, "basis": "unknown evidence tier"}
 
 

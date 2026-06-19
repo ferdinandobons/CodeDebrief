@@ -18,7 +18,7 @@ LogicChart is in a strong alpha state.
   expansion avoids repeated large-layout recalculations and quadratic detail-collision work
   on real-world codebases. The minimap has been removed to keep large-canvas updates
   lighter. The
-  Details rail now lets Project Quality, Source, and Logical Errors collapse independently
+  Details rail now lets Project Quality, Source, and Review Signals collapse independently
   during large-codebase inspection with visible, keyboard-accessible section headers plus
   rail-level expand-all/collapse-all controls, while tablet-width drawer layouts keep the
   canvas toolbar outside the right rail overlay. Selected tree rows and Details collapse
@@ -73,10 +73,10 @@ LogicChart is in a strong alpha state.
   have all passed in this workspace.
 - Phase 1 diagnostic work has started: every finding now carries normalized diagnostic
   metadata, generated models include a shared detector-rule registry, MCP exposes
-  `finding_rules`, and the Logical Errors panel expands selected findings into a compact
+  `finding_rules`, and the Review Signals panel expands selected signals into a compact
   diagnostic inspector with related-flow and evidence-node links.
 - Agent-visible visual-context work is now mature enough for the migration path: MCP can
-  return deterministic SVG snapshots for flows, selected findings, impact sets, explicit
+  return deterministic SVG snapshots for flows, selected review signals, impact sets, explicit
   subgraphs, and `agent_context` visual packs without scraping the browser.
 - Analysis-quality work has started: generated models now include deterministic quality
   metrics, `logicchart validate --quality` can print or emit them as JSON, and MCP summary
@@ -113,11 +113,11 @@ UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest tests/test_certifexp_local.p
 npm run viewer:test -- frontend/tests/certifexp-local.test.tsx
 ```
 
-## Finding 1: Logical Errors Need a First-Class Diagnostic Model
+## Finding 1: Review Signals Need a First-Class Diagnostic Model
 
 ### What exists now
 
-Logical errors are represented as `Finding` objects with:
+Review signals are represented internally as `Finding` objects with:
 
 - `kind`
 - `severity`
@@ -129,7 +129,7 @@ Logical errors are represented as `Finding` objects with:
 - `detail`
 - free-form `metadata`
 
-This is simple and works, but it makes the UI and MCP treat a logical error mostly as a
+This is simple and works, but it can make the UI and MCP treat a review signal mostly as a
 row of text. The viewer can select the node and source line, but the model does not yet
 provide a complete diagnostic object with cause, proof, confidence, and recommended review.
 
@@ -179,7 +179,7 @@ Current checkpoint:
 - `logicchart validate` now checks present finding-rule contracts against the current
   detector registry and emitted findings, so rule-declared metadata fields and diagnostic
   rule ids cannot drift silently.
-- The viewer shows selected-finding diagnostics with confidence, missing/expected/actual
+- The viewer shows selected-signal diagnostics with confidence, missing/expected/actual
   state, rule purpose, review prompt, next actions, a compact focused diagnostic subgraph,
   related flows, and evidence nodes.
 
@@ -188,11 +188,11 @@ Still open:
 - Promote diagnostics into a stricter schema version only when the backward-compatibility
   and consumer story are ready.
 - Keep expanding detector-specific evidence only where it adds review value without
-  implying heuristic findings are confirmed bugs.
+  implying heuristic review signals are confirmed defects.
 
 ### Resulting UX
 
-The Logical Errors panel should become a diagnostic inspector:
+The Review Signals panel should become a diagnostic inspector:
 
 - top summary: kind, evidence, confidence, impact surface;
 - why it triggered: deterministic explanation chain;
@@ -200,7 +200,7 @@ The Logical Errors panel should become a diagnostic inspector:
 - where to inspect: flowchart nodes and source ranges;
 - what to do next: review actions.
 
-## Finding 2: Logical Error Kinds Are Good, but Need Stronger Contracts
+## Finding 2: Review Signal Kinds Are Good, but Need Stronger Contracts
 
 ### Current detector families
 
@@ -261,7 +261,7 @@ Current checkpoint:
   so MCP/metadata consumers can distinguish actionable findings from expected review-only
   cases without relying on long prose.
 - Diagnostics reuse the same contracts for `review_prompt` and `suggested_next_actions`,
-  so MCP/internal finding explanations, payloads, snapshots, and the viewer stay aligned.
+  so MCP/internal review-signal explanations, payloads, snapshots, and the viewer stay aligned.
 - Tests now pin the public rule-contract shape for every finding kind and verify filtered
   lookup behavior for known and unknown kinds.
 
@@ -309,7 +309,7 @@ LLM support makes sense for readability:
 - better human labels for nodes;
 - short descriptions for each block;
 - summaries for scopes, entrypoints, and call chains;
-- friendlier explanation of logical errors;
+- friendlier explanation of review signals;
 - risk summaries for code review.
 
 It should not be used to decide the canonical control-flow structure. The deterministic
@@ -378,7 +378,7 @@ Still open:
 ### What exists now
 
 The MCP server exposes useful tools: summary, flow listing, flow retrieval, query, findings,
-finding explanation, state handling lookup, decision search, impact analysis, review queue,
+review-signal explanation, state handling lookup, decision search, impact analysis, review queue,
 context pack, flow-navigation packs, artifact validation, and update.
 
 ### Gap
@@ -510,7 +510,7 @@ Current checkpoint:
   visual context aligned with the requested slice.
 - MCP/internal query rows include bounded finding metadata, `subgraph_flow_ids`,
   `subgraph_finding_ids`, and direct subgraph snapshot follow-up tools for focused
-  logical-error review.
+  review-signal inspection.
 - MCP tests now directly pin the visual `context_pack` helper contract, including inline
   impact/subgraph/flow/finding snapshots and `visual_byte_budget` omissions, without
   relying only on stdio integration.
@@ -711,18 +711,18 @@ Expose these through:
 - Done: skipped-file reasons in metadata and quality metrics;
 - Done: CI optional gate.
 
-## Finding 11: Logical Error UI Should Explain, Not Just List
+## Finding 11: Review Signal UI Should Explain, Not Just List
 
 ### Problem
 
-The Logical Errors panel is bounded and safe, but it is still list-first. For large
+The Review Signals panel is bounded and safe, but it is still list-first. For large
 codebases, a list is not enough.
 
 ### Improvement
 
-Add a finding detail state:
+Add a review-signal detail state:
 
-- selecting a finding opens the flow and target node;
+- selecting a review signal opens the flow and target node;
 - the right panel shows the rule explanation;
 - a mini diagnostic table shows handled/missing/declared values;
 - related flows and evidence nodes are linked;
@@ -760,11 +760,11 @@ Before the next release:
 - Done: add detector-specific single-flow evidence-chain entries for flagship logical
   findings.
 - Done: add tests for each detector's structured output.
-- Done: update viewer Logical Errors panel to show diagnostic details and related
+- Done: update viewer Review Signals panel to show diagnostic details and related
   flow/evidence-node links.
-- Done: add a compact focused diagnostic subgraph to selected finding rows in the viewer.
-- Done: added deterministic finding explanations and JSON output before the agent-first
-  migration; current migration keeps finding explanation behind MCP/internal context
+- Done: add a compact focused diagnostic subgraph to selected review-signal rows in the viewer.
+- Done: added deterministic review-signal explanations and JSON output before the agent-first
+  migration; current migration keeps review-signal explanation behind MCP/internal context
   rather than a public CLI command.
 - Next: consider a compatible schema 1.2 only when the consumer migration story is ready.
 
@@ -815,7 +815,7 @@ Before the next release:
 - Done: add viewer overlays for better flow/node labels and descriptions.
 - Done: expose annotation status and matching flow annotations over MCP.
 - Done: expose fresh finding annotations as optional enrichment in MCP finding/review/context
-  tools and the Logical Errors panel.
+  tools and the Review Signals panel.
 - Done: expose fresh scope annotations as progressive flowchart group labels and matching
   flow-navigation annotations, with sidecar bucket counts for agent orientation.
 - Done: add MCP `preview_annotation_targets`, `write_annotations`, `validate_annotations`,

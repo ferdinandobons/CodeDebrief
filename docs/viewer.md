@@ -58,11 +58,11 @@ Direct `#flow=<flow-id>` and `#path=<source-path>` openings must select the matc
 source context and open the Details rail automatically. This keeps copied viewer links and
 agent-provided URLs useful without requiring a second manual Details click.
 
-## Logical Errors Panel
+## Review Signals Panel
 
-The Logical Errors panel is both a bounded review queue and a selected-finding inspector.
-At broad scope it lists or summarizes findings without rendering unbounded rows. Selecting a
-finding opens the related flow, selects the target node, highlights the source range, and
+The Review Signals panel is both a bounded review queue and a selected-signal inspector.
+At broad scope it lists or summarizes review signals without rendering unbounded rows. Selecting a
+signal opens the related flow, selects the target node, highlights the source range, and
 expands the row with the normalized diagnostic metadata from the model:
 
 - severity, evidence tier, category, and confidence basis;
@@ -71,7 +71,7 @@ expands the row with the normalized diagnostic metadata from the model:
 - the detector purpose, review prompt, and suggested next actions;
 - detector-specific evidence such as implicit fallbacks, constant guards, branch outcomes,
   and handler outcomes;
-- a compact focused diagnostic subgraph linking the finding's focus block to bounded
+- a compact focused diagnostic subgraph linking the signal's focus block to bounded
   evidence nodes and related flows;
 - related flows and evidence nodes derived from diagnostic scope, caller/callee context,
   and shared decision metadata, each linked back into the progressive flowchart.
@@ -87,13 +87,13 @@ only; the scope membership and progressive expansion remain deterministic.
 
 This panel must preserve the model's evidence language: `VERIFIED` means syntax-backed,
 `INFERRED` means deterministic heuristic, and `POTENTIAL_GAP` remains a review candidate,
-not a confirmed bug.
+not a confirmed defect.
 
-The deterministic MCP finding snapshot uses the same diagnostic metadata in a compact SVG
+The deterministic MCP review-signal snapshot uses the same diagnostic metadata in a compact SVG
 side panel, so agents can inspect the highlighted flow node together with evidence tier,
 confidence, review prompt, and bounded evidence-chain summaries without opening the full
 browser viewer. Agents can also request a deterministic subgraph snapshot from explicit
-flow and finding ids, which renders the same focused review slice with highlighted finding
+flow and finding ids, which renders the same focused review slice with highlighted signal
 nodes and unresolved-target metadata.
 
 ## Project Quality Panel
@@ -103,15 +103,15 @@ snapshot for large-codebase review:
 
 - file, flow, entrypoint, and source-location coverage counts;
 - call-resolution rate with unresolved and ambiguous call counts;
-- skipped-file count, finding count, generic-label ratio, graph density, and huge-flow
+- skipped-file count, review-signal count, generic-label ratio, graph density, and huge-flow
   signals;
 - top language distribution and per-language attention signals from the generated model.
 
 The panel is deterministic and local-only. It must not imply that heuristic review signals
-are confirmed bugs, and it should stay bounded even when a project has many findings or
+are confirmed defects, and it should stay bounded even when a project has many review signals or
 languages.
 
-The Details rail sections for Project Quality, Source, and Logical Errors are independently
+The Details rail sections for Project Quality, Source, and Review Signals are independently
 collapsible from their headings. The heading and disclosure control both keep synchronized
 expanded state, support keyboard activation, and stay visible while each collapsed section
 releases body height to the other sections. The viewer remembers the state locally in the
@@ -140,7 +140,7 @@ The viewer layout should preserve these invariants:
   vertical bands instead of one unbounded horizontal strip.
 - Fit re-centers the current visible flowchart without closing expanded scopes, expanded
   flows, or manual block positions.
-- The codebase rail should stay operational: path/symbol/finding search, review-only
+- The codebase rail should stay operational: path/symbol/review-signal search, review-only
   triage, and optional language filtering when the payload is polyglot.
 - Expanded flow detail charts reserve their visual band before later rows are placed.
 - Every visible flow node is reachable from the codebase root through root-scope,
@@ -157,7 +157,7 @@ The viewer layout should preserve these invariants:
   camelCase symbols, but tooltips and source panels must preserve the original symbol and
   source location.
 - Flow nodes expose deterministic accessibility summaries with source, node, decision,
-  call, caller, and finding counts so broad canvas scans do not depend on tiny visible
+  call, caller, and review-signal counts so broad canvas scans do not depend on tiny visible
   labels alone.
 - Optional annotation sidecars may improve flow/node labels and descriptions, but only
   when their model hash matches the current `logic-flow.json`; stale sidecars must be

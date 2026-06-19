@@ -22,7 +22,7 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
         f"- **Source root:** {_code_span(model.root)}",
         f"- **Flows:** {len(model.flows)}",
         f"- **Entry points:** {len(entrypoints)}",
-        f"- **Findings:** {len(confirmed)} verified/inferred · {len(gaps)} review-only",
+        f"- **Review signals:** {len(confirmed)} verified/inferred · {len(gaps)} review-only",
     ]
     scopes = model.metadata.get("scopes", {})
     if scopes:
@@ -32,13 +32,13 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
         )
     lines.extend(["", "## Project Map", ""])
     lines.extend(_project_map(model, entrypoints))
-    lines.extend(["", "## Findings", ""])
+    lines.extend(["", "## Review Signals", ""])
     # Signal/noise split (§5.2/§7): verified/inferred facts in the main section,
     # POTENTIAL_GAP candidates in a collapsible block, so found vs guessed stays clear.
     if confirmed:
         lines.extend(_finding_line(finding) for finding in confirmed)
     else:
-        lines.append("No verified or inferred findings were detected.")
+        lines.append("No verified or inferred review signals were detected.")
     if gaps:
         open_attr = " open" if include_gaps else ""
         lines.extend(

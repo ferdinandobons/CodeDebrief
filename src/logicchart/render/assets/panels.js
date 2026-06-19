@@ -1,13 +1,13 @@
 
-    // Right-column panels (Phase 4): Source (top) + Logical errors (bottom), plus the
+    // Right-column panels (Phase 4): Source (top) + review signals (bottom), plus the
     // canvas full-screen toggle. Both panels SUBSCRIBE to the shared selection store
     // (shell.js's LC.select / LC.onSelection) and PUBLISH back into it, so selecting any
-    // one of {a canvas decision block, a source line, a tree file/flow, a finding row}
+    // one of {a canvas decision block, a source line, a tree file/flow, a signal row}
     // highlights the others in the one shared accent. No duplicated highlight/inspect
     // logic: block highlighting stays in shell.js (driven off the store), the tree
     // reflects via tree.js's store subscription, and these panels own only their own DOM.
     //
-    // SECURITY: every character of source text and every finding string is inserted as a
+    // SECURITY: every character of source text and every review-signal string is inserted as a
     // TEXT NODE (textContent / createTextNode), NEVER innerHTML -- the snippet lines are
     // source-derived and must not be interpreted as markup. `<`, `>`, `&`, `"` in code
     // render literally.
@@ -31,10 +31,10 @@
       // many flows -- we never re-embed or re-slice the whole file per flow.
       const sourceFiles = model.source_files || {};
 
-      // At most this many findings are rendered in the errors panel for a broad (L0 /
+      // At most this many review signals are rendered in the errors panel for a broad (L0 /
       // empty / scope) selection, with an "N more" affordance after; a node selection is
       // exact and always shown in full. Keeps the panel from rendering an unbounded list
-      // (a large codebase has thousands of findings) -- general over finding count.
+      // (a large codebase can have many signals) -- general over signal count.
       const MAX_FINDING_ROWS = 50;
 
       const sourcePanel = document.getElementById("sourcePanel");
@@ -51,7 +51,7 @@
 
       // aria-live announcer: screen readers are not notified when the panels rebuild on a
       // selection change. Each panel records its own status ("source: file:line", "<n>
-      // findings"); onSelection then writes ONE combined message into the visually-hidden
+      // review signals"); onSelection then writes ONE combined message into the visually-hidden
       // polite live region -- so the two panels do not overwrite each other's announcement.
       let sourceStatus = "";
       let errorsStatus = "";
@@ -165,7 +165,7 @@
           qualitySignal("Unresolved calls", unresolved, unresolved ? "attention" : ""),
           qualitySignal("Ambiguous calls", ambiguous, ambiguous ? "attention" : ""),
           qualitySignal("Generic labels", generic + " · " + ratioPercent(labels.generic_ratio), generic ? "attention" : ""),
-          qualitySignal("Findings", findingsQuality.total || 0, findingsQuality.total ? "attention" : ""),
+          qualitySignal("Review signals", findingsQuality.total || 0, findingsQuality.total ? "attention" : ""),
           qualitySignal("Language attention", languageAttention, languageAttention ? "attention" : ""),
           qualitySignal("Graph density", graph.edge_to_node_ratio, graph.dense_graph_warning ? "attention" : "")
         );
@@ -182,7 +182,7 @@
         }
       }
 
-      // Focus restoration across a panel re-render. Activating a finding row or a code line
+      // Focus restoration across a panel re-render. Activating a review-signal row or a code line
       // re-renders the panel (replaceChildren destroys the focused element, dropping focus
       // to <body>). When an activation originates INSIDE a panel, we record the stable id of
       // the activated item here, then restore focus to the equivalent row/line AFTER the
@@ -257,8 +257,8 @@
         return null; // null => "all findings" (no scoping).
       }
 
-      // Findings to list for a selection. A selected node narrows to that node's findings;
-      // otherwise the relevant flow set's findings, deduped and stable-ordered.
+      // Review signals to list for a selection. A selected node narrows to that node's
+      // findings; otherwise the relevant flow set's findings, deduped and stable-ordered.
       function findingsForSelection(sel) {
         if (reviewQueueMode) return prioritizedFindings(findings.slice());
         if (sel.nodeId) {
@@ -753,7 +753,7 @@
       }
 
       function findingRow(finding, expanded) {
-        // A finding row is an activatable listitem. It must NOT be a <button role="listitem">
+        // A review-signal row is an activatable listitem. It must NOT be a <button role="listitem">
         // (a button is not a valid listitem child of role="list"); use a div with
         // role="listitem", made keyboard-activatable via tabindex + an Enter/Space handler.
         const row = el("div", "finding-row finding " + (finding.severity || ""));
@@ -787,10 +787,10 @@
           firstAnnotationText(annotation) ||
           (diagnostic && diagnostic.review_prompt) ||
           finding.detail ||
-          `Open finding ${finding.kind || "review item"} in the flowchart`;
+          `Open review signal ${finding.kind || "review item"} in the flowchart`;
         if (expanded) appendFindingDiagnostic(row, finding);
 
-        // Activating a finding selects its flow + node (bidirectional: lights the block,
+        // Activating a review signal selects its flow + node (bidirectional: lights the block,
         // the source line, and the tree file). selectFlow opens the flow inline so its
         // decision block exists to highlight; then publish the node + finding so the block
         // highlight + source line land. selectFlow's notify completes first (not
@@ -827,7 +827,7 @@
       }
 
       // Compact counts-by-tier/kind summary for a broad (empty / L0 / scope) selection, so
-      // the panel never renders an unbounded finding list at the top level. Returns a
+      // the panel never renders an unbounded review-signal list at the top level. Returns a
       // <div> with one count line per evidence tier plus the total.
       function findingSummary(list) {
         const byTier = new Map();
@@ -837,7 +837,7 @@
         });
         const wrap = el("div", "errors-summary");
         wrap.appendChild(
-          el("p", "panel-empty", list.length + " finding" + (list.length === 1 ? "" : "s") + " across the current view.")
+          el("p", "panel-empty", list.length + " review signal" + (list.length === 1 ? "" : "s") + " across the current view.")
         );
         [...byTier.keys()].sort().forEach(tier => {
           const line = el("div", "summary-line");
@@ -846,7 +846,7 @@
           wrap.appendChild(line);
         });
         wrap.appendChild(
-          el("p", "panel-empty", "Select a flow or node to list its findings.")
+          el("p", "panel-empty", "Select a flow or node to list its review signals.")
         );
         return wrap;
       }
@@ -857,15 +857,15 @@
         clear(errorsBody);
         if (errorsCountEl) errorsCountEl.textContent = list.length ? String(list.length) : "";
         errorsStatus = list.length
-          ? list.length + " finding" + (list.length === 1 ? "" : "s")
-          : "no findings";
+          ? list.length + " review signal" + (list.length === 1 ? "" : "s")
+          : "no review signals";
         if (!list.length) {
           errorsBody.appendChild(
-            el("p", "panel-empty", "No findings for the current selection.")
+            el("p", "panel-empty", "No review signals for the current selection.")
           );
           return;
         }
-        // A node selection is exact -- show all of its (few) findings. A broad selection
+        // A node selection is exact -- show all of its (few) review signals. A broad selection
         // (nothing / L0 / a scope / a path) can match thousands; show a compact summary
         // instead of an unbounded list, so the panel stays bounded at the top level.
         if (reviewQueueMode && list.length > MAX_FINDING_ROWS) {
@@ -873,7 +873,7 @@
             errorsBody.appendChild(findingRow(finding, sel.findingId === finding.id));
           });
           errorsBody.appendChild(
-            el("p", "panel-empty", String(list.length - MAX_FINDING_ROWS) + " more findings not shown.")
+            el("p", "panel-empty", String(list.length - MAX_FINDING_ROWS) + " more review signals not shown.")
           );
           return;
         }

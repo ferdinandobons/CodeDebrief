@@ -59,8 +59,8 @@ LogicChart automatically to:
 
 - retrieve the relevant flows;
 - inspect decisions, calls, callers, callees, and outcomes;
-- identify logical findings and their evidence tier;
-- understand impact from changed files, symbols, flows, findings, and dependencies;
+- identify review signals and their evidence tier;
+- understand impact from changed files, symbols, flows, review signals, and dependencies;
 - request deterministic visual snapshots;
 - distinguish verified facts from inferred review candidates;
 - generate useful explanations without losing source-grounded traceability.
@@ -83,7 +83,7 @@ snapshots.
 ### Visual context for agents
 
 Because the product is about flowcharts, agents need visual artifacts too. SVG snapshots
-for flows, findings, impact sets, and explicit subgraphs are first-class context, not a
+for flows, review signals, impact sets, and explicit subgraphs are first-class context, not a
 secondary export feature.
 
 ### One orchestration path
@@ -126,7 +126,7 @@ LogicChart should always make clear whether a statement is:
 - `POTENTIAL_GAP`: review candidate;
 - `agent_generated`: optional explanatory annotation from the coding agent.
 
-Agents must not present inferred findings or generated enrichment as confirmed bugs.
+Agents must not present inferred review signals or generated enrichment as confirmed defects.
 
 ## Target Setup Experience
 
@@ -181,9 +181,9 @@ The response should include:
 - caller and callee summaries;
 - decision nodes and handled values;
 - unresolved calls;
-- related findings with evidence tiers;
+- related review signals with evidence tiers;
 - source snippets or source ranges;
-- subgraph flow and finding ids;
+- subgraph flow and review-signal ids;
 - visual snapshot payloads or follow-up snapshot tool calls;
 - omitted counts and budget guardrails;
 - recommended next tools;
@@ -198,7 +198,7 @@ This should be the default path for questions such as:
 - "What should I test after this edit?"
 
 The context tool should be opinionated enough that an agent can use it from natural
-language, but transparent enough that advanced users can inspect which flows, findings,
+language, but transparent enough that advanced users can inspect which flows, review signals,
 source files, snapshots, and omissions were included.
 
 ## Channel Strategy
@@ -211,7 +211,7 @@ tasks:
 - `agent_context` for question-driven understanding;
 - change-impact analysis inside `agent_context`;
 - targeted search across generated flow artifacts inside `agent_context`;
-- focused flow and finding inspection inside `agent_context`;
+- focused flow and review-signal inspection inside `agent_context`;
 - snapshot or subgraph rendering for visual context inside the MCP surface;
 - annotation write/validate tools for agent-authored enrichment.
 
@@ -269,7 +269,7 @@ normal workflow. Their job is to encode behavior:
 - how to respect trust tiers;
 - when to refresh artifacts;
 - how to cite source ranges and flow ids;
-- how to avoid overstating inferred findings;
+- how to avoid overstating inferred review signals;
 - how to request visual snapshots only when they add value.
 
 Skills should not contain the product's source of truth or duplicate large command
@@ -301,7 +301,7 @@ Annotations should support:
 - flow names and summaries;
 - node labels and summaries;
 - scope/group summaries;
-- finding explanations;
+- review-signal explanations;
 - remediation notes;
 - domain concept descriptions;
 - "what to inspect next" notes.
@@ -315,7 +315,7 @@ locations in a way that both humans and agents can follow.
 
 ### 2. Understand what changes affect
 
-LogicChart should map edits to impacted flows, callers, findings, decisions, and test
+LogicChart should map edits to impacted flows, callers, review signals, decisions, and test
 suggestions.
 
 ### 3. Understand domain logic
@@ -427,10 +427,10 @@ Deliverables:
 - Add a primary MCP `agent_context` tool.
 - Accept natural question context: question text, changed files, selected code, current
   file, symbol, flow id, finding id, dependency path, token budget, and visual preference.
-- Internally orchestrate the existing query, impact, navigation, explanation, findings,
-  and snapshot selection logic.
+- Internally orchestrate the existing query, impact, navigation, explanation,
+  review-signal inspection, and snapshot selection logic.
 - Return one bounded context pack with matched flows, selection reasons, callers,
-  callees, decisions, outcomes, findings, unresolved calls, source ranges, omissions, and
+  callees, decisions, outcomes, review signals, unresolved calls, source ranges, omissions, and
   suggested next actions.
 - Remove `query`, `impact`, `explain`, `navigate`, and `snapshot` from the public CLI.
 
@@ -440,8 +440,8 @@ Done criteria:
   change?" by calling one primary LogicChart tool.
 - Lower-level MCP tools remain available for expert use, but are not required for the
   common path.
-- `INFERRED` and `POTENTIAL_GAP` findings remain clearly distinguished from confirmed
-  defects.
+- `INFERRED` and `POTENTIAL_GAP` review signals remain clearly distinguished from
+  confirmed defects.
 - Manual users are routed to either `logicchart view` or the coding agent, not to
   low-level query/impact commands.
 
@@ -452,7 +452,7 @@ Goal: make the visual flowchart useful without requiring a human to open the vie
 Deliverables:
 
 - Add deterministic snapshot/subgraph output through MCP.
-- Support flow snapshots, impact-set snapshots, finding-context snapshots, and
+- Support flow snapshots, impact-set snapshots, review-signal context snapshots, and
   caller/callee neighborhoods.
 - Return compact SVG/PNG paths or payload references plus machine-readable metadata.
 - Make all snapshot generation budget-aware, with explicit omitted counts.
@@ -483,7 +483,7 @@ Deliverables:
 
 Done criteria:
 
-- The agent can write clearer flow names, summaries, finding explanations, remediation
+- The agent can write clearer flow names, summaries, review-signal explanations, remediation
   notes, and "what to inspect next" guidance.
 - Generated annotations are never confused with deterministic analyzer facts.
 - Provider-managed enrichment remains optional and advanced, not the primary path.
@@ -498,7 +498,7 @@ Deliverables:
   lifecycle states, and payment states.
 - Map handled values, missing values, transitions, invalid states, owners, and related
   flows.
-- Connect domain maps to findings, source ranges, snapshots, and `agent_context`.
+- Connect domain maps to review signals, source ranges, snapshots, and `agent_context`.
 - Support questions such as "where is this state handled?", "which enum values are
   missing?", and "what changes if I add this status?".
 
@@ -517,7 +517,7 @@ Deliverables:
 - Keep `logicchart view ...` as the official manual command for opening the UI and
   visualizing the decision flowchart.
 - Treat the UI as an intentional manual mode, not the default agent-first workflow.
-- Align the viewer with context packs, findings, annotations, snapshots, and domain maps.
+- Align the viewer with context packs, review signals, annotations, snapshots, and domain maps.
 - Preserve progressive expand/collapse, focus, reset, export, zoom, pan, drag, and stable
   selection.
 - Keep large-codebase performance healthy with layout cache, chunked expansion, and

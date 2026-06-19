@@ -9,12 +9,12 @@ enrichment workflow is handled by the coding agent that is already working with 
 4. LogicChart keeps those annotations separate from deterministic facts.
 
 Generated annotation text must be treated as `agent_generated`. It can improve readability,
-but it must not replace source-backed flow data, diagnostic evidence, or finding tiers.
+but it must not replace source-backed flow data, diagnostic evidence, or review-signal tiers.
 
 ## MCP Annotation Workflow
 
 `preview_annotation_targets` is the preferred local-only MCP helper. It selects bounded
-candidate flows and findings, returns the context an agent may want to annotate, and
+candidate flows and review signals, returns the context an agent may want to annotate, and
 always reports `provider_call_made: false`.
 
 Use it to inspect annotation targets and payload size. Then use:
@@ -46,6 +46,6 @@ If provider-managed code is used by maintainers or tests, the same trust rules a
 ## Viewer and MCP Display
 
 When a valid annotation sidecar is present, LogicChart may display labels, summaries,
-finding explanations, remediation notes, and scope descriptions in MCP responses,
+review-signal explanations, remediation notes, and scope descriptions in MCP responses,
 snapshots, and the viewer. These annotations remain optional. The analyzer, validation,
-findings, evidence tiers, and flow structure must remain correct without them.
+review signals, evidence tiers, and flow structure must remain correct without them.

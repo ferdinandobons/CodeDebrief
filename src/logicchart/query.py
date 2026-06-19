@@ -638,11 +638,11 @@ def render_flow_navigation(navigation: dict[str, Any]) -> str:
     if decision_nodes:
         lines.append("\nDecision nodes:")
         for item in decision_nodes:
-            marker = " [finding]" if item.get("has_findings") else ""
+            marker = " [review signal]" if item.get("has_findings") else ""
             lines.append(f"- {item['label']} @ {item['source']}{marker}")
     findings = navigation.get("findings") or []
     if findings:
-        lines.append("\nFindings:")
+        lines.append("\nReview signals:")
         lines.extend(
             f"- {_enum_text(item['severity']).upper()} · {_enum_text(item['evidence'])} · "
             f"{item['kind']}: {item['message']} (id {item['id']})"
@@ -697,8 +697,8 @@ def evidence_guardrail(evidence: str) -> str:
     if evidence == "VERIFIED":
         return "syntax-backed fact"
     if evidence == "INFERRED":
-        return "deterministic heuristic; inspect before treating as a confirmed bug"
-    return "review candidate; never treat as a confirmed bug without inspection"
+        return "deterministic heuristic; inspect before treating as a confirmed defect"
+    return "review candidate; never treat as a confirmed defect without inspection"
 
 
 def _compact_list(value: Any, limit: int = 6) -> str:
@@ -774,7 +774,7 @@ def _flow_target_error(
         "recoverable": True,
         "guardrail": (
             "This reports an invalid flow-navigation target from the generated model; it "
-            "is not a source-code logical finding."
+            "is not a source-code review signal."
         ),
         "next_tools": {
             "list_flows": {
@@ -1407,9 +1407,9 @@ def _evidence_guardrail(finding: Finding) -> dict[str, str]:
     if finding.evidence.value == "VERIFIED":
         meaning = "syntax-backed fact"
     elif finding.evidence.value == "INFERRED":
-        meaning = "deterministic heuristic; inspect before treating as a bug"
+        meaning = "deterministic heuristic; inspect before treating as a confirmed defect"
     else:
-        meaning = "review candidate; never treat as a confirmed bug without inspection"
+        meaning = "review candidate; never treat as a confirmed defect without inspection"
     return {"tier": finding.evidence.value, "meaning": meaning}
 
 

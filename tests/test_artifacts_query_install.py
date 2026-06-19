@@ -357,7 +357,7 @@ For local real-world regression checks:
 1. Keep `examples/Certifexp/` private and untracked.
 2. Do not commit Certifexp source or generated artifacts.
 
-Do not present inferred findings as confirmed bugs.
+Do not present inferred review signals as confirmed defects.
 {END}
 """,
         encoding="utf-8",

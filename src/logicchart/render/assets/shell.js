@@ -18,13 +18,13 @@
     LC.flows = flows;
     LC.byId = byId;
     // The generated HTML now has one official chart renderer: the typed React runtime.
-    // The shell still owns shared selection, rails, tree, source, findings, and toolbar
+    // The shell still owns shared selection, rails, tree, source, review signals, and toolbar
     // buttons, but it no longer routes users into the retired static renderer.
     LC.mode = "react";
 
     // --- Shared selection store (Phase 4) ---------------------------------------
     // ONE selection model, ONE accent color. Every surface -- a canvas decision block,
-    // a source line, a tree file/flow row, a logical-error row -- both PUBLISHES into
+    // a source line, a tree file/flow row, a review-signal row -- both PUBLISHES into
     // this store (via LC.select) and SUBSCRIBES to it (via LC.onSelection) so selecting
     // any one highlights the others. The store holds only ids; each surface maps ids to
     // its own DOM. shell.js drives the canvas highlight (its existing job); panels.js
@@ -40,7 +40,7 @@
       endLine: null,
     };
     const selectionSubscribers = [];
-    // Re-entrancy guard: a subscriber that calls back into select() (e.g. a finding row
+    // Re-entrancy guard: a subscriber that calls back into select() (e.g. a review-signal row
     // resolving its flow) must not recurse the notify loop; coalesce to one pass.
     let notifyingSelection = false;
     LC.selection = selection;
@@ -145,7 +145,7 @@
       document.body.toggleAttribute("data-detail-closed", !open);
       if (detailButton) {
         detailButton.setAttribute("aria-pressed", open ? "true" : "false");
-        detailButton.title = open ? "Hide source and findings" : "Show source and findings";
+        detailButton.title = open ? "Hide source and review signals" : "Show source and review signals";
       }
       syncRailControls();
       scheduleCanvasLayoutRefresh();
@@ -170,7 +170,7 @@
       }
       if (detailButton) {
         detailButton.setAttribute("aria-pressed", detailOpen ? "true" : "false");
-        detailButton.title = detailOpen ? "Hide source and findings" : "Show source and findings";
+        detailButton.title = detailOpen ? "Hide source and review signals" : "Show source and review signals";
       }
     }
 
@@ -1517,7 +1517,7 @@
     // graph exactly as a direct block click would, without rebuilding the inspector.
     LC.highlightNode = highlightNode;
     LC.clearHighlight = clearHighlight;
-    // Findings the panels read: the flat list (filtered by flow at L2, by scope/subtree at
+    // Review signals the panels read: the flat list (filtered by flow at L2, by scope/subtree at
     // L0/L1) and the per-node index (a node's own findings). Exposed so panels.js does not
     // re-derive the same maps and drift from shell.js.
     LC.findings = findings;
@@ -1560,7 +1560,7 @@
     };
 
     // Reconcile the CANVAS block highlight from the shared selection. A node selected on
-    // ANY surface (a source line, a finding row) lights up its block here, on whatever
+    // ANY surface (a source line, a review-signal row) lights up its block here, on whatever
     // decision graph is currently drawn -- the same single highlight path a direct block
     // click uses. Guarded by currentRender: when no decision graph is on screen (L0, or a
     // flow whose decisions are not expanded) there is no block to light, and that is fine

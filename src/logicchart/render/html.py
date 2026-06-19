@@ -93,9 +93,9 @@ _HTML_TEMPLATE = r"""<!doctype html>
         <div class="rail-head codebase-head">
           <div class="rail-head-row">
             <h2 class="rail-title">Codebase</h2>
-            <button class="rail-toggle" id="reviewFilter" type="button" aria-pressed="false" title="Show only flows with review findings" aria-label="Show only flows with review findings" hidden>Review</button>
+            <button class="rail-toggle" id="reviewFilter" type="button" aria-pressed="false" title="Show only flows with review signals" aria-label="Show only flows with review signals" hidden>Review</button>
           </div>
-          <input class="filter" id="globalSearch" type="search" placeholder="Find path, symbol, finding" aria-label="Find path, symbol, or finding">
+          <input class="filter" id="globalSearch" type="search" placeholder="Find path, symbol, signal" aria-label="Find path, symbol, or review signal">
           <select class="filter compact-filter" id="langFilter" aria-label="Filter by language" style="display:none"></select>
         </div>
         <div class="tree" id="tree" role="tree" aria-label="Directory tree"></div>
@@ -113,7 +113,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
       <div class="canvas-toolbar" aria-label="Canvas controls">
         <div class="tool-group" aria-label="Panels">
           <button class="tool" id="menuButton" title="Toggle codebase tree" aria-label="Toggle codebase tree">&#9776;</button>
-          <button class="tool detail-tool" id="detailButton" title="Show source and findings" aria-label="Toggle source and findings" aria-pressed="false">i</button>
+          <button class="tool detail-tool" id="detailButton" title="Show source and review signals" aria-label="Toggle source and review signals" aria-pressed="false">i</button>
         </div>
         <div class="tool-group" aria-label="Graph viewport">
           <button class="tool reset-tool command-tool" id="resetView" title="Collapse all expanded sections and return to the codebase root" aria-label="Collapse all expanded sections and return to the codebase root">RESET</button>
@@ -141,7 +141,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
             <button class="panel-stack-control" id="detailsCollapseAll" type="button" title="Collapse all detail sections" aria-label="Collapse all detail sections">-</button>
             <button class="panel-stack-control" id="detailsExpandAll" type="button" title="Expand all detail sections" aria-label="Expand all detail sections">+</button>
           </div>
-          <button class="panel-close" id="detailsClose" type="button" title="Hide source and findings" aria-label="Hide source and findings">&times;</button>
+          <button class="panel-close" id="detailsClose" type="button" title="Hide source and review signals" aria-label="Hide source and review signals">&times;</button>
         </div>
         <section class="panel panel-quality" id="qualityPanel" aria-label="Project quality" data-collapsible-panel data-panel-state="quality">
           <div class="panel-head" data-panel-heading>
@@ -161,22 +161,22 @@ _HTML_TEMPLATE = r"""<!doctype html>
             <p class="panel-empty">Select a flow or node to view its source.</p>
           </div>
         </section>
-        <section class="panel panel-errors" id="errorsPanel" aria-label="Logical errors" data-collapsible-panel data-panel-state="errors">
+        <section class="panel panel-errors" id="errorsPanel" aria-label="Review signals" data-collapsible-panel data-panel-state="errors">
           <div class="panel-head" data-panel-heading>
-            <button class="panel-collapse-toggle" id="errorsPanelToggle" type="button" data-panel-toggle aria-expanded="true" aria-controls="errors" title="Collapse Logical errors" aria-label="Collapse Logical errors"><span class="panel-chevron" aria-hidden="true"></span></button>
-            <h2 class="rail-title">Logical errors</h2>
+            <button class="panel-collapse-toggle" id="errorsPanelToggle" type="button" data-panel-toggle aria-expanded="true" aria-controls="errors" title="Collapse Review signals" aria-label="Collapse Review signals"><span class="panel-chevron" aria-hidden="true"></span></button>
+            <h2 class="rail-title">Review signals</h2>
             <button class="panel-action" id="reviewQueueToggle" type="button" aria-pressed="false" title="Show prioritized review queue">Queue</button>
             <span class="panel-count" id="errorsCount" aria-hidden="true"></span>
           </div>
-          <div class="panel-body errors-scroll" id="errors" role="list" aria-label="Findings for the current selection">
-            <p class="panel-empty">No findings for the current selection.</p>
+          <div class="panel-body errors-scroll" id="errors" role="list" aria-label="Review signals for the current selection">
+            <p class="panel-empty">No review signals for the current selection.</p>
           </div>
         </section>
       </div>
     </aside>
   </div>
 
-  <!-- Visually-hidden polite live region: panels.js announces the source/findings change
+  <!-- Visually-hidden polite live region: panels.js announces source/review-signal changes
        on each selection so screen-reader users are notified when the panels re-render. -->
   <div id="panelStatus" class="sr-only" role="status" aria-live="polite"></div>
 

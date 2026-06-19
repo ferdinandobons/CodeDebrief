@@ -15,10 +15,10 @@ The project follows Semantic Versioning.
   guards, swallowed handlers, no-op branches, and asymmetric dispatch returns.
 - Added bounded related-decision scope to cross-flow diagnostics, including related flow
   and node ids plus source ranges for evidence-chain entries.
-- Added deterministic finding explanation payloads with evidence-tier guardrails for MCP
+- Added deterministic review-signal explanation payloads with evidence-tier guardrails for MCP
   and internal agent context.
 - Added optional finding-annotation enrichment overlays across MCP finding/review/context
-  tools and the Logical Errors panel.
+  tools and the Review Signals panel.
 - Added optional scope-annotation labels and summaries to the React flowchart and flow
   navigation annotation payloads.
 - Added stable finding ids to the generated Markdown findings list.
@@ -64,7 +64,7 @@ The project follows Semantic Versioning.
 - Added a Project Quality panel to the generated viewer details rail, showing analyzer
   coverage, call-resolution, finding, generic-label, graph-density, and language metrics.
 - Added right-rail expand-all and collapse-all controls for the Project Quality, Source,
-  and Logical Errors detail sections.
+  and Review Signals detail sections.
 - Added a deterministic language capability matrix to generated metadata and MCP summaries.
 - Added a fast `logicchart doctor` language-capability summary for supported language ids,
   feature flags, and limitation notes without running analysis or smoke tests.
@@ -76,7 +76,7 @@ The project follows Semantic Versioning.
 - Added MCP `preview_enrichment` so agents can inspect bounded candidate annotation targets
   locally without making provider calls.
 - Added MCP finding-context packs with focus flow, related evidence nodes, related flows,
-  evidence guardrails, and next-tool hints for logical-error review.
+  evidence guardrails, and next-tool hints for review-signal inspection.
 - Added deterministic impact targets for flow ids, symbols, and finding ids across CLI and
   MCP, with subgraph ids and unresolved-target reporting.
 - Added deterministic dependency-path impact targets across CLI, snapshots, MCP
@@ -94,7 +94,7 @@ The project follows Semantic Versioning.
 - Added query-result follow-up hints for MCP tools, so agents can move
   from a ranked match to navigation, visual snapshot, impact, or context-pack review.
 - Added bounded finding metadata and subgraph snapshot targets to MCP/internal query results,
-  so agents can move from `query_logic` directly into focused logical-error review without
+  so agents can move from `query_logic` directly into focused review-signal inspection without
   loading a full graph.
 - Added optional inline visual context to MCP `context_pack`, with SVG impact, subgraph,
   flow, and finding snapshots gated by `include_visual` and capped by `token_budget`.
@@ -150,7 +150,7 @@ The project follows Semantic Versioning.
 - Added concise limitation notes to `metadata.language_capabilities` for partial or
   unsupported analyzer features.
 - Added header-clickable collapsible Details rail sections for Project Quality, Source,
-  and Logical Errors.
+  and Review Signals.
 - Added React viewer layout/detail caches and a visible loader/progress bar for
   large-codebase expand overview operations.
 - Added a preserved `logicchart:local-notes` section to generated agent instructions, so
@@ -158,7 +158,7 @@ The project follows Semantic Versioning.
 
 ### Changed
 
-- Updated MCP finding responses, review queues, context packs, and finding explanations to
+- Updated MCP finding responses, review queues, context packs, and review-signal explanations to
   include normalized diagnostic details.
 - Updated generated agent instructions across Codex, Claude, Gemini, and Cursor to prefer
   MCP `agent_context` for codebase questions and keep `logicchart view` as the manual UI
@@ -179,11 +179,11 @@ The project follows Semantic Versioning.
   call indexes, and simplified overview edge routing for large real-world codebases.
 - Updated the enrichment documentation to present agent-authored annotations as the
   preferred path and provider-managed enrichment as advanced/internal.
-- Updated Details rail section headers so Project Quality, Source, and Logical Errors can
+- Updated Details rail section headers so Project Quality, Source, and Review Signals can
   be collapsed by click or keyboard with synchronized expanded state.
-- Updated the Logical Errors panel so selected findings expand into a compact diagnostic
+- Updated the Review Signals panel so selected signals expand into a compact diagnostic
   inspector with a focused diagnostic subgraph, related-flow and evidence-node links,
-  while keeping broad finding lists bounded.
+  while keeping broad review-signal lists bounded.
 - Removed the canvas minimap from the generated viewer so large-canvas updates avoid the
   extra SVG bounds pass and duplicate viewport synchronization work.
 
@@ -302,7 +302,7 @@ The project follows Semantic Versioning.
   validation.
 - Added optional `logicchart install --mcp-config ...` project MCP config generation and
   server instructions for agent workflow guidance.
-- Added viewer flow search and a prioritized review queue in the findings panel.
+- Added viewer flow search and a prioritized review queue in the review-signals panel.
 - Clarified the earlier CLI/MCP agent workflow in the README.
 
 ### Changed

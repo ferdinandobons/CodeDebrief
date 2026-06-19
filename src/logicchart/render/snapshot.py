@@ -60,7 +60,7 @@ def unsupported_snapshot_format(requested: str) -> dict[str, Any]:
         "recoverable": True,
         "guardrail": (
             "This reports an unsupported visual export format; it is not a source-code "
-            "logical finding."
+            "review signal."
         ),
     }
 
@@ -171,7 +171,7 @@ def _snapshot_request_error(
         "recoverable": True,
         "guardrail": (
             "This reports an invalid snapshot target from the generated model; it is not "
-            "a source-code logical finding."
+            "a source-code review signal."
         ),
     }
     if finding_id is not None:
@@ -186,8 +186,7 @@ def _subgraph_empty_error() -> dict[str, Any]:
         "target_type": "subgraph",
         "recoverable": True,
         "guardrail": (
-            "This reports an empty visual snapshot request; it is not a source-code "
-            "logical finding."
+            "This reports an empty visual snapshot request; it is not a source-code review signal."
         ),
     }
 

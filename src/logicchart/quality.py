@@ -153,7 +153,7 @@ def render_quality(quality: dict[str, Any]) -> str:
         f"- Calls: {calls['resolved']}/{calls['total']} resolved "
         f"({calls['resolution_rate']:.0%}); {calls['unresolved']} unresolved, "
         f"{calls['ambiguous']} ambiguous, {calls['low_confidence']} low-confidence",
-        f"- Findings: {findings['total']} total ({_format_counts(findings['by_evidence'])})",
+        f"- Review signals: {findings['total']} total ({_format_counts(findings['by_evidence'])})",
         f"- Labels: {labels['generic_nodes']} generic nodes ({labels['generic_ratio']:.0%})",
         f"- Source coverage: {source['nodes_with_source']} nodes ({source['coverage']:.0%})",
         f"- Graph density: {graph['edges']} edges / {graph['nodes']} nodes "

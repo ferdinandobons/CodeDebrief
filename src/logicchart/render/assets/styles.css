@@ -1212,7 +1212,7 @@
       stroke-dasharray: 4 5;
       opacity: .7;
     }
-    /* --- Right column: quality, source, and logical-errors panels ------------- */
+    /* --- Right column: quality, source, and review-signal panels ------------- */
     /* The rail splits vertically into panels that each scroll independently, so a long
        snippet or findings list scrolls inside its panel and never pushes the others
        off-screen. */

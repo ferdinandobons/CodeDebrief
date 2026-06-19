@@ -61,14 +61,14 @@ _LOAD_ERRORS = (OSError, ValueError, KeyError, TypeError)
 MCP_INSTRUCTIONS = """Use LogicChart as an agent-first code-logic understanding layer.
 Prefer agent_context for ordinary user questions before broad file-by-file search. Use
 domain_map when the user asks about statuses, roles, permissions, or other state-like
-logic. Use get_finding_context and get_finding_snapshot before treating a logical error as
+logic. Use get_finding_context and get_finding_snapshot before treating a review signal as
 actionable.
 After substantial code edits, call update_logicchart and validate_artifacts, then commit
 the synchronized logic-flow.json and logic-flow.md artifacts when they changed. Use
 update_logicchart(full=true) when artifacts are missing, stale, or analyzer behavior
 changed and cached file models should be ignored. Treat VERIFIED as syntax-backed,
 INFERRED as deterministic heuristic, and POTENTIAL_GAP as a review candidate, not a
-confirmed bug. Use preview_annotation_targets and write_annotations for local
+confirmed defect. Use preview_annotation_targets and write_annotations for local
 agent-authored annotations without provider keys."""
 
 
@@ -252,7 +252,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
 
     @server.tool()
     def get_findings(flow_id: str | None = None, token_budget: int = 0) -> list[dict[str, Any]]:
-        """List findings with structured diagnostics, confidence, and next actions."""
+        """List review signals with structured diagnostics, confidence, and next actions."""
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return [error]
@@ -541,7 +541,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
 
     @server.tool()
     def get_finding_context(finding_id: str, token_budget: int = 0) -> dict[str, Any]:
-        """Return a bounded deterministic subgraph around one logical finding."""
+        """Return a bounded deterministic subgraph around one review signal."""
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return error
@@ -845,7 +845,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             "tool": "agent_context",
             "guardrail": (
                 "Use this as source-grounded context for explanation or edits. Do not "
-                "present INFERRED or POTENTIAL_GAP findings as confirmed bugs, and keep "
+                "present INFERRED or POTENTIAL_GAP review signals as confirmed defects, and keep "
                 "agent-generated annotation text separate from deterministic facts."
             ),
             "inputs": {
@@ -1349,9 +1349,9 @@ def _agent_context_review_points(pack: dict[str, Any]) -> list[dict[str, Any]]:
                 "message": finding.get("message"),
                 "source": finding.get("location"),
                 "guardrail": (
-                    "Review candidate, not a confirmed bug."
+                    "Review candidate, not a confirmed defect."
                     if finding.get("evidence") in {"INFERRED", "POTENTIAL_GAP"}
-                    else "Source-backed finding."
+                    else "Source-backed review signal."
                 ),
             }
         )
@@ -1906,7 +1906,7 @@ def _quality_report(quality: dict[str, Any], token_budget: int) -> dict[str, Any
         "attention": _quality_attention_items(quality, token_budget),
         "guardrail": (
             "Quality attention signals identify analyzer limits and review targets; "
-            "they are not confirmed logical bugs by themselves."
+            "they are not confirmed defects by themselves."
         ),
         "next_tools": {
             "validate_quality": {
@@ -2103,7 +2103,7 @@ def _validation_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "guardrail": (
             "Artifact validation checks generated model freshness, schema, annotations, "
             "and optional analyzer-quality thresholds; it does not confirm or dismiss "
-            "logical findings."
+            "review signals."
         ),
         "next_tools": next_tools,
         "next_cli": _validation_next_cli(bool(payload.get("ok"))),
@@ -2229,7 +2229,7 @@ def _unknown_target_error(target_type: str, target_id: str) -> dict[str, Any]:
         "recoverable": True,
         "guardrail": (
             "This reports an invalid MCP target from the generated model; it is not a "
-            "source-code logical finding."
+            "source-code review signal."
         ),
         "next_tools": next_tools,
     }
@@ -2268,7 +2268,7 @@ def _model_load_error(
         "recoverable": True,
         "guardrail": (
             "This reports missing or invalid generated artifacts; it is not a "
-            "source-code logical finding."
+            "source-code review signal."
         ),
         "next_tools": {
             "update_model": {

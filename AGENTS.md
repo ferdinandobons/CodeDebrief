@@ -8,7 +8,7 @@ For codebase questions about behavior, decisions, missing cases, or change impac
 1. Prefer the LogicChart MCP `agent_context` tool before broad file-by-file searches.
 2. Use `agent_context` for substantial changes, passing changed files, selected code,
    current file, flow id, symbol, finding id, or dependency path when available.
-3. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` findings.
+3. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` review signals.
 4. Use `logicchart view ...` only when a human wants the manual UI flowchart.
 
 When helping a user set up or learn LogicChart:
@@ -50,6 +50,7 @@ For local real-world regression checks:
    analysis output.
 <!-- logicchart:local-notes:end -->
 
-Do not present inferred findings as confirmed bugs. LogicChart marks syntax-backed facts as
-`VERIFIED`, deterministic heuristics as `INFERRED`, and review candidates as `POTENTIAL_GAP`.
+Do not present inferred review signals as confirmed defects. LogicChart marks syntax-backed
+facts as `VERIFIED`, deterministic heuristics as `INFERRED`, and review candidates as
+`POTENTIAL_GAP`.
 <!-- logicchart:instructions:end -->

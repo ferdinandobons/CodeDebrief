@@ -2401,7 +2401,7 @@ function flowAccessibilitySummary(
     plural(decisionCount, "decision"),
     plural((flow.calls || []).length, "call"),
     plural((flow.called_by || []).length, "caller"),
-    plural(findingCount, "finding"),
+    plural(findingCount, "review signal"),
   ];
   const source = flowPath(flow);
   if (source) pieces.push(source);

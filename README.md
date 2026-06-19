@@ -24,10 +24,10 @@ control-flow map.
 - A whole-codebase decision map, from one function to a large polyglot repo.
 - A local HTML viewer built for broad codebase study: a progressive scope-to-flowchart
   canvas, file tree, flow search, language filter, inline decision charts, source panel,
-  and prioritized findings.
+  and prioritized review signals.
 - A reviewable Markdown report with Mermaid flowcharts.
 - A canonical JSON model for CI, scripts, and MCP/coding-agent context.
-- Evidence labels on every finding: `VERIFIED`, `INFERRED`, or `POTENTIAL_GAP`.
+- Evidence labels on every review signal: `VERIFIED`, `INFERRED`, or `POTENTIAL_GAP`.
 - No API key, no code execution, and repeatable output for the same source tree.
 
 ## Quick Start
@@ -55,7 +55,7 @@ result. LogicChart analyzes `.` by default and writes:
 | File | Purpose |
 |---|---|
 | `logicchart-out/logic-flow.json` | canonical model consumed by MCP, CI, and the viewer; commit it |
-| `logicchart-out/logic-flow.md` | reviewable decision flowcharts and findings with stable finding ids; commit it |
+| `logicchart-out/logic-flow.md` | reviewable decision flowcharts and review signals with stable finding ids; commit it |
 | `logicchart-out/logic-flow.html` | local interactive viewer; regenerated and normally ignored |
 | `logicchart-out/logic-annotations.json` | optional labels/summaries sidecar; never required for correctness |
 
@@ -68,7 +68,7 @@ uv run logicchart --help
 
 ## The 30-Second Example
 
-This Next.js route switches on `user.status` but forgets declared enum members:
+This Next.js route handles two `user.status` values while the enum declares more members:
 
 ```ts
 switch (user.status) {
@@ -78,15 +78,16 @@ switch (user.status) {
 }
 ```
 
-After `logicchart update`, the generated findings report includes:
+After `logicchart update`, the generated review-signal report can include:
 
 ```text
 - WARNING · INFERRED · enum_exhaustiveness Declared UserStatus members not handled for user.status: UserStatus.ARCHIVED, UserStatus.DELETED, UserStatus.LOCKED
 ```
 
-`INFERRED` means a deterministic heuristic over a declared closed set, not a guess. Run the
-bundled [`examples/demo`](examples/demo) project to see this user-state finding plus an
-order-state finding in an 11-language, 2-scope frontend/backend codebase.
+`INFERRED` means a deterministic heuristic over a declared closed set, not a guess and not
+an automatic bug claim. Run the bundled [`examples/demo`](examples/demo) project to see
+this user-state review signal plus an order-state review signal in an 11-language, 2-scope
+frontend/backend codebase.
 
 ## Large Codebases
 
@@ -134,11 +135,11 @@ large-codebase study, not just one isolated function. It shows:
   surrounding codebase context.
 - Link selection that highlights the source node, target node, and selected connection
   while dimming unrelated blocks.
-- A synchronized source panel and logical-errors panel with selected-finding diagnostics,
+- A synchronized source panel and review-signals panel with selected-signal diagnostics,
   bounded related-flow/evidence-node links, a compact focused diagnostic subgraph, and
   keyboard-accessible collapsible Details sections for project quality, source, and
-  findings.
-- Finding density on scope nodes and tree file rows, useful for scanning large systems.
+  review signals.
+- Review-signal density on scope nodes and tree file rows, useful for scanning large systems.
 - Light/dark theme, pan/zoom, fit-to-content, drag-to-arrange blocks,
   collapse-all reset, fast expand-all overview with progress feedback, full-screen canvas,
   graph-bounds-aware PNG/JPG export, and responsive side panels.
@@ -161,7 +162,7 @@ expansion, viewport zoom/pan, root-collapsing reset, layout caching, fast expand
 progress, and PNG/JPG export path. Raster exports size themselves from the graph bounds
 rather than the current viewport, so large codebases do not collapse into a tiny fixed-size
 image. The
-surrounding HTML shell owns the tree, source, findings, theme, fullscreen, side rails,
+surrounding HTML shell owns the tree, source, review signals, theme, fullscreen, side rails,
 and viewer controls. See [docs/viewer.md](docs/viewer.md) for the UI architecture and
 verification loop.
 
@@ -249,7 +250,7 @@ Useful flags:
 
 - `--full`: ignore the incremental cache while keeping the shorter update workflow.
 - `--no-html`: skip the viewer artifact.
-- `--include-gaps`: expand review-only `POTENTIAL_GAP` findings in Markdown.
+- `--include-gaps`: expand review-only `POTENTIAL_GAP` review signals in Markdown.
 - `--profile demo|self|project`: use one of the built-in repository profiles.
 
 After substantial source changes, commit the refreshed `logic-flow.json` and
@@ -258,14 +259,14 @@ to verify that cached file models cannot mask a change in LogicChart itself.
 
 ### Agent and MCP context tools
 
-Question answering, impact analysis, finding explanation, flow navigation, and visual
+Question answering, impact analysis, review-signal explanation, flow navigation, and visual
 snapshots are agent/MCP capabilities rather than public CLI commands. The old public
 commands `query`, `impact`, `explain`, `navigate`, and `snapshot` are not part of the
 agent-first CLI surface, so users do not need to memorize low-level analysis commands.
 
 For normal use, ask your coding agent questions such as "how does checkout work?" or
 "what logic is impacted by this change?". The agent should call MCP `agent_context` and
-return grounded context with flows, callers, callees, decisions, findings, evidence tiers,
+return grounded context with flows, callers, callees, decisions, review signals, evidence tiers,
 source ranges, impact reasons, and visual snapshots when useful.
 
 ### Agent-authored Annotations
@@ -274,7 +275,7 @@ LogicChart does not require provider keys for enrichment. The preferred path is 
 coding agent reads deterministic MCP context, writes validated annotation sidecars, and
 keeps generated text separate from deterministic facts.
 
-Current MCP preview tools can identify candidate flow/finding targets for future
+Current MCP preview tools can identify candidate flow/review-signal targets for future
 annotation writes. The agent can then use MCP `write_annotations`,
 `validate_annotations`, `annotation_status`, and `clear_annotations` to manage the
 validated `logic-annotations.json` sidecar without provider keys. Provider-managed
@@ -297,14 +298,14 @@ Validation also checks present finding-rule contracts against the current detect
 registry: rule-declared metadata fields must exist on matching findings, and a diagnostic
 `rule_id` must match the finding kind.
 `--quality` includes deterministic analysis metrics such as files and flows by language,
-call-resolution rate, generic-label ratio, source-location coverage, finding counts, and
+call-resolution rate, generic-label ratio, source-location coverage, review-signal counts, and
 graph density. It also reports skipped-file counts and reasons when a source file could
 not be parsed. Python syntax errors and unrecoverable tree-sitter parse errors are
 recorded as skipped-file quality signals. Recoverable TypeScript/JavaScript or
 profile-driven tree-sitter error nodes that still expose flows are preserved with parse
 warnings in the quality payload instead of being silently treated as fully clean. The same
 quality payload also includes per-language depth signals for files, flows, decisions,
-calls, findings, source coverage, and capability metadata.
+calls, review signals, source coverage, and capability metadata.
 `--annotations` reports validation status for an optional
 `logicchart-out/logic-annotations.json` sidecar. If that file exists, validation checks it
 even without the flag and fails when the sidecar is stale, malformed, or references ids
@@ -385,7 +386,7 @@ Built-in profiles:
 | `self` | `src/logicchart` | `logicchart-out/self/` | dogfood map for LogicChart internals |
 | `project` | `src`, `tests`, `examples` | `logicchart-out/project/` | whole-checkout map for agents |
 
-## Findings
+## Review Signals
 
 Evidence levels:
 
@@ -393,7 +394,7 @@ Evidence levels:
 - `INFERRED`: produced by an explainable deterministic heuristic.
 - `POTENTIAL_GAP`: a review candidate, never automatically treated as a bug.
 
-Single-flow findings:
+Single-flow review signals:
 
 - `missing_branch`
 - `dead_code`
@@ -402,7 +403,7 @@ Single-flow findings:
 - `asymmetric_return`
 - `dead_guard`
 
-Cross-flow findings:
+Cross-flow review signals:
 
 - `inconsistent_case_handling`
 - `enum_exhaustiveness`
@@ -410,27 +411,32 @@ Cross-flow findings:
 - `logging_asymmetry`
 - `auth_divergence` when `gated_detectors = true`
 
-Every finding also carries normalized diagnostic metadata:
+Every review signal also carries normalized diagnostic metadata:
 
 - a stable `rule_id`, detector category, severity, evidence tier, and confidence basis;
-- source scope linking the finding to its flow, node, related decision nodes, file, and
+- source scope linking the signal to its flow, node, related decision nodes, file, and
   line ranges;
 - detector inputs, expected/actual state, missing values when applicable, and an evidence
   chain with detector-specific proof points such as implicit fallbacks, constant guards,
-  branch outcomes, and bounded related-decision evidence for cross-flow findings;
+  branch outcomes, and bounded related-decision evidence for cross-flow signals;
 - a review prompt and suggested next actions for humans and agents.
 
 The shared rule registry is emitted under `metadata.finding_rules`, so CLI artifacts, the
-HTML viewer, and MCP tools all explain findings with the same detector contracts. Each
+HTML viewer, and MCP tools all explain review signals with the same detector contracts. Each
 contract includes purpose, preconditions, caveats, evidence rationale, guaranteed metadata
 fields, review prompt, suggested next actions, and concise examples for true positives
 versus intentional suppressions.
+
+For compatibility, the JSON schema and MCP parameters still use stable names such as
+`findings`, `finding_id`, and `metadata.finding_rules`. The product surface presents those
+records as review signals because they are deterministic inspection guidance, not automatic
+bug claims.
 
 ## Limitations
 
 LogicChart does not run your code, trace runtime behavior, perform full symbolic execution,
 or reconstruct deep React state. It maps each entry point's own control flow plus internal
-call links that can be resolved statically. Treat `POTENTIAL_GAP` findings as review
+call links that can be resolved statically. Treat `POTENTIAL_GAP` review signals as review
 candidates.
 
 ## Agents and MCP
@@ -480,25 +486,25 @@ logicchart mcp .
 ```
 
 The primary MCP tool is `agent_context`. Agents should call it for ordinary questions
-about how code works, what a change touches, where a state is handled, or which finding
+about how code works, what a change touches, where a state is handled, or which review signal
 needs review. It accepts a user question, changed files, selected code, current file,
 flow id, symbol, finding id, dependency path, domain/value filters, scope, token budget,
 and visual preference, then returns one bounded context pack with query matches, impact,
-navigation, findings, domain maps, guardrails, recommended next tools, and optional visual
+navigation, review signals, domain maps, guardrails, recommended next tools, and optional visual
 context.
 
 Lower-level MCP tools remain available for expert follow-up: summary, analysis-quality
-reports, flow listing, flow retrieval, flow-navigation packs, query, findings,
-finding-rule contracts, finding-chain explanation, finding-context subgraphs,
+reports, flow listing, flow retrieval, flow-navigation packs, query, review signals,
+finding-rule contracts, review-signal-chain explanation, review-signal context subgraphs,
 state-handling lookup, domain maps, decision-node search, impact analysis, token-bounded
-deterministic SVG snapshots for flows, findings, impact sets, and explicit flow/finding
+deterministic SVG snapshots for flows, review signals, impact sets, and explicit flow/finding
 subgraphs, annotation-target preview/write/status/validation/clear tools, review queue,
 context pack, artifact validation, and artifact update. Artifact validation and update
 responses include guardrails plus `next_tools` and maintenance CLI hints for the
 update -> validate -> review sequence, so agents can recover from stale generated models
 without guessing the workflow. Recovery hints use `update_logicchart(full=true)` and
 `logicchart update --full` when bypassing the incremental cache is the safer default.
-Finding snapshots include a compact diagnostic panel with evidence tier, confidence,
+Review-signal snapshots include a compact diagnostic panel with evidence tier, confidence,
 review prompt, and evidence-chain summaries. MCP impact
 analysis and `context_pack` include per-flow `reasons` alongside a top-level
 `impact_reasons` map so agents can explain direct and transitive impact without
@@ -511,10 +517,10 @@ explicit `flow_ids`, `symbols`, `finding_ids`, and `dependency_paths` impact tar
 `analyze_impact`. `context_pack` also accepts the same deterministic query filters as
 `query_logic` for source paths, language ids, state domains, handled values, finding
 kinds, severities, and evidence tiers. The returned pack includes bounded flow-navigation
-packs for relevant flows, so agents can inspect callers, callees, decisions, findings,
+packs for relevant flows, so agents can inspect callers, callees, decisions, review signals,
 annotations, and follow-up tools before deciding whether to request a complete flow or
 visual snapshot. `domain_map` aggregates handled values, missing values, related decisions,
-flows, findings, and subgraph ids for questions about statuses, roles, permissions, and
+flows, review signals, and subgraph ids for questions about statuses, roles, permissions, and
 other state-like domains. When `token_budget` is set, returned domain-map subgraph targets
 are capped with explicit `omitted_subgraph_flow_count` metadata so agents do not
 accidentally request huge visual snapshots.
@@ -532,7 +538,7 @@ snapshot targets use the same structured error shape with recovery hints.
 follow-up tool pointers, including parse-warning attention when tree-sitter recovered
 flows from partially malformed files. `context_pack` stays lightweight by default and
 returns snapshot follow-up tool calls; pass `include_visual=true` when an agent needs
-inline, budget-capped SVG impact, subgraph, flow, and finding context in the same
+inline, budget-capped SVG impact, subgraph, flow, and review-signal context in the same
 response. `visual_byte_budget` caps the total inline SVG bytes deterministically; omitted
 visuals remain available through the returned snapshot follow-up tools.
 
@@ -540,7 +546,7 @@ visuals remain available through the returned snapshot follow-up tools.
 
 Planned future evolutions:
 
-- CI diff gate for introduced findings, including SARIF output.
+- CI diff gate for introduced review signals, including SARIF output.
 - Managed git auto-sync hooks and a merge strategy for `logic-flow.json`.
 
 ## Development
@@ -571,7 +577,7 @@ changes in the browser.
 
 The canonical artifact format is documented by
 [schema/logic-flow.schema.json](schema/logic-flow.schema.json). Schema 1.1 validates the
-core model plus optional generated metadata contracts for finding diagnostics, finding
+core model plus optional generated metadata contracts for review-signal diagnostics, finding
 rules, quality, language capabilities, and skipped files while remaining forward-compatible
 for custom metadata. Optional annotation sidecars use
 [schema/logic-annotations.schema.json](schema/logic-annotations.schema.json).

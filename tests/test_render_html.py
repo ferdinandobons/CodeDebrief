@@ -156,10 +156,10 @@ def test_render_html_emits_directory_tree(tmp_path: Path) -> None:
     assert 'id="tree"' in html
     # Codebase search, review triage, and language filter are wired above the tree.
     assert 'id="reviewFilter"' in html
-    assert "Show only flows with review findings" in html
+    assert "Show only flows with review signals" in html
     assert 'id="langFilter"' in html
     assert 'id="globalSearch"' in html
-    assert "Find path, symbol, finding" in html
+    assert "Find path, symbol, signal" in html
     # tree.js is actually inlined into the page (a function unique to it). Asserting a
     # runtime-only DOM attribute like data-flow-id would pass vacuously just because the
     # script source mentions it, so we pin a structural marker instead.
@@ -391,7 +391,7 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "humanizeIdentifier(" in html
 
     # The Source panel is meaningful only when a file/flow is selected; scope/root views
-    # should let Logical errors use the right rail without a placeholder source panel.
+    # should let review signals use the right rail without a placeholder source panel.
     assert "sourcePanel.hidden = !flow" in html
 
     # Project-quality metrics are surfaced in the details rail from generated metadata,
@@ -405,8 +405,8 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "Language attention" in html
     assert ".quality-metrics" in html
 
-    # Selecting a decision node should visually select its finding row even when the user
-    # did not click the finding row itself.
+    # Selecting a decision node should visually select its review-signal row even when the
+    # user did not click the review-signal row itself.
     assert "finding.node_id === sel.nodeId" in html
 
     # Full-screen canvas hides rails, so the rail menu must not remain as a no-op control.

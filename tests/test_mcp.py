@@ -243,7 +243,7 @@ def authorize(user):
                 assert not agent_context.isError
                 agent_context_payload = agent_context.structuredContent  # type: ignore[assignment]
                 assert agent_context_payload["tool"] == "agent_context"  # type: ignore[index]
-                assert "confirmed bugs" in agent_context_payload["guardrail"]  # type: ignore[index]
+                assert "confirmed defects" in agent_context_payload["guardrail"]  # type: ignore[index]
                 assert (  # type: ignore[index]
                     agent_context_payload["inputs"]["current_file"] == "app.py"
                 )
@@ -957,7 +957,7 @@ def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> 
                 payload = summary.structuredContent  # type: ignore[assignment]
                 assert payload["error_code"] == "artifact_missing"  # type: ignore[index]
                 assert payload["recoverable"] is True  # type: ignore[index]
-                assert "logical finding" in payload["guardrail"]  # type: ignore[index]
+                assert "review signal" in payload["guardrail"]  # type: ignore[index]
                 assert (  # type: ignore[index]
                     payload["next_tools"]["update_model"]["tool"] == "update_logicchart"
                 )
