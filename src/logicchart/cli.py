@@ -276,7 +276,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (OSError, RuntimeError, ValueError, SyntaxError) as error:
         # OSError subsumes FileNotFoundError/PermissionError, so a missing path or a
         # permission-denied write surfaces as a clean message instead of a raw traceback.
-        print(f"error: {error}", file=sys.stderr)
+        print("LogicChart command FAILED", file=sys.stderr)
+        print(f"Error: {error}", file=sys.stderr)
+        print("Next steps:", file=sys.stderr)
+        print("- Check the path and filesystem permissions.", file=sys.stderr)
+        print("- Run `logicchart doctor` if this looks like an install issue.", file=sys.stderr)
         return 1
     return 0
 
@@ -293,31 +297,37 @@ def _setup_agent(
         raise FileNotFoundError(f"path does not exist: {root}")
     root = root.resolve()
     display = {"codex": "Codex", "claude": "Claude", "cursor": "Cursor"}[agent]
-    print(f"Setting up LogicChart for {display}: {root}")
+    print(f"LogicChart setup-agent for {display}")
+    print(f"Project: {root}")
 
     config_path, created_config = _ensure_config(root)
-    print(f"{'Created' if created_config else 'Config'} {config_path}")
+    print("")
+    print("Setup:")
+    print(f"- Config: {'Created' if created_config else 'Already present'} ({config_path})")
 
     changed = install_agent_instructions(root, "all")
     changed.extend(install_mcp_config(root, agent))
     if changed:
+        print(f"- Agent files: updated {len(changed)} file{'s' if len(changed) != 1 else ''}")
         for path in changed:
-            print(f"Updated {path}")
+            print(f"  - {path}")
     else:
-        print("Agent instructions and MCP config are already up to date.")
+        print("- Agent files: already up to date")
 
+    print("")
     analyze_status = _analyze(
         root,
         full=full,
         include_html=include_html,
         include_gaps=False,
         profile=profile,
+        show_next_steps=False,
     )
     if analyze_status != 0:
         return analyze_status
 
     print("")
-    doctor_status = _doctor(root, json_output=False)
+    doctor_status = _doctor(root, json_output=False, show_next_steps=False)
     if doctor_status != 0:
         return doctor_status
 
@@ -330,17 +340,23 @@ def _setup_agent(
         include_quality=False,
         quality_thresholds=None,
         profile=profile,
+        show_next_steps=False,
     )
     if validate_status != 0:
         return validate_status
 
     print("")
+    print("Status: OK - LogicChart is ready for your coding agent.")
     print(f"LogicChart agent setup complete for {display}.")
-    print("Ask your coding agent questions like:")
-    print("- How does this feature work?")
-    print("- What logic is impacted by this change?")
-    print("- Which findings or missing cases should I review?")
-    print("Manual UI: logicchart view")
+    _print_next_steps(
+        [
+            "Ask your coding agent ordinary questions about the code logic.",
+            "Try: How does this feature work?",
+            "Try: What logic is impacted by this change?",
+            "Try: Which review signals or missing cases should I inspect?",
+            "Manual UI: `logicchart view`",
+        ]
+    )
     return 0
 
 
@@ -359,6 +375,7 @@ def _analyze(
     include_html: bool,
     include_gaps: bool = False,
     profile: str | None = None,
+    show_next_steps: bool = True,
 ) -> int:
     if not root.exists():
         raise FileNotFoundError(f"path does not exist: {root}")
@@ -373,22 +390,41 @@ def _analyze(
         config=config,
     )
     findings = len(result.model.findings)
+    print("LogicChart update")
+    print("Status: OK - artifacts refreshed.")
+    print(f"Project: {root}")
     print(
-        f"Analyzed {len(result.model.files)} files: {len(result.model.flows)} flows, "
-        f"{findings} finding{'s' if findings != 1 else ''}."
+        "Summary: "
+        f"{len(result.model.files)} files, {len(result.model.flows)} flows, "
+        f"{findings} review signal{'s' if findings != 1 else ''}."
     )
     print(
-        f"Incremental cache: {result.cache_hits} hits, {len(result.changed_files)} changed, "
+        "Cache: "
+        f"{result.cache_hits} hits, {len(result.changed_files)} changed, "
         f"{len(result.deleted_files)} deleted."
     )
     if result.skipped_files:
-        print(f"Skipped {len(result.skipped_files)} unparseable file(s):", file=sys.stderr)
+        print(
+            f"Warning: skipped {len(result.skipped_files)} unparseable file(s):",
+            file=sys.stderr,
+        )
         for relative, reason in result.skipped_files:
             print(f"  - {relative}: {reason}", file=sys.stderr)
-    print(f"Wrote {json_path}")
-    print(f"Wrote {markdown_path}")
+    print("Artifacts:")
+    print(f"- JSON: {json_path}")
+    print(f"- Markdown: {markdown_path}")
     if html_path:
-        print(f"Wrote {html_path}")
+        print(f"- HTML: {html_path}")
+    if show_next_steps:
+        steps = [
+            "Ask your coding agent questions about behavior, flow, or impact.",
+            "Run `logicchart validate --check-sync` before committing generated artifacts.",
+        ]
+        if html_path:
+            steps.append("Open the manual UI with `logicchart view`.")
+        else:
+            steps.append("Generate/open the manual UI with `logicchart view` when needed.")
+        _print_next_steps(steps)
     return 0
 
 
@@ -405,14 +441,24 @@ def _view(
     model = load_model(root, config)
     html_path.parent.mkdir(parents=True, exist_ok=True)
     html_path.write_text(render_html(model, source_root=root), encoding="utf-8")
-    print(f"Wrote {html_path}")
+    print("LogicChart view")
+    print("Status: OK - viewer artifact ready.")
+    print(f"Project: {root}")
+    print(f"HTML: {html_path}")
     if render_only:
+        _print_next_steps(["Open the generated HTML file or run `logicchart view` to serve it."])
         return 0
 
     handler = partial(SimpleHTTPRequestHandler, directory=str(html_path.parent))
     server = ThreadingHTTPServer(("127.0.0.1", port), handler)
     url = f"http://127.0.0.1:{port}/{html_path.name}"
-    print(f"Serving LogicChart at {url}. Press Ctrl+C to stop.")
+    print(f"URL: {url}")
+    _print_next_steps(
+        [
+            "Use the browser to inspect the decision flowchart.",
+            "Press Ctrl+C in this terminal to stop the local server.",
+        ]
+    )
     if should_open:
         webbrowser.open(url)
     try:
@@ -432,6 +478,7 @@ def _validate(
     include_quality: bool,
     quality_thresholds: dict[str, float | int] | None,
     profile: str | None = None,
+    show_next_steps: bool = True,
 ) -> int:
     root = root.resolve()
     config = LogicChartConfig.load(root, profile=profile)
@@ -448,15 +495,37 @@ def _validate(
     else:
         status = "OK" if report.ok else "FAILED"
         print(f"LogicChart validation {status}: {report.artifact}")
+        print(
+            f"Status: {status} - "
+            f"{'artifacts are valid.' if report.ok else 'review the errors below.'}"
+        )
         for warning in report.warnings:
-            print(f"warning: {warning}")
+            print(f"Warning: {warning}")
         for error in report.errors:
-            print(f"error: {error}", file=sys.stderr)
+            print(f"Error: {error}", file=sys.stderr)
         if report.annotations is not None:
             status_text = report.annotations.get("status", "unknown")
             print(f"Annotations: {status_text}")
         if report.quality is not None:
             print(render_quality(report.quality))
+        if show_next_steps:
+            if report.ok:
+                _print_next_steps(
+                    [
+                        "No repair needed.",
+                        (
+                            "If you changed source logic, commit the updated "
+                            "`logicchart-out` artifacts."
+                        ),
+                    ]
+                )
+            else:
+                _print_next_steps(
+                    [
+                        "Run `logicchart update` to refresh stale artifacts.",
+                        "Fix any listed validation errors, then rerun `logicchart validate`.",
+                    ]
+                )
     return 0 if report.ok else 1
 
 
@@ -473,10 +542,31 @@ def _quality_thresholds(args: argparse.Namespace) -> dict[str, float | int]:
     return thresholds
 
 
-def _doctor(root: Path, json_output: bool) -> int:
+def _doctor(root: Path, json_output: bool, show_next_steps: bool = True) -> int:
     report = doctor_report(root)
     print(render_doctor_json(report) if json_output else render_doctor(report))
+    if not json_output and show_next_steps:
+        if report.ok:
+            _print_next_steps(
+                [
+                    "Run `logicchart setup-agent codex` once in a new project.",
+                    "Run `logicchart update` in an already configured project.",
+                ]
+            )
+        else:
+            _print_next_steps(
+                [
+                    f"Repair this interpreter with `{report.repair_command}`.",
+                    "Rerun `logicchart doctor` after repair.",
+                ]
+            )
     return 0 if report.ok else 1
+
+
+def _print_next_steps(steps: Sequence[str]) -> None:
+    print("Next steps:")
+    for step in steps:
+        print(f"- {step}")
 
 
 def _starter_config_text() -> str:

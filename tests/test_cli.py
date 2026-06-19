@@ -85,9 +85,12 @@ def test_cli_catches_oserror_instead_of_leaking_a_traceback(
         raise PermissionError("Permission denied")
 
     monkeypatch.setattr(cli_module, "_analyze", boom)
-    # A PermissionError (an OSError subclass) surfaces as a clean `error:` line, rc 1.
+    # A PermissionError (an OSError subclass) surfaces as a clean failure, not a traceback.
     assert main(["update", str(tmp_path), "--full"]) == 1
-    assert "error:" in capsys.readouterr().err
+    output = capsys.readouterr().err
+    assert "LogicChart command FAILED" in output
+    assert "Error: Permission denied" in output
+    assert "Next steps:" in output
 
 
 def test_update_full_flag_dispatches_to_full_analysis(
@@ -129,8 +132,18 @@ def authorize(user):
 
     assert main(["update", str(tmp_path), "--full"]) == 0
     assert (tmp_path / "logicchart-out" / "logic-flow.json").exists()
+    output = capsys.readouterr().out
+    assert "LogicChart update" in output
+    assert "Status: OK" in output
+    assert "Summary:" in output
+    assert "Artifacts:" in output
+    assert "Next steps:" in output
     assert main(["update", str(tmp_path)]) == 0
     assert main(["view", str(tmp_path), "--render-only"]) == 0
+    output = capsys.readouterr().out
+    assert "LogicChart view" in output
+    assert "Status: OK" in output
+    assert "Next steps:" in output
 
 
 @pytest.mark.parametrize(
@@ -225,6 +238,8 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
     _assert_current_agent_instructions(agents_text)
     output = capsys.readouterr().out
     assert "Created" in output
+    assert "Status: OK - LogicChart is ready for your coding agent." in output
+    assert "Next steps:" in output
     assert "LogicChart doctor OK" in output
     assert "LogicChart validation OK" in output
     assert f"LogicChart agent setup complete for {display}" in output
