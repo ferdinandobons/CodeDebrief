@@ -1507,6 +1507,7 @@ def _attach_domain_findings(
 def _domain_concept_payload(concept: dict[str, Any], token_budget: int) -> dict[str, Any]:
     per_section_limit = max(1, token_budget // 240) if token_budget > 0 else 20
     flow_ids = sorted(concept["flow_ids"])
+    visible_flow_ids = flow_ids[:per_section_limit] if token_budget > 0 else flow_ids
     finding_ids = [item["finding_id"] for item in concept["findings"]]
     finding_ids = finding_ids[:per_section_limit]
     return {
@@ -1522,7 +1523,8 @@ def _domain_concept_payload(concept: dict[str, Any], token_budget: int) -> dict[
         "findings": concept["findings"][:per_section_limit],
         "omitted_decision_count": max(0, len(concept["decision_nodes"]) - per_section_limit),
         "omitted_finding_count": max(0, len(concept["findings"]) - per_section_limit),
-        "subgraph_flow_ids": flow_ids,
+        "omitted_subgraph_flow_count": max(0, len(flow_ids) - len(visible_flow_ids)),
+        "subgraph_flow_ids": visible_flow_ids,
         "subgraph_finding_ids": finding_ids,
         "next_tools": {
             "context_pack": {
@@ -1532,7 +1534,7 @@ def _domain_concept_payload(concept: dict[str, Any], token_budget: int) -> dict[
             "subgraph_snapshot": {
                 "tool": "get_subgraph_snapshot",
                 "arguments": {
-                    "flow_ids": flow_ids,
+                    "flow_ids": visible_flow_ids,
                     "finding_ids": finding_ids,
                     "format": "svg",
                 },

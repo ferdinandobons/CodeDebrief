@@ -886,6 +886,53 @@ def route(status):
     assert [item["kind"] for item in concept["findings"]] == ["enum_exhaustiveness"]
 
 
+def test_domain_map_caps_snapshot_targets_with_token_budget(tmp_path: Path) -> None:
+    source = tmp_path / "app.py"
+    source.write_text(
+        "\n\n".join(
+            [
+                f"""
+def route_{index}(user):
+    if user.role == "admin":
+        return allow(user)
+    return deny(user)
+"""
+                for index in range(8)
+            ]
+        ),
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+
+    payload = _domain_logic_map(
+        model,
+        domain="role",
+        value=None,
+        scope=None,
+        token_budget=240,
+    )
+
+    concept = payload["concepts"][0]
+    assert concept["flow_count"] == 8
+    assert len(concept["decision_nodes"]) == 1
+    assert len(concept["subgraph_flow_ids"]) == 1
+    assert concept["omitted_subgraph_flow_count"] == 7
+    assert (
+        concept["next_tools"]["subgraph_snapshot"]["arguments"]["flow_ids"]
+        == concept["subgraph_flow_ids"]
+    )
+
+    unlimited = _domain_logic_map(
+        model,
+        domain="role",
+        value=None,
+        scope=None,
+        token_budget=0,
+    )
+    assert len(unlimited["concepts"][0]["subgraph_flow_ids"]) == 8
+    assert unlimited["concepts"][0]["omitted_subgraph_flow_count"] == 0
+
+
 def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> None:
     async def call_with_missing_artifact() -> None:
         parameters = StdioServerParameters(

@@ -515,7 +515,9 @@ packs for relevant flows, so agents can inspect callers, callees, decisions, fin
 annotations, and follow-up tools before deciding whether to request a complete flow or
 visual snapshot. `domain_map` aggregates handled values, missing values, related decisions,
 flows, findings, and subgraph ids for questions about statuses, roles, permissions, and
-other state-like domains.
+other state-like domains. When `token_budget` is set, returned domain-map subgraph targets
+are capped with explicit `omitted_subgraph_flow_count` metadata so agents do not
+accidentally request huge visual snapshots.
 The `get_subgraph_snapshot` tool is the bridge from query/impact/context results into one
 bounded SVG: pass returned `subgraph_flow_ids` and `subgraph_finding_ids` directly to
 render the focused model slice.
