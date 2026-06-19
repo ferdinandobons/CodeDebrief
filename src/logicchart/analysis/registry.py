@@ -235,9 +235,8 @@ _FRONTENDS: dict[str, str] = {
     "rust": "tree_sitter_profile",
 }
 
-_STATUSES: dict[str, str] = {
-    language: "supported"
-    for language in (
+_STATUSES: dict[str, str] = dict.fromkeys(
+    (
         "javascript",
         "typescript",
         "python",
@@ -249,8 +248,9 @@ _STATUSES: dict[str, str] = {
         "php",
         "ruby",
         "rust",
-    )
-}
+    ),
+    "supported",
+)
 
 
 def supported_suffixes() -> frozenset[str]:

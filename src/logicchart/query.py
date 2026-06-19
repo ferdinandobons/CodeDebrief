@@ -318,7 +318,7 @@ def impact_model(
         add_flow(target_flow, "flow", flow_id, f"explicit flow target `{flow_id}`")
 
     for symbol in target_symbols:
-        matches = [flow for flow in model.flows if flow.symbol == symbol or flow.name == symbol]
+        matches = [flow for flow in model.flows if symbol in (flow.symbol, flow.name)]
         if not matches:
             unresolved_targets.append({"type": "symbol", "value": symbol, "reason": "not_found"})
             continue
