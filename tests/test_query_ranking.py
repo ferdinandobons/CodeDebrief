@@ -302,6 +302,25 @@ def test_substring_no_longer_matches() -> None:
     assert [m.flow.id for m in matches] == ["ok"]
 
 
+def test_query_splits_code_identifiers_and_light_language_variants() -> None:
+    model = _model(
+        flows=[
+            _flow(
+                "upload",
+                "UnifiedUploadBox",
+                symbol="frontend.components:UnifiedUploadBox",
+                node_labels=("PUT file to presigned S3 URL",),
+            ),
+            _flow("other", "ProfilePanel", symbol="frontend.components:ProfilePanel"),
+        ]
+    )
+    model.flows[0].location = _loc("frontend/certificati/UnifiedUploadBox.tsx")
+
+    matches = query_model(model, "certificate upload")
+
+    assert [m.flow.id for m in matches] == ["upload"]
+
+
 def test_entry_kind_and_framework_are_not_matchable() -> None:
     """Querying the internal vocabulary 'route'/'function' must not return everything."""
     model = _model(

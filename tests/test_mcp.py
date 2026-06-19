@@ -14,7 +14,9 @@ from logicchart.config import LogicChartConfig
 from logicchart.llm_enrich import build_enrichment_preview
 from logicchart.mcp_server import (
     MCP_INSTRUCTIONS,
+    _agent_action_terms,
     _context_navigation_pack,
+    _context_pack_payload,
     _context_visual_pack,
     _domain_logic_map,
     _enrichment_options,
@@ -27,6 +29,7 @@ from logicchart.mcp_server import (
     _validation_payload,
     flow_in_agent_scope,
 )
+from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel, SourceLocation
 from logicchart.query import impact_model, query_model
 
 
@@ -35,6 +38,99 @@ def test_flow_in_agent_scope_normalizes_legacy_string_scope() -> None:
 
     assert flow_in_agent_scope(flow, "frontend")
     assert not flow_in_agent_scope(flow, "front")
+
+
+def test_agent_action_terms_include_common_italian_aliases() -> None:
+    assert _agent_action_terms("spiega il caricamento e salvataggio certificati") == {
+        "save",
+        "upload",
+    }
+
+
+def test_context_pack_treats_unknown_scope_as_query_hint(tmp_path: Path) -> None:
+    model = ProjectModel.empty(tmp_path)
+    upload_flow = Flow(
+        id="upload-flow",
+        name="UnifiedUploadBox",
+        symbol="frontend.components:UnifiedUploadBox",
+        language="typescript",
+        framework="react",
+        entry_kind="component",
+        is_entrypoint=True,
+        location=SourceLocation(
+            path="frontend/certificati/UnifiedUploadBox.tsx",
+            start_line=1,
+            end_line=20,
+        ),
+        nodes=[
+            FlowNode(
+                id="upload-node",
+                kind=NodeKind.ACTION,
+                label="PUT uploaded PDF to presigned S3 URL",
+                location=SourceLocation(
+                    path="frontend/certificati/UnifiedUploadBox.tsx",
+                    start_line=12,
+                    end_line=13,
+                ),
+            )
+        ],
+    )
+    model.flows = [
+        upload_flow,
+        Flow(
+            id="upload-test",
+            name="TestUploadUrls.test_success",
+            symbol="tests.test_ocr:TestUploadUrls.test_success",
+            language="python",
+            framework="pytest",
+            entry_kind="test",
+            is_entrypoint=True,
+            location=SourceLocation(
+                path="backend-api/tests/e2e/test_ocr_endpoints.py",
+                start_line=1,
+                end_line=10,
+            ),
+            metadata={"test": True},
+            nodes=[
+                FlowNode(
+                    id="upload-test-node",
+                    kind=NodeKind.ACTION,
+                    label="upload endpoint accepts certificate PDF",
+                    location=SourceLocation(
+                        path="backend-api/tests/e2e/test_ocr_endpoints.py",
+                        start_line=4,
+                        end_line=5,
+                    ),
+                )
+            ],
+        ),
+        Flow(
+            id="profile-flow",
+            name="ProfilePanel",
+            symbol="frontend.components:ProfilePanel",
+            language="typescript",
+            framework="react",
+            entry_kind="component",
+            is_entrypoint=True,
+            location=SourceLocation(path="frontend/ProfilePanel.tsx", start_line=1, end_line=10),
+        ),
+    ]
+    model.metadata["scopes"] = {"frontend": 2}
+
+    payload = _context_pack_payload(
+        tmp_path,
+        LogicChartConfig(),
+        model,
+        question="spiegami come funziona",
+        scope="certificate upload",
+        token_budget=600,
+    )
+
+    assert payload["query_filters"]["scope_query_hint"] == "certificate upload"
+    assert "scope" not in payload["query_filters"]
+    assert payload["query"][0]["flow_id"] == "upload-flow"
+    assert "upload-test" in {row["flow_id"] for row in payload["query"]}
+    assert payload["navigation"]["flows"][0]["flow"]["id"] == "upload-flow"
 
 
 def test_mcp_finding_dict_includes_optional_annotation(tmp_path: Path) -> None:

@@ -221,19 +221,19 @@ def query_model(
         score = 0
         reasons: list[str] = []
         for term in unique_terms:
-            if term in name_tokens:
+            if _term_matches(term, name_tokens):
                 score += IDENTITY_WEIGHT
                 reasons.append(f"`{term}` matches the flow identity")
-            if term in node_tokens:
+            if _term_matches(term, node_tokens):
                 score += NODE_WEIGHT
                 reasons.append(f"`{term}` appears in a decision or action")
-            if term in structure_tokens:
+            if _term_matches(term, structure_tokens):
                 score += STRUCTURE_WEIGHT
                 reasons.append(f"`{term}` matches flow structure")
-            if term in metadata_tokens:
+            if _term_matches(term, metadata_tokens):
                 score += METADATA_WEIGHT
                 reasons.append(f"`{term}` appears in decision metadata")
-            if term in finding_tokens:
+            if _term_matches(term, finding_tokens):
                 score += FINDING_WEIGHT
                 reasons.append(f"`{term}` appears in a review finding")
         if filter_reasons:
@@ -1484,19 +1484,44 @@ def _terms(question: str) -> list[str]:
         "where",
         "which",
     }
-    # \w is unicode-aware in py3, so "café" / "日本語" survive tokenization instead of
-    # being dropped or split by the ASCII-only [a-zA-Z0-9_] class.
-    return [
-        token
-        for token in re.findall(r"\w+", question.lower())
-        if len(token) > 1 and token not in stopwords
-    ]
+    return [token for token in _word_tokens(question) if len(token) > 1 and token not in stopwords]
 
 
 def _tokenize(text: str) -> set[str]:
     """The field-side tokenizer that mirrors ``_terms`` (unicode \\w words, lowercased),
     so query terms are matched against whole tokens rather than substrings."""
-    return set(re.findall(r"\w+", text.lower()))
+    tokens: set[str] = set()
+    for token in _word_tokens(text):
+        tokens.update(_term_variants(token))
+    return tokens
+
+
+def _word_tokens(text: str) -> list[str]:
+    # Split common code identifiers before lowercasing so a human query for "upload"
+    # can match names such as UnifiedUploadBox or ocrService. \w is unicode-aware in
+    # py3, so "café" / "日本語" still survive tokenization.
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", text)
+    tokens: list[str] = []
+    for token in re.findall(r"\w+", spaced.lower()):
+        tokens.extend(part for part in token.split("_") if part)
+    return tokens
+
+
+def _term_matches(term: str, tokens: set[str]) -> bool:
+    return any(variant in tokens for variant in _term_variants(term))
+
+
+def _term_variants(token: str) -> set[str]:
+    variants = {token}
+    if len(token) > 5 and token.endswith("ies"):
+        variants.add(f"{token[:-3]}y")
+    if len(token) > 4 and token.endswith("es"):
+        variants.add(token[:-2])
+    if len(token) > 3 and token.endswith("s"):
+        variants.add(token[:-1])
+    if len(token) >= 6 and token[-1] in {"a", "e", "i", "o"}:
+        variants.add(token[:-1])
+    return {variant for variant in variants if len(variant) > 1}
 
 
 def _flow_metadata_tokens(flow: Flow) -> set[str]:

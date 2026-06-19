@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import asdict
@@ -824,6 +825,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return error
         assert model is not None
+        domain_scope, _scope_query_hint = _agent_scope_filter(model, scope)
         pack = _context_pack_payload(
             project_root,
             active_config,
@@ -868,7 +870,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 model,
                 domain=domain,
                 value=value,
-                scope=scope,
+                scope=domain_scope,
                 token_budget=token_budget,
             ),
             "recommended_next_tools": _agent_context_next_tools(pack, token_budget),
@@ -963,13 +965,15 @@ def _context_pack_payload(
     token_budget: int = 600,
     visual_byte_budget: int = _DEFAULT_CONTEXT_VISUAL_BYTE_BUDGET,
 ) -> dict[str, Any]:
+    scope_filter, scope_query_hint = _agent_scope_filter(model, scope)
+    effective_question = _question_with_scope_hint(question, scope_query_hint)
     changes = _impact_changed_files(
         root, changed_files, flow_ids, symbols, finding_ids, dependency_paths
     )
     impact = impact_model(
         model,
         changes,
-        scope,
+        scope_filter,
         flow_ids=flow_ids,
         symbols=symbols,
         finding_ids=finding_ids,
@@ -988,19 +992,42 @@ def _context_pack_payload(
         }.items()
         if val is not None
     }
-    matches = query_model(
-        model,
-        question or " ".join(changes),
-        limit=8,
-        scope=scope,
-        language=language,
-        source_path=source_path,
-        domain=domain,
-        value=value,
-        finding_kind=finding_kind,
-        finding_severity=finding_severity,
-        finding_evidence=finding_evidence,
-    )
+    if scope_filter is not None:
+        query_filters["scope"] = scope_filter
+    if scope_query_hint is not None:
+        query_filters["scope_query_hint"] = scope_query_hint
+    matches_by_id = {
+        match.flow.id: match
+        for match in query_model(
+            model,
+            effective_question or " ".join(changes),
+            limit=80,
+            scope=scope_filter,
+            language=language,
+            source_path=source_path,
+            domain=domain,
+            value=value,
+            finding_kind=finding_kind,
+            finding_severity=finding_severity,
+            finding_evidence=finding_evidence,
+        )
+    }
+    for action_term in sorted(_agent_action_terms(effective_question)):
+        for match in query_model(
+            model,
+            action_term,
+            limit=12,
+            scope=scope_filter,
+            language=language,
+            source_path=source_path,
+            domain=domain,
+            value=value,
+            finding_kind=finding_kind,
+            finding_severity=finding_severity,
+            finding_evidence=finding_evidence,
+        ):
+            matches_by_id.setdefault(match.flow.id, match)
+    matches = _agent_order_matches(list(matches_by_id.values()), effective_question)[:8]
     review_flow_ids = {flow.id for flow in impact.all_flows} | {match.flow.id for match in matches}
     has_specific_context = bool(
         (question and question.strip())
@@ -1011,7 +1038,7 @@ def _context_pack_payload(
         or dependency_paths
         or query_filters
     )
-    scoped_flow_ids = {flow.id for flow in model.flows if flow_in_agent_scope(flow, scope)}
+    scoped_flow_ids = {flow.id for flow in model.flows if flow_in_agent_scope(flow, scope_filter)}
     review_findings = [
         finding
         for finding in model.findings
@@ -1078,7 +1105,7 @@ def _context_pack_payload(
             impact=impact,
             matches=matches,
             review_findings=review_findings,
-            scope=scope,
+            scope=scope_filter,
             include_visual=include_visual,
             token_budget=token_budget,
             visual_byte_budget=visual_byte_budget,
@@ -1259,6 +1286,90 @@ def _context_visual_flows(impact: Any, matches: list[Any]) -> list[Any]:
     return list(flows.values())
 
 
+def _agent_order_matches(matches: list[Any], question: str | None) -> list[Any]:
+    """Prefer application flows before tests in agent packs.
+
+    Tests are valuable evidence, but when an LLM explains "how X works" it should start
+    from implementation flows and use test flows as secondary confirmation.
+    """
+    action_terms = _agent_action_terms(question)
+    return sorted(
+        matches,
+        key=lambda match: (
+            bool(match.flow.metadata.get("test")),
+            -_agent_action_hits(match, action_terms),
+            -match.score,
+            match.flow.name,
+            match.flow.id,
+        ),
+    )
+
+
+def _agent_action_hits(match: Any, action_terms: set[str]) -> int:
+    if not action_terms:
+        return 0
+    reason_text = " ".join(str(reason) for reason in match.reasons)
+    return sum(1 for term in action_terms if f"`{term}`" in reason_text)
+
+
+def _agent_action_terms(question: str | None) -> set[str]:
+    if not question:
+        return set()
+    action_vocab = {
+        "approve",
+        "auth",
+        "authenticate",
+        "authorize",
+        "cancel",
+        "checkout",
+        "complete",
+        "create",
+        "delete",
+        "download",
+        "export",
+        "import",
+        "login",
+        "pay",
+        "process",
+        "save",
+        "send",
+        "start",
+        "submit",
+        "update",
+        "upload",
+        "validate",
+    }
+    aliases = {
+        "aggiorna": "update",
+        "aggiornamento": "update",
+        "autenticazione": "authenticate",
+        "autorizzazione": "authorize",
+        "cancella": "delete",
+        "cancellazione": "delete",
+        "carica": "upload",
+        "caricamento": "upload",
+        "crea": "create",
+        "creazione": "create",
+        "elimina": "delete",
+        "esporta": "export",
+        "esportazione": "export",
+        "importa": "import",
+        "importazione": "import",
+        "invio": "send",
+        "pagamento": "pay",
+        "salva": "save",
+        "salvataggio": "save",
+        "validazione": "validate",
+    }
+    terms: set[str] = set()
+    for token in re.findall(r"\w+", question.lower()):
+        if token in action_vocab:
+            terms.add(token)
+        if token in aliases:
+            terms.add(aliases[token])
+    return terms
+
+
 def _snapshot_svg_byte_size(snapshot: dict[str, Any]) -> int:
     svg = snapshot.get("svg", "")
     if not isinstance(svg, str):
@@ -1270,6 +1381,39 @@ def _single_item_list(value: str | None) -> list[str] | None:
     if value is None or not value.strip():
         return None
     return [value.strip()]
+
+
+def _agent_scope_filter(model: ProjectModel, scope: str | None) -> tuple[str | None, str | None]:
+    """Resolve agent-provided scope into (strict_scope_filter, free_text_query_hint).
+
+    Coding agents often pass natural language such as "certificate upload" in ``scope``.
+    LogicChart scopes are configured macro-parts like "frontend" or "backend"; unknown
+    scope text should help ranking, not filter every flow out.
+    """
+    if scope is None or not scope.strip():
+        return None, None
+    normalized = scope.strip()
+    if normalized in _known_scope_names(model):
+        return normalized, None
+    return None, normalized
+
+
+def _known_scope_names(model: ProjectModel) -> set[str]:
+    names: set[str] = set()
+    scopes = model.metadata.get("scopes", {})
+    if isinstance(scopes, Mapping):
+        names.update(str(name) for name in scopes)
+    for flow in model.flows:
+        names.update(metadata_scope_names(flow.metadata))
+    return names
+
+
+def _question_with_scope_hint(question: str | None, scope_query_hint: str | None) -> str | None:
+    if scope_query_hint is None:
+        return question
+    if question and question.strip():
+        return f"{question.strip()} {scope_query_hint}"
+    return scope_query_hint
 
 
 def _selected_code_excerpt(selected_code: str | None, limit: int = 1200) -> str | None:
