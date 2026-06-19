@@ -2,6 +2,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -24,8 +25,16 @@ from logicchart.mcp_server import (
     _unknown_target_error,
     _update_workflow_payload,
     _validation_payload,
+    flow_in_agent_scope,
 )
 from logicchart.query import impact_model, query_model
+
+
+def test_flow_in_agent_scope_normalizes_legacy_string_scope() -> None:
+    flow = SimpleNamespace(metadata={"scope": "frontend"})
+
+    assert flow_in_agent_scope(flow, "frontend")
+    assert not flow_in_agent_scope(flow, "front")
 
 
 def test_mcp_finding_dict_includes_optional_annotation(tmp_path: Path) -> None:

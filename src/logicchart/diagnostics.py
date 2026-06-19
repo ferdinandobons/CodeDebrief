@@ -6,7 +6,7 @@ from typing import Any
 
 from logicchart.analysis.common import EMPTY, FALLS_THROUGH, NO, RAISES, RETURNS, SUCCESS
 from logicchart.model import Evidence, Finding, FindingKind, Flow, FlowNode, NodeKind
-from logicchart.util import without_diagnostic_metadata
+from logicchart.util import metadata_scope_names, without_diagnostic_metadata
 
 DIAGNOSTIC_RELATED_LIMIT = 12
 
@@ -470,7 +470,7 @@ def _scope(
         "end_line": location.end_line,
         "language": flow.language if flow is not None else None,
         "entry_kind": flow.entry_kind if flow is not None else None,
-        "scopes": list(flow.metadata.get("scope", [])) if flow is not None else [],
+        "scopes": metadata_scope_names(flow.metadata) if flow is not None else [],
         "related_flow_ids": related_flow_ids,
         "related_node_ids": related_node_ids,
     }

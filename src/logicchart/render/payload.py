@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from logicchart.model import FileRecord, Flow, ProjectModel
+from logicchart.util import metadata_scope_names
 
 
 def build_payload(model: ProjectModel, source_root: Path | None = None) -> dict[str, Any]:
@@ -210,7 +211,7 @@ def build_scope_index(flows: list[Flow]) -> dict[str, list[str]]:
     for flow in flows:
         if _is_test_flow(flow):
             continue
-        scopes = flow.metadata.get("scope")
+        scopes = metadata_scope_names(flow.metadata)
         if not scopes:
             scopes = [_top_level_segment(flow.location.path)]
         for scope in scopes:

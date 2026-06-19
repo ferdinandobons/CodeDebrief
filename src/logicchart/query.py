@@ -10,7 +10,7 @@ from typing import Any
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts_by_kind
 from logicchart.model import Finding, FindingKind, Flow, FlowNode, NodeKind, ProjectModel
 from logicchart.quality import finding_counts, model_quality
-from logicchart.util import without_diagnostic_metadata
+from logicchart.util import metadata_scope_names, without_diagnostic_metadata
 
 # Per-bucket relevance weights. Named constants instead of inline magic numbers so the
 # ranking model is auditable and the tests can assert exact scores.
@@ -52,7 +52,7 @@ class QueryMatch:
             "language": self.flow.language,
             "entry_kind": self.flow.entry_kind,
             "framework": self.flow.framework,
-            "scope": self.flow.metadata.get("scope", []),
+            "scope": metadata_scope_names(self.flow.metadata),
             "score": self.score,
             "reasons": self.reasons,
             "finding_count": len(finding_ids),
@@ -185,7 +185,7 @@ def query_model(
                 [
                     flow.location.path,
                     flow.language,
-                    " ".join(str(item) for item in flow.metadata.get("scope", [])),
+                    " ".join(metadata_scope_names(flow.metadata)),
                 ]
             )
         )
@@ -565,7 +565,7 @@ def flow_navigation(
         key=lambda item: (finding_priority(item), item.location.path, item.message),
     )
     finding_node_ids = {item.node_id for item in findings if item.node_id}
-    scope = flow.metadata.get("scope", [])
+    scope = metadata_scope_names(flow.metadata)
     primary_scope = scope[0] if scope else None
     return {
         "flow": {
@@ -805,7 +805,7 @@ def flow_summary(flow: Flow) -> dict[str, Any]:
         "source": f"{flow.location.path}:{flow.location.start_line}",
         "entry_kind": flow.entry_kind,
         "language": flow.language,
-        "scope": flow.metadata.get("scope", []),
+        "scope": metadata_scope_names(flow.metadata),
     }
 
 
@@ -922,7 +922,7 @@ def _flow_annotations(
         },
         "scopes": {
             scope: scope_annotations[scope]
-            for scope in flow.metadata.get("scope", [])
+            for scope in metadata_scope_names(flow.metadata)
             if scope in scope_annotations
         },
     }
@@ -953,7 +953,7 @@ def finding_matches_filters(
 
 def flow_in_scope(flow: Flow, scope: str | None) -> bool:
     """Whether a flow belongs to the requested macro-part (None = no filter)."""
-    return scope is None or scope in flow.metadata.get("scope", [])
+    return scope is None or scope in metadata_scope_names(flow.metadata)
 
 
 def _structured_query_filter_reasons(
@@ -1371,7 +1371,7 @@ def _context_flow_summary(flow: Flow, roles: list[str], finding_count: int) -> d
         "language": flow.language,
         "entry_kind": flow.entry_kind,
         "source": f"{flow.location.path}:{flow.location.start_line}",
-        "scope": flow.metadata.get("scope", []),
+        "scope": metadata_scope_names(flow.metadata),
         "nodes": len(flow.nodes),
         "decisions": sum(node.kind is NodeKind.DECISION for node in flow.nodes),
         "calls": len(flow.calls),

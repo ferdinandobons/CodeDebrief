@@ -46,6 +46,7 @@ from logicchart.render.snapshot import (
     render_subgraph_snapshot,
     unsupported_snapshot_format,
 )
+from logicchart.util import metadata_scope_names
 from logicchart.validation import validate_logicchart
 
 # Rough tokens per returned list item, used to honor an agent's token_budget cap.
@@ -2300,4 +2301,4 @@ def _model_load_error_code(error: BaseException) -> str:
 
 
 def flow_in_agent_scope(flow: Any, scope: str | None) -> bool:
-    return scope is None or scope in flow.metadata.get("scope", [])
+    return scope is None or scope in metadata_scope_names(flow.metadata)

@@ -335,3 +335,10 @@ def test_build_scope_index_excludes_test_flows() -> None:
     assert "t" not in {fid for ids in index.values() for fid in ids}
     # The surviving non-test flow is still indexed under its scope.
     assert index == {"backend": ["a"]}
+
+
+def test_build_scope_index_normalizes_legacy_string_scope() -> None:
+    flow = _flow("a", scope=["frontend"], path="frontend/a.py", calls=[])
+    flow.metadata["scope"] = "frontend"
+
+    assert build_scope_index([flow]) == {"frontend": ["a"]}

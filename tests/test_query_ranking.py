@@ -25,6 +25,7 @@ from logicchart.query import (
     NODE_WEIGHT,
     QueryMatch,
     finding_context,
+    flow_in_scope,
     impact_model,
     query_model,
 )
@@ -174,6 +175,19 @@ def test_empty_and_punctuation_only_query_returns_empty() -> None:
     assert query_model(model, "??? !!! ...") == []
     # Stopwords-only collapses to no terms, too.
     assert query_model(model, "what is the") == []
+
+
+def test_query_scope_filter_normalizes_legacy_string_scope() -> None:
+    flow = _flow("frontend", "frontend widget")
+    flow.metadata["scope"] = "frontend"
+    model = _model([flow])
+
+    assert flow_in_scope(flow, "frontend")
+    assert not flow_in_scope(flow, "front")
+    assert query_model(model, "widget", scope="front") == []
+
+    [match] = query_model(model, "widget", scope="frontend")
+    assert match.to_dict(include_source=False)["scope"] == ["frontend"]
 
 
 def test_structured_query_filters_can_match_without_terms() -> None:
