@@ -1,4 +1,8 @@
-# LogicChart Product Vision
+# LogicChart Product Vision and Migration Plan
+
+This document is both the product vision and the execution plan for the agent-first
+migration. It should guide implementation, README positioning, documentation language,
+agent instructions, and release readiness.
 
 ## North Star
 
@@ -66,7 +70,9 @@ LogicChart automatically to:
 ### Agent-first
 
 Every major capability should be usable through MCP and structured payloads. Human-facing
-CLI commands should mirror these capabilities, but should not be the main expected path.
+CLI commands should be limited to setup, maintenance, CI, diagnostics, MCP startup, and the
+manual viewer. Cognitive tools such as query, impact, explain, navigate, and snapshots
+belong behind MCP or inside the unified context workflow, not in the public CLI.
 
 ### Local-first and deterministic
 
@@ -203,31 +209,55 @@ MCP should expose a small set of high-value tools and resources that map to real
 tasks:
 
 - `agent_context` for question-driven understanding;
-- `impact` for change review;
-- `query` for targeted search across generated flow artifacts;
-- `navigate` and `explain` for focused flow inspection;
-- `snapshot` or subgraph rendering for visual context;
+- change-impact analysis inside `agent_context`;
+- targeted search across generated flow artifacts inside `agent_context`;
+- focused flow and finding inspection inside `agent_context`;
+- snapshot or subgraph rendering for visual context inside the MCP surface;
 - annotation write/validate tools for agent-authored enrichment.
 
 The MCP surface should avoid forcing agents to call many tiny tools before they can answer
 ordinary user questions. Low-level tools are useful, but the default path should be the
 single context pack.
 
-### CLI: setup, maintenance, and fallback
+### CLI: kept public commands
 
-The CLI remains essential because it is the stable local executable:
+The public CLI should be intentionally small. These are the commands that should remain:
 
-- setup agent integrations;
-- analyze and update artifacts;
-- open the manual viewer through `logicchart view ...`;
-- validate synchronization;
-- run doctor checks;
-- support CI;
-- debug or reproduce MCP behavior;
-- provide explicit commands when an agent integration is unavailable.
+- `logicchart setup-agent`: configure LogicChart once for a coding agent.
+- `logicchart view`: open the official manual UI for the decision flowchart.
+- `logicchart update`: refresh generated artifacts for setup, CI, and agent maintenance.
+- `logicchart validate`: validate artifact/schema/sync state.
+- `logicchart doctor`: diagnose install, config, artifact, and agent integration issues.
+- `logicchart mcp`: start the MCP server.
 
-The CLI should mirror agent capabilities where useful, but its documentation should make
-clear that most users are expected to interact through their coding agent after setup.
+The CLI should not mirror every agent capability. Most users are expected to interact
+through their coding agent after setup, with `logicchart view` as the only central manual
+experience.
+
+### CLI: commands to remove from the public surface
+
+These commands should be removed from the public CLI as part of the migration:
+
+- `logicchart query`
+- `logicchart impact`
+- `logicchart explain`
+- `logicchart navigate`
+- `logicchart snapshot`
+
+Their underlying functionality should remain available to MCP tools and internal
+orchestration where useful. Removing these commands means removing the manual command
+surface, not deleting the analyzer, ranking, impact, explanation, navigation, or snapshot
+capabilities from the product.
+
+Other current commands should be folded into the kept surface:
+
+- `logicchart init` and `logicchart install` should become part of `logicchart
+  setup-agent`.
+- `logicchart analyze` should be folded into `logicchart update` or kept as an internal
+  implementation detail if full reanalysis still needs a distinct operation.
+- `logicchart llm` and `logicchart enrich` should be removed from the primary CLI, or
+  moved to a clearly advanced/internal path, because agent-authored enrichment is the
+  preferred product path.
 
 ### Skills and agent instructions: activation layer
 
@@ -255,8 +285,8 @@ The future enrichment workflow should be:
 3. The agent generates summaries, explanations, and label suggestions using its own model.
 4. The agent writes the annotations back through a LogicChart MCP write tool.
 5. LogicChart validates target ids, schema, model hash, text limits, and annotation source.
-6. The viewer, snapshots, `navigate`, `explain`, and context packs display those
-   annotations separately from deterministic diagnostics.
+6. The viewer, snapshots, MCP tools, and context packs display those annotations
+   separately from deterministic diagnostics.
 
 Potential tools:
 
@@ -265,12 +295,6 @@ Potential tools:
 - `validate_annotations`
 - `clear_annotations`
 - `annotation_status`
-
-Potential CLI mirrors:
-
-- `logicchart annotations validate`
-- `logicchart annotations import`
-- `logicchart annotations clear`
 
 Annotations should support:
 
@@ -309,14 +333,17 @@ they know.
 ### 5. Make visual context available without opening the UI
 
 The viewer remains useful, but agents should be able to request compact deterministic SVG
-snapshots directly through MCP or CLI.
+snapshots directly through MCP.
 
 ## Transformation Plan
 
 The transformation should be executed in stable, reviewable phases. Each phase should keep
-the deterministic core working, preserve backward compatibility where reasonable, update
-docs and tests, and avoid making the viewer or provider-managed LLM flows the center of
-the product.
+the deterministic core working, update docs and tests, and avoid making the viewer or
+provider-managed LLM flows the center of the product.
+
+Every phase should include repeated code-review passes. Reviews should explicitly check
+for bugs, stale public surfaces, dead code, unreachable branches, obsolete docs, orphaned
+tests, and duplicated logic introduced by the migration.
 
 ### Phase 0: Product Alignment
 
@@ -333,6 +360,9 @@ Deliverables:
   labels, or explanations are useful.
 - Remove stale references to old UI behavior, old install expectations, and command-first
   workflows.
+- Replace references to `PRODUCT_VISION.md` with `PRODUCT_MIGRATION_PLAN.md`.
+- Document the kept public CLI commands and the commands being removed from the public
+  CLI.
 
 Done criteria:
 
@@ -355,13 +385,16 @@ Deliverables:
 - Run initial artifact generation, `doctor`, and validation as part of setup.
 - Preserve local instruction blocks that are not owned by LogicChart.
 - Explain successful setup in terms of questions users can ask the agent.
-- Keep `logicchart install` compatible or clearly route it into the new setup path.
+- Fold `logicchart init` and `logicchart install` into the new setup path.
+- Remove stale generated instructions that tell users or agents to run `query`, `impact`,
+  `explain`, `navigate`, or `snapshot` manually.
 
 Done criteria:
 
 - A fresh project can be prepared for agent use with one command.
 - Setup does not erase important local instructions such as private-project warnings.
 - The success output is user-oriented and agent-oriented, not just command-oriented.
+- The public setup story does not require users to know `init` or `install`.
 
 ### Phase 2: Unified Agent Context
 
@@ -372,12 +405,12 @@ Deliverables:
 - Add a primary MCP `agent_context` tool.
 - Accept natural question context: question text, changed files, selected code, current
   file, symbol, flow id, finding id, dependency path, token budget, and visual preference.
-- Internally orchestrate the existing query, impact, navigation, explain, findings, and
-  snapshot selection logic.
+- Internally orchestrate the existing query, impact, navigation, explanation, findings,
+  and snapshot selection logic.
 - Return one bounded context pack with matched flows, selection reasons, callers,
   callees, decisions, outcomes, findings, unresolved calls, source ranges, omissions, and
   suggested next actions.
-- Add a CLI mirror for debugging and CI reproduction.
+- Remove `query`, `impact`, `explain`, `navigate`, and `snapshot` from the public CLI.
 
 Done criteria:
 
@@ -387,6 +420,8 @@ Done criteria:
   common path.
 - `INFERRED` and `POTENTIAL_GAP` findings remain clearly distinguished from confirmed
   defects.
+- Manual users are routed to either `logicchart view` or the coding agent, not to
+  low-level query/impact commands.
 
 ### Phase 3: Agent-visible Snapshots and Subgraphs
 
@@ -394,7 +429,7 @@ Goal: make the visual flowchart useful without requiring a human to open the vie
 
 Deliverables:
 
-- Add deterministic snapshot/subgraph output through MCP and CLI.
+- Add deterministic snapshot/subgraph output through MCP.
 - Support flow snapshots, impact-set snapshots, finding-context snapshots, and
   caller/callee neighborhoods.
 - Return compact SVG/PNG paths or payload references plus machine-readable metadata.
@@ -406,6 +441,8 @@ Done criteria:
 - An agent can request visual context for a focused flow or change and use it in an
   explanation.
 - Snapshot output is useful even when the full viewer would be too large or too slow.
+- There is no public `logicchart snapshot` command; humans use `logicchart view` for
+  manual visual exploration.
 
 ### Phase 4: Agent-authored Annotations
 
@@ -416,8 +453,8 @@ Deliverables:
 - Add a validated annotation sidecar format.
 - Add MCP write tools: `preview_annotation_targets`, `write_annotations`,
   `validate_annotations`, `clear_annotations`, and `annotation_status`.
-- Add CLI mirrors: `logicchart annotations validate`, `logicchart annotations import`,
-  and `logicchart annotations clear`.
+- Keep annotation writes primarily MCP-driven. Add CLI mirrors only if they fit inside the
+  kept maintenance surface and do not become a new manual workflow.
 - Validate target ids, schema version, model hash, text limits, source type, and
   annotation provenance.
 - Display annotations as `agent_generated` in MCP responses, snapshots, and the viewer.
@@ -486,6 +523,8 @@ Deliverables:
   `examples/Certifexp`.
 - Update all relevant Markdown files when behavior changes.
 - Track remaining gaps in `PROJECT_FINDINGS.md`.
+- Run several code-review passes across each macro phase to catch bugs, dead code, stale
+  command references, and inconsistent docs before committing a stable point.
 
 Done criteria:
 
@@ -493,6 +532,7 @@ Done criteria:
 - Local Certifexp checks pass when the private fixture is present.
 - The branch has clear commits for stable milestones.
 - Merge is recommended only when the agent-first workflow works end to end.
+- The final CLI public surface is limited to the kept commands listed in this plan.
 
 Recommended verification gates:
 
