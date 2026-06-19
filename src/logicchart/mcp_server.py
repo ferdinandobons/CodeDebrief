@@ -766,36 +766,17 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return error
         assert model is not None
-        changes = _impact_changed_files(
-            project_root, changed_files, flow_ids, symbols, finding_ids, dependency_paths
-        )
-        impact = impact_model(
+        return _context_pack_payload(
+            project_root,
+            active_config,
             model,
-            changes,
-            scope,
+            question=question,
+            changed_files=changed_files,
+            scope=scope,
             flow_ids=flow_ids,
             symbols=symbols,
             finding_ids=finding_ids,
             dependency_paths=dependency_paths,
-        )
-        query_filters = {
-            key: val
-            for key, val in {
-                "language": language,
-                "source_path": source_path,
-                "domain": domain,
-                "value": value,
-                "finding_kind": finding_kind,
-                "finding_severity": finding_severity,
-                "finding_evidence": finding_evidence,
-            }.items()
-            if val is not None
-        }
-        matches = query_model(
-            model,
-            question or " ".join(changes),
-            limit=8,
-            scope=scope,
             language=language,
             source_path=source_path,
             domain=domain,
@@ -803,91 +784,10 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             finding_kind=finding_kind,
             finding_severity=finding_severity,
             finding_evidence=finding_evidence,
+            include_visual=include_visual,
+            token_budget=token_budget,
+            visual_byte_budget=visual_byte_budget,
         )
-        review_flow_ids = {flow.id for flow in impact.all_flows} | {
-            match.flow.id for match in matches
-        }
-        has_specific_context = bool(
-            (question and question.strip())
-            or changes
-            or flow_ids
-            or symbols
-            or finding_ids
-            or dependency_paths
-            or query_filters
-        )
-        scoped_flow_ids = {flow.id for flow in model.flows if flow_in_agent_scope(flow, scope)}
-        review_findings = [
-            finding
-            for finding in model.findings
-            if finding.flow_id in scoped_flow_ids
-            and (
-                finding.flow_id in review_flow_ids
-                or (not review_flow_ids and not has_specific_context)
-            )
-            and _finding_matches_agent_filters(
-                finding,
-                kind=finding_kind,
-                severity=finding_severity,
-                evidence=finding_evidence,
-            )
-        ]
-        review_findings.sort(
-            key=lambda item: (_finding_priority(item), item.location.path, item.message)
-        )
-        annotations = load_annotations(project_root, model, active_config)
-        annotation_payload = annotations.annotations if annotations.ok else None
-        review_rows = [
-            _finding_dict(finding, model, annotation_payload) for finding in review_findings
-        ]
-        return {
-            "summary": model_summary(model),
-            "query_filters": query_filters,
-            "query": _cap([match.to_dict() for match in matches], token_budget),
-            "impact": {
-                "changed_files": impact.changed_files,
-                "target_flow_ids": impact.target_flow_ids,
-                "target_symbols": impact.target_symbols,
-                "target_finding_ids": impact.target_finding_ids,
-                "target_dependency_paths": impact.target_dependency_paths,
-                "unresolved_targets": impact.unresolved_targets,
-                "impact_reasons": impact.impact_reasons,
-                "direct": _cap(
-                    [
-                        _impact_flow_summary(item, impact.impact_reasons)
-                        for item in impact.directly_impacted
-                    ],
-                    token_budget,
-                ),
-                "transitive": _cap(
-                    [
-                        _impact_flow_summary(item, impact.impact_reasons)
-                        for item in impact.transitively_impacted
-                    ],
-                    token_budget,
-                ),
-                "subgraph_flow_ids": impact.subgraph_flow_ids,
-                "subgraph_finding_ids": impact.subgraph_finding_ids,
-            },
-            "navigation": _context_navigation_pack(
-                model,
-                impact=impact,
-                matches=matches,
-                annotations=annotation_payload,
-                token_budget=token_budget,
-            ),
-            "review": _cap(review_rows, token_budget),
-            "visual_context": _context_visual_pack(
-                model,
-                impact=impact,
-                matches=matches,
-                review_findings=review_findings,
-                scope=scope,
-                include_visual=include_visual,
-                token_budget=token_budget,
-                visual_byte_budget=visual_byte_budget,
-            ),
-        }
 
     @server.tool()
     def agent_context(
@@ -914,25 +814,27 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         """
         effective_question = _agent_context_question(question, selected_code)
         source_path = current_file.strip() if current_file and current_file.strip() else None
-        pack = cast(
-            dict[str, Any],
-            context_pack(
-                question=effective_question,
-                changed_files=changed_files,
-                scope=scope,
-                flow_ids=_single_item_list(flow_id),
-                symbols=_single_item_list(symbol),
-                finding_ids=_single_item_list(finding_id),
-                dependency_paths=_single_item_list(dependency_path),
-                source_path=source_path,
-                domain=domain,
-                value=value,
-                include_visual=include_visual,
-                token_budget=token_budget,
-            ),
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        pack = _context_pack_payload(
+            project_root,
+            active_config,
+            model,
+            question=effective_question,
+            changed_files=changed_files,
+            scope=scope,
+            flow_ids=_single_item_list(flow_id),
+            symbols=_single_item_list(symbol),
+            finding_ids=_single_item_list(finding_id),
+            dependency_paths=_single_item_list(dependency_path),
+            source_path=source_path,
+            domain=domain,
+            value=value,
+            include_visual=include_visual,
+            token_budget=token_budget,
         )
-        if "error" in pack:
-            return pack
         return {
             "tool": "agent_context",
             "guardrail": (
@@ -956,9 +858,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 "token_budget": token_budget,
             },
             "context": pack,
-            "domain_map": _agent_context_domain_map(
-                project_root,
-                active_config,
+            "domain_map": _domain_logic_map(
+                model,
                 domain=domain,
                 value=value,
                 scope=scope,
@@ -1042,6 +943,148 @@ def _impact_flow_summary(flow: Any, impact_reasons: dict[str, list[str]]) -> dic
 
 def _flow_dict(flow: Any) -> dict[str, Any]:
     return asdict(flow)
+
+
+def _context_pack_payload(
+    root: Path,
+    config: LogicChartConfig,
+    model: ProjectModel,
+    *,
+    question: str | None = None,
+    changed_files: list[str] | None = None,
+    scope: str | None = None,
+    flow_ids: list[str] | None = None,
+    symbols: list[str] | None = None,
+    finding_ids: list[str] | None = None,
+    dependency_paths: list[str] | None = None,
+    language: str | None = None,
+    source_path: str | None = None,
+    domain: str | None = None,
+    value: str | None = None,
+    finding_kind: str | None = None,
+    finding_severity: str | None = None,
+    finding_evidence: str | None = None,
+    include_visual: bool = False,
+    token_budget: int = 600,
+    visual_byte_budget: int = _DEFAULT_CONTEXT_VISUAL_BYTE_BUDGET,
+) -> dict[str, Any]:
+    changes = _impact_changed_files(
+        root, changed_files, flow_ids, symbols, finding_ids, dependency_paths
+    )
+    impact = impact_model(
+        model,
+        changes,
+        scope,
+        flow_ids=flow_ids,
+        symbols=symbols,
+        finding_ids=finding_ids,
+        dependency_paths=dependency_paths,
+    )
+    query_filters = {
+        key: val
+        for key, val in {
+            "language": language,
+            "source_path": source_path,
+            "domain": domain,
+            "value": value,
+            "finding_kind": finding_kind,
+            "finding_severity": finding_severity,
+            "finding_evidence": finding_evidence,
+        }.items()
+        if val is not None
+    }
+    matches = query_model(
+        model,
+        question or " ".join(changes),
+        limit=8,
+        scope=scope,
+        language=language,
+        source_path=source_path,
+        domain=domain,
+        value=value,
+        finding_kind=finding_kind,
+        finding_severity=finding_severity,
+        finding_evidence=finding_evidence,
+    )
+    review_flow_ids = {flow.id for flow in impact.all_flows} | {match.flow.id for match in matches}
+    has_specific_context = bool(
+        (question and question.strip())
+        or changes
+        or flow_ids
+        or symbols
+        or finding_ids
+        or dependency_paths
+        or query_filters
+    )
+    scoped_flow_ids = {flow.id for flow in model.flows if flow_in_agent_scope(flow, scope)}
+    review_findings = [
+        finding
+        for finding in model.findings
+        if finding.flow_id in scoped_flow_ids
+        and (
+            finding.flow_id in review_flow_ids or (not review_flow_ids and not has_specific_context)
+        )
+        and _finding_matches_agent_filters(
+            finding,
+            kind=finding_kind,
+            severity=finding_severity,
+            evidence=finding_evidence,
+        )
+    ]
+    review_findings.sort(
+        key=lambda item: (_finding_priority(item), item.location.path, item.message)
+    )
+    annotations = load_annotations(root, model, config)
+    annotation_payload = annotations.annotations if annotations.ok else None
+    review_rows = [_finding_dict(finding, model, annotation_payload) for finding in review_findings]
+    return {
+        "summary": model_summary(model),
+        "query_filters": query_filters,
+        "query": _cap([match.to_dict() for match in matches], token_budget),
+        "impact": {
+            "changed_files": impact.changed_files,
+            "target_flow_ids": impact.target_flow_ids,
+            "target_symbols": impact.target_symbols,
+            "target_finding_ids": impact.target_finding_ids,
+            "target_dependency_paths": impact.target_dependency_paths,
+            "unresolved_targets": impact.unresolved_targets,
+            "impact_reasons": impact.impact_reasons,
+            "direct": _cap(
+                [
+                    _impact_flow_summary(item, impact.impact_reasons)
+                    for item in impact.directly_impacted
+                ],
+                token_budget,
+            ),
+            "transitive": _cap(
+                [
+                    _impact_flow_summary(item, impact.impact_reasons)
+                    for item in impact.transitively_impacted
+                ],
+                token_budget,
+            ),
+            "subgraph_flow_ids": impact.subgraph_flow_ids,
+            "subgraph_finding_ids": impact.subgraph_finding_ids,
+        },
+        "navigation": _context_navigation_pack(
+            model,
+            impact=impact,
+            matches=matches,
+            annotations=annotation_payload,
+            token_budget=token_budget,
+        ),
+        "review": _cap(review_rows, token_budget),
+        "visual_context": _context_visual_pack(
+            model,
+            impact=impact,
+            matches=matches,
+            review_findings=review_findings,
+            scope=scope,
+            include_visual=include_visual,
+            token_budget=token_budget,
+            visual_byte_budget=visual_byte_budget,
+        ),
+    }
 
 
 def _context_visual_pack(
@@ -1314,28 +1357,6 @@ def _agent_context_review_points(pack: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return points
-
-
-def _agent_context_domain_map(
-    root: Path,
-    config: LogicChartConfig,
-    *,
-    domain: str | None,
-    value: str | None,
-    scope: str | None,
-    token_budget: int,
-) -> dict[str, Any]:
-    model, error = _try_load(root, config)
-    if error is not None:
-        return error
-    assert model is not None
-    return _domain_logic_map(
-        model,
-        domain=domain,
-        value=value,
-        scope=scope,
-        token_budget=token_budget,
-    )
 
 
 def _domain_logic_map(
