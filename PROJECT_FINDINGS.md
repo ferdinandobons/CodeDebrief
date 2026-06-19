@@ -620,8 +620,9 @@ fields, but final retrieval should still be model-backed.
 
 ### Problem
 
-The React viewer now has sophisticated graph layout, expansion, selection, minimap, export,
-and quality-report logic. But much of that intelligence lives in frontend code only.
+The React viewer now has sophisticated graph layout, expansion, selection, export, progress
+feedback, and quality-report logic. But much of that intelligence lives in frontend code
+only.
 
 ### Improvement
 
@@ -710,10 +711,10 @@ Add a finding detail state:
 
 ### Problem
 
-The current `Unreleased` section does not yet summarize the substantial work after
-`v0.8.0`: official React viewer path, static runtime removal, layout stabilization,
-minimap behavior, graph-bounds-aware export, expand/reset controls, and codebase rail
-improvements.
+The current `Unreleased` section needs to stay consolidated around the substantial work
+after `v0.8.0`: official React viewer path, static runtime removal, layout stabilization,
+large-canvas performance work, graph-bounds-aware export, expand/reset controls, minimap
+removal, and codebase rail improvements.
 
 ### Improvement
 
