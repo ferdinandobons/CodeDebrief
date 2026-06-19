@@ -167,8 +167,9 @@ def build_tree(files: list[FileRecord], flows: list[Flow]) -> dict[str, Any]:
             ids.append(flow.id)
 
     root = _new_node("", "", "dir")
+    children_index: dict[str, dict[str, dict[str, Any]]] = {"": {}}
     for path in flows_for_path:
-        _insert_path(root, path, flows_for_path[path])
+        _insert_path(root, path, flows_for_path[path], children_index)
     _prune_empty(root)
     _sort_children(root)
     return root
@@ -263,20 +264,30 @@ def _new_node(name: str, path: str, node_type: str) -> dict[str, Any]:
     return {"name": name, "path": path, "type": node_type, "children": [], "flow_ids": []}
 
 
-def _insert_path(root: dict[str, Any], path: str, flow_ids: list[str]) -> None:
+def _insert_path(
+    root: dict[str, Any],
+    path: str,
+    flow_ids: list[str],
+    children_index: dict[str, dict[str, dict[str, Any]]],
+) -> None:
     segments = [part for part in path.split("/") if part]
     if not segments:
         return
     node = root
     prefix = ""
+    parent_path = ""
     for index, segment in enumerate(segments):
         prefix = f"{prefix}/{segment}" if prefix else segment
         is_leaf = index == len(segments) - 1
-        child = next((c for c in node["children"] if c["name"] == segment), None)
+        siblings = children_index.setdefault(parent_path, {})
+        child = siblings.get(segment)
         if child is None:
             child = _new_node(segment, prefix, "file" if is_leaf else "dir")
             node["children"].append(child)
+            siblings[segment] = child
+            children_index.setdefault(prefix, {})
         node = child
+        parent_path = prefix
     # `node` is now the leaf; attach flow ids without duplicating.
     for flow_id in flow_ids:
         if flow_id not in node["flow_ids"]:
