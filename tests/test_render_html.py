@@ -472,6 +472,9 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "data-nav-closed" in html
     assert "body[data-nav-closed] .shell" in html
     assert "data-detail-closed" in html
+    assert "@media (min-width: 701px) and (max-width: 1050px)" in html
+    assert "body[data-detail-open] .canvas-toolbar" in html
+    assert "right: calc(min(var(--right-rail-width), calc(100vw - 72px)) + 14px)" in html
     assert "Collapse all expanded sections and return to the codebase root" in html
     assert "Expand all scopes and flows in the current graph" in html
     assert "Open ${flowDisplayName(flow)} in the progressive flowchart" in html

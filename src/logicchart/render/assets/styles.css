@@ -1933,6 +1933,16 @@
       .metrics { display: none; }
       .detail-tool { display: grid; place-items: center; }
     }
+    @media (min-width: 701px) and (max-width: 1050px) {
+      body[data-detail-open] .canvas-toolbar {
+        left: 14px;
+        right: calc(min(var(--right-rail-width), calc(100vw - 72px)) + 14px);
+        z-index: 4;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: flex-end;
+      }
+    }
     @media (max-width: 700px) {
       .shell { grid-template-columns: 1fr; }
       header { padding: 0 14px; }

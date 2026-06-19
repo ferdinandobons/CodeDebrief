@@ -173,6 +173,8 @@ The project follows Semantic Versioning.
   and lambda callback bodies inside local helpers no longer leak into the enclosing flow.
 - Fixed finding/source panel activation so opening a flow no longer clears the more precise
   selected finding or source-line selection.
+- Fixed tablet-width Details drawer overlap so canvas toolbar controls wrap into the
+  remaining canvas space instead of sitting underneath the right rail.
 
 ## 0.8.0 - 2026-06-17
 
