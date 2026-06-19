@@ -41,6 +41,7 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "Prefer the LogicChart MCP `agent_context` tool" in content
     assert "logicchart view ..." in content
     assert "provider keys" in content
+    assert "Keep AI-agent instruction files synchronized" in content
     for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
         assert snippet not in content
 

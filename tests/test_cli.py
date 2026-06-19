@@ -22,6 +22,7 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "logicchart view ..." in content
     assert "logicchart <command> --help" in content
     assert "provider keys" in content
+    assert "Keep AI-agent instruction files synchronized" in content
     for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
         assert snippet not in content
 
