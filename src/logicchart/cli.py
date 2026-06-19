@@ -16,7 +16,7 @@ from logicchart.analysis import ProjectAnalyzer
 from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import BUILTIN_PROFILES, LogicChartConfig
 from logicchart.doctor import doctor_report, render_doctor, render_doctor_json
-from logicchart.install import install_all
+from logicchart.install import install_agent_instructions, install_mcp_config
 from logicchart.quality import render_quality
 from logicchart.render.html import render_html
 from logicchart.validation import validate_logicchart
@@ -298,7 +298,8 @@ def _setup_agent(
     config_path, created_config = _ensure_config(root)
     print(f"{'Created' if created_config else 'Config'} {config_path}")
 
-    changed = install_all(root, platform=agent, mcp_config=agent)
+    changed = install_agent_instructions(root, "all")
+    changed.extend(install_mcp_config(root, agent))
     if changed:
         for path in changed:
             print(f"Updated {path}")

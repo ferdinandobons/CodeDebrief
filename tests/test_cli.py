@@ -205,10 +205,19 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     (tmp_path / "main.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    instruction_paths = [
+        Path("AGENTS.md"),
+        Path("CLAUDE.md"),
+        Path("GEMINI.md"),
+        Path(".cursor/rules/logicchart.mdc"),
+    ]
 
     assert main(["setup-agent", agent, str(tmp_path), "--no-html"]) == 0
     assert (tmp_path / "logicchart.toml").exists()
     assert (tmp_path / instruction_path).exists()
+    for path in instruction_paths:
+        assert (tmp_path / path).exists()
+        _assert_current_agent_instructions((tmp_path / path).read_text(encoding="utf-8"))
     assert (tmp_path / mcp_path).exists()
     assert (tmp_path / "logicchart-out" / "logic-flow.json").exists()
     assert (tmp_path / "logicchart-out" / "logic-flow.md").exists()

@@ -10,6 +10,7 @@ from typing import Any
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts_by_kind
 from logicchart.model import Finding, FindingKind, Flow, FlowNode, NodeKind, ProjectModel
 from logicchart.quality import model_quality
+from logicchart.util import without_diagnostic_metadata
 
 # Per-bucket relevance weights. Named constants instead of inline magic numbers so the
 # ranking model is auditable and the tests can assert exact scores.
@@ -213,7 +214,7 @@ def query_model(
         finding_tokens = _tokenize(
             " ".join(
                 f"{finding.kind} {finding.evidence.value} {finding.severity.value} "
-                f"{finding.message} {_metadata_text(_query_metadata(finding.metadata))}"
+                f"{finding.message} {_metadata_text(without_diagnostic_metadata(finding.metadata))}"
                 for finding in flow_findings
             )
         )
@@ -1213,7 +1214,7 @@ def find_decisions(
 def _finding_related_flows(
     model: ProjectModel, finding: Finding, focus_flow: Flow | None
 ) -> list[tuple[Flow, list[str]]]:
-    metadata = _query_metadata(finding.metadata)
+    metadata = without_diagnostic_metadata(finding.metadata)
     roles_by_flow: dict[str, set[str]] = {}
     flows_by_id = {flow.id: flow for flow in model.flows}
 
@@ -1276,7 +1277,7 @@ def _finding_related_nodes(
     finding: Finding,
     diagnostic: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    metadata = _query_metadata(finding.metadata)
+    metadata = without_diagnostic_metadata(finding.metadata)
     subject = _metadata_string(metadata.get("subject"))
     namespace = _metadata_string(metadata.get("value_namespace"))
     condition = _metadata_string(metadata.get("condition"))
@@ -1322,8 +1323,8 @@ def _finding_related_nodes(
 
 
 def _finding_matches_context(candidate: Finding, finding: Finding) -> bool:
-    candidate_metadata = _query_metadata(candidate.metadata)
-    metadata = _query_metadata(finding.metadata)
+    candidate_metadata = without_diagnostic_metadata(candidate.metadata)
+    metadata = without_diagnostic_metadata(finding.metadata)
     if candidate.kind == finding.kind:
         return True
     for key in ("subject", "value_namespace", "condition", "rule"):
@@ -1511,10 +1512,6 @@ def _metadata_text(value: Any) -> str:
     if isinstance(value, (list, tuple, set)):
         return " ".join(_metadata_text(item) for item in value)
     return str(value)
-
-
-def _query_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in metadata.items() if key != "diagnostic"}
 
 
 def _normalize_path(value: str) -> str:

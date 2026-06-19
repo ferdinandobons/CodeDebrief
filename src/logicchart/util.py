@@ -45,5 +45,9 @@ def compact_text(value: str, limit: int = 100) -> str:
     return value[: limit - 1].rstrip() + "..."
 
 
+def without_diagnostic_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in metadata.items() if key != "diagnostic"}
+
+
 def relpath(path: Path, root: Path) -> str:
     return path.resolve().relative_to(root.resolve()).as_posix()

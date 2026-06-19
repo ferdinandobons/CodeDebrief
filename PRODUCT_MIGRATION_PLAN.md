@@ -399,9 +399,13 @@ Deliverables:
 
 - Add `logicchart setup-agent codex|claude|cursor`.
 - Make setup verify the local install, create or update `logicchart.toml` only when
-  needed, register MCP where supported, and refresh agent instructions or skills.
+  needed, register MCP where supported, and refresh all known agent instruction files or
+  skills together so Codex, Claude, Gemini, Cursor, and future agent surfaces do not drift.
 - Run initial artifact generation, `doctor`, and validation as part of setup.
 - Preserve local instruction blocks that are not owned by LogicChart.
+- When changing generated guidance for one agent Markdown file, apply the equivalent
+  product guidance to every supported agent Markdown target while preserving target-specific
+  frontmatter and local notes.
 - Explain successful setup in terms of questions users can ask the agent.
 - Fold `logicchart init` and `logicchart install` into the new setup path.
 - Remove stale generated instructions that tell users or agents to run `query`, `impact`,

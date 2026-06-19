@@ -217,16 +217,19 @@ logicchart setup-agent claude ../my-app
 logicchart setup-agent cursor --full
 ```
 
-`setup-agent` creates `logicchart.toml` only when needed, refreshes agent instructions,
-registers project-scoped MCP config for the selected agent, generates the initial model,
-runs `doctor`, validates the artifact, and prints examples of questions to ask the
-coding agent.
+`setup-agent` creates `logicchart.toml` only when needed, refreshes every supported
+agent instruction file, registers project-scoped MCP config for the selected agent,
+generates the initial model, runs `doctor`, validates the artifact, and prints examples
+of questions to ask the coding agent.
 
 Supported targets:
 
 - `codex`
 - `claude`
 - `cursor`
+
+The selected target controls MCP registration. Instruction files are synchronized for all
+known agent surfaces so future changes do not leave one coding agent with stale guidance.
 
 Useful flags:
 
@@ -448,7 +451,12 @@ Supported instruction targets:
 
 - `AGENTS.md` for Codex
 - `CLAUDE.md` for Claude Code
+- `GEMINI.md` for Gemini CLI
 - `.cursor/rules/logicchart.mdc` for Cursor
+
+Running `setup-agent` for any supported MCP target refreshes all of those instruction
+files together. Gemini is currently instruction-only; use the configured MCP target from
+the agent that supports project-scoped MCP.
 
 The installed block tells agents to start with `logicchart --help` and
 `logicchart <command> --help` when helping users set up or learn the tool, to use

@@ -6,6 +6,7 @@ from typing import Any
 
 from logicchart.analysis.common import EMPTY, FALLS_THROUGH, NO, RAISES, RETURNS, SUCCESS
 from logicchart.model import Evidence, Finding, FindingKind, Flow, FlowNode, NodeKind
+from logicchart.util import without_diagnostic_metadata
 
 DIAGNOSTIC_RELATED_LIMIT = 12
 
@@ -396,7 +397,7 @@ def diagnostic_for_finding(
 ) -> dict[str, Any]:
     kind = _kind_value(finding.kind)
     rule = FINDING_RULES.get(kind, _fallback_rule(kind))
-    metadata = _metadata_without_diagnostic(finding.metadata)
+    metadata = without_diagnostic_metadata(finding.metadata)
     category = str(metadata.get("category") or rule.category)
     related_decisions = _related_decisions(finding, flow, node, metadata, model)
     return {
@@ -807,7 +808,7 @@ def _actual(metadata: dict[str, Any], node: FlowNode | None) -> Any:
 
 
 def _confidence(finding: Finding) -> dict[str, Any]:
-    metadata = _metadata_without_diagnostic(finding.metadata)
+    metadata = without_diagnostic_metadata(finding.metadata)
     raw = metadata.get("confidence")
     if isinstance(raw, int | float):
         return {
@@ -841,10 +842,6 @@ def _unique(values: list[Any]) -> list[Any]:
         seen.add(value)
         result.append(value)
     return result
-
-
-def _metadata_without_diagnostic(metadata: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in metadata.items() if key != "diagnostic"}
 
 
 def _as_list(value: Any) -> list[Any] | None:
