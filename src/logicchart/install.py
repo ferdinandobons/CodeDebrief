@@ -199,10 +199,11 @@ def _install_codex_mcp_config(root: Path) -> Path | None:
 
 def _install_json_mcp_config(target: Path, root: Path) -> Path | None:
     target.parent.mkdir(parents=True, exist_ok=True)
+    existing = target.read_text(encoding="utf-8") if target.exists() else ""
     data: dict[str, object]
-    if target.exists() and target.read_text(encoding="utf-8").strip():
+    if existing.strip():
         try:
-            loaded = json.loads(target.read_text(encoding="utf-8"))
+            loaded = json.loads(existing)
         except json.JSONDecodeError as error:
             raise ValueError(f"invalid JSON in {target}: {error}") from error
         if not isinstance(loaded, dict):
@@ -222,7 +223,6 @@ def _install_json_mcp_config(target: Path, root: Path) -> Path | None:
     servers["logicchart"] = server
 
     updated = json.dumps(data, indent=2) + "\n"
-    existing = target.read_text(encoding="utf-8") if target.exists() else ""
     if updated != existing:
         target.write_text(updated, encoding="utf-8")
         return target
