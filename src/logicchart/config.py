@@ -11,49 +11,67 @@ else:  # pragma: no cover - Python 3.10
     import tomli as tomllib
 
 DEFAULT_EXCLUDES = [
-    ".git/**",
-    ".venv/**",
-    ".logicchart/**",
-    "logicchart-out/**",
-    ".cache/**",
-    ".gradle/**",
-    ".next/**",
-    ".nuxt/**",
-    ".parcel-cache/**",
-    ".pnpm-store/**",
-    ".svelte-kit/**",
-    ".turbo/**",
-    ".yarn/**",
-    "node_modules/**",
-    "dist/**",
-    "build/**",
-    "out/**",
-    "target/**",
-    "vendor/**",
-    "Pods/**",
-    "DerivedData/**",
-    "**/.cache/**",
-    "**/.gradle/**",
-    "**/.next/**",
-    "**/.nuxt/**",
-    "**/.parcel-cache/**",
-    "**/.svelte-kit/**",
-    "**/.turbo/**",
-    "**/node_modules/**",
-    "**/dist/**",
-    "**/build/**",
-    "**/out/**",
-    "**/target/**",
-    "**/vendor/**",
-    "coverage/**",
-    "**/coverage/**",
-    "**/__pycache__/**",
     "**/__generated__/**",
     "**/*.min.js",
     "**/*.gen.*",
     "**/*.generated.*",
     "**/*.pb.*",
     "**/*.d.ts",
+]
+
+DEFAULT_EXCLUDE_DIRS = [
+    ".angular",
+    ".aws-sam",
+    ".bundle",
+    ".cache",
+    ".expo",
+    ".git",
+    ".gradle",
+    ".hg",
+    ".logicchart",
+    ".mypy_cache",
+    ".next",
+    ".nox",
+    ".nuxt",
+    ".parcel-cache",
+    ".pnpm-store",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".serverless",
+    ".svn",
+    ".svelte-kit",
+    ".terraform",
+    ".temp",
+    ".tox",
+    ".turbo",
+    ".tmp",
+    ".venv",
+    ".venv-*",
+    ".vite",
+    ".yarn",
+    "__generated__",
+    "__pycache__",
+    "bower_components",
+    "build",
+    "cdk.out",
+    "coverage",
+    "DerivedData",
+    "dist",
+    "env",
+    "graphify-out",
+    "htmlcov",
+    "jspm_packages",
+    "logicchart-out",
+    "logs",
+    "node_modules",
+    "out",
+    "Pods",
+    "target",
+    "temp",
+    "tmp",
+    "vendor",
+    "venv",
+    "*.egg-info",
 ]
 
 BUILTIN_PROFILES = ("demo", "self", "project")
@@ -63,6 +81,7 @@ BUILTIN_PROFILES = ("demo", "self", "project")
 class LogicChartConfig:
     source_roots: list[str] = field(default_factory=lambda: ["."])
     exclude: list[str] = field(default_factory=lambda: list(DEFAULT_EXCLUDES))
+    exclude_dirs: list[str] = field(default_factory=lambda: list(DEFAULT_EXCLUDE_DIRS))
     include_public_functions: bool = True
     max_call_depth: int = 4
     output_dir: str = "logicchart-out"
@@ -82,6 +101,7 @@ class LogicChartConfig:
             section = payload.get("logicchart", {})
             config.source_roots = list(section.get("source_roots", config.source_roots))
             config.exclude.extend(section.get("exclude", []))
+            config.exclude_dirs.extend(section.get("exclude_dirs", []))
             config.include_public_functions = bool(
                 section.get("include_public_functions", config.include_public_functions)
             )
@@ -115,6 +135,16 @@ class LogicChartConfig:
             or fnmatch.fnmatch("/" + normalized, pattern)
             or _directory_pattern_matches(normalized, pattern)
             for pattern in self.exclude
+        )
+
+    def is_excluded_dir(self, relative_path: str) -> bool:
+        normalized = relative_path.replace("\\", "/").strip("/")
+        if not normalized:
+            return False
+        name = normalized.rsplit("/", 1)[-1]
+        return any(
+            _directory_name_or_path_matches(normalized, name, pattern)
+            for pattern in self.exclude_dirs
         )
 
     def entrypoint_override(self, symbol: str) -> bool | None:
@@ -173,6 +203,17 @@ def _normalize_pattern(pattern: str) -> str:
     if normalized.endswith("/"):
         return normalized + "**"
     return normalized
+
+
+def _directory_name_or_path_matches(path: str, name: str, pattern: str) -> bool:
+    normalized = pattern.replace("\\", "/").strip("/")
+    if not normalized:
+        return False
+    if "/" not in normalized:
+        return fnmatch.fnmatch(name, normalized)
+    return fnmatch.fnmatch(path, normalized) or _directory_pattern_matches(
+        path, normalized.rstrip("/") + "/**"
+    )
 
 
 def _directory_pattern_matches(path: str, pattern: str) -> bool:

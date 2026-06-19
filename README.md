@@ -95,9 +95,11 @@ LogicChart is designed for broad frontend/backend repositories, not only small s
 - **Shape-agnostic UI:** the viewer does not hard-code backend/frontend layouts; it renders
   arbitrary scopes, entry points, calls, decisions, and outcomes from the generated model.
 - **Incremental updates:** changed files are content-hashed and cached under `.logicchart/`.
-- **Generated-code avoidance:** defaults skip common dependency/build trees such as
-  `node_modules`, `.next`, `.turbo`, `.svelte-kit`, `dist`, `build`, `out`, `target`,
-  `coverage`, `vendor`, `Pods`, generated declarations, protobuf outputs, and minified JS.
+- **Generated-code avoidance:** defaults prune known VCS, dependency, cache, temporary, and
+  generated directories before traversal, including `.git`, `node_modules`, venv folders,
+  `.next`, `.turbo`, `.svelte-kit`, `dist`, `build`, `out`, `target`, `coverage`, `vendor`,
+  and `Pods`. Generated declarations, protobuf outputs, and minified JS remain file-level
+  exclusions.
 - **Viewer scale:** the canvas opens at scope level, expands one scope into progressive
   entrypoint/call rows, then unfolds selected decision charts in place. It does not dump
   every flow node into the DOM at once.
@@ -105,7 +107,8 @@ LogicChart is designed for broad frontend/backend repositories, not only small s
   large functions, so the viewer stays usable offline.
 
 Use `.logicchartignore` or `logicchart.toml` when a repo has project-specific generated
-paths.
+paths. Add directories to `exclude_dirs` when the whole tree should be skipped before
+traversal; use `exclude` for file/path glob exclusions.
 
 ## Viewer
 
@@ -472,6 +475,7 @@ LogicChart works without config. Add `logicchart.toml` only when defaults are no
 [logicchart]
 source_roots = ["."]
 exclude = []
+exclude_dirs = []
 include_public_functions = true
 max_call_depth = 4
 output_dir = "logicchart-out"
@@ -487,6 +491,12 @@ backend = ["backend/**", "services/**"]
 frontend = ["frontend/**", "web/**"]
 edge = ["edge/**", "workers/**"]
 ```
+
+LogicChart always prunes well-known dependency, VCS, cache, temporary, and generated
+directories before traversal, including `.git`, `node_modules`, venv folders,
+`dist`/`build`/`out`/`target`, `.next`, `.turbo`, `.svelte-kit`, `vendor`, coverage,
+and `logicchart-out`. Add project-specific directory names or path globs to
+`exclude_dirs`; add file/path glob exclusions to `exclude`.
 
 With no `[logicchart.scopes]`, top-level directories become inferred scopes. A file can
 belong to multiple declared scopes.

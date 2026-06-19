@@ -48,6 +48,11 @@ LogicChart is in a strong alpha state.
 - The CLI update workflow can now bypass the incremental cache with
   `logicchart update --full`, which keeps agent instructions concise while allowing safe
   regeneration after analyzer upgrades or LogicChart itself changes.
+- Source discovery now prunes known VCS, dependency, cache, temporary, and generated
+  directories before traversal, including `.git`, `node_modules`, venv folders, build
+  outputs, coverage, `vendor`, and `logicchart-out`. Projects can add their own whole-tree
+  exclusions with `exclude_dirs` in `logicchart.toml`, while `exclude` remains for
+  file/path globs.
 - Local quality gates are currently healthy: Python tests, coverage, type checking,
   frontend tests, frontend type checking, viewer build, artifact validation, and npm audit
   have all passed in this workspace.
@@ -78,9 +83,9 @@ Rules:
   for this repository cannot accidentally embed private project facts in `logicchart-out`.
 - Use `tests/test_certifexp_local.py` as the local regression gate. It skips when the
   fixture is absent, so public CI remains reproducible.
-- The local test analyzes only source-bearing subtrees, not the nested Git repo, virtual
-  environments, generated graph output, build artifacts, dependency directories, or
-  infrastructure state files.
+- The local test and root-wide analyzer check avoid nested Git data, virtual environments,
+  generated graph output, build artifacts, dependency directories, or infrastructure state
+  files.
 
 Run the local real-project gate with:
 

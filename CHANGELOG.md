@@ -134,6 +134,10 @@ The project follows Semantic Versioning.
 - Added `logicchart enrich` with local preview payloads by default and explicit `--send`
   provider calls that write `logic-annotations.json` only after model-hash and id
   validation.
+- Added directory-level discovery pruning for known VCS, dependency, cache, temporary, and
+  generated trees such as `.git`, `node_modules`, venv folders, build outputs, coverage,
+  `vendor`, and `logicchart-out`, plus configurable `exclude_dirs` entries in
+  `logicchart.toml`.
 - Added Python analyzer modeling for `try`/`else` success paths, so post-success work is
   connected before the flow continues.
 - Added Python loop-body flow modeling, so decisions and calls inside `for`, `async for`,

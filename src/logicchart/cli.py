@@ -1029,8 +1029,10 @@ def _init(root: Path) -> int:
         """[logicchart]
 source_roots = ["."]
 exclude = []
-# Defaults already skip dependency caches and generated output such as node_modules,
-# dist/build/out/target, coverage, .next/.turbo/.svelte-kit, vendor, and *.generated.*.
+exclude_dirs = []
+# Defaults always prune dependency, VCS, cache, temp, and generated directories such as
+# .git, node_modules, venv/.venv, dist/build/out/target, coverage, .next, .turbo,
+# .svelte-kit, vendor, and logicchart-out. Add project-specific directories above.
 include_public_functions = true
 max_call_depth = 4
 output_dir = "logicchart-out"
