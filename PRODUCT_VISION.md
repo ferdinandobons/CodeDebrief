@@ -32,7 +32,8 @@ The distribution model should be hybrid, with one clear hierarchy:
    debugging.
 3. Agent instructions and skills are the activation layer that teach each coding agent
    when and how to use LogicChart.
-4. The viewer exists for optional human inspection and deep visual exploration.
+4. `logicchart view ...` remains the official manual command for opening the UI and
+   visually exploring the decision flowchart.
 5. Generated artifacts are the shared source of truth between humans, agents, CI, and UI.
 
 MCP should remain the primary integration channel because it exposes structured tools and
@@ -40,6 +41,10 @@ resources directly to coding agents. The CLI should not compete with MCP; it sho
 MCP, setup, validation, and fallback workflows. Skills or agent instruction files should
 not replace MCP either; they should package the usage policy, examples, and decision rules
 that make the agent reach for LogicChart automatically when the user asks about code logic.
+
+The viewer is not the default daily workflow, but it is still a central product capability.
+It should be the one explicit manual experience users can rely on when they want to inspect
+the graph directly: run `logicchart view ...`, open the UI, and explore the flowchart.
 
 ## Core Promise
 
@@ -214,6 +219,7 @@ The CLI remains essential because it is the stable local executable:
 
 - setup agent integrations;
 - analyze and update artifacts;
+- open the manual viewer through `logicchart view ...`;
 - validate synchronization;
 - run doctor checks;
 - support CI;
@@ -444,10 +450,14 @@ Done criteria:
 
 ### Phase 6: Viewer as Secondary Inspection Surface
 
-Goal: keep the UI valuable, fast, and aligned with agent workflows.
+Goal: keep the UI valuable, fast, and available as the official manual flowchart
+experience.
 
 Deliverables:
 
+- Keep `logicchart view ...` as the official manual command for opening the UI and
+  visualizing the decision flowchart.
+- Treat the UI as an intentional manual mode, not the default agent-first workflow.
 - Align the viewer with context packs, findings, annotations, snapshots, and domain maps.
 - Preserve progressive expand/collapse, focus, reset, export, zoom, pan, drag, and stable
   selection.
@@ -460,6 +470,7 @@ Done criteria:
 
 - The viewer is useful for deep inspection and debugging but not required for the main
   agent-first workflow.
+- Users can still run one clear manual command to open and inspect the graph.
 - Expand-heavy codebases remain responsive enough for practical use.
 
 ### Phase 7: Quality, Compatibility, and Release Readiness
