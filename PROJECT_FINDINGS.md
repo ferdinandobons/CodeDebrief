@@ -595,9 +595,9 @@ Current checkpoint:
 - MCP recovery and validation hints now point agents to `update_logicchart(full=true)` and
   `logicchart update --full` when artifacts are missing, stale, or cache bypass is safer.
 - Generated `files[]` records now include first-party `dependencies` for Python,
-  TypeScript/JavaScript, Go, and Java imports; `impact` uses those edges to include flows
-  from files that import a changed file even when the changed file has no modeled flow of
-  its own.
+  TypeScript/JavaScript, Go, Java, and C# imports; `impact` uses those edges to include
+  flows from files that import a changed file even when the changed file has no modeled
+  flow of its own.
 
 Still open:
 

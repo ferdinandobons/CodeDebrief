@@ -6,6 +6,7 @@ from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.model import NodeKind, ProjectModel
+from logicchart.query import impact_model
 
 _CS = """namespace App {
   public class Svc {
@@ -84,6 +85,59 @@ def test_else_if_chain_keeps_the_middle_branch(tmp_path: Path) -> None:
         labels = {n.label for n in flow.nodes if n.kind is NodeKind.DECISION}
         assert "status == Active" in labels
         assert "status == Suspended" in labels  # the middle branch survives
+
+
+def test_csharp_using_dependencies_drive_changed_file_impact(tmp_path: Path) -> None:
+    flags = tmp_path / "Company" / "App" / "Flags"
+    auth = tmp_path / "Company" / "App" / "Auth"
+    api = tmp_path / "Company" / "App" / "Api"
+    flags.mkdir(parents=True)
+    auth.mkdir(parents=True)
+    api.mkdir(parents=True)
+    (flags / "FeatureFlags.cs").write_text(
+        "namespace Company.App.Flags;\n"
+        "public class FeatureFlags {\n"
+        "  public static bool Enabled() { return true; }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    (auth / "Policy.cs").write_text(
+        "namespace Company.App.Auth;\npublic class Policy {\n  public static void Audit() {}\n}\n",
+        encoding="utf-8",
+    )
+    (api / "OrdersController.cs").write_text(
+        "using System;\n"
+        "using Company.App.Flags;\n"
+        "using Flags = Company.App.Flags.FeatureFlags;\n"
+        "using static Company.App.Auth.Policy;\n\n"
+        "namespace Company.App.Api;\n"
+        "public class OrdersController {\n"
+        "  [HttpGet]\n"
+        "  public string Get() {\n"
+        "    Audit();\n"
+        '    if (Flags.Enabled()) { return "ok"; }\n'
+        '    return "off";\n'
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+
+    route_record = next(
+        record for record in model.files if record.path == "Company/App/Api/OrdersController.cs"
+    )
+    assert route_record.dependencies == [
+        "Company/App/Flags/FeatureFlags.cs",
+        "Company/App/Auth/Policy.cs",
+    ]
+
+    route = next(flow for flow in model.flows if flow.name == "OrdersController.Get")
+    impact = impact_model(model, ["Company/App/Flags/FeatureFlags.cs"])
+
+    assert route in impact.directly_impacted
+    assert impact.impact_reasons[route.id] == [
+        "depends on changed file `Company/App/Flags/FeatureFlags.cs`"
+    ]
 
 
 def test_php_methods_switch_calls(tmp_path: Path) -> None:

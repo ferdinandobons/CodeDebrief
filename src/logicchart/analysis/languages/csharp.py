@@ -60,6 +60,38 @@ def _is_test(relative: str, name: str) -> bool:
     ].endswith(("Test.cs", "Tests.cs"))
 
 
+def _import_map(root: Any, source: bytes, relative: str) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    for directive in root.children:
+        if directive.type != "using_directive":
+            continue
+        specifier = _using_specifier(directive, source)
+        if not specifier:
+            continue
+        alias = directive.child_by_field_name("name")
+        is_static = any(child.type == "static" for child in directive.children)
+        if alias is not None:
+            mapping[text(alias, source)] = f"{specifier}:"
+        elif is_static:
+            mapping[f"__static_using__:{specifier}"] = f"{specifier}:"
+        else:
+            mapping[f"__namespace_using__:{specifier}"] = f"{specifier}:"
+    return mapping
+
+
+def _using_specifier(directive: Any, source: bytes) -> str:
+    for child in directive.children:
+        if child.type in {"qualified_name", "alias_qualified_name"}:
+            return text(child, source)
+    alias = directive.child_by_field_name("name")
+    for child in directive.children:
+        if child.type == "identifier" and child is not alias:
+            value = text(child, source)
+            if value != "static":
+                return value
+    return ""
+
+
 def _switch_cases(switch_node: Any, source: bytes, profile: LanguageProfile) -> list[CaseInfo]:
     body = switch_node.child_by_field_name("body")
     cases: list[CaseInfo] = []
@@ -84,6 +116,9 @@ CSHARP_PROFILE = LanguageProfile(
     classify=_classify,
     is_test=_is_test,
     module_name=module_name,
+    import_map=_import_map,
+    dependency_module_suffixes=(".cs",),
+    dependency_package_directories=True,
     switch_types=frozenset({"switch_statement"}),
     switch_value_field="value",
     switch_cases=_switch_cases,

@@ -86,6 +86,8 @@ The project follows Semantic Versioning.
 - Added first-party file dependency records for Python, TypeScript/JavaScript, Go, and
   Java imports, so changed config/type/helper files can impact importing flows even when
   the changed file has no modeled flow.
+- Added conservative C# `using` dependency records, so impact analysis can include ASP.NET
+  or service methods that depend on changed first-party C# files.
 - Added per-flow impact reasons to CLI JSON and MCP impact analysis, so agents can see why
   each direct or caller impact was selected.
 - Added deterministic query filters for source paths, symbols/names, decision domains,
