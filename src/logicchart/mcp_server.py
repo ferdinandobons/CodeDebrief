@@ -26,6 +26,7 @@ from logicchart.query import (
     finding_context,
     finding_next_tools,
     flow_navigation,
+    flow_summary,
     git_changed_files,
     impact_model,
     model_summary,
@@ -726,7 +727,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             rows.append(
                 {
                     **_finding_dict(finding, model, annotation_payload),
-                    "flow": _flow_summary(flow),
+                    "flow": flow_summary(flow),
                     "priority": _finding_priority(finding),
                 }
             )
@@ -924,20 +925,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
     server.run(transport="stdio")
 
 
-def _flow_summary(flow: Any) -> dict[str, Any]:
-    return {
-        "id": flow.id,
-        "name": flow.name,
-        "source": f"{flow.location.path}:{flow.location.start_line}",
-        "entry_kind": flow.entry_kind,
-        "language": flow.language,
-        "scope": flow.metadata.get("scope", []),
-    }
-
-
 def _impact_flow_summary(flow: Any, impact_reasons: dict[str, list[str]]) -> dict[str, Any]:
     return {
-        **_flow_summary(flow),
+        **flow_summary(flow),
         "reasons": impact_reasons.get(flow.id, []),
     }
 

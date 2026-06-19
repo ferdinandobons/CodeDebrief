@@ -568,7 +568,7 @@ def flow_navigation(
     primary_scope = scope[0] if scope else None
     return {
         "flow": {
-            **_flow_summary(flow),
+            **flow_summary(flow),
             "symbol": flow.symbol,
             "is_entrypoint": flow.is_entrypoint,
             "nodes": len(flow.nodes),
@@ -755,7 +755,7 @@ def _resolve_flow_target(
             f"ambiguous flow target: {target}",
             "flow_target_ambiguous",
             target,
-            matches=[_flow_summary(flow) for flow in by_name],
+            matches=[flow_summary(flow) for flow in by_name],
         )
     return None, _flow_target_error(f"flow not found: {target}", "flow_not_found", target)
 
@@ -798,7 +798,7 @@ def _navigation_cap(items: list[dict[str, Any]], token_budget: int) -> list[dict
     return items[: max(1, token_budget // NAVIGATION_TOKENS_PER_ITEM)]
 
 
-def _flow_summary(flow: Flow) -> dict[str, Any]:
+def flow_summary(flow: Flow) -> dict[str, Any]:
     return {
         "id": flow.id,
         "name": flow.name,
@@ -811,7 +811,7 @@ def _flow_summary(flow: Flow) -> dict[str, Any]:
 
 def _related_flow_summaries(flow_ids: list[str], by_id: dict[str, Flow]) -> list[dict[str, Any]]:
     return sorted(
-        [_flow_summary(by_id[flow_id]) for flow_id in flow_ids if flow_id in by_id],
+        [flow_summary(by_id[flow_id]) for flow_id in flow_ids if flow_id in by_id],
         key=lambda item: (item["name"], item["id"]),
     )
 
