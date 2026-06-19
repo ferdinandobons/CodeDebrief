@@ -71,6 +71,8 @@ The project follows Semantic Versioning.
   hints for token-bounded agent workflows.
 - Added `logicchart navigate <flow-id>` so CLI agents can use the same bounded
   flow-navigation pack as MCP.
+- Added MCP `preview_enrichment` so agents can inspect the bounded optional LLM enrichment
+  payload locally before any explicit provider send through the CLI.
 - Added MCP finding-context packs with focus flow, related evidence nodes, related flows,
   evidence guardrails, and next-tool hints for logical-error review.
 - Added deterministic impact targets for flow ids, symbols, and finding ids across CLI and

@@ -569,8 +569,8 @@ Available MCP tools include summary, analysis-quality reports, flow listing, flo
 retrieval, flow-navigation packs, query, findings, finding-rule contracts, finding-chain
 explanation, finding-context subgraphs, state-handling lookup, decision-node search,
 impact analysis, token-bounded deterministic SVG snapshots for flows, findings, impact
-sets, and explicit flow/finding subgraphs, review queue, context pack, artifact
-validation, and artifact update. Artifact
+sets, and explicit flow/finding subgraphs, optional LLM enrichment preview, review queue,
+context pack, artifact validation, and artifact update. Artifact
 validation and update responses include guardrails plus `next_tools`/`next_cli` hints for
 the update -> validate -> review sequence, so agents can recover from stale generated
 models without guessing the workflow. Finding snapshots include a compact diagnostic panel
@@ -591,6 +591,9 @@ before deciding whether to request a complete flow or visual snapshot.
 The `get_subgraph_snapshot` tool and `logicchart snapshot subgraph` CLI command are the
 bridge from query/impact/context results into one bounded SVG: pass returned
 `subgraph_flow_ids` and `subgraph_finding_ids` directly to render the focused model slice.
+Use MCP `preview_enrichment` to inspect the same bounded local payload as
+`logicchart enrich --json` before any optional provider send; provider calls remain an
+explicit CLI action through `logicchart enrich --send`.
 If the generated model is missing or malformed, model-reading MCP tools return structured
 recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
 actions instead of surfacing a raw traceback. Unknown flow/finding targets and invalid

@@ -72,6 +72,17 @@ provider presets can still be stored with `logicchart llm setup`, but running
 `logicchart enrich --send` will reject non-compatible API formats until dedicated
 adapters are added.
 
+## MCP Agent Preview
+
+Agents connected through MCP can call `preview_enrichment` to inspect the same bounded
+payload as `logicchart enrich --json`. The tool is local-only, returns
+`provider_call_made: false`, includes next-tool pointers for finding review and subgraph
+snapshots, and returns next CLI commands for setup or explicit send.
+
+MCP does not expose a provider-send tool. Sending source-derived payloads to an external
+provider remains a deliberate CLI action through `logicchart enrich --send` after the
+preview has been reviewed.
+
 ## Provider Presets
 
 The presets below were checked against official provider docs on 2026-06-19. Catalogs

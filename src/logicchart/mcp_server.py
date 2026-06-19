@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from pathlib import Path
+from shlex import quote
 from typing import Any
 
 from logicchart.analysis import ProjectAnalyzer
@@ -9,6 +10,7 @@ from logicchart.annotations import load_annotations
 from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import LogicChartConfig
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts
+from logicchart.llm_enrich import EnrichmentOptions, build_enrichment_preview
 from logicchart.model import ProjectModel
 from logicchart.quality import model_quality
 from logicchart.query import (
@@ -47,7 +49,9 @@ before broad file-by-file search. Use get_finding_context and get_finding_snapsh
 treating a logical error as actionable. After substantial code edits, call update_logicchart
 and validate_artifacts, then commit the synchronized logic-flow.json and logic-flow.md
 artifacts when they changed. Treat VERIFIED as syntax-backed, INFERRED as deterministic
-heuristic, and POTENTIAL_GAP as a review candidate, not a confirmed bug."""
+heuristic, and POTENTIAL_GAP as a review candidate, not a confirmed bug. Use
+preview_enrichment to inspect the bounded optional LLM payload locally before any explicit
+provider send through the CLI."""
 
 
 def _cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]:
@@ -290,6 +294,55 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         summary = model_summary(model)
         summary["annotations"] = load_annotations(project_root, model, active_config).to_dict()
         return summary
+
+    @server.tool()
+    def preview_enrichment(
+        scope: str | None = None,
+        flow_ids: list[str] | None = None,
+        finding_ids: list[str] | None = None,
+        max_flows: int = 8,
+        max_nodes_per_flow: int = 12,
+        max_findings: int = 12,
+        env_file: str | None = None,
+        token_budget: int = 0,
+    ) -> dict[str, Any]:
+        """Preview the optional LLM enrichment payload without calling a provider.
+
+        The result mirrors ``logicchart enrich --json`` and always reports
+        ``provider_call_made: false``. Provider sends remain an explicit CLI action with
+        ``logicchart enrich --send`` after the preview has been reviewed.
+        """
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        options = _enrichment_options(
+            scope=scope,
+            flow_ids=flow_ids,
+            finding_ids=finding_ids,
+            max_flows=max_flows,
+            max_nodes_per_flow=max_nodes_per_flow,
+            max_findings=max_findings,
+            token_budget=token_budget,
+        )
+        preview = build_enrichment_preview(
+            project_root,
+            model,
+            active_config,
+            options,
+            env_file=env_file,
+        )
+        return _enrichment_preview_payload(
+            preview,
+            scope=scope,
+            flow_ids=flow_ids or [],
+            finding_ids=finding_ids or [],
+            max_flows=options.max_flows,
+            max_nodes_per_flow=options.max_nodes_per_flow,
+            max_findings=options.max_findings,
+            env_file=env_file,
+            token_budget=token_budget,
+        )
 
     @server.tool()
     def analysis_quality(token_budget: int = 0) -> dict[str, Any]:
@@ -963,6 +1016,137 @@ def _context_visual_item_budget(token_budget: int) -> int:
     if token_budget <= 0:
         return 2
     return max(1, min(3, token_budget // 300))
+
+
+def _enrichment_options(
+    *,
+    scope: str | None,
+    flow_ids: list[str] | None,
+    finding_ids: list[str] | None,
+    max_flows: int,
+    max_nodes_per_flow: int,
+    max_findings: int,
+    token_budget: int,
+) -> EnrichmentOptions:
+    flow_limit = max(0, max_flows)
+    node_limit = max(0, max_nodes_per_flow)
+    finding_limit = max(0, max_findings)
+    if token_budget > 0:
+        flow_limit = min(flow_limit, max(1, token_budget // 240))
+        node_limit = min(node_limit, max(4, token_budget // 100))
+        finding_limit = min(finding_limit, max(1, token_budget // 180))
+    return EnrichmentOptions(
+        scope=scope,
+        flow_ids=tuple(flow_ids or ()),
+        finding_ids=tuple(finding_ids or ()),
+        max_flows=flow_limit,
+        max_nodes_per_flow=node_limit,
+        max_findings=finding_limit,
+    )
+
+
+def _enrichment_preview_payload(
+    preview: dict[str, Any],
+    *,
+    scope: str | None,
+    flow_ids: list[str],
+    finding_ids: list[str],
+    max_flows: int,
+    max_nodes_per_flow: int,
+    max_findings: int,
+    env_file: str | None,
+    token_budget: int,
+) -> dict[str, Any]:
+    targets = preview.get("targets", {})
+    selected_flow_ids = _string_list(targets.get("flow_ids"))
+    selected_finding_ids = _string_list(targets.get("finding_ids"))
+    next_tools: dict[str, Any] = {
+        "review_queue": {
+            "tool": "review_queue",
+            "arguments": {"token_budget": token_budget or 600},
+        },
+        "get_findings": {
+            "tool": "get_findings",
+            "arguments": {"token_budget": token_budget or 600},
+        },
+    }
+    if selected_flow_ids or selected_finding_ids:
+        next_tools["subgraph_snapshot"] = {
+            "tool": "get_subgraph_snapshot",
+            "arguments": {
+                "flow_ids": selected_flow_ids,
+                "finding_ids": selected_finding_ids,
+                "format": "svg",
+                "token_budget": token_budget,
+            },
+        }
+    if selected_flow_ids:
+        next_tools["flow_navigation"] = [
+            {
+                "tool": "get_flow_navigation",
+                "arguments": {"flow_id": flow_id, "token_budget": token_budget},
+            }
+            for flow_id in selected_flow_ids[:3]
+        ]
+    return {
+        **preview,
+        "guardrail": (
+            "This MCP tool is local preview only and never calls a provider. Review the "
+            "request payload and use the CLI `logicchart enrich --send` only after the "
+            "external-send boundary is approved for the selected codebase."
+        ),
+        "next_tools": next_tools,
+        "next_cli": _enrichment_next_cli(
+            scope=scope,
+            flow_ids=flow_ids,
+            finding_ids=finding_ids,
+            max_flows=max_flows,
+            max_nodes_per_flow=max_nodes_per_flow,
+            max_findings=max_findings,
+            env_file=env_file,
+        ),
+    }
+
+
+def _enrichment_next_cli(
+    *,
+    scope: str | None,
+    flow_ids: list[str],
+    finding_ids: list[str],
+    max_flows: int,
+    max_nodes_per_flow: int,
+    max_findings: int,
+    env_file: str | None,
+) -> list[str]:
+    base = ["logicchart", "enrich"]
+    if scope is not None:
+        base.extend(["--scope", scope])
+    for flow_id in flow_ids:
+        base.extend(["--flow", flow_id])
+    for finding_id in finding_ids:
+        base.extend(["--finding", finding_id])
+    base.extend(["--max-flows", str(max_flows)])
+    base.extend(["--max-nodes-per-flow", str(max_nodes_per_flow)])
+    base.extend(["--max-findings", str(max_findings)])
+    if env_file is not None:
+        base.extend(["--env-file", env_file])
+    preview = [*base, "--json"]
+    send = [*base, "--send"]
+    return [
+        _shell_join(preview),
+        "logicchart llm setup --help",
+        f"{_shell_join(send)}  # after reviewing preview and approving provider send",
+    ]
+
+
+def _shell_join(parts: list[str]) -> str:
+    return " ".join(quote(part) for part in parts)
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
 
 
 def _quality_report(quality: dict[str, Any], token_budget: int) -> dict[str, Any]:

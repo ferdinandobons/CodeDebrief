@@ -11,10 +11,13 @@ from logicchart.annotations import annotations_path, model_hash
 from logicchart.artifacts import load_model, write_artifacts
 from logicchart.cli import main as cli_main
 from logicchart.config import LogicChartConfig
+from logicchart.llm_enrich import build_enrichment_preview
 from logicchart.mcp_server import (
     MCP_INSTRUCTIONS,
     _context_navigation_pack,
     _context_visual_pack,
+    _enrichment_options,
+    _enrichment_preview_payload,
     _model_load_error,
     _quality_report,
     _unknown_target_error,
@@ -73,6 +76,7 @@ def authorize(user):
                     "get_finding_snapshot",
                     "get_subgraph_snapshot",
                     "get_impact_snapshot",
+                    "preview_enrichment",
                     "where_state_handled",
                     "find_decision_nodes",
                     "review_queue",
@@ -97,6 +101,7 @@ def authorize(user):
                     "get_finding_context",
                     "finding_rules",
                     "analyze_impact",
+                    "preview_enrichment",
                     "review_queue",
                     "context_pack",
                 ):
@@ -123,6 +128,10 @@ def authorize(user):
                 assert {"finding_kind", "finding_severity", "finding_evidence"} <= set(
                     query_properties
                 )
+                enrichment_properties = schema_by_name["preview_enrichment"].get("properties", {})
+                assert {"flow_ids", "finding_ids", "max_nodes_per_flow"} <= set(
+                    enrichment_properties
+                )
 
                 response = await session.call_tool(
                     "query_logic",
@@ -146,6 +155,25 @@ def authorize(user):
                 assert "language_capabilities" in str(summary.content)
                 assert "Annotated authorization" not in str(summary.content)
                 assert "annotations" in str(summary.content)
+
+                enrichment = await session.call_tool(
+                    "preview_enrichment",
+                    {"flow_ids": [flow.id], "token_budget": 240},
+                )
+                assert not enrichment.isError
+                enrichment_payload = enrichment.structuredContent  # type: ignore[assignment]
+                assert enrichment_payload["provider_call_made"] is False  # type: ignore[index]
+                assert enrichment_payload["send_required"] is True  # type: ignore[index]
+                assert enrichment_payload["targets"]["flow_ids"] == [flow.id]  # type: ignore[index]
+                assert enrichment_payload["request"]["flows"][0]["id"] == flow.id  # type: ignore[index]
+                assert "LOGICCHART_LLM_API_KEY" not in str(enrichment.content)
+                assert "external-send boundary" in enrichment_payload["guardrail"]  # type: ignore[index]
+                assert (  # type: ignore[index]
+                    enrichment_payload["next_tools"]["subgraph_snapshot"]["tool"]
+                    == "get_subgraph_snapshot"
+                )
+                assert "logicchart enrich" in enrichment_payload["next_cli"][0]  # type: ignore[index]
+                assert "--send" in enrichment_payload["next_cli"][2]  # type: ignore[index]
 
                 quality = await session.call_tool("analysis_quality", {"token_budget": 240})
                 assert not quality.isError
@@ -750,6 +778,55 @@ def test_analysis_quality_report_bounds_language_attention() -> None:
     assert (
         report["attention"][1]["next_tools"]["query_language"]["arguments"]["language"] == "python"
     )
+
+
+def test_mcp_enrichment_preview_payload_contract(tmp_path: Path) -> None:
+    source = tmp_path / "orders.py"
+    source.write_text(
+        "def route(order):\n"
+        "    if order.status == 'draft':\n"
+        "        return draft(order)\n"
+        "    elif order.status == 'paid':\n"
+        "        return paid(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    write_artifacts(tmp_path, result.model)
+    config = LogicChartConfig.load(tmp_path)
+    finding = result.model.findings[0]
+    options = _enrichment_options(
+        scope=None,
+        flow_ids=None,
+        finding_ids=[finding.id],
+        max_flows=8,
+        max_nodes_per_flow=12,
+        max_findings=12,
+        token_budget=240,
+    )
+    preview = build_enrichment_preview(tmp_path, result.model, config, options)
+
+    payload = _enrichment_preview_payload(
+        preview,
+        scope=None,
+        flow_ids=[],
+        finding_ids=[finding.id],
+        max_flows=options.max_flows,
+        max_nodes_per_flow=options.max_nodes_per_flow,
+        max_findings=options.max_findings,
+        env_file=None,
+        token_budget=240,
+    )
+
+    assert payload["provider_call_made"] is False
+    assert payload["request"]["selection"]["max_flows"] == 1
+    assert payload["request"]["selection"]["max_nodes_per_flow"] == 4
+    assert payload["targets"]["flow_ids"] == [finding.flow_id]
+    assert payload["targets"]["finding_ids"] == [finding.id]
+    assert payload["next_tools"]["review_queue"]["tool"] == "review_queue"
+    assert payload["next_tools"]["subgraph_snapshot"]["arguments"]["finding_ids"] == [finding.id]
+    assert "logicchart enrich" in payload["next_cli"][0]
+    assert "--send" in payload["next_cli"][2]
+    assert "external-send boundary" in payload["guardrail"]
 
 
 def test_mcp_context_visual_pack_direct_contracts(tmp_path: Path) -> None:

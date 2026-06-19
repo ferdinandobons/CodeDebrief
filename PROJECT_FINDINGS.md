@@ -324,6 +324,10 @@ Current checkpoint:
   the sidecar hash matches the current model.
 - MCP summaries expose sidecar status, and flow-navigation packs include matching
   annotations for the selected flow.
+- MCP `preview_enrichment` exposes the same bounded local preview payload as
+  `logicchart enrich --json`, with `provider_call_made: false`, selected target ids,
+  next-tool pointers for review/snapshots, and next CLI commands for setup or explicit
+  provider send.
 
 Still open:
 
@@ -465,6 +469,8 @@ Current checkpoint:
   context, and snapshot tools as structured recoverable errors.
 - MCP `context_pack` now embeds bounded flow-navigation packs for the relevant impact/query
   flows, including caller/callee, decision, finding, annotation, and next-tool orientation.
+- MCP `preview_enrichment` lets agents inspect the optional LLM enrichment payload locally
+  before any external provider send, while keeping `--send` as an explicit CLI boundary.
 - MCP `context_pack` now accepts the same deterministic source/language/domain/value and
   finding kind/severity/evidence filters as `query_logic`, keeping filtered review and
   visual context aligned with the requested slice.
@@ -756,6 +762,8 @@ Before the next release:
   provider payload before any request and calls the configured provider only with `--send`.
 - Done: validate provider enrichment output against known ids, supported annotation
   fields, text limits, and the current model hash before writing the sidecar.
+- Done: expose the enrichment preview through MCP as a local-only agent workflow helper,
+  without adding an MCP provider-send path.
 - Done: write/load `logic-annotations.json`.
 - Done: validate annotations against a schema and model hash.
 - Done: add viewer overlays for better flow/node labels and descriptions.
