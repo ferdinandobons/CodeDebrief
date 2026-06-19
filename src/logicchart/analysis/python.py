@@ -217,14 +217,13 @@ class PythonAnalyzer:
         relative: str,
     ) -> list[PendingEdge]:
         endpoints = incoming
-        for index, statement in enumerate(statements):
+        for statement in statements:
             if not endpoints:
-                dead = statements[index]
                 findings.append(
                     dead_code_finding(
                         builder.flow,
-                        _location(relative, dead),
-                        _source_segment(source, dead),
+                        _location(relative, statement),
+                        _source_segment(source, statement),
                     )
                 )
                 break

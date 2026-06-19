@@ -221,14 +221,13 @@ class TypeScriptAnalyzer:
         relative: str,
     ) -> list[PendingEdge]:
         endpoints = incoming
-        for index, statement in enumerate(statements):
+        for statement in statements:
             if not endpoints:
-                dead = statements[index]
                 findings.append(
                     dead_code_finding(
                         builder.flow,
-                        _location(relative, dead),
-                        _text(dead, source),
+                        _location(relative, statement),
+                        _text(statement, source),
                     )
                 )
                 break
