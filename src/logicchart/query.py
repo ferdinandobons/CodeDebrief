@@ -34,8 +34,7 @@ class QueryMatch:
     findings: list[Finding] = field(default_factory=list)
 
     def to_dict(self, include_source: bool = True) -> dict[str, Any]:
-        """The single serialization shared by the CLI ``--json`` path and the MCP
-        ``query_logic`` tool, so both surfaces emit an identical JSON shape."""
+        """The single serialization used by MCP query/context tools."""
         findings = sorted(
             self.findings,
             key=lambda finding: (
@@ -46,11 +45,6 @@ class QueryMatch:
         )
         finding_ids = [finding.id for finding in findings]
         visible_finding_ids = finding_ids[:QUERY_FINDING_ID_LIMIT]
-        subgraph_cli = "logicchart snapshot subgraph --flow " + self.flow.id
-        if visible_finding_ids:
-            subgraph_cli += " " + " ".join(
-                f"--finding {finding_id}" for finding_id in visible_finding_ids
-            )
         payload: dict[str, Any] = {
             "flow_id": self.flow.id,
             "name": self.flow.name,
@@ -90,12 +84,6 @@ class QueryMatch:
                     },
                 },
             },
-            "next_cli": [
-                f"logicchart navigate {self.flow.id}",
-                f"logicchart snapshot flow {self.flow.id}",
-                subgraph_cli,
-                f"logicchart impact --flow {self.flow.id}",
-            ],
         }
         if include_source:
             payload["source"] = f"{self.flow.location.path}:{self.flow.location.start_line}"
@@ -657,8 +645,7 @@ def render_flow_navigation(navigation: dict[str, Any]) -> str:
         for item in findings:
             lines.append(
                 f"- {_enum_text(item['severity']).upper()} · {_enum_text(item['evidence'])} · "
-                f"{item['kind']}: {item['message']} "
-                f"(id {item['id']}, explain `logicchart explain {item['id']}`)"
+                f"{item['kind']}: {item['message']} (id {item['id']})"
             )
     called = navigation.get("called_flows") or []
     if called:

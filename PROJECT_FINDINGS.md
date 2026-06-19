@@ -47,17 +47,22 @@ LogicChart is in a strong alpha state.
 - TypeScript/JavaScript and profile-driven tree-sitter parse errors now surface as
   skipped-file or parse-warning quality signals instead of silently clean canonical
   flowcharts.
-- The deterministic baseline is correct for the product: no API key is required, and LLM
-  usage remains optional enrichment, never a requirement for core correctness. The
-  `logicchart enrich` path previews the bounded provider payload locally by default and
-  calls a provider only with explicit `--send`.
+- The deterministic baseline is correct for the product: no API key is required. The
+  product migration now treats coding-agent-authored annotations as the primary enrichment
+  path, keeping provider-managed enrichment advanced/legacy and separate from deterministic
+  correctness.
 - The CLI update workflow can now bypass the incremental cache with
   `logicchart update --full`, which keeps agent instructions concise while allowing safe
   regeneration after analyzer upgrades or LogicChart itself changes.
-- The quickstart path and CLI help now prioritize no-flag first-run commands:
-  `logicchart analyze`, `logicchart view`, `logicchart llm setup`, and `logicchart enrich`.
-  Advanced flags remain available and documented for cache bypass, automation, JSON output,
-  CI render-only workflows, and explicit provider sends.
+- The public CLI migration has started: the first removal pass takes `query`, `impact`,
+  `explain`, `navigate`, and `snapshot` out of the public CLI surface while preserving
+  their underlying deterministic functionality for MCP and internal orchestration. The
+  remaining manual product path is `logicchart view`, with `update`, `validate`, `doctor`,
+  and `mcp` kept for maintenance, CI, diagnostics, and agent integration. `setup-agent`
+  remains the next setup-surface milestone.
+- `PRODUCT_MIGRATION_PLAN.md` is now the source of truth for product vision and migration
+  sequencing. It keeps the vision language needed for README/docs while listing the
+  macro-phase execution plan and required repeated code-review passes.
 - Source discovery now prunes known VCS, dependency, cache, temporary, and generated
   directories before traversal, including `.git`, `node_modules`, venv folders, build
   outputs, coverage, `vendor`, and `logicchart-out`. Projects can add their own whole-tree
@@ -158,10 +163,11 @@ Current checkpoint:
 - A shared detector-rule registry is emitted under `model.metadata.finding_rules`.
 - `explain_finding_chain`, `get_findings`, `review_queue`, and `context_pack` expose the
   diagnostic object over MCP.
-- `logicchart explain <finding-id>` exposes the same deterministic explanation payload over
-  the CLI, with evidence-tier guardrails and JSON output for agents.
-- `logicchart-out/logic-flow.md` includes finding ids and ready-to-run `logicchart explain`
-  commands so agents can move from the Markdown review queue to the evidence chain.
+- Deterministic explanation payloads remain available to MCP/internal consumers, with
+  evidence-tier guardrails and JSON-compatible output for agents.
+- `logicchart-out/logic-flow.md` includes finding ids so agents can move from the Markdown
+  review queue to MCP/internal evidence-chain context without relying on a public
+  explanation command.
 - `get_finding_context` exposes a bounded deterministic subgraph with the focus flow,
   evidence nodes, related flows/findings, evidence guardrail, and next-tool hints.
 - Cross-flow diagnostics include bounded related-decision scope with related flow/node ids
@@ -359,7 +365,7 @@ Current checkpoint:
   annotations for the selected flow.
 - MCP `preview_enrichment` exposes the same bounded local preview payload as
   `logicchart enrich`, with `provider_call_made: false`, selected target ids,
-  next-tool pointers for review/snapshots, and next CLI commands for setup or explicit
+  next-tool pointers for review/snapshots, and maintenance hints for setup or explicit
   provider send.
 
 Still open:
@@ -420,8 +426,8 @@ Current checkpoint:
 - MCP exposes `get_flow_snapshot`, `get_finding_snapshot`, `get_impact_snapshot`, and
   `get_subgraph_snapshot`.
 - Snapshots are generated from the deterministic model and returned as inline SVG.
-- `logicchart snapshot flow|finding|impact|subgraph` exposes the same deterministic SVG
-  snapshots over the CLI for agents that are not connected to MCP.
+- Deterministic SVG snapshots are an MCP/internal capability; the public CLI path for
+  humans is `logicchart view`.
 - Finding snapshots include a compact diagnostic side panel with evidence tier,
   confidence, review prompt, and evidence-chain summaries next to the highlighted flow.
 - Unsupported raster formats return an explicit supported-format response instead of
@@ -429,8 +435,8 @@ Current checkpoint:
 - Unknown flow/finding snapshot targets return structured recoverable errors with stable
   `error_code` fields instead of untyped error strings.
 - Impact snapshots now carry target lists, unresolved targets, impact reasons, and
-  subgraph ids, matching `impact --json`/MCP `analyze_impact` instead of forcing agents to
-  infer target errors from an empty SVG.
+  subgraph ids, matching MCP `analyze_impact` instead of forcing agents to infer target
+  errors from an empty SVG.
 - Flow, finding, and impact snapshot payloads now include deterministic layout metadata:
   canvas size, rendered positions, node/column dimensions, compact flags, and omitted
   edge/flow counts for large subgraph review.
@@ -446,9 +452,9 @@ Current checkpoint:
   crowded ones.
 - MCP exposes `get_flow_navigation` for token-bounded caller/callee, decision, finding,
   and next-tool orientation before an agent pulls the complete graph.
-- `logicchart navigate <flow-id>` exposes the same bounded flow-navigation contract over
-  the CLI, so agents can inspect callers, callees, decisions, findings, and next steps
-  without requiring MCP.
+- Bounded flow-navigation remains available through MCP/internal context packs, so agents
+  can inspect callers, callees, decisions, findings, and next steps without requiring a
+  public CLI navigation command.
 - `context_pack(include_visual=true)` can include inline SVG impact, subgraph, flow, and
   finding snapshots while the default response stays lightweight with follow-up snapshot
   tools. Inline SVGs are additionally capped by `visual_byte_budget`; omitted visuals are
@@ -591,19 +597,19 @@ Add richer query and impact modes while preserving deterministic behavior:
 
 Current checkpoint:
 
-- `logicchart query` and MCP `query_logic` accept deterministic `source_path`, `symbol`,
-  `domain`, `value`, `finding_kind`, `finding_severity`, and `finding_evidence` filters
-  that can work without lexical query terms.
-- CLI/MCP query rows include follow-up hints for flow navigation, flow snapshots, impact
+- MCP/internal query logic accepts deterministic `source_path`, `symbol`, `domain`,
+  `value`, `finding_kind`, `finding_severity`, and `finding_evidence` filters that can
+  work without lexical query terms.
+- MCP query rows include follow-up hints for flow navigation, flow snapshots, impact
   checks, and context packs, so agents can move from search result to review workflow
   without guessing tool names or arguments.
-- `logicchart impact` accepts `--flow`, `--symbol`, `--finding`, and
-  `--dependency-path` in addition to changed file paths, while preserving Git-diff
-  defaults when no target is provided.
+- MCP/internal impact logic accepts flow ids, symbols, finding ids, and dependency paths
+  in addition to changed file paths, while preserving Git-diff defaults when no target is
+  provided.
 - MCP `analyze_impact` and `get_impact_snapshot` accept the same target types.
 - JSON/MCP impact responses include target lists, unresolved targets, subgraph flow ids,
   and subgraph finding ids.
-- CLI/MCP impact snapshots include the same target, unresolved-target, impact-reason, and
+- MCP/internal impact snapshots include the same target, unresolved-target, impact-reason, and
   subgraph fields as the non-visual impact responses.
 - JSON/MCP impact responses include per-flow impact reasons, distinguishing changed-file
   matches, imported changed-file dependencies, explicit flow/symbol/finding/dependency-path
@@ -629,7 +635,7 @@ Still open:
 Optional LLM query reformulation could help map natural language to deterministic query
 fields, but final retrieval should still be model-backed.
 
-## Finding 9: Viewer Complexity Should Be Shared with CLI/MCP Where Possible
+## Finding 9: Viewer Complexity Should Be Shared with MCP and Agent Context Where Possible
 
 ### Problem
 
@@ -762,12 +768,15 @@ Before the next release:
 - Done: add model-slice helpers for flow/finding/impact snapshots.
 - Done: add deterministic SVG snapshot rendering.
 - Done: expose snapshot tools over MCP.
-- Done: expose deterministic SVG snapshots over CLI.
+- Done: exposed deterministic SVG snapshots over CLI before the agent-first migration;
+  current migration keeps this as MCP/internal capability and routes humans to
+  `logicchart view`.
 - Done: add tool contract tests for snapshot discovery and output shape.
 - Done: add focused diagnostic panels to finding SVG snapshots.
 - Done: add a flow-navigation MCP pack for caller/callee, decision, finding, and next-tool
   orientation.
-- Done: share the flow-navigation pack with CLI via `logicchart navigate`.
+- Done: shared the flow-navigation pack with CLI before the agent-first migration; current
+  migration keeps navigation as MCP/internal context.
 - Done: add a finding-context MCP pack for focus flow, related nodes/flows/findings,
   evidence guardrails, and next-tool orientation.
 - Done: make MCP flow/finding/impact SVG snapshots honor `token_budget` by omitting excess

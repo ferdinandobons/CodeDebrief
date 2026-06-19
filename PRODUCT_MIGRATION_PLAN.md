@@ -335,6 +335,24 @@ they know.
 The viewer remains useful, but agents should be able to request compact deterministic SVG
 snapshots directly through MCP.
 
+## Documentation Narrative
+
+This file should remain more than an execution checklist. It is the source of the product
+story used by README, docs, generated agent instructions, and release notes.
+
+When documentation is updated, keep the vision visible:
+
+- Lead with the idea that LogicChart helps coding agents and humans understand code logic,
+  not with a list of terminal commands.
+- Describe MCP as the primary runtime path, CLI as setup and maintenance, and the viewer
+  as the official manual visual inspection mode.
+- Present `logicchart view ...` as the one manual experience worth remembering.
+- Explain that deterministic artifacts, evidence tiers, snapshots, and annotations exist
+  to keep agent answers grounded in code.
+- Avoid implying that provider LLM keys are required for the main workflow.
+- Keep the language useful for a user who will ask an agent a plain question rather than
+  manually operate low-level commands.
+
 ## Transformation Plan
 
 The transformation should be executed in stable, reviewable phases. Each phase should keep

@@ -71,11 +71,11 @@ def test_evidence_level_is_rendered_inline() -> None:
     assert "INFERRED" in out
 
 
-def test_finding_id_and_explain_command_are_rendered_inline() -> None:
+def test_finding_id_is_rendered_inline_without_cli_command() -> None:
     finding = _finding("dead_code", Evidence.INFERRED, "x")
     out = render_markdown(_model([finding]))
-    assert f"id `{finding.id}`" in out
-    assert f"explain `logicchart explain {finding.id}`" in out
+    assert f"finding id `{finding.id}`" in out
+    assert "logicchart explain" not in out
 
 
 def test_diagnostic_review_prompt_is_rendered_when_present() -> None:

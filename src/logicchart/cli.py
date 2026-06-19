@@ -14,7 +14,6 @@ from typing import Any
 
 from logicchart import __version__
 from logicchart.analysis import ProjectAnalyzer
-from logicchart.annotations import load_annotations
 from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import BUILTIN_PROFILES, LogicChartConfig
 from logicchart.doctor import doctor_report, render_doctor, render_doctor_json
@@ -37,25 +36,7 @@ from logicchart.llm_enrich import (
     write_enrichment_annotations,
 )
 from logicchart.quality import render_quality
-from logicchart.query import (
-    explain_finding,
-    flow_navigation,
-    git_changed_files,
-    impact_model,
-    query_model,
-    render_finding_explanation,
-    render_flow_navigation,
-    render_impact,
-    render_query,
-)
 from logicchart.render.html import render_html
-from logicchart.render.snapshot import (
-    render_finding_snapshot,
-    render_flow_snapshot,
-    render_impact_snapshot,
-    render_subgraph_snapshot,
-    unsupported_snapshot_format,
-)
 from logicchart.validation import validate_logicchart
 
 
@@ -76,17 +57,13 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=dedent(
             """\
             Quick start:
-              logicchart analyze
+              logicchart update
               logicchart view
-              logicchart query "where is auth checked?"
-              logicchart impact src/file.py
               logicchart validate
+              logicchart doctor
 
             Optional setup:
               logicchart install
-              logicchart llm providers
-              logicchart llm setup
-              logicchart enrich
 
             Add --help after any command for focused examples and advanced options.
             """
@@ -160,133 +137,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Expand review-only (POTENTIAL_GAP) findings in Markdown.",
     )
     _add_profile_argument(update)
-
-    impact = subparsers.add_parser("impact", help="Show flows affected by changed files.")
-    impact.add_argument("files", nargs="*", help="Changed source files to seed impact from.")
-    impact.add_argument(
-        "--path", default=".", help="Project folder. Defaults to current directory."
-    )
-    impact.add_argument("--scope", default=None, help="Restrict to a named macro-part.")
-    impact.add_argument("--flow", action="append", default=[], help="Seed impact from a flow id.")
-    impact.add_argument(
-        "--symbol",
-        action="append",
-        default=[],
-        help="Seed impact from an exact flow symbol or flow name.",
-    )
-    impact.add_argument(
-        "--finding",
-        action="append",
-        default=[],
-        help="Seed impact from a finding id.",
-    )
-    impact.add_argument(
-        "--dependency-path",
-        action="append",
-        default=[],
-        help="Seed impact from flows in or under a source path.",
-    )
-    _add_profile_argument(impact)
-    impact.add_argument("--json", action="store_true", dest="json_output")
-
-    query = subparsers.add_parser(
-        "query",
-        help="Search the logical model.",
-        description="Ask deterministic questions about flows, decisions, calls, and findings.",
-        epilog=dedent(
-            """\
-            Examples:
-              logicchart query "where is auth checked?"
-              logicchart query "payment status" --scope backend
-              logicchart query "missing branches" --finding-kind missing_branch
-            """
-        ),
-    )
-    query.add_argument("question", help="Natural-language query. Use an empty string with filters.")
-    query.add_argument("--path", default=".", help="Project folder. Defaults to current directory.")
-    query.add_argument("--limit", type=int, default=10)
-    query.add_argument("--scope", default=None, help="Restrict to a named macro-part.")
-    query.add_argument("--language", default=None, help="Restrict to one language id.")
-    query.add_argument("--source-path", default=None, help="Restrict to matching source path.")
-    query.add_argument(
-        "--symbol",
-        default=None,
-        help="Restrict to an exact flow symbol, flow name, or flow id.",
-    )
-    query.add_argument("--domain", default=None, help="Restrict to a decision domain.")
-    query.add_argument("--value", default=None, help="Restrict to a handled decision value.")
-    query.add_argument(
-        "--finding-kind",
-        default=None,
-        help="Restrict to flows with this finding kind.",
-    )
-    query.add_argument(
-        "--finding-severity",
-        choices=["error", "warning", "info"],
-        default=None,
-        help="Restrict to flows with findings at this severity.",
-    )
-    query.add_argument(
-        "--finding-evidence",
-        choices=["VERIFIED", "INFERRED", "POTENTIAL_GAP"],
-        default=None,
-        help="Restrict to flows with findings at this evidence tier.",
-    )
-    _add_profile_argument(query)
-    query.add_argument("--json", action="store_true", dest="json_output", help="Emit JSON output.")
-
-    explain = subparsers.add_parser("explain", help="Explain one logical finding.")
-    explain.add_argument("finding_id", help="Finding id from logic-flow.md or query output.")
-    explain.add_argument(
-        "--path", default=".", help="Project folder. Defaults to current directory."
-    )
-    _add_profile_argument(explain)
-    explain.add_argument(
-        "--json", action="store_true", dest="json_output", help="Emit JSON output."
-    )
-
-    navigate = subparsers.add_parser("navigate", help="Show an agent navigation pack for one flow.")
-    navigate.add_argument("flow", help="Flow id, symbol, or flow name.")
-    navigate.add_argument(
-        "--path", default=".", help="Project folder. Defaults to current directory."
-    )
-    navigate.add_argument("--token-budget", type=int, default=0, help="Approximate output budget.")
-    _add_profile_argument(navigate)
-    navigate.add_argument(
-        "--json", action="store_true", dest="json_output", help="Emit JSON output."
-    )
-
-    snapshot = subparsers.add_parser(
-        "snapshot", help="Render deterministic SVG snapshots for agents."
-    )
-    snapshot_subparsers = snapshot.add_subparsers(dest="snapshot_kind", required=True)
-    snapshot_flow = snapshot_subparsers.add_parser("flow", help="Render one flow snapshot.")
-    snapshot_flow.add_argument("flow_id", help="Flow id, symbol, or flow name to render.")
-    _add_snapshot_arguments(snapshot_flow)
-
-    snapshot_finding = snapshot_subparsers.add_parser(
-        "finding", help="Render one finding snapshot."
-    )
-    snapshot_finding.add_argument("finding_id", help="Finding id to render.")
-    _add_snapshot_arguments(snapshot_finding)
-
-    snapshot_impact = snapshot_subparsers.add_parser(
-        "impact", help="Render an impact snapshot from files or explicit targets."
-    )
-    snapshot_impact.add_argument("files", nargs="*")
-    snapshot_impact.add_argument("--scope", default=None, help="Restrict to a named macro-part.")
-    snapshot_impact.add_argument("--flow", action="append", default=[])
-    snapshot_impact.add_argument("--symbol", action="append", default=[])
-    snapshot_impact.add_argument("--finding", action="append", default=[])
-    snapshot_impact.add_argument("--dependency-path", action="append", default=[])
-    _add_snapshot_arguments(snapshot_impact)
-
-    snapshot_subgraph = snapshot_subparsers.add_parser(
-        "subgraph", help="Render an explicit flow/finding subgraph snapshot."
-    )
-    snapshot_subgraph.add_argument("--flow", action="append", default=[])
-    snapshot_subgraph.add_argument("--finding", action="append", default=[])
-    _add_snapshot_arguments(snapshot_subgraph)
 
     view = subparsers.add_parser(
         "view",
@@ -627,17 +477,6 @@ def _add_profile_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _add_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--path", default=".", help="Project folder. Defaults to current directory."
-    )
-    parser.add_argument("--format", default="svg", help="Snapshot format. Currently only svg.")
-    parser.add_argument("--token-budget", type=int, default=0, help="Approximate output budget.")
-    parser.add_argument("--output", default=None, help="Write SVG output to this path.")
-    _add_profile_argument(parser)
-    parser.add_argument("--json", action="store_true", dest="json_output", help="Emit JSON output.")
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -657,52 +496,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 include_gaps=args.include_gaps,
                 profile=args.profile,
             )
-        if args.command == "impact":
-            return _impact(
-                Path(args.path),
-                args.files,
-                args.json_output,
-                args.scope,
-                args.profile,
-                args.flow,
-                args.symbol,
-                args.finding,
-                args.dependency_path,
-            )
-        if args.command == "query":
-            return _query(
-                Path(args.path),
-                args.question,
-                args.limit,
-                args.json_output,
-                args.scope,
-                args.language,
-                args.finding_kind,
-                args.finding_severity,
-                args.finding_evidence,
-                args.source_path,
-                args.symbol,
-                args.domain,
-                args.value,
-                args.profile,
-            )
-        if args.command == "explain":
-            return _explain(
-                Path(args.path),
-                args.finding_id,
-                args.json_output,
-                args.profile,
-            )
-        if args.command == "navigate":
-            return _navigate(
-                Path(args.path),
-                args.flow,
-                args.token_budget,
-                args.json_output,
-                args.profile,
-            )
-        if args.command == "snapshot":
-            return _snapshot(args)
         if args.command == "view":
             return _view(
                 Path(args.path),
@@ -868,147 +661,6 @@ def _read_api_key(args: argparse.Namespace) -> str:
     return api_key
 
 
-def _snapshot(args: argparse.Namespace) -> int:
-    root = Path(args.path).resolve()
-    config = LogicChartConfig.load(root, profile=args.profile)
-    if args.format != "svg":
-        return _emit_snapshot(unsupported_snapshot_format(args.format), args.json_output, None)
-
-    model = load_model(root, config)
-    if args.snapshot_kind == "flow":
-        payload = render_flow_snapshot(
-            model,
-            args.flow_id,
-            max_nodes=_snapshot_node_budget(args.token_budget),
-        )
-    elif args.snapshot_kind == "finding":
-        payload = render_finding_snapshot(
-            model,
-            args.finding_id,
-            max_nodes=_snapshot_node_budget(args.token_budget),
-        )
-    elif args.snapshot_kind == "subgraph":
-        payload = render_subgraph_snapshot(
-            model,
-            flow_ids=args.flow,
-            finding_ids=args.finding,
-            max_flows=_snapshot_flow_budget(args.token_budget),
-            max_nodes=_snapshot_node_budget(args.token_budget),
-        )
-    else:
-        has_targets = bool(args.flow or args.symbol or args.finding or args.dependency_path)
-        changed = args.files if args.files or has_targets else git_changed_files(root)
-        impact = impact_model(
-            model,
-            changed,
-            args.scope,
-            flow_ids=args.flow,
-            symbols=args.symbol,
-            finding_ids=args.finding,
-            dependency_paths=args.dependency_path,
-        )
-        payload = render_impact_snapshot(
-            changed_files=impact.changed_files,
-            direct=impact.directly_impacted,
-            transitive=impact.transitively_impacted,
-            findings=impact.findings,
-            max_flows=_snapshot_flow_budget(args.token_budget),
-            target_flow_ids=impact.target_flow_ids,
-            target_symbols=impact.target_symbols,
-            target_finding_ids=impact.target_finding_ids,
-            target_dependency_paths=impact.target_dependency_paths,
-            unresolved_targets=impact.unresolved_targets,
-            impact_reasons=impact.impact_reasons,
-            subgraph_flow_ids=impact.subgraph_flow_ids,
-            subgraph_finding_ids=impact.subgraph_finding_ids,
-        )
-
-    return _emit_snapshot(payload, args.json_output, args.output)
-
-
-def _emit_snapshot(
-    payload: dict[str, object],
-    json_output: bool,
-    output: str | None,
-) -> int:
-    if "error" in payload:
-        if json_output:
-            print(json.dumps(payload, indent=2))
-        else:
-            print(f"error: {payload['error']}", file=sys.stderr)
-        return 1
-    if output is not None:
-        output_path = Path(output)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(str(payload["svg"]), encoding="utf-8")
-        if not json_output:
-            print(f"Wrote {output_path}")
-            return 0
-        payload = {**payload, "output": str(output_path)}
-    print(json.dumps(payload, indent=2) if json_output else str(payload["svg"]))
-    return 0
-
-
-def _snapshot_node_budget(token_budget: int) -> int | None:
-    if token_budget <= 0:
-        return None
-    return max(4, token_budget // 80)
-
-
-def _snapshot_flow_budget(token_budget: int) -> int | None:
-    if token_budget <= 0:
-        return None
-    return max(1, token_budget // 120)
-
-
-def _navigate(
-    root: Path,
-    flow_target: str,
-    token_budget: int,
-    json_output: bool,
-    profile: str | None = None,
-) -> int:
-    root = root.resolve()
-    config = LogicChartConfig.load(root, profile=profile)
-    model = load_model(root, config)
-    annotations = load_annotations(root, model, config)
-    annotation_payload = annotations.annotations if annotations.ok else None
-    navigation = flow_navigation(model, flow_target, token_budget, annotation_payload)
-    if "error" in navigation:
-        print(f"error: {navigation['error']}", file=sys.stderr)
-        if navigation.get("matches"):
-            for item in navigation["matches"]:
-                print(f"  - {item['name']} ({item['id']}) {item['source']}", file=sys.stderr)
-        return 1
-    if json_output:
-        print(json.dumps(navigation, indent=2))
-    else:
-        print(render_flow_navigation(navigation))
-    return 0
-
-
-def _explain(
-    root: Path,
-    finding_id: str,
-    json_output: bool,
-    profile: str | None = None,
-) -> int:
-    root = root.resolve()
-    config = LogicChartConfig.load(root, profile=profile)
-    model = load_model(root, config)
-    annotations = load_annotations(root, model, config)
-    annotation_payload = annotations.annotations if annotations.ok else None
-    explanation = explain_finding(model, finding_id, annotation_payload)
-    if explanation is None:
-        print(f"error: finding not found: {finding_id}", file=sys.stderr)
-        return 1
-    if json_output:
-        print(json.dumps(explanation, indent=2))
-    else:
-        print(render_finding_explanation(explanation))
-    return 0
-
-
 def _analyze(
     root: Path,
     *,
@@ -1046,110 +698,6 @@ def _analyze(
     print(f"Wrote {markdown_path}")
     if html_path:
         print(f"Wrote {html_path}")
-    return 0
-
-
-def _impact(
-    root: Path,
-    files: list[str],
-    json_output: bool,
-    scope: str | None = None,
-    profile: str | None = None,
-    flow_ids: list[str] | None = None,
-    symbols: list[str] | None = None,
-    finding_ids: list[str] | None = None,
-    dependency_paths: list[str] | None = None,
-) -> int:
-    root = root.resolve()
-    config = LogicChartConfig.load(root, profile=profile)
-    has_targets = bool(flow_ids or symbols or finding_ids or dependency_paths)
-    changed = files if files or has_targets else git_changed_files(root)
-    result = impact_model(
-        load_model(root, config),
-        changed,
-        scope,
-        flow_ids=flow_ids,
-        symbols=symbols,
-        finding_ids=finding_ids,
-        dependency_paths=dependency_paths,
-    )
-    if json_output:
-        print(
-            json.dumps(
-                {
-                    "changed_files": result.changed_files,
-                    "target_flow_ids": result.target_flow_ids,
-                    "target_symbols": result.target_symbols,
-                    "target_finding_ids": result.target_finding_ids,
-                    "target_dependency_paths": result.target_dependency_paths,
-                    "unresolved_targets": result.unresolved_targets,
-                    "impact_reasons": result.impact_reasons,
-                    "directly_impacted": [item.id for item in result.directly_impacted],
-                    "transitively_impacted": [item.id for item in result.transitively_impacted],
-                    "findings": [item.id for item in result.findings],
-                    "subgraph_flow_ids": result.subgraph_flow_ids,
-                    "subgraph_finding_ids": result.subgraph_finding_ids,
-                },
-                indent=2,
-            )
-        )
-    else:
-        print(render_impact(result))
-    return 0
-
-
-def _query(
-    root: Path,
-    question: str,
-    limit: int,
-    json_output: bool,
-    scope: str | None = None,
-    language: str | None = None,
-    finding_kind: str | None = None,
-    finding_severity: str | None = None,
-    finding_evidence: str | None = None,
-    source_path: str | None = None,
-    symbol: str | None = None,
-    domain: str | None = None,
-    value: str | None = None,
-    profile: str | None = None,
-) -> int:
-    root = root.resolve()
-    config = LogicChartConfig.load(root, profile=profile)
-    model = load_model(root, config)
-    if scope is not None:
-        known_scopes = model.metadata.get("scopes", {})
-        if scope not in known_scopes:
-            print(
-                f"warning: unknown scope {scope!r}; known scopes: "
-                f"{', '.join(sorted(known_scopes)) or '(none)'}",
-                file=sys.stderr,
-            )
-    if limit < 0:
-        # A negative slice would silently drop results; treat it as "no limit".
-        print(
-            f"warning: ignoring negative --limit {limit}; returning all matches",
-            file=sys.stderr,
-        )
-        limit = 0
-    matches = query_model(
-        model,
-        question,
-        limit,
-        scope,
-        language=language,
-        finding_kind=finding_kind,
-        finding_severity=finding_severity,
-        finding_evidence=finding_evidence,
-        source_path=source_path,
-        symbol=symbol,
-        domain=domain,
-        value=value,
-    )
-    if json_output:
-        print(json.dumps([item.to_dict() for item in matches], indent=2))
-    else:
-        print(render_query(matches))
     return 0
 
 

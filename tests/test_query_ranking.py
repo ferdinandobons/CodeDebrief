@@ -8,11 +8,6 @@ right flows) is covered by the demo golden test; here we isolate the scoring mec
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
-from logicchart.artifacts import load_model
-from logicchart.cli import main
 from logicchart.model import (
     Evidence,
     Finding,
@@ -274,9 +269,6 @@ def test_query_can_filter_findings_by_kind_severity_and_evidence_without_terms()
             "format": "svg",
         },
     }
-    assert payload["next_cli"][2] == (
-        "logicchart snapshot subgraph --flow review --finding review-find"
-    )
     assert query_model(model, "", finding_severity="error") == []
     assert [match.flow.id for match in query_model(model, "", finding_evidence="INFERRED")] == [
         "audit"
@@ -380,12 +372,6 @@ def test_query_match_to_dict_shape() -> None:
                 "arguments": {"flow_ids": ["f1"], "finding_ids": [], "format": "svg"},
             },
         },
-        "next_cli": [
-            "logicchart navigate f1",
-            "logicchart snapshot flow f1",
-            "logicchart snapshot subgraph --flow f1",
-            "logicchart impact --flow f1",
-        ],
         "source": "app.py:1",
     }
     assert "source" not in match.to_dict(include_source=False)
@@ -617,176 +603,3 @@ def test_impact_model_marks_scope_filtered_dependency_paths() -> None:
     assert result.unresolved_targets == [
         {"type": "dependency_path", "value": "backend", "reason": "scope_filtered"}
     ]
-
-
-def _demo_source(tmp_path: Path) -> Path:
-    source = tmp_path / "app.py"
-    source.write_text(
-        "def authorize(user):\n"
-        "    if user.role == 'admin':\n"
-        "        return True\n"
-        "    return False\n",
-        encoding="utf-8",
-    )
-    return tmp_path
-
-
-def test_cli_no_match_prints_message(tmp_path: Path, capsys: object) -> None:
-    root = _demo_source(tmp_path)
-    assert main(["analyze", str(root), "--full"]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-    assert main(["query", "zzqqxx_nonsense", "--path", str(root)]) == 0
-    out = capsys.readouterr()  # type: ignore[attr-defined]
-    assert out.out.strip() == "No matching logic flows found."
-
-
-def test_cli_negative_limit_warns_and_keeps_results(tmp_path: Path, capsys: object) -> None:
-    root = _demo_source(tmp_path)
-    assert main(["analyze", str(root), "--full"]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-    assert main(["query", "admin authorize", "--path", str(root), "--limit", "-1"]) == 0
-    out = capsys.readouterr()  # type: ignore[attr-defined]
-    assert "authorize" in out.out
-    assert "negative --limit" in out.err
-
-
-def test_cli_unknown_scope_warns_but_runs(tmp_path: Path, capsys: object) -> None:
-    root = _demo_source(tmp_path)
-    assert main(["analyze", str(root), "--full"]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-    assert main(["query", "admin authorize", "--path", str(root), "--scope", "nope"]) == 0
-    out = capsys.readouterr()  # type: ignore[attr-defined]
-    assert "unknown scope" in out.err
-
-
-def test_cli_json_matches_query_match_to_dict(tmp_path: Path, capsys: object) -> None:
-    """The CLI --json shape is exactly QueryMatch.to_dict() (the same serializer the MCP
-    query_logic tool now uses), including the path:line `source` field."""
-    root = _demo_source(tmp_path)
-    assert main(["analyze", str(root), "--full"]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-    assert main(["query", "admin authorize", "--path", str(root), "--json"]) == 0
-    out = capsys.readouterr()  # type: ignore[attr-defined]
-    payload = json.loads(out.out)
-    assert payload
-    for row in payload:
-        assert set(row) == {
-            "flow_id",
-            "name",
-            "language",
-            "entry_kind",
-            "framework",
-            "scope",
-            "score",
-            "reasons",
-            "finding_count",
-            "finding_ids",
-            "finding_kinds",
-            "finding_severities",
-            "finding_evidence",
-            "omitted_finding_count",
-            "subgraph_flow_ids",
-            "subgraph_finding_ids",
-            "next_tools",
-            "next_cli",
-            "source",
-        }
-        assert ":" in row["source"]
-        assert row["next_tools"]["flow_navigation"]["tool"] == "get_flow_navigation"
-        assert row["next_tools"]["subgraph_snapshot"]["tool"] == "get_subgraph_snapshot"
-        assert row["subgraph_flow_ids"] == [row["flow_id"]]
-        assert row["next_cli"][0].startswith("logicchart navigate ")
-
-
-def test_cli_impact_json_accepts_flow_target_without_changed_files(
-    tmp_path: Path, capsys: object
-) -> None:
-    root = _demo_source(tmp_path)
-    assert main(["analyze", str(root), "--full"]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-    flow = load_model(root).flows[0]
-
-    assert main(["impact", "--path", str(root), "--flow", flow.id, "--json"]) == 0
-    out = capsys.readouterr()  # type: ignore[attr-defined]
-    payload = json.loads(out.out)
-
-    assert payload["changed_files"] == []
-    assert payload["target_flow_ids"] == [flow.id]
-    assert payload["directly_impacted"] == [flow.id]
-    assert payload["impact_reasons"] == {
-        flow.id: [f"explicit flow target `{flow.id}`"],
-    }
-    assert payload["subgraph_flow_ids"] == [flow.id]
-
-
-def test_cli_impact_json_accepts_dependency_path_target(tmp_path: Path, capsys: object) -> None:
-    root = _demo_source(tmp_path)
-    assert main(["analyze", str(root), "--full"]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-    flow = load_model(root).flows[0]
-
-    assert main(["impact", "--path", str(root), "--dependency-path", "./app.py", "--json"]) == 0
-    out = capsys.readouterr()  # type: ignore[attr-defined]
-    payload = json.loads(out.out)
-
-    assert payload["changed_files"] == []
-    assert payload["target_dependency_paths"] == ["app.py"]
-    assert payload["directly_impacted"] == [flow.id]
-    assert payload["impact_reasons"] == {
-        flow.id: ["dependency path target `app.py`"],
-    }
-    assert payload["subgraph_flow_ids"] == [flow.id]
-
-
-def test_cli_impact_json_includes_import_dependent_flows(tmp_path: Path, capsys: object) -> None:
-    (tmp_path / "settings.py").write_text("ENABLED = True\n", encoding="utf-8")
-    (tmp_path / "route.py").write_text(
-        "from settings import ENABLED\n\n"
-        "def handler(req):\n"
-        "    if ENABLED:\n"
-        "        return 'enabled'\n"
-        "    return 'disabled'\n",
-        encoding="utf-8",
-    )
-    assert main(["analyze", str(tmp_path), "--full"]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-    handler = next(flow for flow in load_model(tmp_path).flows if flow.name == "handler")
-
-    assert main(["impact", "settings.py", "--path", str(tmp_path), "--json"]) == 0
-    out = capsys.readouterr()  # type: ignore[attr-defined]
-    payload = json.loads(out.out)
-
-    assert payload["changed_files"] == ["settings.py"]
-    assert payload["directly_impacted"] == [handler.id]
-    assert payload["impact_reasons"] == {
-        handler.id: ["depends on changed file `settings.py`"],
-    }
-
-
-def test_cli_query_json_accepts_structured_filters(tmp_path: Path, capsys: object) -> None:
-    root = _demo_source(tmp_path)
-    assert main(["analyze", str(root), "--full"]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-    flow = load_model(root).flows[0]
-
-    assert (
-        main(
-            [
-                "query",
-                "",
-                "--path",
-                str(root),
-                "--symbol",
-                flow.symbol,
-                "--source-path",
-                "app.py",
-                "--json",
-            ]
-        )
-        == 0
-    )
-    out = capsys.readouterr()  # type: ignore[attr-defined]
-    payload = json.loads(out.out)
-
-    assert [row["flow_id"] for row in payload] == [flow.id]
-    assert "symbol/name matches" in payload[0]["reasons"][1]

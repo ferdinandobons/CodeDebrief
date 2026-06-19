@@ -71,8 +71,8 @@ logicchart enrich --scope frontend --send
 the current model hash and known ids. Provider output can annotate existing scopes, flows,
 nodes, and findings with labels, descriptions, summaries, explanations, or remediation
 text. It cannot create, remove, or rename flow structure.
-Finding annotations are consumed as optional enrichment by `logicchart explain`,
-`logicchart navigate`, MCP finding/review/context tools, and the Logical Errors panel.
+Finding annotations are consumed as optional enrichment by MCP finding/review/context
+tools and the Logical Errors panel.
 The deterministic `diagnostic` data remains the source of correctness; enrichment text is
 kept in a separate `annotation` field.
 Scope annotations are rendered as progressive flowchart group labels and are included in
@@ -89,7 +89,7 @@ adapters are added.
 Agents connected through MCP can call `preview_enrichment` to inspect the same bounded
 payload as `logicchart enrich`. The tool is local-only, returns
 `provider_call_made: false`, includes next-tool pointers for finding review and subgraph
-snapshots, and returns next CLI commands for setup or explicit send.
+snapshots, and returns maintenance hints for setup or explicit send.
 
 MCP does not expose a provider-send tool. Sending source-derived payloads to an external
 provider remains a deliberate CLI action through `logicchart enrich --send` after the

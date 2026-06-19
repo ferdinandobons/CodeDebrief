@@ -15,22 +15,20 @@ The project follows Semantic Versioning.
   guards, swallowed handlers, no-op branches, and asymmetric dispatch returns.
 - Added bounded related-decision scope to cross-flow diagnostics, including related flow
   and node ids plus source ranges for evidence-chain entries.
-- Added `logicchart explain <finding-id>` for deterministic CLI finding explanations with
-  evidence-tier guardrails and JSON output for agents.
-- Added optional finding-annotation enrichment overlays across `logicchart explain`,
-  `logicchart navigate`, MCP finding/review/context tools, and the Logical Errors panel.
+- Added deterministic finding explanation payloads with evidence-tier guardrails for MCP
+  and internal agent context.
+- Added optional finding-annotation enrichment overlays across MCP finding/review/context
+  tools and the Logical Errors panel.
 - Added optional scope-annotation labels and summaries to the React flowchart and flow
   navigation annotation payloads.
-- Added finding ids and ready-to-run `logicchart explain ...` commands to the generated
-  Markdown findings list.
+- Added stable finding ids to the generated Markdown findings list.
 - Added a shared finding-rule registry to generated model metadata and exposed it through
   MCP with a new `finding_rules` tool.
 - Added concise true-positive and intentional-suppression examples to every finding-rule
   contract in metadata and MCP responses.
 - Added deterministic SVG MCP snapshot tools for flow, finding, impact, and explicit
   flow/finding subgraph visual context.
-- Added `logicchart snapshot flow|finding|impact|subgraph` for deterministic SVG visual
-  context without requiring MCP or a browser.
+- Added deterministic SVG snapshot rendering for MCP visual context.
 - Added structured, recoverable MCP artifact-load errors with error codes, artifact paths,
   guardrails, and next-tool/CLI recovery actions.
 - Added MCP artifact workflow hints for update/validate/review sequencing, including stale
@@ -40,7 +38,7 @@ The project follows Semantic Versioning.
 - Added token-budget handling to MCP flow, finding, and impact SVG snapshots, including
   omission counts for capped visual context.
 - Added target, unresolved-target, impact-reason, and subgraph metadata to impact snapshot
-  payloads across CLI and MCP.
+  payloads for MCP and internal use.
 - Added deterministic layout metadata to flow, finding, and impact snapshot payloads,
   including canvas size, rendered positions, compact flags, and omitted edge/flow counts.
 - Added deterministic layout metadata to subgraph snapshot payloads, including flow
@@ -75,8 +73,6 @@ The project follows Semantic Versioning.
 - Added optional quality thresholds for CI-oriented `validate` and MCP artifact validation.
 - Added MCP flow-navigation packs with callers, callees, decisions, findings, and next-tool
   hints for token-bounded agent workflows.
-- Added `logicchart navigate <flow-id>` so CLI agents can use the same bounded
-  flow-navigation pack as MCP.
 - Added MCP `preview_enrichment` so agents can inspect the bounded optional LLM enrichment
   payload locally before any explicit provider send through the CLI.
 - Added explicit `logicchart enrich --dry-run` and `--preview` aliases for local
@@ -93,14 +89,14 @@ The project follows Semantic Versioning.
   the changed file has no modeled flow.
 - Added conservative C# `using` dependency records, so impact analysis can include ASP.NET
   or service methods that depend on changed first-party C# files.
-- Added per-flow impact reasons to CLI JSON and MCP impact analysis, so agents can see why
+- Added per-flow impact reasons to MCP/internal impact analysis, so agents can see why
   each direct or caller impact was selected.
 - Added deterministic query filters for source paths, symbols/names, decision domains,
-  handled values, finding kind, finding severity, and finding evidence tier across CLI and
-  MCP.
-- Added query-result follow-up hints for MCP tools and CLI commands, so agents can move
+  handled values, finding kind, finding severity, and finding evidence tier across MCP and
+  internal context paths.
+- Added query-result follow-up hints for MCP tools, so agents can move
   from a ranked match to navigation, visual snapshot, impact, or context-pack review.
-- Added bounded finding metadata and subgraph snapshot targets to CLI/MCP query results,
+- Added bounded finding metadata and subgraph snapshot targets to MCP/internal query results,
   so agents can move from `query_logic` directly into focused logical-error review without
   loading a full graph.
 - Added optional inline visual context to MCP `context_pack`, with SVG impact, subgraph,
@@ -162,16 +158,14 @@ The project follows Semantic Versioning.
 
 - Updated MCP finding responses, review queues, context packs, and finding explanations to
   include normalized diagnostic details.
-- Updated generated agent instructions to recommend `logicchart explain <finding-id>`
-  before treating logical findings as actionable.
-- Updated generated agent instructions across Codex, Claude, Gemini, and Cursor to use
-  `logicchart --help`, subcommand help, `doctor`, and safe `llm` setup guidance when
-  helping users set up or learn LogicChart.
-- Updated generated agent instructions to point users at `logicchart enrich --help` and
-  to review enrichment previews before running provider calls with `--send`.
-- Updated quickstart and command help to prioritize simple no-flag first-run commands,
-  including `logicchart analyze`, `logicchart view`, `logicchart llm setup`, and
-  `logicchart enrich`, while keeping advanced flags documented for automation.
+- Updated generated agent instructions across Codex, Claude, Gemini, and Cursor to prefer
+  LogicChart MCP tools for codebase questions and keep `logicchart view` as the manual UI
+  path.
+- Updated quickstart and command help to prioritize the agent-first/manual-viewer surface:
+  `logicchart update`, `logicchart view`, `logicchart validate`, and `logicchart doctor`.
+- Removed the public CLI surface for `query`, `impact`, `explain`, `navigate`, and
+  `snapshot`; their underlying deterministic capabilities remain available to MCP and
+  internal orchestration.
 - Updated Expand All performance so the viewer opens all scopes and flows as a lightweight
   expanded overview with progress feedback, deferred inline detail charts, cached direct
   call indexes, and simplified overview edge routing for large real-world codebases.
@@ -302,7 +296,7 @@ The project follows Semantic Versioning.
 - Added optional `logicchart install --mcp-config ...` project MCP config generation and
   server instructions for agent workflow guidance.
 - Added viewer flow search and a prioritized review queue in the findings panel.
-- Clarified the CLI-first, MCP-enhanced agent workflow in the README.
+- Clarified the earlier CLI/MCP agent workflow in the README.
 
 ### Changed
 

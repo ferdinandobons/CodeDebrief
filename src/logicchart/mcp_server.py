@@ -43,7 +43,7 @@ _DEFAULT_CONTEXT_VISUAL_BYTE_BUDGET = 120_000
 # traceback, so a stale or never-built model is recoverable advice, not a crash.
 _LOAD_ERRORS = (OSError, ValueError, KeyError, TypeError)
 
-MCP_INSTRUCTIONS = """Use LogicChart as a CLI-first, MCP-enhanced code reasoning tool.
+MCP_INSTRUCTIONS = """Use LogicChart as an agent-first code-logic understanding layer.
 Prefer context_pack, query_logic, review_queue, and analyze_impact for bounded orientation
 before broad file-by-file search. Use get_finding_context and get_finding_snapshot before
 treating a logical error as actionable. After substantial code edits, call update_logicchart
@@ -207,9 +207,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
     ) -> list[dict[str, Any]]:
         """Find flows relevant to a behavior, decision, state, or codebase question.
 
-        ``scope`` restricts to a named macro-part so the result matches the CLI's
-        ``query --scope`` ranking. ``token_budget`` only ever shrinks the list below
-        ``limit``; it never expands it (query_model has already truncated to ``limit``).
+        ``scope`` restricts to a named macro-part so the result matches deterministic
+        query ranking. ``token_budget`` only ever shrinks the list below ``limit``; it
+        never expands it (query_model has already truncated to ``limit``).
         """
         model, error = _try_load(project_root, active_config)
         if error is not None:
@@ -448,7 +448,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
     ) -> dict[str, Any]:
         """Find direct and transitive decision flows affected by files or explicit targets.
 
-        ``scope`` restricts to a named macro-part, matching the CLI's ``impact --scope``.
+        ``scope`` restricts to a named macro-part, matching the model scope filter.
         """
         model, error = _try_load(project_root, active_config)
         if error is not None:
@@ -1380,8 +1380,7 @@ def _validation_next_cli(ok: bool) -> list[str]:
     if ok:
         return [
             "logicchart validate --quality --json",
-            "logicchart query <question>",
-            "logicchart explain <finding-id>",
+            "logicchart view",
         ]
     return [
         "logicchart update --full",

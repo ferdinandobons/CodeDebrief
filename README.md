@@ -43,7 +43,7 @@ uv tool install .
 From the codebase you want to analyze:
 
 ```bash
-logicchart analyze
+logicchart update
 logicchart view
 ```
 
@@ -52,8 +52,8 @@ and writes:
 
 | File | Purpose |
 |---|---|
-| `logicchart-out/logic-flow.json` | canonical model consumed by CLI and MCP; commit it |
-| `logicchart-out/logic-flow.md` | reviewable decision flowcharts and findings, including finding ids and `logicchart explain ...` commands; commit it |
+| `logicchart-out/logic-flow.json` | canonical model consumed by MCP, CI, and the viewer; commit it |
+| `logicchart-out/logic-flow.md` | reviewable decision flowcharts and findings with stable finding ids; commit it |
 | `logicchart-out/logic-flow.html` | local interactive viewer; regenerated and normally ignored |
 | `logicchart-out/logic-annotations.json` | optional labels/summaries sidecar; never required for correctness |
 | `.env.logicchart` | optional local LLM provider key/model config; ignored and never required |
@@ -92,7 +92,7 @@ order-state finding in an 11-language, 2-scope frontend/backend codebase.
 LogicChart is designed for broad frontend/backend repositories, not only small scripts.
 
 - **Scopes:** declare `backend`, `frontend`, `edge`, `services`, or any macro-part once, then
-  filter `query`, `impact`, and the viewer by that scope.
+  let MCP context tools and the viewer focus on that scope.
 - **Shape-agnostic UI:** the viewer does not hard-code backend/frontend layouts; it renders
   arbitrary scopes, entry points, calls, decisions, and outcomes from the generated model.
 - **Incremental updates:** changed files are content-hashed and cached under `.logicchart/`.
@@ -240,58 +240,17 @@ After substantial source changes, commit the refreshed `logic-flow.json` and
 `logic-flow.md`. Use `logicchart update --full` after analyzer upgrades or when you need
 to verify that cached file models cannot mask a change in LogicChart itself.
 
-### `query`
+### Agent and MCP context tools
 
-Ask the model where behavior is handled:
+Question answering, impact analysis, finding explanation, flow navigation, and visual
+snapshots are agent/MCP capabilities rather than public CLI commands. The old public
+commands `query`, `impact`, `explain`, `navigate`, and `snapshot` are not part of the
+agent-first CLI surface, so users do not need to memorize low-level analysis commands.
 
-```bash
-logicchart query "where is suspended user status handled?"
-logicchart query "order status" --scope backend
-logicchart query "enum exhaustiveness" --finding-kind enum_exhaustiveness
-logicchart query "" --finding-kind missing_branch --finding-evidence POTENTIAL_GAP
-logicchart query "routes" --language typescript
-logicchart query "" --source-path app/api/orders --symbol api.orders:handle_order
-logicchart query "" --domain status --value OPEN
-```
-
-Use `--json` for machine-readable output. Structured filters are deterministic and can
-stand on their own with an empty question: `--source-path`, `--symbol`, `--domain`,
-`--value`, `--finding-kind`, `--finding-severity`, and `--finding-evidence` narrow the
-model before ranking. JSON rows include `next_tools` and `next_cli` hints for navigation,
-snapshots, impact checks, context-pack follow-up, and explicit subgraph snapshots. Rows
-also include bounded finding metadata (`finding_count`, `finding_ids`,
-`omitted_finding_count`, `finding_kinds`, `finding_severities`, `finding_evidence`) plus
-`subgraph_flow_ids` and `subgraph_finding_ids`, so agents can move from a ranked match to
-a focused logical-error review without loading the full graph first.
-
-### `explain`
-
-Explain one logical finding from the committed model:
-
-```bash
-logicchart explain finding-id
-logicchart explain finding-id --json
-```
-
-The human output includes evidence tier, confidence basis, source range, decision context,
-diagnostic expected/actual/missing state, review prompt, suggested next actions, and an
-evidence-chain summary. The guardrail text distinguishes `VERIFIED`, `INFERRED`, and
-`POTENTIAL_GAP` so review candidates are not presented as confirmed bugs. JSON output uses
-the same deterministic explanation payload exposed by MCP.
-
-### `navigate`
-
-Inspect one flow before loading the complete graph:
-
-```bash
-logicchart navigate flow-id
-logicchart navigate module.symbol --json
-logicchart navigate flow-id --token-budget 240
-```
-
-The command returns the same bounded navigation pack as MCP `get_flow_navigation`: flow
-shape, caller/callee summaries, decision nodes, related findings, annotations when present,
-and next-tool hints for full flow, impact, query, and visual snapshot follow-up.
+For normal use, ask your coding agent questions such as "how does checkout work?" or
+"what logic is impacted by this change?". The agent should call LogicChart MCP tools and
+return grounded context with flows, callers, callees, decisions, findings, evidence tiers,
+source ranges, impact reasons, and visual snapshots when useful.
 
 ### `llm`
 
@@ -348,65 +307,9 @@ The provider can only annotate existing scope, flow, node, and finding ids. It c
 change the deterministic flow structure, and provider output is rejected if it references
 unknown ids, stale hashes, unsupported fields, or overlong text.
 When present, finding annotations are shown separately from deterministic diagnostics in
-`logicchart explain`, `logicchart navigate`, MCP finding/review/context tools, and the
-Logical Errors panel.
+MCP finding/review/context tools and the Logical Errors panel.
 Scope annotations are also rendered as progressive flowchart group labels and included in
 flow-navigation annotation payloads for flows that belong to the annotated scope.
-
-### `snapshot`
-
-Render deterministic SVG visual context without starting the viewer or MCP server:
-
-```bash
-logicchart snapshot flow flow-id > flow.svg
-logicchart snapshot finding finding-id --json
-logicchart snapshot impact --flow flow-id --output impact.svg
-logicchart snapshot impact --dependency-path backend/payments --json
-logicchart snapshot subgraph --flow flow-id --finding finding-id --json
-```
-
-Snapshots are generated from the committed model artifact, not from browser screenshots.
-`flow`, `finding`, `impact`, and `subgraph` support `--token-budget`; `impact` accepts
-the same `--flow`, `--symbol`, `--finding`, `--dependency-path`, `--scope`, and
-changed-file targets as `impact`. `subgraph` renders explicit flow/finding ids, resolves
-finding targets back to their flows, highlights finding nodes, and reports unresolved
-targets without requiring agents to synthesize a fake impact request.
-Impact snapshot JSON includes the same target, unresolved-target, impact-reason, and
-subgraph fields as `impact --json`, so agents can detect mistyped targets without parsing
-the SVG. Snapshot JSON also includes deterministic layout metadata: canvas size, node or
-column dimensions, rendered positions, compact/omission flags, and rendered/omitted edge
-or flow counts. A `layout_quality` summary classifies the rendered snapshot as complete or
-compact and repeats the key omission counts with a guardrail for agents. It also includes a
-separate `clarity` report for rendered-box overlaps, canvas overflow, minimum box gaps, and
-edge paths that cross intermediate boxes, so agents can tell a complete snapshot from a
-visually clean one. Invalid snapshot targets and unsupported formats return structured,
-recoverable error payloads in JSON mode. Only SVG is supported by the CLI today; raster
-export remains available in the local viewer.
-
-### `impact`
-
-Show flows affected by changed files or explicit model targets:
-
-```bash
-logicchart impact backend/users.py
-logicchart impact --scope frontend
-logicchart impact --flow orders-route --json
-logicchart impact --symbol api.orders:handle_order
-logicchart impact --finding orders-route-missing-branch
-logicchart impact --dependency-path backend/payments
-```
-
-With no file arguments and no explicit targets, `impact` uses `git diff` to infer changed
-files. Explicit targets are deterministic and local: `--flow` matches a flow id,
-`--symbol` matches an exact flow symbol or flow name, `--finding` starts from a finding id,
-and `--dependency-path` starts from every modeled flow in or under a source path. JSON
-output includes `subgraph_flow_ids`, `subgraph_finding_ids`, and any `unresolved_targets`
-so agents can chain into flow navigation or snapshots. It also emits
-`impact_reasons`, a per-flow explanation of whether each flow was selected by a changed
-source file, an imported changed file, an explicit target, or caller propagation. For
-Python, TypeScript/JavaScript, Go, Java, and C# generated file records include first-party
-`dependencies`; when a changed file has no modeled flow of its own, `impact` can still
-surface the entrypoints that import it.
 
 ### `validate`
 
@@ -566,10 +469,11 @@ candidates.
 
 ## Agents and MCP
 
-LogicChart is CLI-first and MCP-enhanced. Use CLI commands for the explicit artifact
-lifecycle; use MCP for token-bounded agent context retrieval.
+LogicChart is moving to an agent-first workflow. Use MCP for token-bounded code-logic
+context retrieval; use the CLI for setup, explicit artifact refresh, validation,
+diagnostics, and the manual viewer.
 
-Install persistent instructions:
+Current setup commands while the `setup-agent` migration is underway:
 
 ```bash
 logicchart install
@@ -610,11 +514,11 @@ retrieval, flow-navigation packs, query, findings, finding-rule contracts, findi
 explanation, finding-context subgraphs, state-handling lookup, decision-node search,
 impact analysis, token-bounded deterministic SVG snapshots for flows, findings, impact
 sets, and explicit flow/finding subgraphs, optional LLM enrichment preview, review queue,
-context pack, artifact validation, and artifact update. Artifact
-validation and update responses include guardrails plus `next_tools`/`next_cli` hints for
-the update -> validate -> review sequence, so agents can recover from stale generated
-models without guessing the workflow. Recovery hints use `update_logicchart(full=true)`
-and `logicchart update --full` when bypassing the incremental cache is the safer default.
+context pack, artifact validation, and artifact update. Artifact validation and update
+responses include guardrails plus `next_tools` and maintenance CLI hints for the
+update -> validate -> review sequence, so agents can recover from stale generated models
+without guessing the workflow. Recovery hints use `update_logicchart(full=true)` and
+`logicchart update --full` when bypassing the incremental cache is the safer default.
 Finding snapshots include a compact diagnostic panel with evidence tier, confidence,
 review prompt, and evidence-chain summaries. MCP impact
 analysis and `context_pack` include per-flow `reasons` alongside a top-level
@@ -630,9 +534,9 @@ language ids, state domains, handled values, finding kinds, severities, and evid
 tiers. The returned pack includes bounded flow-navigation packs for relevant flows, so
 agents can inspect callers, callees, decisions, findings, annotations, and follow-up tools
 before deciding whether to request a complete flow or visual snapshot.
-The `get_subgraph_snapshot` tool and `logicchart snapshot subgraph` CLI command are the
-bridge from query/impact/context results into one bounded SVG: pass returned
-`subgraph_flow_ids` and `subgraph_finding_ids` directly to render the focused model slice.
+The `get_subgraph_snapshot` tool is the bridge from query/impact/context results into one
+bounded SVG: pass returned `subgraph_flow_ids` and `subgraph_finding_ids` directly to
+render the focused model slice.
 Use MCP `preview_enrichment` to inspect the same bounded local payload as
 `logicchart enrich` before any optional provider send; use `logicchart enrich --json` when
 an agent or script needs the machine-readable payload. Provider calls remain an explicit

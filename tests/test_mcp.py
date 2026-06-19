@@ -9,7 +9,6 @@ from mcp.client.stdio import stdio_client
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.annotations import annotations_path, model_hash
 from logicchart.artifacts import load_model, write_artifacts
-from logicchart.cli import main as cli_main
 from logicchart.config import LogicChartConfig
 from logicchart.llm_enrich import build_enrichment_preview
 from logicchart.mcp_server import (
@@ -25,7 +24,7 @@ from logicchart.mcp_server import (
     _update_workflow_payload,
     _validation_payload,
 )
-from logicchart.query import impact_model
+from logicchart.query import impact_model, query_model
 
 
 def test_mcp_finding_dict_includes_optional_annotation(tmp_path: Path) -> None:
@@ -484,9 +483,8 @@ def authorize(user):
     asyncio.run(exercise_server())
 
 
-def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: object) -> None:
-    """The CLI `query --json` and the MCP `query_logic` tool share one serializer
-    (QueryMatch.to_dict), so identical inputs yield identical JSON rows."""
+def test_query_model_and_mcp_query_logic_have_same_shape(tmp_path: Path) -> None:
+    """MCP query_logic uses the same QueryMatch serializer as the deterministic model."""
     source = tmp_path / "app.py"
     source.write_text(
         "def authorize(user):\n"
@@ -497,9 +495,6 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
     )
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     write_artifacts(tmp_path, result.model)
-
-    assert cli_main(["query", "admin authorize", "--path", str(tmp_path), "--json"]) == 0
-    cli_rows = json.loads(capsys.readouterr().out)  # type: ignore[attr-defined]
 
     (tmp_path / "orders.py").write_text(
         "def route(order):\n"
@@ -512,29 +507,21 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     write_artifacts(tmp_path, result.model)
     assert result.model.findings
+    expected_rows = [match.to_dict() for match in query_model(result.model, "admin authorize")]
+    expected_finding_rows = [
+        match.to_dict()
+        for match in query_model(
+            result.model,
+            "",
+            finding_kind="missing_branch",
+            finding_severity="warning",
+            finding_evidence="POTENTIAL_GAP",
+        )
+    ]
 
     mcp_rows: list[dict[str, object]] = []
     mcp_finding_rows: list[dict[str, object]] = []
     mcp_context_payloads: list[dict[str, object]] = []
-    assert (
-        cli_main(
-            [
-                "query",
-                "",
-                "--path",
-                str(tmp_path),
-                "--finding-kind",
-                "missing_branch",
-                "--finding-severity",
-                "warning",
-                "--finding-evidence",
-                "POTENTIAL_GAP",
-                "--json",
-            ]
-        )
-        == 0
-    )
-    cli_finding_rows = json.loads(capsys.readouterr().out)  # type: ignore[attr-defined]
 
     async def call_mcp() -> None:
         parameters = StdioServerParameters(
@@ -578,12 +565,13 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
 
     asyncio.run(call_mcp())
 
-    assert cli_rows == mcp_rows
-    assert cli_rows
-    assert cli_finding_rows == mcp_finding_rows
-    assert cli_finding_rows
+    assert expected_rows == mcp_rows
+    assert expected_rows
+    assert expected_finding_rows == mcp_finding_rows
+    assert expected_finding_rows
     assert any(
-        "finding evidence matches `POTENTIAL_GAP`" in row["reasons"] for row in cli_finding_rows
+        "finding evidence matches `POTENTIAL_GAP`" in row["reasons"]
+        for row in expected_finding_rows
     )
     assert len(mcp_context_payloads) == 1
     context_payload = mcp_context_payloads[0]
@@ -592,12 +580,12 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
         "finding_severity": "warning",
         "finding_evidence": "POTENTIAL_GAP",
     }
-    assert context_payload["query"] == cli_finding_rows
+    assert context_payload["query"] == expected_finding_rows
     assert context_payload["review"]
     assert {
         (row["kind"], row["severity"], row["evidence"]) for row in context_payload["review"]
     } == {("missing_branch", "warning", "POTENTIAL_GAP")}
-    for row in cli_rows:
+    for row in expected_rows:
         assert set(row) == {
             "flow_id",
             "name",
@@ -616,15 +604,13 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
             "subgraph_flow_ids",
             "subgraph_finding_ids",
             "next_tools",
-            "next_cli",
             "source",
         }
         assert row["next_tools"]["flow_navigation"]["tool"] == "get_flow_navigation"
         assert row["next_tools"]["context_pack"]["tool"] == "context_pack"
         assert row["next_tools"]["subgraph_snapshot"]["tool"] == "get_subgraph_snapshot"
         assert row["subgraph_flow_ids"] == [row["flow_id"]]
-        assert row["next_cli"][0].startswith("logicchart navigate ")
-    for row in cli_finding_rows:
+    for row in expected_finding_rows:
         assert row["finding_count"] == 1
         assert row["finding_ids"]
         assert row["finding_kinds"] == ["missing_branch"]
@@ -1004,7 +990,7 @@ def test_mcp_recovery_payload_helpers_are_actionable(tmp_path: Path) -> None:
 
     fresh = _validation_payload({"ok": True, "errors": [], "warnings": []})
     assert "update_model" not in fresh["next_tools"]
-    assert "logicchart query <question>" in fresh["next_cli"]
+    assert "logicchart view" in fresh["next_cli"]
 
     workflow = _update_workflow_payload(
         tmp_path / "logicchart-out" / "logic-flow.json",
