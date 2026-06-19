@@ -3,7 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from logicchart.analysis.python import PythonAnalyzer
+from logicchart.analysis.python import (
+    PythonAnalyzer,
+    _dependency_paths_from_modules,
+    _import_map,
+)
 from logicchart.config import LogicChartConfig
 from logicchart.model import NodeKind
 
@@ -38,6 +42,31 @@ async def get_user(user_id: str):
     assert any(node.kind is NodeKind.DECISION for node in flow.nodes)
     assert any(node.kind is NodeKind.ERROR for node in flow.nodes)
     assert not any(item.kind == "missing_branch" for item in analysis.findings)
+
+
+def test_import_map_uses_module_index_without_filesystem_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tree = ast.parse("from pkg import util\nfrom pkg import missing\n")
+
+    def fail_is_file(self: Path) -> bool:
+        raise AssertionError("import mapping must not probe the filesystem per import")
+
+    monkeypatch.setattr(Path, "is_file", fail_is_file)
+
+    mapping = _import_map(
+        tree,
+        "pkg.service",
+        False,
+        lambda base, name: f"{base}.{name}" in {"pkg.util"},
+    )
+
+    assert mapping["util"] == "pkg.util:"
+    assert mapping["missing"] == "pkg:missing"
+    assert _dependency_paths_from_modules(
+        mapping,
+        {"pkg": "pkg/__init__.py", "pkg.util": "pkg/util.py"},
+    ) == ["pkg/util.py", "pkg/__init__.py"]
 
 
 def test_python_internal_call_is_recorded(tmp_path: Path) -> None:

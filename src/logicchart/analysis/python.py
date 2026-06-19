@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 import copy
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, cast
 
@@ -25,13 +25,13 @@ from logicchart.analysis.common import (
     call_is_boundary,
     decision_identity,
     decision_metadata,
-    dependency_paths_from_import_map,
     domain_from_subject,
     is_functional_condition,
     tag_call_effects,
     value_namespace,
 )
 from logicchart.analysis.detectors import dead_code_finding, single_flow_findings
+from logicchart.analysis.discovery import discover_source_files
 from logicchart.config import LogicChartConfig
 from logicchart.model import (
     Evidence,
@@ -86,6 +86,7 @@ class PythonAnalyzer:
     def __init__(self, root: Path, config: LogicChartConfig) -> None:
         self.root = root
         self.config = config
+        self._module_paths: dict[str, str] | None = None
 
     def analyze(self, path: Path) -> FileAnalysis:
         # utf-8-sig transparently strips a leading BOM (a valid file an editor saved as
@@ -116,15 +117,16 @@ class PythonAnalyzer:
             flows.append(flow)
 
         is_package = Path(relative).name == "__init__.py"
-        import_map = _import_map(tree, module_name, is_package, self.root)
+        module_paths = self._python_module_paths()
+        import_map = _import_map(
+            tree,
+            module_name,
+            is_package,
+            lambda base, name: _is_submodule(module_paths, base, name),
+        )
         dependencies = [
             item
-            for item in dependency_paths_from_import_map(
-                import_map,
-                self.root,
-                module_suffixes=(".py",),
-                package_files=("__init__.py",),
-            )
+            for item in _dependency_paths_from_modules(import_map, module_paths)
             if item != relative
         ]
         for flow in flows:
@@ -140,6 +142,18 @@ class PythonAnalyzer:
             flows=flows,
             findings=findings,
         )
+
+    def _python_module_paths(self) -> dict[str, str]:
+        if self._module_paths is not None:
+            return self._module_paths
+        module_paths: dict[str, str] = {}
+        for path in discover_source_files(self.root, self.config):
+            if path.suffix.lower() != ".py":
+                continue
+            relative = relpath(path, self.root)
+            module_paths.setdefault(_module_name(relative), relative)
+        self._module_paths = module_paths
+        return module_paths
 
     def _analyze_definition(
         self,
@@ -826,14 +840,19 @@ def _module_name(relative: str) -> str:
     return path.removesuffix(".__init__")
 
 
-def _import_map(tree: ast.Module, module_name: str, is_package: bool, root: Path) -> dict[str, str]:
+def _import_map(
+    tree: ast.Module,
+    module_name: str,
+    is_package: bool,
+    is_submodule: Callable[[str, str], bool],
+) -> dict[str, str]:
     """Map each imported alias to a ``module:symbol`` (or ``module:``) binding.
 
     ``from m import f`` => ``f`` -> ``m:f`` (binds a symbol); ``import m as a`` => ``a`` ->
-    ``m:`` (binds a module). ``from pkg import sub`` where ``sub`` is a *submodule* on disk
-    binds the module (``pkg.sub:``), mirroring a TS namespace import, so the next attribute
-    is read as the symbol. Relative imports resolve against the current module's package,
-    accounting for ``__init__.py`` being its own package.
+    ``m:`` (binds a module). ``from pkg import sub`` where ``sub`` is a known first-party
+    submodule binds the module (``pkg.sub:``), mirroring a TS namespace import, so the next
+    attribute is read as the symbol. Relative imports resolve against the current module's
+    package, accounting for ``__init__.py`` being its own package.
     """
     mapping: dict[str, str] = {}
     for node in tree.body:
@@ -849,7 +868,7 @@ def _import_map(tree: ast.Module, module_name: str, is_package: bool, root: Path
             base = _relative_base(node.module, node.level, module_name, is_package)
             for alias in node.names:
                 bound = alias.asname or alias.name
-                if base and _is_submodule(root, base, alias.name):
+                if base and is_submodule(base, alias.name):
                     mapping[bound] = f"{base}.{alias.name}:"
                 elif base:
                     mapping[bound] = f"{base}:{alias.name}"
@@ -858,10 +877,24 @@ def _import_map(tree: ast.Module, module_name: str, is_package: bool, root: Path
     return mapping
 
 
-def _is_submodule(root: Path, base: str, name: str) -> bool:
-    """Whether ``base.name`` is a submodule (a file or package) on disk under root."""
-    base_dir = root.joinpath(*base.split(".")) if base else root
-    return (base_dir / f"{name}.py").is_file() or (base_dir / name / "__init__.py").is_file()
+def _is_submodule(module_paths: dict[str, str], base: str, name: str) -> bool:
+    """Whether ``base.name`` is a known first-party module in the discovered source set."""
+    return f"{base}.{name}" in module_paths
+
+
+def _dependency_paths_from_modules(
+    import_map: dict[str, str], module_paths: dict[str, str]
+) -> list[str]:
+    dependencies: list[str] = []
+    seen: set[str] = set()
+    for binding in import_map.values():
+        module, _, _ = binding.partition(":")
+        relative = module_paths.get(module)
+        if relative is None or relative in seen:
+            continue
+        dependencies.append(relative)
+        seen.add(relative)
+    return dependencies
 
 
 def _relative_base(module: str | None, level: int, current_module: str, is_package: bool) -> str:
