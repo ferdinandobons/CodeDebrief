@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections import Counter
+from collections import Counter, deque
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -368,10 +368,10 @@ def impact_model(
 
     direct = list(direct_by_id.values())
     impacted_ids = set(direct_by_id)
-    queue = list(impacted_ids)
+    queue: deque[str] = deque(impacted_ids)
     transitive: list[Flow] = []
     while queue:
-        current = by_id.get(queue.pop(0))
+        current = by_id.get(queue.popleft())
         if current is None:
             continue
         for caller_id in current.called_by:

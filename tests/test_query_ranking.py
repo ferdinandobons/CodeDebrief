@@ -576,6 +576,24 @@ def test_impact_model_accepts_dependency_path_targets() -> None:
     ]
 
 
+def test_impact_model_follows_multi_level_callers() -> None:
+    leaf = _flow("leaf", "leaf")
+    middle = _flow("middle", "middle")
+    root = _flow("root", "root")
+    root.calls = ["middle"]
+    middle.called_by = ["root"]
+    middle.calls = ["leaf"]
+    leaf.called_by = ["middle"]
+    model = _model([root, middle, leaf])
+
+    result = impact_model(model, [], flow_ids=["leaf"])
+
+    assert [flow.id for flow in result.directly_impacted] == ["leaf"]
+    assert {flow.id for flow in result.transitively_impacted} == {"middle", "root"}
+    assert result.impact_reasons["middle"] == ["calls impacted flow `leaf`"]
+    assert result.impact_reasons["root"] == ["calls impacted flow `middle`"]
+
+
 def test_impact_model_marks_scope_filtered_targets() -> None:
     backend = _flow("backend", "backend", symbol="svc:backend")
     backend.metadata["scope"] = ["backend"]

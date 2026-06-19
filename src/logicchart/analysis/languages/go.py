@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -72,13 +73,13 @@ def _import_map(root: Any, source: bytes, relative: str) -> dict[str, str]:
 
 
 def _import_specs(declaration: Any) -> Iterable[Any]:
-    stack = list(declaration.children)
+    stack = deque(declaration.children)
     while stack:
-        current = stack.pop(0)
+        current = stack.popleft()
         if current.type == "import_spec":
             yield current
             continue
-        stack[0:0] = list(current.children)
+        stack.extendleft(reversed(current.children))
 
 
 def _import_path(spec: Any, source: bytes) -> str:
