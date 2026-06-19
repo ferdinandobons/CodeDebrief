@@ -432,7 +432,7 @@ def render_impact(result: ImpactResult) -> str:
         f"Explicit targets: {target_count}",
         f"Directly impacted flows: {len(result.directly_impacted)}",
         f"Transitively impacted flows: {len(result.transitively_impacted)}",
-        f"Related review findings: {len(result.findings)}",
+        f"Related review signals: {len(result.findings)}",
     ]
     if (
         result.target_flow_ids

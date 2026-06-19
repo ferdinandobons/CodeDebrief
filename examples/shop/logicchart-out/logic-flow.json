@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-18T13:35:04.881859+00:00",
+  "generated_at": "2026-06-19T20:28:05.881165+00:00",
   "root": ".",
   "flows": [
     {
@@ -5565,7 +5565,12 @@
               "type": "finding",
               "message": "Branch 'Yes' has an empty body",
               "detail": "The branch is taken but performs no work - likely unfinished.",
-              "source": "backend/orders_service.py:22"
+              "source": "backend/orders_service.py:22",
+              "location": {
+                "path": "backend/orders_service.py",
+                "start_line": 22,
+                "end_line": 22
+              }
             },
             {
               "type": "flow",
@@ -5573,7 +5578,12 @@
               "name": "summarize",
               "language": "python",
               "entry_kind": "function",
-              "source": "backend/orders_service.py:19"
+              "source": "backend/orders_service.py:19",
+              "location": {
+                "path": "backend/orders_service.py",
+                "start_line": 19,
+                "end_line": 26
+              }
             },
             {
               "type": "decision",
@@ -5596,7 +5606,23 @@
                   "implicit": false
                 }
               ],
-              "source": "backend/orders_service.py:22"
+              "source": "backend/orders_service.py:22",
+              "location": {
+                "path": "backend/orders_service.py",
+                "start_line": 22,
+                "end_line": 22
+              }
+            },
+            {
+              "type": "empty_branches",
+              "condition": "order.status == OrderStatus.REFUNDED",
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "empty",
+                  "implicit": false
+                }
+              ]
             }
           ],
           "expected": {
@@ -5672,10 +5698,12 @@
               "backend"
             ],
             "related_flow_ids": [
-              "flow-68d596474ebdd0a8"
+              "flow-68d596474ebdd0a8",
+              "flow-22b5de4d1b748736"
             ],
             "related_node_ids": [
-              "flow-68d596474ebdd0a8:n3"
+              "flow-68d596474ebdd0a8:n3",
+              "flow-22b5de4d1b748736:n3"
             ]
           },
           "inputs": {
@@ -5704,7 +5732,12 @@
               "type": "finding",
               "message": "Guard 'order.total_cents <= 0' is logged in a sibling flow but silent here",
               "detail": "A sibling flow logs or alerts on the same guard while this one proceeds silently - an observability gap on a shared condition.",
-              "source": "backend/payments_service.py:41"
+              "source": "backend/payments_service.py:41",
+              "location": {
+                "path": "backend/payments_service.py",
+                "start_line": 41,
+                "end_line": 41
+              }
             },
             {
               "type": "flow",
@@ -5712,7 +5745,12 @@
               "name": "capture_payment",
               "language": "python",
               "entry_kind": "function",
-              "source": "backend/payments_service.py:39"
+              "source": "backend/payments_service.py:39",
+              "location": {
+                "path": "backend/payments_service.py",
+                "start_line": 39,
+                "end_line": 43
+              }
             },
             {
               "type": "decision",
@@ -5733,7 +5771,33 @@
                   "implicit": true
                 }
               ],
-              "source": "backend/payments_service.py:41"
+              "source": "backend/payments_service.py:41",
+              "location": {
+                "path": "backend/payments_service.py",
+                "start_line": 41,
+                "end_line": 41
+              }
+            },
+            {
+              "type": "related_decisions",
+              "nodes": [
+                {
+                  "flow_id": "flow-22b5de4d1b748736",
+                  "flow_name": "refund_payment",
+                  "node_id": "flow-22b5de4d1b748736:n3",
+                  "label": "order.total_cents <= 0",
+                  "reasons": [
+                    "same_subject",
+                    "same_condition"
+                  ],
+                  "source": "backend/payments_service.py:32",
+                  "location": {
+                    "path": "backend/payments_service.py",
+                    "start_line": 32,
+                    "end_line": 32
+                  }
+                }
+              ]
             }
           ],
           "expected": {
@@ -5788,7 +5852,7 @@
           "evidence": "POTENTIAL_GAP",
           "confidence": {
             "score": 0.4,
-            "basis": "review candidate, not a confirmed bug"
+            "basis": "review candidate, not a confirmed defect"
           },
           "scope": {
             "category": "single_flow",
@@ -5839,7 +5903,12 @@
               "type": "finding",
               "message": "Decision has no explicit fallback: if/elif on order.status",
               "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-              "source": "frontend/app/orders/page.tsx:3"
+              "source": "frontend/app/orders/page.tsx:3",
+              "location": {
+                "path": "frontend/app/orders/page.tsx",
+                "start_line": 3,
+                "end_line": 3
+              }
             },
             {
               "type": "flow",
@@ -5847,7 +5916,12 @@
               "name": "OrdersPage",
               "language": "typescript",
               "entry_kind": "component",
-              "source": "frontend/app/orders/page.tsx:2"
+              "source": "frontend/app/orders/page.tsx:2",
+              "location": {
+                "path": "frontend/app/orders/page.tsx",
+                "start_line": 2,
+                "end_line": 8
+              }
             },
             {
               "type": "decision",
@@ -5870,7 +5944,57 @@
                   "implicit": false
                 }
               ],
-              "source": "frontend/app/orders/page.tsx:3"
+              "source": "frontend/app/orders/page.tsx:3",
+              "location": {
+                "path": "frontend/app/orders/page.tsx",
+                "start_line": 3,
+                "end_line": 3
+              }
+            },
+            {
+              "type": "implicit_fallback",
+              "condition": "order.status === \"cart\"",
+              "subject": "order.status",
+              "domain": "status",
+              "value_namespace": "",
+              "operator": "==",
+              "handled_values": [
+                "cart",
+                "paid"
+              ],
+              "decision_node_ids": [
+                "flow-a8e844538cf5c5b4:n2",
+                "flow-a8e844538cf5c5b4:n4"
+              ],
+              "explicit_branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "returns",
+                  "implicit": false,
+                  "decision_node_id": "flow-a8e844538cf5c5b4:n2"
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": false,
+                  "decision_node_id": "flow-a8e844538cf5c5b4:n2"
+                },
+                {
+                  "label": "Yes",
+                  "outcome": "returns",
+                  "implicit": false,
+                  "decision_node_id": "flow-a8e844538cf5c5b4:n4"
+                }
+              ],
+              "implicit_branches": [
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": true,
+                  "decision_node_id": "flow-a8e844538cf5c5b4:n4"
+                }
+              ],
+              "fallback_present": false
             }
           ],
           "expected": {
@@ -5927,7 +6051,7 @@
           "evidence": "POTENTIAL_GAP",
           "confidence": {
             "score": 0.4,
-            "basis": "review candidate, not a confirmed bug"
+            "basis": "review candidate, not a confirmed defect"
           },
           "scope": {
             "category": "single_flow",
@@ -5990,7 +6114,12 @@
               "type": "finding",
               "message": "Decision has no explicit fallback: switch order.status",
               "detail": "LogicChart found a state-like decision without an explicit else/default path. This may be intentional, but it should be reviewed when adding cases.",
-              "source": "frontend/app/api/orders/route.ts:6"
+              "source": "frontend/app/api/orders/route.ts:6",
+              "location": {
+                "path": "frontend/app/api/orders/route.ts",
+                "start_line": 6,
+                "end_line": 13
+              }
             },
             {
               "type": "flow",
@@ -5998,7 +6127,12 @@
               "name": "POST",
               "language": "typescript",
               "entry_kind": "route",
-              "source": "frontend/app/api/orders/route.ts:4"
+              "source": "frontend/app/api/orders/route.ts:4",
+              "location": {
+                "path": "frontend/app/api/orders/route.ts",
+                "start_line": 4,
+                "end_line": 14
+              }
             },
             {
               "type": "decision",
@@ -6033,7 +6167,57 @@
                   "implicit": true
                 }
               ],
-              "source": "frontend/app/api/orders/route.ts:6"
+              "source": "frontend/app/api/orders/route.ts:6",
+              "location": {
+                "path": "frontend/app/api/orders/route.ts",
+                "start_line": 6,
+                "end_line": 13
+              }
+            },
+            {
+              "type": "implicit_fallback",
+              "condition": "order.status",
+              "subject": "order.status",
+              "domain": "status",
+              "value_namespace": "",
+              "operator": "switch",
+              "handled_values": [
+                "\"cart\"",
+                "\"paid\"",
+                "\"shipped\""
+              ],
+              "decision_node_ids": [
+                "flow-adbd361ae9be144a:n3"
+              ],
+              "explicit_branches": [
+                {
+                  "label": "\"cart\"",
+                  "outcome": "returns",
+                  "implicit": false,
+                  "decision_node_id": "flow-adbd361ae9be144a:n3"
+                },
+                {
+                  "label": "\"paid\"",
+                  "outcome": "returns",
+                  "implicit": false,
+                  "decision_node_id": "flow-adbd361ae9be144a:n3"
+                },
+                {
+                  "label": "\"shipped\"",
+                  "outcome": "returns",
+                  "implicit": false,
+                  "decision_node_id": "flow-adbd361ae9be144a:n3"
+                }
+              ],
+              "implicit_branches": [
+                {
+                  "label": "default",
+                  "outcome": "falls_through",
+                  "implicit": true,
+                  "decision_node_id": "flow-adbd361ae9be144a:n3"
+                }
+              ],
+              "fallback_present": false
             }
           ],
           "expected": {
@@ -6132,10 +6316,20 @@
               "backend"
             ],
             "related_flow_ids": [
-              "flow-3d1dd6694cc550e9"
+              "flow-3d1dd6694cc550e9",
+              "flow-1f9ab406cb373b90",
+              "flow-379ecad6e175d201",
+              "flow-0c047baf201f45c7"
             ],
             "related_node_ids": [
-              "flow-3d1dd6694cc550e9:n3"
+              "flow-3d1dd6694cc550e9:n3",
+              "flow-1f9ab406cb373b90:n10",
+              "flow-1f9ab406cb373b90:n4",
+              "flow-1f9ab406cb373b90:n6",
+              "flow-1f9ab406cb373b90:n8",
+              "flow-3d1dd6694cc550e9:n5",
+              "flow-379ecad6e175d201:n3",
+              "flow-0c047baf201f45c7:n3"
             ]
           },
           "inputs": {
@@ -6177,7 +6371,12 @@
               "type": "finding",
               "message": "Declared AccountStatus members not handled for account.status: AccountStatus.ACTIVE, AccountStatus.PENDING_VERIFICATION",
               "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
-              "source": "backend/api/users_routes.py:15"
+              "source": "backend/api/users_routes.py:15",
+              "location": {
+                "path": "backend/api/users_routes.py",
+                "start_line": 15,
+                "end_line": 15
+              }
             },
             {
               "type": "flow",
@@ -6185,7 +6384,12 @@
               "name": "change_email",
               "language": "python",
               "entry_kind": "function",
-              "source": "backend/api/users_routes.py:13"
+              "source": "backend/api/users_routes.py:13",
+              "location": {
+                "path": "backend/api/users_routes.py",
+                "start_line": 13,
+                "end_line": 19
+              }
             },
             {
               "type": "decision",
@@ -6208,7 +6412,12 @@
                   "implicit": false
                 }
               ],
-              "source": "backend/api/users_routes.py:15"
+              "source": "backend/api/users_routes.py:15",
+              "location": {
+                "path": "backend/api/users_routes.py",
+                "start_line": 15,
+                "end_line": 15
+              }
             },
             {
               "type": "declared_values",
@@ -6225,6 +6434,120 @@
               "values": [
                 "AccountStatus.ACTIVE",
                 "AccountStatus.PENDING_VERIFICATION"
+              ]
+            },
+            {
+              "type": "related_decisions",
+              "nodes": [
+                {
+                  "flow_id": "flow-1f9ab406cb373b90",
+                  "flow_name": "authenticate",
+                  "node_id": "flow-1f9ab406cb373b90:n10",
+                  "label": "account.status == AccountStatus.ACTIVE",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "backend/users_service.py:20",
+                  "location": {
+                    "path": "backend/users_service.py",
+                    "start_line": 20,
+                    "end_line": 20
+                  }
+                },
+                {
+                  "flow_id": "flow-1f9ab406cb373b90",
+                  "flow_name": "authenticate",
+                  "node_id": "flow-1f9ab406cb373b90:n4",
+                  "label": "account.status == AccountStatus.SUSPENDED",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "same_condition"
+                  ],
+                  "source": "backend/users_service.py:14",
+                  "location": {
+                    "path": "backend/users_service.py",
+                    "start_line": 14,
+                    "end_line": 14
+                  }
+                },
+                {
+                  "flow_id": "flow-1f9ab406cb373b90",
+                  "flow_name": "authenticate",
+                  "node_id": "flow-1f9ab406cb373b90:n6",
+                  "label": "account.status == AccountStatus.DELETED",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "backend/users_service.py:16",
+                  "location": {
+                    "path": "backend/users_service.py",
+                    "start_line": 16,
+                    "end_line": 16
+                  }
+                },
+                {
+                  "flow_id": "flow-1f9ab406cb373b90",
+                  "flow_name": "authenticate",
+                  "node_id": "flow-1f9ab406cb373b90:n8",
+                  "label": "account.status == AccountStatus.PENDING_VERIFICATION",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "backend/users_service.py:18",
+                  "location": {
+                    "path": "backend/users_service.py",
+                    "start_line": 18,
+                    "end_line": 18
+                  }
+                },
+                {
+                  "flow_id": "flow-3d1dd6694cc550e9",
+                  "flow_name": "change_email",
+                  "node_id": "flow-3d1dd6694cc550e9:n5",
+                  "label": "account.status == AccountStatus.DELETED",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "backend/api/users_routes.py:17",
+                  "location": {
+                    "path": "backend/api/users_routes.py",
+                    "start_line": 17,
+                    "end_line": 17
+                  }
+                },
+                {
+                  "flow_id": "flow-379ecad6e175d201",
+                  "flow_name": "get_profile",
+                  "node_id": "flow-379ecad6e175d201:n3",
+                  "label": "account.status == AccountStatus.DELETED",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "backend/api/users_routes.py:24",
+                  "location": {
+                    "path": "backend/api/users_routes.py",
+                    "start_line": 24,
+                    "end_line": 24
+                  }
+                },
+                {
+                  "flow_id": "flow-0c047baf201f45c7",
+                  "flow_name": "reset_password",
+                  "node_id": "flow-0c047baf201f45c7:n3",
+                  "label": "account.status == AccountStatus.SUSPENDED",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "same_condition"
+                  ],
+                  "source": "backend/api/users_routes.py:8",
+                  "location": {
+                    "path": "backend/api/users_routes.py",
+                    "start_line": 8,
+                    "end_line": 8
+                  }
+                }
               ]
             }
           ],
@@ -6324,10 +6647,18 @@
               "backend"
             ],
             "related_flow_ids": [
-              "flow-9db0379ee88dd158"
+              "flow-9db0379ee88dd158",
+              "flow-adbd361ae9be144a",
+              "flow-cd39f6aa851ac8f1",
+              "flow-663a7ab889d99781",
+              "flow-454eee0405381967"
             ],
             "related_node_ids": [
-              "flow-9db0379ee88dd158:n3"
+              "flow-9db0379ee88dd158:n3",
+              "flow-adbd361ae9be144a:n3",
+              "flow-cd39f6aa851ac8f1:n3",
+              "flow-663a7ab889d99781:n3",
+              "flow-454eee0405381967:n4"
             ]
           },
           "inputs": {
@@ -6391,7 +6722,12 @@
               "type": "finding",
               "message": "Declared OrderStatus members not handled for order.status: OrderStatus.CANCELLED, OrderStatus.DELIVERED, OrderStatus.REFUNDED",
               "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
-              "source": "backend/orders_service.py:8"
+              "source": "backend/orders_service.py:8",
+              "location": {
+                "path": "backend/orders_service.py",
+                "start_line": 8,
+                "end_line": 16
+              }
             },
             {
               "type": "flow",
@@ -6399,7 +6735,12 @@
               "name": "transition",
               "language": "python",
               "entry_kind": "function",
-              "source": "backend/orders_service.py:6"
+              "source": "backend/orders_service.py:6",
+              "location": {
+                "path": "backend/orders_service.py",
+                "start_line": 6,
+                "end_line": 16
+              }
             },
             {
               "type": "decision",
@@ -6440,7 +6781,12 @@
                   "implicit": true
                 }
               ],
-              "source": "backend/orders_service.py:8"
+              "source": "backend/orders_service.py:8",
+              "location": {
+                "path": "backend/orders_service.py",
+                "start_line": 8,
+                "end_line": 16
+              }
             },
             {
               "type": "declared_values",
@@ -6461,6 +6807,73 @@
                 "OrderStatus.CANCELLED",
                 "OrderStatus.DELIVERED",
                 "OrderStatus.REFUNDED"
+              ]
+            },
+            {
+              "type": "related_decisions",
+              "nodes": [
+                {
+                  "flow_id": "flow-adbd361ae9be144a",
+                  "flow_name": "POST",
+                  "node_id": "flow-adbd361ae9be144a:n3",
+                  "label": "Switch on order.status",
+                  "reasons": [
+                    "same_condition"
+                  ],
+                  "source": "frontend/app/api/orders/route.ts:6",
+                  "location": {
+                    "path": "frontend/app/api/orders/route.ts",
+                    "start_line": 6,
+                    "end_line": 13
+                  }
+                },
+                {
+                  "flow_id": "flow-cd39f6aa851ac8f1",
+                  "flow_name": "cancel",
+                  "node_id": "flow-cd39f6aa851ac8f1:n3",
+                  "label": "order.status not in (OrderStatus.PLACED, OrderStatus.PAID)",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "backend/api/orders_routes.py:8",
+                  "location": {
+                    "path": "backend/api/orders_routes.py",
+                    "start_line": 8,
+                    "end_line": 8
+                  }
+                },
+                {
+                  "flow_id": "flow-663a7ab889d99781",
+                  "flow_name": "request_refund",
+                  "node_id": "flow-663a7ab889d99781:n3",
+                  "label": "order.status not in (OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED)",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "backend/api/orders_routes.py:16",
+                  "location": {
+                    "path": "backend/api/orders_routes.py",
+                    "start_line": 16,
+                    "end_line": 16
+                  }
+                },
+                {
+                  "flow_id": "flow-454eee0405381967",
+                  "flow_name": "summarize",
+                  "node_id": "flow-454eee0405381967:n4",
+                  "label": "order.status == OrderStatus.REFUNDED",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "backend/orders_service.py:22",
+                  "location": {
+                    "path": "backend/orders_service.py",
+                    "start_line": 22,
+                    "end_line": 22
+                  }
+                }
               ]
             }
           ],
@@ -6580,7 +6993,9 @@
               "flow-bf8811dbdd106592"
             ],
             "related_node_ids": [
-              "flow-bf8811dbdd106592:n3"
+              "flow-bf8811dbdd106592:n3",
+              "flow-bf8811dbdd106592:n5",
+              "flow-bf8811dbdd106592:n7"
             ]
           },
           "inputs": {
@@ -6621,7 +7036,12 @@
               "type": "finding",
               "message": "Declared PaymentResult members not handled for result: PaymentResult.FRAUD_REVIEW",
               "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
-              "source": "backend/payments_service.py:11"
+              "source": "backend/payments_service.py:11",
+              "location": {
+                "path": "backend/payments_service.py",
+                "start_line": 11,
+                "end_line": 11
+              }
             },
             {
               "type": "flow",
@@ -6629,7 +7049,12 @@
               "name": "handle_result",
               "language": "python",
               "entry_kind": "event_handler",
-              "source": "backend/payments_service.py:9"
+              "source": "backend/payments_service.py:9",
+              "location": {
+                "path": "backend/payments_service.py",
+                "start_line": 9,
+                "end_line": 16
+              }
             },
             {
               "type": "decision",
@@ -6652,7 +7077,12 @@
                   "implicit": false
                 }
               ],
-              "source": "backend/payments_service.py:11"
+              "source": "backend/payments_service.py:11",
+              "location": {
+                "path": "backend/payments_service.py",
+                "start_line": 11,
+                "end_line": 11
+              }
             },
             {
               "type": "declared_values",
@@ -6668,6 +7098,41 @@
               "type": "missing_values",
               "values": [
                 "PaymentResult.FRAUD_REVIEW"
+              ]
+            },
+            {
+              "type": "related_decisions",
+              "nodes": [
+                {
+                  "flow_id": "flow-bf8811dbdd106592",
+                  "flow_name": "handle_result",
+                  "node_id": "flow-bf8811dbdd106592:n5",
+                  "label": "result == PaymentResult.DECLINED",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "backend/payments_service.py:13",
+                  "location": {
+                    "path": "backend/payments_service.py",
+                    "start_line": 13,
+                    "end_line": 13
+                  }
+                },
+                {
+                  "flow_id": "flow-bf8811dbdd106592",
+                  "flow_name": "handle_result",
+                  "node_id": "flow-bf8811dbdd106592:n7",
+                  "label": "result == PaymentResult.PENDING",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "backend/payments_service.py:15",
+                  "location": {
+                    "path": "backend/payments_service.py",
+                    "start_line": 15,
+                    "end_line": 15
+                  }
+                }
               ]
             }
           ],
@@ -6781,7 +7246,12 @@
               "type": "finding",
               "message": "Exception handler 'Error' swallows the error",
               "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
-              "source": "frontend/app/api/checkout/route.ts:5"
+              "source": "frontend/app/api/checkout/route.ts:5",
+              "location": {
+                "path": "frontend/app/api/checkout/route.ts",
+                "start_line": 5,
+                "end_line": 9
+              }
             },
             {
               "type": "flow",
@@ -6789,7 +7259,12 @@
               "name": "processCheckout",
               "language": "typescript",
               "entry_kind": "server_action",
-              "source": "frontend/app/api/checkout/route.ts:4"
+              "source": "frontend/app/api/checkout/route.ts:4",
+              "location": {
+                "path": "frontend/app/api/checkout/route.ts",
+                "start_line": 4,
+                "end_line": 11
+              }
             },
             {
               "type": "decision",
@@ -6810,7 +7285,27 @@
                   "implicit": false
                 }
               ],
-              "source": "frontend/app/api/checkout/route.ts:5"
+              "source": "frontend/app/api/checkout/route.ts:5",
+              "location": {
+                "path": "frontend/app/api/checkout/route.ts",
+                "start_line": 5,
+                "end_line": 9
+              }
+            },
+            {
+              "type": "handler_outcomes",
+              "condition": "exception boundary",
+              "handlers": [
+                {
+                  "label": "Error",
+                  "outcome": "empty",
+                  "implicit": false
+                }
+              ],
+              "swallowing_outcomes": [
+                "empty",
+                "falls_through"
+              ]
             }
           ],
           "expected": {
@@ -6914,7 +7409,12 @@
               "type": "finding",
               "message": "Exception handler 'Exception' swallows the error",
               "detail": "The handler body neither re-raises nor returns an error path, so the failure is hidden from callers.",
-              "source": "backend/payments_service.py:23"
+              "source": "backend/payments_service.py:23",
+              "location": {
+                "path": "backend/payments_service.py",
+                "start_line": 23,
+                "end_line": 26
+              }
             },
             {
               "type": "flow",
@@ -6922,7 +7422,12 @@
               "name": "charge",
               "language": "python",
               "entry_kind": "function",
-              "source": "backend/payments_service.py:19"
+              "source": "backend/payments_service.py:19",
+              "location": {
+                "path": "backend/payments_service.py",
+                "start_line": 19,
+                "end_line": 27
+              }
             },
             {
               "type": "decision",
@@ -6943,7 +7448,27 @@
                   "implicit": false
                 }
               ],
-              "source": "backend/payments_service.py:23"
+              "source": "backend/payments_service.py:23",
+              "location": {
+                "path": "backend/payments_service.py",
+                "start_line": 23,
+                "end_line": 26
+              }
+            },
+            {
+              "type": "handler_outcomes",
+              "condition": "exception boundary",
+              "handlers": [
+                {
+                  "label": "Exception",
+                  "outcome": "empty",
+                  "implicit": false
+                }
+              ],
+              "swallowing_outcomes": [
+                "empty",
+                "falls_through"
+              ]
             }
           ],
           "expected": {
@@ -7051,7 +7576,12 @@
               "type": "finding",
               "message": "Guard on the constant ENABLE_DOUBLE_CHARGE_GUARD is always False",
               "detail": "The condition is a module-level boolean constant, so one branch is dead. Confirm the constant is not reassigned elsewhere.",
-              "source": "backend/payments_service.py:21"
+              "source": "backend/payments_service.py:21",
+              "location": {
+                "path": "backend/payments_service.py",
+                "start_line": 21,
+                "end_line": 21
+              }
             },
             {
               "type": "flow",
@@ -7059,7 +7589,12 @@
               "name": "charge",
               "language": "python",
               "entry_kind": "function",
-              "source": "backend/payments_service.py:19"
+              "source": "backend/payments_service.py:19",
+              "location": {
+                "path": "backend/payments_service.py",
+                "start_line": 19,
+                "end_line": 27
+              }
             },
             {
               "type": "decision",
@@ -7080,7 +7615,31 @@
                   "implicit": true
                 }
               ],
-              "source": "backend/payments_service.py:21"
+              "source": "backend/payments_service.py:21",
+              "location": {
+                "path": "backend/payments_service.py",
+                "start_line": 21,
+                "end_line": 21
+              }
+            },
+            {
+              "type": "constant_guard",
+              "constant": "ENABLE_DOUBLE_CHARGE_GUARD",
+              "condition": "ENABLE_DOUBLE_CHARGE_GUARD",
+              "guard_always": false,
+              "unreachable_branch_label": "Yes",
+              "branches": [
+                {
+                  "label": "Yes",
+                  "outcome": "raises",
+                  "implicit": false
+                },
+                {
+                  "label": "No",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ]
             }
           ],
           "expected": {
@@ -7150,7 +7709,12 @@
               "type": "finding",
               "message": "Unreachable code after all paths return or raise (line 30)",
               "detail": "profile[\"leaked\"] = \"true\"",
-              "source": "backend/users_service.py:30"
+              "source": "backend/users_service.py:30",
+              "location": {
+                "path": "backend/users_service.py",
+                "start_line": 30,
+                "end_line": 30
+              }
             },
             {
               "type": "flow",
@@ -7158,7 +7722,12 @@
               "name": "load_profile",
               "language": "python",
               "entry_kind": "function",
-              "source": "backend/users_service.py:26"
+              "source": "backend/users_service.py:26",
+              "location": {
+                "path": "backend/users_service.py",
+                "start_line": 26,
+                "end_line": 31
+              }
             }
           ],
           "expected": null,
@@ -7197,7 +7766,7 @@
           "evidence": "POTENTIAL_GAP",
           "confidence": {
             "score": 0.4,
-            "basis": "review candidate, not a confirmed bug"
+            "basis": "review candidate, not a confirmed defect"
           },
           "scope": {
             "category": "cross_flow",
@@ -7236,7 +7805,12 @@
               "type": "finding",
               "message": "load_profile skips the authorization check its sibling entry points perform",
               "detail": "Gated heuristic: sibling entry points in this file perform an authorization check while this one does not. Middleware or DI may authorize it invisibly - review.",
-              "source": "backend/users_service.py:26"
+              "source": "backend/users_service.py:26",
+              "location": {
+                "path": "backend/users_service.py",
+                "start_line": 26,
+                "end_line": 31
+              }
             },
             {
               "type": "flow",
@@ -7244,7 +7818,12 @@
               "name": "load_profile",
               "language": "python",
               "entry_kind": "function",
-              "source": "backend/users_service.py:26"
+              "source": "backend/users_service.py:26",
+              "location": {
+                "path": "backend/users_service.py",
+                "start_line": 26,
+                "end_line": 31
+              }
             },
             {
               "type": "entry",
@@ -7254,7 +7833,12 @@
               "subject": null,
               "values": [],
               "branches": [],
-              "source": "backend/users_service.py:26"
+              "source": "backend/users_service.py:26",
+              "location": {
+                "path": "backend/users_service.py",
+                "start_line": 26,
+                "end_line": 31
+              }
             }
           ],
           "expected": null,
@@ -7297,7 +7881,7 @@
           "evidence": "POTENTIAL_GAP",
           "confidence": {
             "score": 0.4,
-            "basis": "review candidate, not a confirmed bug"
+            "basis": "review candidate, not a confirmed defect"
           },
           "scope": {
             "category": "cross_flow",
@@ -7336,7 +7920,12 @@
               "type": "finding",
               "message": "purge_user skips the authorization check its sibling entry points perform",
               "detail": "Gated heuristic: sibling entry points in this file perform an authorization check while this one does not. Middleware or DI may authorize it invisibly - review.",
-              "source": "backend/api/admin_routes.py:13"
+              "source": "backend/api/admin_routes.py:13",
+              "location": {
+                "path": "backend/api/admin_routes.py",
+                "start_line": 13,
+                "end_line": 15
+              }
             },
             {
               "type": "flow",
@@ -7344,7 +7933,12 @@
               "name": "purge_user",
               "language": "python",
               "entry_kind": "function",
-              "source": "backend/api/admin_routes.py:13"
+              "source": "backend/api/admin_routes.py:13",
+              "location": {
+                "path": "backend/api/admin_routes.py",
+                "start_line": 13,
+                "end_line": 15
+              }
             },
             {
               "type": "entry",
@@ -7354,7 +7948,12 @@
               "subject": null,
               "values": [],
               "branches": [],
-              "source": "backend/api/admin_routes.py:13"
+              "source": "backend/api/admin_routes.py:13",
+              "location": {
+                "path": "backend/api/admin_routes.py",
+                "start_line": 13,
+                "end_line": 15
+              }
             }
           ],
           "expected": null,
@@ -7382,6 +7981,10 @@
       "flow_ids": [
         "flow-1c6b6f96cffc422d",
         "flow-10ef2d061b27b88c"
+      ],
+      "dependencies": [
+        "backend/auth.py",
+        "backend/domain.py"
       ]
     },
     {
@@ -7393,6 +7996,9 @@
         "flow-663a7ab889d99781",
         "flow-5a5d9103f9740b43",
         "flow-9744434307d21144"
+      ],
+      "dependencies": [
+        "backend/domain.py"
       ]
     },
     {
@@ -7403,6 +8009,9 @@
         "flow-0c047baf201f45c7",
         "flow-3d1dd6694cc550e9",
         "flow-379ecad6e175d201"
+      ],
+      "dependencies": [
+        "backend/domain.py"
       ]
     },
     {
@@ -7412,6 +8021,9 @@
       "flow_ids": [
         "flow-e09895754a5d776e",
         "flow-43f51fb107229278"
+      ],
+      "dependencies": [
+        "backend/domain.py"
       ]
     },
     {
@@ -7420,7 +8032,8 @@
       "sha256": "662525077ac567a3a141f18c6105fd146c1e0f49c147d15489155188190696f8",
       "flow_ids": [
         "flow-b097a99127b59d11"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "backend/orders_service.py",
@@ -7429,6 +8042,9 @@
       "flow_ids": [
         "flow-9db0379ee88dd158",
         "flow-454eee0405381967"
+      ],
+      "dependencies": [
+        "backend/domain.py"
       ]
     },
     {
@@ -7440,6 +8056,9 @@
         "flow-50e684eafc6a8ce3",
         "flow-22b5de4d1b748736",
         "flow-68d596474ebdd0a8"
+      ],
+      "dependencies": [
+        "backend/domain.py"
       ]
     },
     {
@@ -7449,6 +8068,10 @@
       "flow_ids": [
         "flow-1f9ab406cb373b90",
         "flow-4e86ebfbebb24a2c"
+      ],
+      "dependencies": [
+        "backend/auth.py",
+        "backend/domain.py"
       ]
     },
     {
@@ -7457,6 +8080,9 @@
       "sha256": "4bf5c7c638f7e52ce27c451570ea5cbe8b9dfad00da94cc36817770d2f192bc7",
       "flow_ids": [
         "flow-0d2030fc4f935984"
+      ],
+      "dependencies": [
+        "frontend/lib/status.ts"
       ]
     },
     {
@@ -7465,7 +8091,8 @@
       "sha256": "e8841695a674a01de2168b08c39433e3f15318c4e921cbc0eeda2ad8b29f9dd5",
       "flow_ids": [
         "flow-77b21193aa0c1d4d"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "frontend/app/api/orders/route.ts",
@@ -7473,6 +8100,9 @@
       "sha256": "bcc6b8dbc63dbe4c8b7b18b5e735dea8436f178c221770a250283d54749c7ac1",
       "flow_ids": [
         "flow-adbd361ae9be144a"
+      ],
+      "dependencies": [
+        "frontend/lib/status.ts"
       ]
     },
     {
@@ -7481,6 +8111,9 @@
       "sha256": "68c24169205edd92bac81677cc753fceac4a29e4f797a9d7eccbff80d7cf1873",
       "flow_ids": [
         "flow-99799591abfba02a"
+      ],
+      "dependencies": [
+        "frontend/lib/status.ts"
       ]
     },
     {
@@ -7489,13 +8122,15 @@
       "sha256": "ad35bc466982ee90669e3861f239bf482f017448ca9be15da10be7e50a62711c",
       "flow_ids": [
         "flow-a8e844538cf5c5b4"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "frontend/lib/status.ts",
       "language": "typescript",
       "sha256": "e915f97f780b127e5864adc4b5cce8f9c1ac39d5e1e0d97cc740e1d6cc011550",
-      "flow_ids": []
+      "flow_ids": [],
+      "dependencies": []
     },
     {
       "path": "frontend/middleware.ts",
@@ -7503,7 +8138,8 @@
       "sha256": "896797092b08b33fd412280c35aa7e6b189ceff64368e6d24ded0d14a3c42d24",
       "flow_ids": [
         "flow-2153fa8dd4bc4919"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "tests/test_users_service.py",
@@ -7511,6 +8147,10 @@
       "sha256": "5352b6ca051faef2423ba684d39c94ba052cca37215b9d6e677ba188cdf34c34",
       "flow_ids": [
         "flow-7c133cb53a90c52e"
+      ],
+      "dependencies": [
+        "backend/domain.py",
+        "backend/users_service.py"
       ]
     }
   ],
@@ -7590,10 +8230,15 @@
           "loops": "supported",
           "calls": "supported",
           "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
           "try_catch": "supported",
           "test_detection": "supported",
           "enum_harvest": "supported",
-          "qualified_call_links": "supported"
+          "qualified_call_links": "supported",
+          "import_dependencies": "supported"
+        },
+        "limitations": {
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches."
         }
       },
       "typescript": {
@@ -7611,10 +8256,15 @@
           "loops": "supported",
           "calls": "supported",
           "returns_throws": "supported",
+          "expression_bodied_functions": "supported",
           "try_catch": "supported",
           "test_detection": "supported",
           "enum_harvest": "supported",
-          "qualified_call_links": "partial"
+          "qualified_call_links": "partial",
+          "import_dependencies": "supported"
+        },
+        "limitations": {
+          "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
         }
       },
       "javascript": {
@@ -7634,10 +8284,16 @@
           "loops": "supported",
           "calls": "supported",
           "returns_throws": "supported",
+          "expression_bodied_functions": "supported",
           "try_catch": "supported",
           "test_detection": "supported",
           "enum_harvest": "not_supported",
-          "qualified_call_links": "partial"
+          "qualified_call_links": "partial",
+          "import_dependencies": "supported"
+        },
+        "limitations": {
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
         }
       },
       "go": {
@@ -7654,10 +8310,18 @@
           "loops": "supported",
           "calls": "supported",
           "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
           "try_catch": "not_supported",
           "test_detection": "supported",
           "enum_harvest": "not_supported",
-          "qualified_call_links": "not_supported"
+          "qualified_call_links": "supported",
+          "import_dependencies": "supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "try_catch": "Error-boundary control flow is not modeled for this language.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available."
         }
       },
       "java": {
@@ -7674,10 +8338,18 @@
           "loops": "supported",
           "calls": "supported",
           "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
           "try_catch": "supported",
           "test_detection": "supported",
           "enum_harvest": "not_supported",
-          "qualified_call_links": "not_supported"
+          "qualified_call_links": "partial",
+          "import_dependencies": "supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
         }
       },
       "csharp": {
@@ -7694,10 +8366,19 @@
           "loops": "supported",
           "calls": "supported",
           "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
           "try_catch": "supported",
           "test_detection": "supported",
           "enum_harvest": "not_supported",
-          "qualified_call_links": "not_supported"
+          "qualified_call_links": "not_supported",
+          "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
         }
       },
       "php": {
@@ -7714,10 +8395,19 @@
           "loops": "supported",
           "calls": "supported",
           "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
           "try_catch": "supported",
           "test_detection": "supported",
           "enum_harvest": "not_supported",
-          "qualified_call_links": "not_supported"
+          "qualified_call_links": "not_supported",
+          "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
         }
       },
       "c": {
@@ -7735,10 +8425,20 @@
           "loops": "supported",
           "calls": "supported",
           "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
           "try_catch": "not_supported",
           "test_detection": "supported",
           "enum_harvest": "not_supported",
-          "qualified_call_links": "not_supported"
+          "qualified_call_links": "not_supported",
+          "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "try_catch": "Error-boundary control flow is not modeled for this language.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
         }
       },
       "cpp": {
@@ -7762,10 +8462,19 @@
           "loops": "supported",
           "calls": "supported",
           "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
           "try_catch": "supported",
           "test_detection": "supported",
           "enum_harvest": "not_supported",
-          "qualified_call_links": "not_supported"
+          "qualified_call_links": "not_supported",
+          "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
         }
       },
       "rust": {
@@ -7782,10 +8491,21 @@
           "loops": "supported",
           "calls": "supported",
           "returns_throws": "partial",
+          "expression_bodied_functions": "not_supported",
           "try_catch": "not_supported",
           "test_detection": "supported",
           "enum_harvest": "not_supported",
-          "qualified_call_links": "not_supported"
+          "qualified_call_links": "not_supported",
+          "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "returns_throws": "Return flow is modeled, but throw/raise semantics are incomplete.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "try_catch": "Error-boundary control flow is not modeled for this language.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
         }
       },
       "ruby": {
@@ -7802,10 +8522,20 @@
           "loops": "supported",
           "calls": "supported",
           "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
           "try_catch": "not_supported",
           "test_detection": "supported",
           "enum_harvest": "not_supported",
-          "qualified_call_links": "not_supported"
+          "qualified_call_links": "not_supported",
+          "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "try_catch": "Error-boundary control flow is not modeled for this language.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
         }
       }
     },
@@ -7838,7 +8568,9 @@
           "Inspect the fall-through case and shared tail.",
           "Add an explicit return or raise when the fall-through is accidental.",
           "Document intentional fall-through when shared tail logic is required."
-        ]
+        ],
+        "true_positive_example": "One switch case computes a response but falls through while siblings return.",
+        "intentional_suppression_example": "A case intentionally falls through to shared audit or cleanup logic."
       },
       "auth_divergence": {
         "rule_id": "auth_divergence",
@@ -7864,7 +8596,9 @@
           "Inspect route middleware, dependencies, and decorators.",
           "Add an explicit authorization check if none exists.",
           "Suppress or document the finding when external enforcement is confirmed."
-        ]
+        ],
+        "true_positive_example": "A sibling admin route checks authorization, but this entrypoint does not.",
+        "intentional_suppression_example": "Middleware or route configuration enforces authorization before the handler."
       },
       "broad_except_swallow": {
         "rule_id": "broad_except_swallow",
@@ -7887,7 +8621,9 @@
           "Inspect the handler body.",
           "Return or raise an explicit failure path when callers need to know.",
           "Document intentional suppression when the failure is safely absorbed."
-        ]
+        ],
+        "true_positive_example": "A broad except logs and continues after a failed write that callers must know about.",
+        "intentional_suppression_example": "A best-effort telemetry call may fail silently by design."
       },
       "dead_code": {
         "rule_id": "dead_code",
@@ -7910,7 +8646,9 @@
           "Inspect the previous return/raise paths.",
           "Remove dead code when it is accidental.",
           "Refactor the branch when the later code should still run."
-        ]
+        ],
+        "true_positive_example": "A statement after unconditional return is never executed.",
+        "intentional_suppression_example": "A decorator or runtime hook changes control flow outside the modeled body."
       },
       "dead_guard": {
         "rule_id": "dead_guard",
@@ -7935,7 +8673,9 @@
           "Inspect the constant definition and selected guard.",
           "Remove unreachable branch logic when the constant is fixed.",
           "Avoid flagging by making runtime configuration explicit when it is mutable."
-        ]
+        ],
+        "true_positive_example": "A module constant disables a feature branch that can never run.",
+        "intentional_suppression_example": "The constant is monkeypatched or injected in the runtime environment."
       },
       "enum_exhaustiveness": {
         "rule_id": "enum_exhaustiveness",
@@ -7964,7 +8704,9 @@
           "Inspect the selected dispatch and declared value set.",
           "Add missing cases for real states.",
           "Add an explicit default or suppression when upstream validation proves the subset."
-        ]
+        ],
+        "true_positive_example": "A dispatch over a declared enum omits DELETED and has no default branch.",
+        "intentional_suppression_example": "Upstream validation proves the omitted enum member cannot reach this flow."
       },
       "inconsistent_case_handling": {
         "rule_id": "inconsistent_case_handling",
@@ -7994,7 +8736,9 @@
           "Compare the selected flow with the sibling flows in the same value namespace.",
           "Add missing cases or an explicit default when the omission is accidental.",
           "Document the narrower contract when the omission is intentional."
-        ]
+        ],
+        "true_positive_example": "Most sibling handlers cover CANCELLED, but one route omits it without default.",
+        "intentional_suppression_example": "The flagged route accepts only a narrower documented subset of states."
       },
       "logging_asymmetry": {
         "rule_id": "logging_asymmetry",
@@ -8019,7 +8763,9 @@
           "Inspect the selected guard and sibling error path.",
           "Add logging or alerting when observability is required.",
           "Document intentional silence when noise reduction is deliberate."
-        ]
+        ],
+        "true_positive_example": "One payment failure path raises without logging while siblings alert operators.",
+        "intentional_suppression_example": "Noise-sensitive paths are intentionally silent and monitored elsewhere."
       },
       "missing_branch": {
         "rule_id": "missing_branch",
@@ -8043,7 +8789,9 @@
           "Inspect the selected decision node and source range.",
           "Add an explicit else/default when the omitted path is real.",
           "Suppress or document the finding when an upstream invariant proves exhaustiveness."
-        ]
+        ],
+        "true_positive_example": "A public route switches on account.status but has no default for new statuses.",
+        "intentional_suppression_example": "A validator rejects all unlisted statuses before this function runs."
       },
       "no_op_branch": {
         "rule_id": "no_op_branch",
@@ -8066,7 +8814,9 @@
           "Inspect the selected branch.",
           "Add the missing behavior or remove the dead branch.",
           "Leave an explicit comment when the no-op is intentional."
-        ]
+        ],
+        "true_positive_example": "A paid-order case is empty while sibling states update inventory.",
+        "intentional_suppression_example": "An explicit pass marks a state that intentionally requires no action."
       },
       "outcome_inconsistency": {
         "rule_id": "outcome_inconsistency",
@@ -8095,7 +8845,9 @@
           "Compare the selected flow with sibling outcomes for the same condition.",
           "Align the outcome when consistency is required.",
           "Document the intentional divergence when the route contract differs."
-        ]
+        ],
+        "true_positive_example": "Sibling flows return forbidden for the same guard, but one returns success.",
+        "intentional_suppression_example": "The route intentionally maps the same state to a different public contract."
       }
     },
     "quality": {
@@ -8109,6 +8861,11 @@
         "skipped": {
           "total": 0,
           "by_reason": {},
+          "sample": []
+        },
+        "parse_errors": {
+          "total": 0,
+          "by_language": {},
           "sample": []
         }
       },
@@ -8165,6 +8922,112 @@
           "POTENTIAL_GAP": 4
         }
       },
+      "languages": {
+        "depth": {
+          "python": {
+            "files": 9,
+            "files_with_flows": 9,
+            "flow_file_coverage": 1.0,
+            "flows": 20,
+            "entrypoints": 19,
+            "decisions": 22,
+            "calls": 16,
+            "resolved_calls": 2,
+            "unresolved_calls": 14,
+            "call_resolution_rate": 0.125,
+            "findings": 10,
+            "generic_nodes": 18,
+            "generic_ratio": 0.1417,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "python_ast",
+              "suffixes": [
+                ".py"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "supported",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "expression_bodied_functions": "not_supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "supported",
+                "qualified_call_links": "supported",
+                "import_dependencies": "supported"
+              },
+              "limitations": {
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches."
+              }
+            }
+          },
+          "typescript": {
+            "files": 7,
+            "files_with_flows": 6,
+            "flow_file_coverage": 0.8571,
+            "flows": 6,
+            "entrypoints": 6,
+            "decisions": 7,
+            "calls": 9,
+            "resolved_calls": 0,
+            "unresolved_calls": 9,
+            "call_resolution_rate": 0.0,
+            "findings": 3,
+            "generic_nodes": 9,
+            "generic_ratio": 0.2195,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "typescript_tree_sitter",
+              "suffixes": [
+                ".ts",
+                ".tsx"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "supported",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "expression_bodied_functions": "supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "supported",
+                "qualified_call_links": "partial",
+                "import_dependencies": "supported"
+              },
+              "limitations": {
+                "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
+              }
+            }
+          }
+        },
+        "attention": [
+          {
+            "language": "python",
+            "signals": [
+              "low_call_resolution"
+            ]
+          },
+          {
+            "language": "typescript",
+            "signals": [
+              "low_call_resolution",
+              "generic_labels"
+            ]
+          }
+        ]
+      },
       "labels": {
         "generic_nodes": 27,
         "generic_ratio": 0.1579,
@@ -8173,120 +9036,140 @@
             "flow_id": "flow-1c6b6f96cffc422d",
             "node_id": "flow-1c6b6f96cffc422d:n3",
             "label": "Call require_role()",
+            "language": "python",
             "source": "backend/api/admin_routes.py:9"
           },
           {
             "flow_id": "flow-1c6b6f96cffc422d",
             "node_id": "flow-1c6b6f96cffc422d:n4",
             "label": "Call do_delete()",
+            "language": "python",
             "source": "backend/api/admin_routes.py:10"
           },
           {
             "flow_id": "flow-10ef2d061b27b88c",
             "node_id": "flow-10ef2d061b27b88c:n3",
             "label": "Call do_purge()",
+            "language": "python",
             "source": "backend/api/admin_routes.py:15"
           },
           {
             "flow_id": "flow-cd39f6aa851ac8f1",
             "node_id": "flow-cd39f6aa851ac8f1:n5",
             "label": "Call do_cancel()",
+            "language": "python",
             "source": "backend/api/orders_routes.py:10"
           },
           {
             "flow_id": "flow-5a5d9103f9740b43",
             "node_id": "flow-5a5d9103f9740b43:n5",
             "label": "Call build_order()",
+            "language": "python",
             "source": "backend/api/orders_routes.py:25"
           },
           {
             "flow_id": "flow-9744434307d21144",
             "node_id": "flow-9744434307d21144:n3",
             "label": "Call build_order()",
+            "language": "python",
             "source": "backend/api/orders_routes.py:30"
           },
           {
             "flow_id": "flow-663a7ab889d99781",
             "node_id": "flow-663a7ab889d99781:n5",
             "label": "Call do_refund()",
+            "language": "python",
             "source": "backend/api/orders_routes.py:18"
           },
           {
             "flow_id": "flow-3d1dd6694cc550e9",
             "node_id": "flow-3d1dd6694cc550e9:n7",
             "label": "Call update_email()",
+            "language": "python",
             "source": "backend/api/users_routes.py:19"
           },
           {
             "flow_id": "flow-0c047baf201f45c7",
             "node_id": "flow-0c047baf201f45c7:n5",
             "label": "Call issue_reset_token()",
+            "language": "python",
             "source": "backend/api/users_routes.py:10"
           },
           {
             "flow_id": "flow-68d596474ebdd0a8",
             "node_id": "flow-68d596474ebdd0a8:n4",
             "label": "Return",
+            "language": "python",
             "source": "backend/payments_service.py:42"
           },
           {
             "flow_id": "flow-68d596474ebdd0a8",
             "node_id": "flow-68d596474ebdd0a8:n5",
             "label": "Call gateway_capture()",
+            "language": "python",
             "source": "backend/payments_service.py:43"
           },
           {
             "flow_id": "flow-50e684eafc6a8ce3",
             "node_id": "flow-50e684eafc6a8ce3:n6",
             "label": "Call gateway_charge()",
+            "language": "python",
             "source": "backend/payments_service.py:24"
           },
           {
             "flow_id": "flow-22b5de4d1b748736",
             "node_id": "flow-22b5de4d1b748736:n4",
             "label": "Call log_warning()",
+            "language": "python",
             "source": "backend/payments_service.py:33"
           },
           {
             "flow_id": "flow-22b5de4d1b748736",
             "node_id": "flow-22b5de4d1b748736:n5",
             "label": "Call alert_ops()",
+            "language": "python",
             "source": "backend/payments_service.py:34"
           },
           {
             "flow_id": "flow-22b5de4d1b748736",
             "node_id": "flow-22b5de4d1b748736:n7",
             "label": "Call gateway_refund()",
+            "language": "python",
             "source": "backend/payments_service.py:36"
           },
           {
             "flow_id": "flow-1f9ab406cb373b90",
             "node_id": "flow-1f9ab406cb373b90:n3",
             "label": "Call ensure_authenticated()",
+            "language": "python",
             "source": "backend/users_service.py:13"
           },
           {
             "flow_id": "flow-77b21193aa0c1d4d",
             "node_id": "flow-77b21193aa0c1d4d:n3",
             "label": "Call charge()",
+            "language": "typescript",
             "source": "frontend/app/api/checkout/route.ts:6"
           },
           {
             "flow_id": "flow-adbd361ae9be144a",
             "node_id": "flow-adbd361ae9be144a:n2",
             "label": "Call loadOrder()",
+            "language": "typescript",
             "source": "frontend/app/api/orders/route.ts:5"
           },
           {
             "flow_id": "flow-adbd361ae9be144a",
             "node_id": "flow-adbd361ae9be144a:n4",
             "label": "Call Response.json()",
+            "language": "typescript",
             "source": "frontend/app/api/orders/route.ts:8"
           },
           {
             "flow_id": "flow-adbd361ae9be144a",
             "node_id": "flow-adbd361ae9be144a:n6",
             "label": "Call Response.json()",
+            "language": "typescript",
             "source": "frontend/app/api/orders/route.ts:10"
           }
         ]

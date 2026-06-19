@@ -358,8 +358,8 @@ whole-codebase one - 10 control-flow languages plus Terraform, organized by macr
 
 - `examples/demo` is now a polyglot "users & orders" platform spanning all 10
   control-flow languages plus Terraform/HCL across backend/frontend/edge/infra scopes.
-- `analyze` summary wording: "{n} finding(s)" instead of the ungrammatical, misleading
-  "{n} review findings".
+- `analyze` summary wording: "{n} finding(s)" instead of the earlier hybrid review
+  wording.
 
 ## 0.2.1
 
