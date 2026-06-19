@@ -24,6 +24,7 @@ from logicchart.query import (
     explain_finding,
     find_decisions,
     finding_context,
+    finding_next_tools,
     flow_navigation,
     git_changed_files,
     impact_model,
@@ -2196,7 +2197,7 @@ def _finding_dict(
     annotation = _finding_annotation(finding, annotations)
     if annotation:
         data["annotation"] = annotation
-    data["next_tools"] = _finding_next_tools(finding)
+    data["next_tools"] = finding_next_tools(finding.id, finding.flow_id)
     return data
 
 
@@ -2208,31 +2209,6 @@ def _finding_annotation(finding: Any, annotations: dict[str, Any] | None) -> dic
         return None
     annotation = finding_annotations.get(finding.id)
     return annotation if isinstance(annotation, dict) and annotation else None
-
-
-def _finding_next_tools(finding: Any) -> dict[str, dict[str, Any]]:
-    return {
-        "finding_context": {
-            "tool": "get_finding_context",
-            "arguments": {"finding_id": finding.id},
-        },
-        "visual_snapshot": {
-            "tool": "get_finding_snapshot",
-            "arguments": {"finding_id": finding.id, "format": "svg"},
-        },
-        "subgraph_snapshot": {
-            "tool": "get_subgraph_snapshot",
-            "arguments": {
-                "flow_ids": [finding.flow_id],
-                "finding_ids": [finding.id],
-                "format": "svg",
-            },
-        },
-        "flow_navigation": {
-            "tool": "get_flow_navigation",
-            "arguments": {"flow_id": finding.flow_id},
-        },
-    }
 
 
 def _unknown_target_error(target_type: str, target_id: str) -> dict[str, Any]:

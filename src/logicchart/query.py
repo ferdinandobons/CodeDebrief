@@ -857,7 +857,7 @@ def _finding_dict(
     annotation = _finding_annotation(finding, annotations)
     if annotation:
         data["annotation"] = annotation
-    data["next_tools"] = _finding_next_tools(finding)
+    data["next_tools"] = finding_next_tools(finding.id, finding.flow_id)
     return data
 
 
@@ -874,27 +874,27 @@ def _finding_annotation(
     return annotation if isinstance(annotation, dict) and annotation else None
 
 
-def _finding_next_tools(finding: Finding) -> dict[str, dict[str, Any]]:
+def finding_next_tools(finding_id: str, flow_id: str) -> dict[str, dict[str, Any]]:
     return {
         "finding_context": {
             "tool": "get_finding_context",
-            "arguments": {"finding_id": finding.id},
+            "arguments": {"finding_id": finding_id},
         },
         "visual_snapshot": {
             "tool": "get_finding_snapshot",
-            "arguments": {"finding_id": finding.id, "format": "svg"},
+            "arguments": {"finding_id": finding_id, "format": "svg"},
         },
         "subgraph_snapshot": {
             "tool": "get_subgraph_snapshot",
             "arguments": {
-                "flow_ids": [finding.flow_id],
-                "finding_ids": [finding.id],
+                "flow_ids": [flow_id],
+                "finding_ids": [finding_id],
                 "format": "svg",
             },
         },
         "flow_navigation": {
             "tool": "get_flow_navigation",
-            "arguments": {"flow_id": finding.flow_id},
+            "arguments": {"flow_id": flow_id},
         },
     }
 
