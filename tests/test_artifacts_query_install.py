@@ -266,6 +266,11 @@ def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
         assert target.read_text(encoding="utf-8") == content
 
 
+def test_install_rejects_unknown_agent_instruction_target(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unknown agent instruction target"):
+        install_agent_instructions(tmp_path, "unknown-agent")
+
+
 def test_install_preserves_project_local_notes(tmp_path: Path) -> None:
     changed = install_agent_instructions(tmp_path, "codex")
     assert changed == [tmp_path / "AGENTS.md"]

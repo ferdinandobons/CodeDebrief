@@ -12,6 +12,12 @@ LOCAL_NOTES_HINT = (
     "<!-- Add project-specific local notes here. This section is preserved by "
     "`logicchart setup-agent`. -->"
 )
+AGENT_INSTRUCTION_TARGETS = {
+    "codex": Path("AGENTS.md"),
+    "claude": Path("CLAUDE.md"),
+    "gemini": Path("GEMINI.md"),
+    "cursor": Path(".cursor/rules/logicchart.mdc"),
+}
 MCP_CONFIG_TARGETS = ("codex", "claude", "cursor")
 CODEX_MCP_START = "# logicchart:mcp-config:start"
 CODEX_MCP_END = "# logicchart:mcp-config:end"
@@ -78,15 +84,12 @@ def install_all(root: Path, platform: str = "all", mcp_config: str = "none") -> 
 
 
 def install_agent_instructions(root: Path, platform: str = "all") -> list[Path]:
-    targets: list[Path] = []
-    if platform in {"all", "codex"}:
-        targets.append(root / "AGENTS.md")
-    if platform in {"all", "claude"}:
-        targets.append(root / "CLAUDE.md")
-    if platform in {"all", "gemini"}:
-        targets.append(root / "GEMINI.md")
-    if platform in {"all", "cursor"}:
-        targets.append(root / ".cursor" / "rules" / "logicchart.mdc")
+    names = tuple(AGENT_INSTRUCTION_TARGETS) if platform == "all" else (platform,)
+    unknown = set(names) - set(AGENT_INSTRUCTION_TARGETS)
+    if unknown:
+        known = ", ".join(("all", *AGENT_INSTRUCTION_TARGETS))
+        raise ValueError(f"unknown agent instruction target {platform!r}; known targets: {known}")
+    targets = [root / AGENT_INSTRUCTION_TARGETS[name] for name in names]
 
     changed: list[Path] = []
     for target in targets:

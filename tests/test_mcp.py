@@ -836,6 +836,47 @@ def route(user, order):
     assert concepts["role"]["findings"] == []
 
 
+def test_domain_map_keeps_enum_exhaustiveness_findings_on_matching_domain(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "app.py"
+    source.write_text(
+        """
+from enum import Enum
+
+
+class Status(Enum):
+    DRAFT = "draft"
+    OPEN = "open"
+    PAID = "paid"
+
+
+def route(status):
+    if status == Status.DRAFT:
+        return draft()
+    elif status == Status.OPEN:
+        return open_order()
+    return fallback()
+""",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+
+    payload = _domain_logic_map(
+        model,
+        domain="Status",
+        value=None,
+        scope=None,
+        token_budget=0,
+    )
+
+    assert len(payload["concepts"]) == 1
+    concept = payload["concepts"][0]
+    assert concept["domain"] == "Status"
+    assert concept["missing_values"] == ["Status.PAID"]
+    assert [item["kind"] for item in concept["findings"]] == ["enum_exhaustiveness"]
+
+
 def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> None:
     async def call_with_missing_artifact() -> None:
         parameters = StdioServerParameters(
