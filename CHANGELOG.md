@@ -160,9 +160,8 @@ The project follows Semantic Versioning.
 
 ### Fixed
 
-- Fixed Python parent-flow attribution so calls, decisions, and local constant-shadow
-  metadata inside nested local functions/classes/lambdas no longer leak into the enclosing
-  flow.
+- Fixed Python parent-flow attribution so calls, decisions, local constant-shadow metadata,
+  and lambda callback bodies inside local helpers no longer leak into the enclosing flow.
 - Fixed finding/source panel activation so opening a flow no longer clears the more precise
   selected finding or source-line selection.
 

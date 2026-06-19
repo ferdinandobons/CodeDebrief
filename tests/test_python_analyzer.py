@@ -114,6 +114,28 @@ def process(flag):
     assert "Call done()" in labels
 
 
+def test_local_lambda_body_does_not_make_parent_if_functional(tmp_path: Path) -> None:
+    source = tmp_path / "service.py"
+    source.write_text(
+        """
+def process(flag, order):
+    if flag:
+        callback = lambda: validate(order)
+    return done()
+""",
+        encoding="utf-8",
+    )
+
+    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = next(item for item in analysis.flows if item.name == "process")
+    labels = {node.label for node in flow.nodes}
+
+    assert "Handle internal condition: flag" in labels
+    assert "flag" not in labels
+    assert "Call validate()" not in labels
+    assert "Call done()" in labels
+
+
 def test_local_function_assignment_does_not_shadow_parent_constants(tmp_path: Path) -> None:
     source = tmp_path / "service.py"
     source.write_text(

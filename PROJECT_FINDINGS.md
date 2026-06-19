@@ -792,6 +792,8 @@ Before the next release:
   are no longer hidden behind a single loop action node.
 - Done: keep Python local helper scopes from polluting parent-flow calls, decisions, and
   constant-shadow metadata.
+- Done: keep Python local lambda callback bodies from making parent branch classification
+  look functional.
 - Done: model TypeScript/JavaScript and profile-driven tree-sitter loop bodies with
   explicit `break`/`continue` control nodes.
 - Done: surface TypeScript/JavaScript and profile-driven tree-sitter parse errors as

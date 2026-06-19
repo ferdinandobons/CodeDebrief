@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import ast
+import copy
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from logicchart.analysis.common import (
     CONTINUES,
@@ -698,10 +699,19 @@ def _argument_names(arguments: ast.arguments) -> set[str]:
 
 def _branch_behavior_source(stmts: list[ast.stmt], source: str) -> str:
     return " ".join(
-        _source_segment(source, statement)
+        _safe_unparse(_strip_nested_callable_bodies(statement))
         for statement in stmts
         if not isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
     )
+
+
+def _strip_nested_callable_bodies(statement: ast.stmt) -> ast.stmt:
+    return cast(ast.stmt, _NestedCallableBodyStripper().visit(copy.deepcopy(statement)))
+
+
+class _NestedCallableBodyStripper(ast.NodeTransformer):
+    def visit_Lambda(self, node: ast.Lambda) -> ast.AST:
+        return ast.copy_location(ast.Constant(value="lambda"), node)
 
 
 def _loop_label(statement: ast.For | ast.AsyncFor | ast.While) -> str:
