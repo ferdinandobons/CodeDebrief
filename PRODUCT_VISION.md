@@ -25,12 +25,21 @@ It is a support system for coding agents. Its job is to make code logic inspecta
 queryable, and explainable for both humans and AI, especially in projects where modern
 development is mediated by agents such as Codex, Claude, Cursor, or similar tools.
 
-The CLI and viewer remain important, but they are supporting surfaces:
+The distribution model should be hybrid, with one clear hierarchy:
 
-1. MCP and agent workflows are the primary product surface.
-2. CLI exists for setup, repair, CI, explicit refresh, and debugging.
-3. The viewer exists for optional human inspection and deep visual exploration.
-4. Generated artifacts are the shared source of truth between humans, agents, CI, and UI.
+1. MCP and agent workflows are the primary runtime surface.
+2. CLI is the local executable substrate for setup, repair, CI, explicit refresh, and
+   debugging.
+3. Agent instructions and skills are the activation layer that teach each coding agent
+   when and how to use LogicChart.
+4. The viewer exists for optional human inspection and deep visual exploration.
+5. Generated artifacts are the shared source of truth between humans, agents, CI, and UI.
+
+MCP should remain the primary integration channel because it exposes structured tools and
+resources directly to coding agents. The CLI should not compete with MCP; it should power
+MCP, setup, validation, and fallback workflows. Skills or agent instruction files should
+not replace MCP either; they should package the usage policy, examples, and decision rules
+that make the agent reach for LogicChart automatically when the user asks about code logic.
 
 ## Core Promise
 
@@ -73,6 +82,14 @@ LogicChart should provide a unified context workflow that accepts a user questio
 files, selected code, target flow, finding, or symbol, then returns a bounded understanding
 pack.
 
+The lower-level tools should remain available for expert or fallback use, but the expected
+agent path should be:
+
+```text
+user question -> agent instruction/skill trigger -> MCP agent_context -> deterministic
+context pack -> agent explanation or code change
+```
+
 ### Enrichment belongs to the coding agent
 
 The coding agent already has a model. LogicChart should not require provider keys for the
@@ -113,14 +130,18 @@ Equivalent targets should exist for Claude, Cursor, and other supported agent su
 The setup flow should:
 
 - create or update `logicchart.toml` only when needed;
-- install or refresh agent instructions;
-- register the MCP server when requested;
+- install or refresh agent instructions and skills when that surface supports them;
+- register the MCP server as the preferred agent integration;
 - generate the initial `logicchart-out` model;
 - run `logicchart doctor`;
 - validate artifacts;
 - explain what users can now ask their coding agent;
 - avoid asking for LLM provider credentials unless the user explicitly chooses an advanced
   provider-managed enrichment flow.
+
+Setup should optimize for a user who will not remember commands later. The success state is
+not "the CLI is installed"; it is "the coding agent knows LogicChart is available, knows
+when to call it, and can retrieve useful flow context without the user naming a command."
 
 ## Target Agent Experience
 
@@ -164,6 +185,60 @@ This should be the default path for questions such as:
 - "What logic touches this status?"
 - "Show me the flow around this bug."
 - "What should I test after this edit?"
+
+The context tool should be opinionated enough that an agent can use it from natural
+language, but transparent enough that advanced users can inspect which flows, findings,
+source files, snapshots, and omissions were included.
+
+## Channel Strategy
+
+### MCP: primary runtime integration
+
+MCP should expose a small set of high-value tools and resources that map to real agent
+tasks:
+
+- `agent_context` for question-driven understanding;
+- `impact` for change review;
+- `query` for targeted search across generated flow artifacts;
+- `navigate` and `explain` for focused flow inspection;
+- `snapshot` or subgraph rendering for visual context;
+- annotation write/validate tools for agent-authored enrichment.
+
+The MCP surface should avoid forcing agents to call many tiny tools before they can answer
+ordinary user questions. Low-level tools are useful, but the default path should be the
+single context pack.
+
+### CLI: setup, maintenance, and fallback
+
+The CLI remains essential because it is the stable local executable:
+
+- setup agent integrations;
+- analyze and update artifacts;
+- validate synchronization;
+- run doctor checks;
+- support CI;
+- debug or reproduce MCP behavior;
+- provide explicit commands when an agent integration is unavailable.
+
+The CLI should mirror agent capabilities where useful, but its documentation should make
+clear that most users are expected to interact through their coding agent after setup.
+
+### Skills and agent instructions: activation layer
+
+Skills and instruction files are how LogicChart becomes discoverable inside the agent's
+normal workflow. Their job is to encode behavior:
+
+- when the agent should call LogicChart;
+- which user questions imply code-flow analysis;
+- how to respect trust tiers;
+- when to refresh artifacts;
+- how to cite source ranges and flow ids;
+- how to avoid overstating inferred findings;
+- how to request visual snapshots only when they add value.
+
+Skills should not contain the product's source of truth or duplicate large command
+manuals. They should be compact routing policies that point the agent to MCP first and CLI
+fallbacks only when needed.
 
 ## Agent-authored Enrichment
 
@@ -238,6 +313,8 @@ snapshots directly through MCP or CLI.
 - Make MCP setup and instruction refresh the default recommended path.
 - Make `doctor` and artifact validation part of setup.
 - Document common user questions instead of command-first workflows.
+- Generate or refresh agent-specific instructions/skills that explain when to use
+  LogicChart.
 
 ### Phase 2: Unified agent context
 
@@ -251,6 +328,8 @@ snapshots directly through MCP or CLI.
 - Add MCP write tools for validated annotations.
 - Treat provider-managed LLM enrichment as advanced and optional.
 - Keep annotation sidecars separate from deterministic model artifacts.
+- Make annotations traceable to the agent, model context, model hash, target ids, and
+  validation status without requiring provider API keys.
 
 ### Phase 4: Domain and state maps
 
