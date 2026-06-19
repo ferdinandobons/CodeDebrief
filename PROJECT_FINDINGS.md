@@ -75,8 +75,9 @@ LogicChart is in a strong alpha state.
   metadata, generated models include a shared detector-rule registry, MCP exposes
   `finding_rules`, and the Logical Errors panel expands selected findings into a compact
   diagnostic inspector with related-flow and evidence-node links.
-- Phase 2 visual-context work has started: MCP can now return deterministic SVG snapshots
-  for a flow, a selected finding, or an impact set without scraping the browser.
+- Agent-visible visual-context work is now mature enough for the migration path: MCP can
+  return deterministic SVG snapshots for flows, selected findings, impact sets, explicit
+  subgraphs, and `agent_context` visual packs without scraping the browser.
 - Analysis-quality work has started: generated models now include deterministic quality
   metrics, `logicchart validate --quality` can print or emit them as JSON, and MCP summary
   and artifact validation can expose them to agents, and the viewer shows the same payload
@@ -260,7 +261,7 @@ Current checkpoint:
   so MCP/metadata consumers can distinguish actionable findings from expected review-only
   cases without relying on long prose.
 - Diagnostics reuse the same contracts for `review_prompt` and `suggested_next_actions`,
-  so CLI explanations, MCP payloads, snapshots, and the viewer stay aligned.
+  so MCP/internal finding explanations, payloads, snapshots, and the viewer stay aligned.
 - Tests now pin the public rule-contract shape for every finding kind and verify filtered
   lookup behavior for known and unknown kinds.
 
@@ -643,7 +644,7 @@ Separate three layers:
 2. Layout computation: produce deterministic coordinates and routes.
 3. Presentation: React interaction, DOM, panels, keyboard/mouse behavior.
 
-MCP and CLI snapshots need layers 1 and 2 without React interactivity.
+MCP snapshots and viewer exports need layers 1 and 2 without React interactivity.
 
 ## Finding 10: Analyzer Quality Metrics Are Missing
 
@@ -752,7 +753,9 @@ Before the next release:
 - Done: update viewer Logical Errors panel to show diagnostic details and related
   flow/evidence-node links.
 - Done: add a compact focused diagnostic subgraph to selected finding rows in the viewer.
-- Done: add a CLI `explain` command for deterministic finding explanations and JSON output.
+- Done: added deterministic finding explanations and JSON output before the agent-first
+  migration; current migration keeps finding explanation behind MCP/internal context
+  rather than a public CLI command.
 - Next: consider a compatible schema 1.2 only when the consumer migration story is ready.
 
 ### Phase 2: MCP Visual Context
@@ -783,8 +786,8 @@ Before the next release:
   overlap, overflow, gap, and edge-obstacle counts.
 - Done: cap inline `context_pack` SVG payload size with `visual_byte_budget` while keeping
   omitted visuals available through follow-up snapshot tools.
-- Done: add explicit flow/finding subgraph snapshots across MCP and CLI so agents can
-  render the `subgraph_flow_ids`/`subgraph_finding_ids` they already receive.
+- Done: add explicit flow/finding subgraph snapshots across MCP/internal rendering so
+  agents can render the `subgraph_flow_ids`/`subgraph_finding_ids` they already receive.
 - Done: include the explicit subgraph snapshot inline in `context_pack(include_visual=true)`
   when it fits the deterministic visual byte budget.
 - Next: add optional raster outputs if a local renderer path is worth the dependency.
