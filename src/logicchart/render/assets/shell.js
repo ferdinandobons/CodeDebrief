@@ -1574,6 +1574,7 @@
           const flow = byId.get(value);
           setHeaderFlow(flow);
           LC.select(selectionForFlow(flow));
+          if (LC.openDetails) LC.openDetails();
           if (window.LC.onFlowSelected) window.LC.onFlowSelected(flow);
           return;
         }
@@ -1604,6 +1605,7 @@
             path: value,
             scope,
           });
+          if (LC.openDetails) LC.openDetails();
           return;
         }
         if (key === "edge") return;
@@ -1628,6 +1630,7 @@
           const flow = byId.get(decoded);
           setHeaderFlow(flow);
           LC.select(selectionForFlow(flow));
+          if (LC.openDetails) LC.openDetails();
           if (window.LC.onFlowSelected) window.LC.onFlowSelected(flow);
           return;
         }

@@ -488,6 +488,10 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "safeDecodeHashValue" in html
     assert "manualPositions.clear()" in html
     assert "openDetails" in html
+    assert (
+        "LC.select(selectionForFlow(flow));\n"
+        "          if (LC.openDetails) LC.openDetails();" in html
+    )
     assert ".edge-hit, .edge-hit-segment, .edge-label-wrap" in html
     assert "bindEdgeActivationParts" in html
     assert "setEdgeHitGeometry(hit, geometry, activate" in html

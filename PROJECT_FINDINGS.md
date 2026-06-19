@@ -651,6 +651,8 @@ Current checkpoint:
 - MCP `validate_artifacts(include_quality=true)` returns the same quality payload.
 - The generated viewer Details rail includes a Project Quality panel with coverage,
   call-resolution, findings, label, graph-density, and language metrics.
+- Viewer flow and source-path deep links open the Details rail with the matching source
+  context, so copied URLs and agent-provided links land on an inspectable state.
 - Generated models include `metadata.language_capabilities`, and MCP summaries expose that
   registry-derived matrix for agent orientation.
 - Quality metrics include per-language depth signals for files, flows, decisions, calls,

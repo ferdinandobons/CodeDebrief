@@ -123,7 +123,8 @@ large-codebase study, not just one isolated function. It shows:
 - Progressive scope/entrypoint/call expansion: open one or more scopes, then an entrypoint,
   then follow unlocked calls without leaving the same flowchart.
 - Direct internal-flow opening that rebuilds the visible caller chain, so selected helpers
-  remain connected to their scope entrypoint instead of becoming detached islands.
+  remain connected to their scope entrypoint instead of becoming detached islands; flow and
+  path deep links also open Details with the selected source context.
 - Expand-in-place decision charts, so a selected flow can be studied without losing its
   surrounding codebase context.
 - Link selection that highlights the source node, target node, and selected connection

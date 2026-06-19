@@ -732,6 +732,35 @@ describe("standalone viewer bridge", () => {
     container.remove();
   });
 
+  it("publishes source details when opened from a flow deep link", async () => {
+    window.history.replaceState(null, "", "/#flow=orders-route");
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const select = vi.fn();
+    const openDetails = vi.fn();
+    (window as typeof window & { LC?: unknown }).LC = { openDetails, select };
+
+    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    await act(async () => {});
+
+    expect(container.querySelector('[data-flow-id="orders-route"]')?.getAttribute("class")).toContain(
+      "selected",
+    );
+    expect(select).toHaveBeenLastCalledWith({
+      edgeId: null,
+      endLine: 3,
+      findingId: null,
+      flowId: "orders-route",
+      line: 3,
+      nodeId: null,
+      path: "frontend/app/api/orders/route.ts",
+    });
+    expect(openDetails).toHaveBeenCalled();
+
+    mounted.unmount();
+    container.remove();
+  });
+
   it("opens directly selected internal flows as connected caller chains", async () => {
     window.history.replaceState(null, "", "/#scope=frontend");
     const container = document.createElement("div");

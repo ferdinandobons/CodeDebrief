@@ -162,9 +162,13 @@ export function mountStandaloneLogicChartViewer(
       },
     };
   };
-  let mounted: MountedLogicChartViewer | null = mountLogicChartViewer(container, buildProps());
+  const initialProps = buildProps();
+  let mounted: MountedLogicChartViewer | null = mountLogicChartViewer(container, initialProps);
+  publishShellRouteSelection(flowById, initialProps);
   const update = () => {
-    mounted?.update(buildProps());
+    const props = buildProps();
+    mounted?.update(props);
+    publishShellRouteSelection(flowById, props);
   };
 
   if (canSubscribe) {
@@ -521,6 +525,28 @@ function publishShellRootSelection() {
     scope: null,
   });
   shell.openDetails?.();
+}
+
+function publishShellRouteSelection(
+  flowById: ReadonlyMap<string, LogicChartFlow>,
+  props: ViewerAppProps,
+) {
+  if (props.selectedFlowId) {
+    publishShellFlowSelection(flowById, props.selectedFlowId);
+    return;
+  }
+  const connection = props.selectedConnection;
+  if (connection) {
+    if (connection.kind === "root-scope") {
+      publishShellScopeSelection(connection.scope);
+      return;
+    }
+    publishShellFlowSelection(flowById, connection.target);
+    return;
+  }
+  if (props.selectedRoot) {
+    publishShellRootSelection();
+  }
 }
 
 function endLineForLocation(location: LogicChartLocation | undefined): number | null {

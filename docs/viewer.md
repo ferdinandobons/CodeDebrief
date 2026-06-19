@@ -54,6 +54,10 @@ such as:
 #edge=<encoded scope-entry connection>
 ```
 
+Direct `#flow=<flow-id>` and `#path=<source-path>` openings must select the matching
+source context and open the Details rail automatically. This keeps copied viewer links and
+agent-provided URLs useful without requiring a second manual Details click.
+
 ## Logical Errors Panel
 
 The Logical Errors panel is both a bounded review queue and a selected-finding inspector.
@@ -208,6 +212,8 @@ High-value browser checks:
   while unrelated nodes/links dim.
 - Clicking blank canvas clears connection focus.
 - Clicking an entrypoint from the canvas and from the tree opens the same flow detail.
+- Direct `#flow=<flow-id>` and `#path=<source-path>` URLs open Details with the matching
+  source context selected.
 - The source panel shows the selected flow's file and line range.
 - Wheel zoom, canvas pan, minimap drag/scroll pan, fit, reset, PNG export, and JPG export
   route through the active runtime.
