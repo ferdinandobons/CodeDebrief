@@ -101,6 +101,7 @@ def authorize(user):
                 assert {"list_flows", "get_flow", "query_logic", "update_logicchart"} <= names
                 assert {
                     "logicchart_summary",
+                    "agent_context",
                     "analysis_quality",
                     "explain_finding_chain",
                     "get_finding_context",
@@ -140,9 +141,22 @@ def authorize(user):
                     "preview_enrichment",
                     "review_queue",
                     "context_pack",
+                    "agent_context",
                 ):
                     properties = schema_by_name[budget_tool].get("properties", {})
                     assert "token_budget" in properties, budget_tool
+                agent_context_properties = schema_by_name["agent_context"].get("properties", {})
+                assert {
+                    "question",
+                    "changed_files",
+                    "selected_code",
+                    "current_file",
+                    "flow_id",
+                    "symbol",
+                    "finding_id",
+                    "dependency_path",
+                    "include_visual",
+                } <= set(agent_context_properties)
                 context_properties = schema_by_name["context_pack"].get("properties", {})
                 assert {"flow_ids", "symbols", "finding_ids", "dependency_paths"} <= set(
                     context_properties
@@ -175,6 +189,30 @@ def authorize(user):
                 )
                 assert not response.isError
                 assert "authorize" in str(response.content)
+                agent_context = await session.call_tool(
+                    "agent_context",
+                    {
+                        "question": "how does admin authorization work?",
+                        "current_file": "app.py",
+                        "selected_code": "if user.role == 'admin': return True",
+                        "include_visual": True,
+                        "token_budget": 480,
+                    },
+                )
+                assert not agent_context.isError
+                agent_context_payload = agent_context.structuredContent  # type: ignore[assignment]
+                assert agent_context_payload["tool"] == "agent_context"  # type: ignore[index]
+                assert "confirmed bugs" in agent_context_payload["guardrail"]  # type: ignore[index]
+                assert (  # type: ignore[index]
+                    agent_context_payload["inputs"]["current_file"] == "app.py"
+                )
+                context = agent_context_payload["context"]  # type: ignore[index]
+                assert context["query"][0]["flow_id"] == flow.id
+                assert "visual_context" in context
+                assert (  # type: ignore[index]
+                    agent_context_payload["recommended_next_tools"]["validate_artifacts"]["tool"]
+                    == "validate_artifacts"
+                )
                 filtered_response = await session.call_tool(
                     "query_logic",
                     {"question": "", "symbol": flow.symbol, "source_path": "app.py"},

@@ -108,6 +108,9 @@ The project follows Semantic Versioning.
 - Added bounded flow-navigation packs to MCP `context_pack`, so agents get caller/callee,
   decision, finding, annotation, and next-tool orientation for relevant flows without an
   immediate second tool call.
+- Added MCP `agent_context` as the primary agent entrypoint for ordinary code-logic
+  questions, change-impact review, focused flow/finding inspection, selected-code context,
+  and optional visual context.
 - Added direct MCP contract tests for visual `context_pack`, flow-navigation packs, and
   recoverable helper payloads, complementing end-to-end stdio coverage.
 - Added stricter finding-rule contract tests that pin every detector's public purpose,
@@ -152,7 +155,7 @@ The project follows Semantic Versioning.
 - Updated MCP finding responses, review queues, context packs, and finding explanations to
   include normalized diagnostic details.
 - Updated generated agent instructions across Codex, Claude, Gemini, and Cursor to prefer
-  LogicChart MCP tools for codebase questions and keep `logicchart view` as the manual UI
+  MCP `agent_context` for codebase questions and keep `logicchart view` as the manual UI
   path.
 - Added `logicchart setup-agent codex|claude|cursor` as the public one-command setup path
   for agent instructions, MCP config, artifact generation, doctor, and validation.

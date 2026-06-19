@@ -261,7 +261,7 @@ commands `query`, `impact`, `explain`, `navigate`, and `snapshot` are not part o
 agent-first CLI surface, so users do not need to memorize low-level analysis commands.
 
 For normal use, ask your coding agent questions such as "how does checkout work?" or
-"what logic is impacted by this change?". The agent should call LogicChart MCP tools and
+"what logic is impacted by this change?". The agent should call MCP `agent_context` and
 return grounded context with flows, callers, callees, decisions, findings, evidence tiers,
 source ranges, impact reasons, and visual snapshots when useful.
 
@@ -470,13 +470,21 @@ Start the server in the analyzed project:
 logicchart mcp .
 ```
 
-Available MCP tools include summary, analysis-quality reports, flow listing, flow
-retrieval, flow-navigation packs, query, findings, finding-rule contracts, finding-chain
-explanation, finding-context subgraphs, state-handling lookup, decision-node search,
-impact analysis, token-bounded deterministic SVG snapshots for flows, findings, impact
-sets, and explicit flow/finding subgraphs, optional LLM enrichment preview, review queue,
-context pack, artifact validation, and artifact update. Artifact validation and update
-responses include guardrails plus `next_tools` and maintenance CLI hints for the
+The primary MCP tool is `agent_context`. Agents should call it for ordinary questions
+about how code works, what a change touches, where a state is handled, or which finding
+needs review. It accepts a user question, changed files, selected code, current file,
+flow id, symbol, finding id, dependency path, scope, token budget, and visual preference,
+then returns one bounded context pack with query matches, impact, navigation, findings,
+guardrails, recommended next tools, and optional visual context.
+
+Lower-level MCP tools remain available for expert follow-up: summary, analysis-quality
+reports, flow listing, flow retrieval, flow-navigation packs, query, findings,
+finding-rule contracts, finding-chain explanation, finding-context subgraphs,
+state-handling lookup, decision-node search, impact analysis, token-bounded deterministic
+SVG snapshots for flows, findings, impact sets, and explicit flow/finding subgraphs,
+local annotation-target preview, review queue, context pack, artifact validation, and
+artifact update. Artifact validation and update responses include guardrails plus
+`next_tools` and maintenance CLI hints for the
 update -> validate -> review sequence, so agents can recover from stale generated models
 without guessing the workflow. Recovery hints use `update_logicchart(full=true)` and
 `logicchart update --full` when bypassing the incremental cache is the safer default.
@@ -488,9 +496,9 @@ reconstructing the traversal. Snapshot payloads carry deterministic layout metad
 with target, unresolved-target, impact-reason, and subgraph fields, plus `layout_quality`
 summaries for complete versus compact renderings and `clarity` signals for overlaps,
 overflow, gaps, and edge obstacles, so agents can reason about omitted or visually crowded
-context without parsing SVG geometry. `context_pack` accepts the same explicit `flow_ids`,
+context without parsing SVG geometry. `agent_context` and `context_pack` accept the same explicit `flow_ids`,
 `symbols`, `finding_ids`, and `dependency_paths` impact targets as `analyze_impact`.
-It also accepts the same deterministic query filters as `query_logic` for source paths,
+`context_pack` also accepts the same deterministic query filters as `query_logic` for source paths,
 language ids, state domains, handled values, finding kinds, severities, and evidence
 tiers. The returned pack includes bounded flow-navigation packs for relevant flows, so
 agents can inspect callers, callees, decisions, findings, annotations, and follow-up tools

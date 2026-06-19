@@ -26,9 +26,9 @@ This project uses LogicChart to keep decision flows synchronized with the source
 
 For codebase questions about behavior, decisions, missing cases, or change impact:
 
-1. Prefer the LogicChart MCP tools before broad file-by-file searches.
-2. Use the MCP context/impact tools for substantial changes instead of manual query
-   commands.
+1. Prefer the LogicChart MCP `agent_context` tool before broad file-by-file searches.
+2. Use `agent_context` for substantial changes, passing changed files, selected code,
+   current file, flow id, symbol, finding id, or dependency path when available.
 3. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` findings.
 4. Use `logicchart view ...` only when a human wants the manual UI flowchart.
 
@@ -43,7 +43,7 @@ When helping a user set up or learn LogicChart:
 
 After a substantial code change:
 
-1. Use LogicChart MCP context/impact tools to review affected entry points and callers.
+1. Use LogicChart MCP `agent_context` to review affected entry points and callers.
 2. Run `logicchart update`; use `logicchart update --full` after analyzer upgrades or
    when cached file models should be ignored.
 3. Commit synchronized changes to:

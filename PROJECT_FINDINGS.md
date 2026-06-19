@@ -58,8 +58,8 @@ LogicChart is in a strong alpha state.
   `explain`, `navigate`, and `snapshot` out of the public CLI surface while preserving
   their underlying deterministic functionality for MCP and internal orchestration. The
   remaining manual product path is `logicchart view`, with `update`, `validate`, `doctor`,
-  and `mcp` kept for maintenance, CI, diagnostics, and agent integration. `setup-agent`
-  remains the next setup-surface milestone.
+  `mcp`, and `setup-agent` kept for setup, maintenance, CI, diagnostics, and agent
+  integration.
 - `PRODUCT_MIGRATION_PLAN.md` is now the source of truth for product vision and migration
   sequencing. It keeps the vision language needed for README/docs while listing the
   macro-phase execution plan and required repeated code-review passes.
@@ -388,7 +388,7 @@ Add MCP tools such as:
 - `get_flow_snapshot(flow_id, format="svg")`
 - `get_finding_snapshot(finding_id, format="svg")`
 - `get_impact_snapshot(changed_files, scope=None, format="svg")`
-- `get_context_pack(question, include_visual=True)`
+- `agent_context(question, include_visual=True)`
 
 These should render deterministic subgraphs from the model, not scrape the currently open
 browser. Browser screenshots are useful for manual UI checks, but MCP should produce
@@ -398,7 +398,6 @@ repeatable snapshots from the artifact.
 
 Create a shared subgraph renderer that can be used by:
 
-- CLI;
 - MCP;
 - tests;
 - the HTML viewer export path.
@@ -408,6 +407,8 @@ from SVG as an optional rasterization layer.
 
 Current checkpoint:
 
+- MCP `agent_context` is now the preferred one-call path for ordinary questions that need
+  deterministic context, impact orientation, and optional visual snapshots.
 - MCP exposes `get_flow_snapshot`, `get_finding_snapshot`, `get_impact_snapshot`, and
   `get_subgraph_snapshot`.
 - Snapshots are generated from the deterministic model and returned as inline SVG.
@@ -474,6 +475,9 @@ The MCP should be treated as a public API, not as an internal convenience wrappe
 
 Current checkpoint:
 
+- MCP exposes `agent_context` as the primary one-call context pack for ordinary agent
+  questions, selected code/current file, changed files, and focused flow/symbol/finding or
+  dependency-path targets.
 - MCP exposes `analysis_quality`, a bounded analyzer-quality tool with guardrails and
   next-tool hints so agents do not need to mine the full summary payload.
 - MCP tests now assert the structured `analysis_quality` payload, token-budget schema, and
@@ -498,17 +502,17 @@ Current checkpoint:
 - MCP `context_pack` now accepts the same deterministic source/language/domain/value and
   finding kind/severity/evidence filters as `query_logic`, keeping filtered review and
   visual context aligned with the requested slice.
-- CLI `query --json` and MCP `query_logic` now include bounded finding metadata,
-  `subgraph_flow_ids`, `subgraph_finding_ids`, and direct subgraph snapshot follow-up
-  commands/tools for focused logical-error review.
+- MCP/internal query rows include bounded finding metadata, `subgraph_flow_ids`,
+  `subgraph_finding_ids`, and direct subgraph snapshot follow-up tools for focused
+  logical-error review.
 - MCP tests now directly pin the visual `context_pack` helper contract, including inline
   impact/subgraph/flow/finding snapshots and `visual_byte_budget` omissions, without
   relying only on stdio integration.
 - MCP tests now directly pin flow-navigation pack shape and recoverable helper payloads
   for artifact loading, validation, update workflow, and unknown targets.
 - Generated agent instruction blocks now tell Codex, Claude, Gemini, and Cursor to use
-  `logicchart --help`, subcommand help, `doctor`, and safe `llm` setup commands when
-  guiding users through setup or tool usage.
+  MCP `agent_context`, `logicchart --help`, subcommand help, and `doctor` when guiding
+  users through setup or tool usage.
 
 ## Finding 7: Language Support Needs Depth Metrics, Not Only a Count
 
@@ -605,6 +609,9 @@ Current checkpoint:
 - MCP `context_pack` also accepts the deterministic query filters from `query_logic`, so
   agents can request bounded packs for source, language, state-domain, handled-value, or
   finding evidence slices without retrieving the whole project review queue.
+- MCP `agent_context` wraps the common query, impact, navigation, finding, and optional
+  visual-context path so coding agents do not need to assemble the ordinary workflow from
+  low-level tools.
 - MCP recovery and validation hints now point agents to `update_logicchart(full=true)` and
   `logicchart update --full` when artifacts are missing, stale, or cache bypass is safer.
 - Generated `files[]` records now include first-party `dependencies` for Python,

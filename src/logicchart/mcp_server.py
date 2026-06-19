@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from logicchart.analysis import ProjectAnalyzer
 from logicchart.annotations import load_annotations
@@ -43,15 +43,15 @@ _DEFAULT_CONTEXT_VISUAL_BYTE_BUDGET = 120_000
 _LOAD_ERRORS = (OSError, ValueError, KeyError, TypeError)
 
 MCP_INSTRUCTIONS = """Use LogicChart as an agent-first code-logic understanding layer.
-Prefer context_pack, query_logic, review_queue, and analyze_impact for bounded orientation
-before broad file-by-file search. Use get_finding_context and get_finding_snapshot before
-treating a logical error as actionable. After substantial code edits, call update_logicchart
-and validate_artifacts, then commit the synchronized logic-flow.json and logic-flow.md
-artifacts when they changed. Use update_logicchart(full=true) when artifacts are missing,
-stale, or analyzer behavior changed and cached file models should be ignored. Treat
-VERIFIED as syntax-backed, INFERRED as deterministic heuristic, and POTENTIAL_GAP as a
-review candidate, not a confirmed bug. Use preview_enrichment to inspect the bounded
-optional LLM payload locally before any explicit provider send through the CLI."""
+Prefer agent_context for ordinary user questions before broad file-by-file search. Use
+get_finding_context and get_finding_snapshot before treating a logical error as actionable.
+After substantial code edits, call update_logicchart and validate_artifacts, then commit
+the synchronized logic-flow.json and logic-flow.md artifacts when they changed. Use
+update_logicchart(full=true) when artifacts are missing, stale, or analyzer behavior
+changed and cached file models should be ignored. Treat VERIFIED as syntax-backed,
+INFERRED as deterministic heuristic, and POTENTIAL_GAP as a review candidate, not a
+confirmed bug. Use preview_enrichment only to inspect local candidate annotation targets
+for agent-authored annotations."""
 
 
 def _cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]:
@@ -727,6 +727,71 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         }
 
     @server.tool()
+    def agent_context(
+        question: str | None = None,
+        changed_files: list[str] | None = None,
+        selected_code: str | None = None,
+        current_file: str | None = None,
+        flow_id: str | None = None,
+        symbol: str | None = None,
+        finding_id: str | None = None,
+        dependency_path: str | None = None,
+        scope: str | None = None,
+        include_visual: bool = False,
+        token_budget: int = 900,
+    ) -> dict[str, Any]:
+        """Primary agent entrypoint for code-logic questions and change impact.
+
+        Accepts the context a coding agent naturally has: user question, changed files,
+        selected code/current file, or focused flow/symbol/finding/dependency targets.
+        Returns one bounded pack with query matches, impact, navigation, findings, source
+        ranges, guardrails, and optional visual snapshot context.
+        """
+        effective_question = _agent_context_question(question, selected_code)
+        source_path = current_file.strip() if current_file and current_file.strip() else None
+        pack = cast(
+            dict[str, Any],
+            context_pack(
+                question=effective_question,
+                changed_files=changed_files,
+                scope=scope,
+                flow_ids=_single_item_list(flow_id),
+                symbols=_single_item_list(symbol),
+                finding_ids=_single_item_list(finding_id),
+                dependency_paths=_single_item_list(dependency_path),
+                source_path=source_path,
+                include_visual=include_visual,
+                token_budget=token_budget,
+            ),
+        )
+        if "error" in pack:
+            return pack
+        return {
+            "tool": "agent_context",
+            "guardrail": (
+                "Use this as source-grounded context for explanation or edits. Do not "
+                "present INFERRED or POTENTIAL_GAP findings as confirmed bugs, and keep "
+                "agent-generated annotation text separate from deterministic facts."
+            ),
+            "inputs": {
+                "question": question,
+                "changed_files": changed_files or [],
+                "current_file": source_path,
+                "selected_code_excerpt": _selected_code_excerpt(selected_code),
+                "flow_id": flow_id,
+                "symbol": symbol,
+                "finding_id": finding_id,
+                "dependency_path": dependency_path,
+                "scope": scope,
+                "include_visual": include_visual,
+                "token_budget": token_budget,
+            },
+            "context": pack,
+            "recommended_next_tools": _agent_context_next_tools(pack, token_budget),
+            "recommended_human_review": _agent_context_review_points(pack),
+        }
+
+    @server.tool()
     def validate_artifacts(
         check_sync: bool = False,
         include_quality: bool = False,
@@ -980,6 +1045,98 @@ def _snapshot_svg_byte_size(snapshot: dict[str, Any]) -> int:
     if not isinstance(svg, str):
         return 0
     return len(svg.encode("utf-8"))
+
+
+def _single_item_list(value: str | None) -> list[str] | None:
+    if value is None or not value.strip():
+        return None
+    return [value.strip()]
+
+
+def _selected_code_excerpt(selected_code: str | None, limit: int = 1200) -> str | None:
+    if selected_code is None:
+        return None
+    stripped = selected_code.strip()
+    if not stripped:
+        return None
+    if len(stripped) <= limit:
+        return stripped
+    return stripped[:limit].rstrip() + "..."
+
+
+def _agent_context_question(question: str | None, selected_code: str | None) -> str | None:
+    if question and question.strip():
+        return question.strip()
+    excerpt = _selected_code_excerpt(selected_code, limit=400)
+    if excerpt:
+        return f"selected code: {excerpt}"
+    return question
+
+
+def _agent_context_next_tools(pack: dict[str, Any], token_budget: int) -> dict[str, Any]:
+    visual_context = pack.get("visual_context")
+    visual_tools = visual_context.get("next_tools", {}) if isinstance(visual_context, dict) else {}
+    next_tools: dict[str, Any] = {
+        "validate_artifacts": {
+            "tool": "validate_artifacts",
+            "arguments": {"check_sync": True, "include_quality": True},
+        },
+        "review_queue": {
+            "tool": "review_queue",
+            "arguments": {"token_budget": token_budget},
+        },
+    }
+    if visual_tools:
+        next_tools["visual_context"] = visual_tools
+    impact = pack.get("impact")
+    if isinstance(impact, dict):
+        flow_ids = _string_list(impact.get("subgraph_flow_ids"))
+        finding_ids = _string_list(impact.get("subgraph_finding_ids"))
+        if flow_ids or finding_ids:
+            next_tools["subgraph_snapshot"] = {
+                "tool": "get_subgraph_snapshot",
+                "arguments": {
+                    "flow_ids": flow_ids,
+                    "finding_ids": finding_ids,
+                    "format": "svg",
+                    "token_budget": token_budget,
+                },
+            }
+    review = pack.get("review")
+    if isinstance(review, list) and review:
+        first = review[0]
+        if isinstance(first, dict) and first.get("id"):
+            next_tools["top_finding_context"] = {
+                "tool": "get_finding_context",
+                "arguments": {"finding_id": first["id"], "token_budget": token_budget},
+            }
+    return next_tools
+
+
+def _agent_context_review_points(pack: dict[str, Any]) -> list[dict[str, Any]]:
+    review = pack.get("review")
+    if not isinstance(review, list):
+        return []
+    points: list[dict[str, Any]] = []
+    for finding in review[:5]:
+        if not isinstance(finding, dict):
+            continue
+        points.append(
+            {
+                "finding_id": finding.get("id"),
+                "severity": finding.get("severity"),
+                "evidence": finding.get("evidence"),
+                "kind": finding.get("kind"),
+                "message": finding.get("message"),
+                "source": finding.get("location"),
+                "guardrail": (
+                    "Review candidate, not a confirmed bug."
+                    if finding.get("evidence") in {"INFERRED", "POTENTIAL_GAP"}
+                    else "Source-backed finding."
+                ),
+            }
+        )
+    return points
 
 
 def _context_navigation_pack(

@@ -174,7 +174,7 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
     assert (tmp_path / "logicchart-out" / "logic-flow.json").exists()
     assert (tmp_path / "logicchart-out" / "logic-flow.md").exists()
     agents_text = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
-    assert "Prefer the LogicChart MCP tools" in agents_text
+    assert "Prefer the LogicChart MCP `agent_context` tool" in agents_text
     assert "logicchart view ..." in agents_text
     assert "logicchart <command> --help" in agents_text
     assert "provider keys" in agents_text
