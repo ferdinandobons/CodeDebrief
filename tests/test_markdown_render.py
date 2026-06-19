@@ -7,6 +7,8 @@ from logicchart.model import (
     Finding,
     FindingKind,
     Flow,
+    FlowNode,
+    NodeKind,
     ProjectModel,
     Severity,
     SourceLocation,
@@ -32,6 +34,27 @@ def _finding(
 def _model(findings: list[Finding]) -> ProjectModel:
     return ProjectModel(
         schema_version="1.1", generated_at="x", root=".", flows=[], findings=findings
+    )
+
+
+def _flow(flow_id: str, name: str, node_id: str, node_label: str) -> Flow:
+    return Flow(
+        id=flow_id,
+        name=name,
+        symbol=f"m:{name}",
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=True,
+        location=SourceLocation("app.py", 1, 1),
+        nodes=[
+            FlowNode(
+                id=node_id,
+                kind=NodeKind.ACTION,
+                label=node_label,
+                location=SourceLocation("app.py", 2, 2),
+            )
+        ],
     )
 
 
@@ -145,3 +168,29 @@ def test_generated_at_and_root_cannot_break_the_header() -> None:
     out = render_markdown(flow_model)
     # The backtick in generated_at/root is neutralized inside its code span.
     assert "`x`echo pwned`" not in out
+
+
+def test_flow_review_points_are_grouped_by_flow_and_node_without_ordering_assumption() -> None:
+    first = _flow("first", "first", "first-node", "first branch")
+    second = _flow("second", "second", "second-node", "second branch")
+    second_finding = _finding("missing_branch", Evidence.INFERRED, "second issue")
+    second_finding.flow_id = "second"
+    second_finding.node_id = "second-node"
+    first_finding = _finding("dead_code", Evidence.INFERRED, "first issue")
+    first_finding.flow_id = "first"
+    first_finding.node_id = "first-node"
+    model = ProjectModel(
+        schema_version="1.1",
+        generated_at="x",
+        root=".",
+        flows=[first, second],
+        findings=[second_finding, first_finding],
+    )
+
+    out = render_markdown(model)
+
+    first_section = out.split("### first", 1)[1].split("### second", 1)[0]
+    second_section = out.split("### second", 1)[1]
+    assert "- `first branch`: first issue" in first_section
+    assert "second issue" not in first_section
+    assert "- `second branch`: second issue" in second_section
