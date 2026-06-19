@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from pathlib import Path
-from shlex import quote
 from typing import Any
 
 from logicchart.analysis import ProjectAnalyzer
@@ -317,9 +316,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
     ) -> dict[str, Any]:
         """Preview the optional LLM enrichment payload without calling a provider.
 
-        The result mirrors ``logicchart enrich`` and always reports
-        ``provider_call_made: false``. Provider sends remain an explicit CLI action with
-        ``logicchart enrich --send`` after the preview has been reviewed.
+        The result is local-only and always reports ``provider_call_made: false``. The
+        agent-first workflow should use this to inspect candidate annotation targets, then
+        write validated agent-authored annotations through LogicChart annotation tools.
         """
         model, error = _try_load(project_root, active_config)
         if error is not None:
@@ -1108,56 +1107,17 @@ def _enrichment_preview_payload(
     return {
         **preview,
         "guardrail": (
-            "This MCP tool is local preview only and never calls a provider. Review the "
-            "request payload and use the CLI `logicchart enrich --send` only after the "
-            "external-send boundary is approved for the selected codebase."
+            "This MCP tool is local preview only and never calls a provider. Use the "
+            "selected ids as candidate targets for agent-authored annotations, keeping "
+            "generated text separate from deterministic facts."
         ),
         "next_tools": next_tools,
-        "next_cli": _enrichment_next_cli(
-            scope=scope,
-            flow_ids=flow_ids,
-            finding_ids=finding_ids,
-            max_flows=max_flows,
-            max_nodes_per_flow=max_nodes_per_flow,
-            max_findings=max_findings,
-            env_file=env_file,
-        ),
+        "next_actions": [
+            "Review selected flow/finding ids before writing annotations.",
+            "Use generated text only as agent_generated annotation content.",
+            "Run logicchart validate after annotation sidecar changes.",
+        ],
     }
-
-
-def _enrichment_next_cli(
-    *,
-    scope: str | None,
-    flow_ids: list[str],
-    finding_ids: list[str],
-    max_flows: int,
-    max_nodes_per_flow: int,
-    max_findings: int,
-    env_file: str | None,
-) -> list[str]:
-    base = ["logicchart", "enrich"]
-    if scope is not None:
-        base.extend(["--scope", scope])
-    for flow_id in flow_ids:
-        base.extend(["--flow", flow_id])
-    for finding_id in finding_ids:
-        base.extend(["--finding", finding_id])
-    base.extend(["--max-flows", str(max_flows)])
-    base.extend(["--max-nodes-per-flow", str(max_nodes_per_flow)])
-    base.extend(["--max-findings", str(max_findings)])
-    if env_file is not None:
-        base.extend(["--env-file", env_file])
-    preview = [*base, "--json"]
-    send = [*base, "--send"]
-    return [
-        _shell_join(preview),
-        "logicchart llm setup --help",
-        f"{_shell_join(send)}  # after reviewing preview and approving provider send",
-    ]
-
-
-def _shell_join(parts: list[str]) -> str:
-    return " ".join(quote(part) for part in parts)
 
 
 def _string_list(value: Any) -> list[str]:

@@ -9,7 +9,6 @@ from logicchart import llm_enrich
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.annotations import annotations_path, load_annotations, model_hash
 from logicchart.artifacts import load_model, write_artifacts
-from logicchart.cli import main
 from logicchart.config import LogicChartConfig
 from logicchart.llm_config import get_provider, logicchart_env_path, write_logicchart_env
 from logicchart.llm_enrich import EnrichmentOptions, build_enrichment_preview
@@ -53,14 +52,10 @@ def _analyzed_project_with_finding(tmp_path: Path) -> ProjectModel:
     return result.model
 
 
-def test_cli_enrich_preview_builds_payload_without_provider_call(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    _analyzed_project(tmp_path)
-
-    assert main(["enrich", str(tmp_path), "--json"]) == 0
-    payload = json.loads(capsys.readouterr().out)
+def test_enrichment_preview_builds_payload_without_provider_call(tmp_path: Path) -> None:
+    model = _analyzed_project(tmp_path)
+    config = LogicChartConfig.load(tmp_path)
+    payload = build_enrichment_preview(tmp_path, model, config, EnrichmentOptions())
 
     assert payload["provider_call_made"] is False
     assert payload["send_required"] is True
@@ -71,25 +66,6 @@ def test_cli_enrich_preview_builds_payload_without_provider_call(
     assert payload["request"]["flows"]
     assert payload["request"]["flows"][0]["nodes"]
     assert "LOGICCHART_LLM_API_KEY" not in json.dumps(payload)
-
-
-def test_cli_enrich_dry_run_alias_is_local_preview(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    _analyzed_project(tmp_path)
-
-    assert main(["enrich", str(tmp_path), "--dry-run", "--json"]) == 0
-    payload = json.loads(capsys.readouterr().out)
-
-    assert payload["provider_call_made"] is False
-    assert payload["request"]["flows"]
-
-
-def test_cli_enrich_rejects_send_with_preview_alias(tmp_path: Path) -> None:
-    _analyzed_project(tmp_path)
-
-    assert main(["enrich", str(tmp_path), "--send", "--preview"]) == 1
 
 
 def test_enrichment_preview_prioritizes_flows_with_findings(tmp_path: Path) -> None:
@@ -116,14 +92,13 @@ def test_enrichment_preview_prioritizes_flows_with_findings(tmp_path: Path) -> N
     assert targeted_preview["targets"]["finding_ids"] == [finding.id]
 
 
-def test_cli_enrich_send_requires_local_llm_config(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    _analyzed_project(tmp_path)
+def test_provider_managed_enrichment_send_requires_local_llm_config(tmp_path: Path) -> None:
+    model = _analyzed_project(tmp_path)
+    config = LogicChartConfig.load(tmp_path)
+    preview = build_enrichment_preview(tmp_path, model, config, EnrichmentOptions())
 
-    assert main(["enrich", str(tmp_path), "--send"]) == 1
-    assert "LLM config is missing" in capsys.readouterr().err
+    with pytest.raises(llm_enrich.EnrichmentError, match="LLM config is missing"):
+        llm_enrich.send_enrichment_request(preview)
 
 
 def test_send_enrichment_writes_validated_annotation_sidecar(

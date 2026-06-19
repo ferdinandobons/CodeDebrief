@@ -204,13 +204,13 @@ def authorize(user):
                 assert enrichment_payload["targets"]["flow_ids"] == [flow.id]  # type: ignore[index]
                 assert enrichment_payload["request"]["flows"][0]["id"] == flow.id  # type: ignore[index]
                 assert "LOGICCHART_LLM_API_KEY" not in str(enrichment.content)
-                assert "external-send boundary" in enrichment_payload["guardrail"]  # type: ignore[index]
+                assert "agent-authored annotations" in enrichment_payload["guardrail"]  # type: ignore[index]
                 assert (  # type: ignore[index]
                     enrichment_payload["next_tools"]["subgraph_snapshot"]["tool"]
                     == "get_subgraph_snapshot"
                 )
-                assert "logicchart enrich" in enrichment_payload["next_cli"][0]  # type: ignore[index]
-                assert "--send" in enrichment_payload["next_cli"][2]  # type: ignore[index]
+                assert "next_cli" not in enrichment_payload
+                assert "logicchart validate" in enrichment_payload["next_actions"][2]  # type: ignore[index]
 
                 quality = await session.call_tool("analysis_quality", {"token_budget": 240})
                 assert not quality.isError
@@ -848,9 +848,9 @@ def test_mcp_enrichment_preview_payload_contract(tmp_path: Path) -> None:
     assert payload["targets"]["finding_ids"] == [finding.id]
     assert payload["next_tools"]["review_queue"]["tool"] == "review_queue"
     assert payload["next_tools"]["subgraph_snapshot"]["arguments"]["finding_ids"] == [finding.id]
-    assert "logicchart enrich" in payload["next_cli"][0]
-    assert "--send" in payload["next_cli"][2]
-    assert "external-send boundary" in payload["guardrail"]
+    assert "next_cli" not in payload
+    assert "logicchart validate" in payload["next_actions"][2]
+    assert "agent-authored annotations" in payload["guardrail"]
 
 
 def test_mcp_context_visual_pack_direct_contracts(tmp_path: Path) -> None:

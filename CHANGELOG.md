@@ -73,11 +73,8 @@ The project follows Semantic Versioning.
 - Added optional quality thresholds for CI-oriented `validate` and MCP artifact validation.
 - Added MCP flow-navigation packs with callers, callees, decisions, findings, and next-tool
   hints for token-bounded agent workflows.
-- Added MCP `preview_enrichment` so agents can inspect the bounded optional LLM enrichment
-  payload locally before any explicit provider send through the CLI.
-- Added explicit `logicchart enrich --dry-run` and `--preview` aliases for local
-  enrichment previews, with `--send` kept as the mutually exclusive provider-call
-  boundary.
+- Added MCP `preview_enrichment` so agents can inspect bounded candidate annotation targets
+  locally without making provider calls.
 - Added MCP finding-context packs with focus flow, related evidence nodes, related flows,
   evidence guardrails, and next-tool hints for logical-error review.
 - Added deterministic impact targets for flow ids, symbols, and finding ids across CLI and
@@ -124,12 +121,8 @@ The project follows Semantic Versioning.
   scanning.
 - Added a local optional `logic-annotations.json` sidecar schema, validation, viewer
   overlays, and MCP status/navigation exposure.
-- Added optional local LLM provider setup commands (`logicchart llm providers`,
-  `logicchart llm setup`, and `logicchart llm show`) with DeepSeek v4 as the preferred
-  default and a git-ignored `.env.logicchart` key/model file.
-- Added `logicchart enrich` with local preview payloads by default and explicit `--send`
-  provider calls that write `logic-annotations.json` only after model-hash and id
-  validation.
+- Added internal provider-managed enrichment helpers behind the deterministic annotation
+  sidecar, while keeping the public product path agent-authored and provider-key-free.
 - Added directory-level discovery pruning for known VCS, dependency, cache, temporary, and
   generated trees such as `.git`, `node_modules`, venv folders, build outputs, coverage,
   `vendor`, and `logicchart-out`, plus configurable `exclude_dirs` entries in
@@ -152,7 +145,7 @@ The project follows Semantic Versioning.
 - Added React viewer layout/detail caches and a visible loader/progress bar for
   large-codebase expand overview operations.
 - Added a preserved `logicchart:local-notes` section to generated agent instructions, so
-  project-specific private checks survive later `logicchart install` refreshes.
+  project-specific private checks survive later `logicchart setup-agent` refreshes.
 
 ### Changed
 
@@ -161,17 +154,22 @@ The project follows Semantic Versioning.
 - Updated generated agent instructions across Codex, Claude, Gemini, and Cursor to prefer
   LogicChart MCP tools for codebase questions and keep `logicchart view` as the manual UI
   path.
-- Updated quickstart and command help to prioritize the agent-first/manual-viewer surface:
-  `logicchart update`, `logicchart view`, `logicchart validate`, and `logicchart doctor`.
+- Added `logicchart setup-agent codex|claude|cursor` as the public one-command setup path
+  for agent instructions, MCP config, artifact generation, doctor, and validation.
+- Updated quickstart and command help to prioritize the final agent-first/manual-viewer
+  surface: `logicchart setup-agent`, `logicchart update`, `logicchart view`,
+  `logicchart validate`, `logicchart doctor`, and `logicchart mcp`.
 - Removed the public CLI surface for `query`, `impact`, `explain`, `navigate`, and
   `snapshot`; their underlying deterministic capabilities remain available to MCP and
   internal orchestration.
+- Removed `analyze`, `init`, `install`, `llm`, and `enrich` from the public CLI surface;
+  `update` owns refresh/full analysis and `setup-agent` owns initialization and agent
+  setup.
 - Updated Expand All performance so the viewer opens all scopes and flows as a lightweight
   expanded overview with progress feedback, deferred inline detail charts, cached direct
   call indexes, and simplified overview edge routing for large real-world codebases.
-- Updated the optional LLM provider preset list to keep the documented Qwen coder model
-  aligned with `logicchart llm providers`, while keeping free-form model overrides for
-  fast-moving provider catalogs.
+- Updated the enrichment documentation to present agent-authored annotations as the
+  preferred path and provider-managed enrichment as advanced/internal.
 - Updated Details rail section headers so Project Quality, Source, and Logical Errors can
   be collapsed by click or keyboard with synchronized expanded state.
 - Updated the Logical Errors panel so selected findings expand into a compact diagnostic

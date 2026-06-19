@@ -4,9 +4,9 @@ LogicChart is a local-first static analyzer that turns large codebases into navi
 decision flowcharts.
 
 It reads source code without running it, extracts the decisions that matter (`if`,
-`switch`, `match`, exceptions, returns, and internal calls), and writes a deterministic model
-you can inspect in the terminal, commit to git, query from coding agents, or study in a
-local interactive viewer.
+`switch`, `match`, exceptions, returns, and internal calls), and writes a deterministic
+model that coding agents can use through MCP and humans can inspect in a local interactive
+viewer.
 
 **Why it exists:** when a frontend/backend system grows quickly, especially with AI-assisted
 changes, it becomes hard to know which states are handled, which entry points call each
@@ -43,12 +43,14 @@ uv tool install .
 From the codebase you want to analyze:
 
 ```bash
+logicchart setup-agent codex
 logicchart update
 logicchart view
 ```
 
-No flags or `init` step are required for the first run. LogicChart analyzes `.` by default
-and writes:
+`setup-agent` installs agent instructions, registers the project MCP server, creates
+`logicchart.toml` only when needed, generates artifacts, runs `doctor`, and validates the
+result. LogicChart analyzes `.` by default and writes:
 
 | File | Purpose |
 |---|---|
@@ -56,7 +58,6 @@ and writes:
 | `logicchart-out/logic-flow.md` | reviewable decision flowcharts and findings with stable finding ids; commit it |
 | `logicchart-out/logic-flow.html` | local interactive viewer; regenerated and normally ignored |
 | `logicchart-out/logic-annotations.json` | optional labels/summaries sidecar; never required for correctness |
-| `.env.logicchart` | optional local LLM provider key/model config; ignored and never required |
 
 For development inside this repository:
 
@@ -77,7 +78,7 @@ switch (user.status) {
 }
 ```
 
-`logicchart analyze` reports:
+After `logicchart update`, the generated findings report includes:
 
 ```text
 - WARNING · INFERRED · enum_exhaustiveness Declared UserStatus members not handled for user.status: UserStatus.ARCHIVED, UserStatus.DELETED, UserStatus.LOCKED
@@ -206,19 +207,31 @@ documentation table.
 Every command takes the project path as a positional argument unless it has `--path`.
 The default project path is `.`.
 
-### `analyze`
+### `setup-agent`
 
-Build the model and write JSON, Markdown, and HTML:
+Configure LogicChart once for a coding agent:
 
 ```bash
-logicchart analyze
+logicchart setup-agent codex
+logicchart setup-agent claude ../my-app
+logicchart setup-agent cursor --full
 ```
+
+`setup-agent` creates `logicchart.toml` only when needed, refreshes agent instructions,
+registers project-scoped MCP config for the selected agent, generates the initial model,
+runs `doctor`, validates the artifact, and prints examples of questions to ask the
+coding agent.
+
+Supported targets:
+
+- `codex`
+- `claude`
+- `cursor`
 
 Useful flags:
 
 - `--full`: ignore the incremental cache.
 - `--no-html`: skip the viewer artifact.
-- `--include-gaps`: expand review-only `POTENTIAL_GAP` findings in Markdown.
 - `--profile demo|self|project`: use one of the built-in repository profiles.
 
 ### `update`
@@ -252,64 +265,16 @@ For normal use, ask your coding agent questions such as "how does checkout work?
 return grounded context with flows, callers, callees, decisions, findings, evidence tiers,
 source ranges, impact reasons, and visual snapshots when useful.
 
-### `llm`
+### Agent-authored Annotations
 
-Configure optional enrichment credentials without making any provider call:
+LogicChart does not require provider keys for enrichment. The preferred path is that the
+coding agent reads deterministic MCP context, writes validated annotation sidecars, and
+keeps generated text separate from deterministic facts.
 
-```bash
-logicchart llm providers
-logicchart llm setup
-logicchart llm show
-```
-
-The default provider is DeepSeek with `deepseek-v4-pro`; `deepseek-v4-flash` is also
-available as the fast/cost-oriented DeepSeek v4 preset. `setup` writes
-`.env.logicchart` with `LOGICCHART_LLM_PROVIDER`, `LOGICCHART_LLM_MODEL`,
-`LOGICCHART_LLM_BASE_URL`, `LOGICCHART_LLM_API_FORMAT`, and
-`LOGICCHART_LLM_API_KEY`, and masks the key in all command output. The file is ignored by
-git and chmodded to owner-only permissions when the platform supports it.
-
-For non-interactive scripts or region-specific endpoints:
-
-```bash
-printf '%s' "$DEEPSEEK_API_KEY" | logicchart llm setup --api-key-stdin
-printf '%s' "$DASHSCOPE_API_KEY" | logicchart llm setup --provider qwen --model qwen3-coder-plus --base-url https://dashscope-us.aliyuncs.com/compatible-mode/v1 --api-key-stdin
-```
-
-Provider/model presets cover DeepSeek, OpenAI, Anthropic, Google Gemini, xAI, Alibaba
-Qwen, Z.AI, Kimi/Moonshot, and Mistral. Model catalogs change frequently, so `--model`
-and `--base-url` are free-form overrides. LogicChart still works fully offline without
-this file; LLM enrichment remains opt-in and must be run explicitly before any code or
-artifact text is sent to a provider. See [docs/llm.md](docs/llm.md) for the verified
-provider snapshot.
-
-### `enrich`
-
-Preview or run optional LLM annotation enrichment:
-
-```bash
-logicchart enrich
-logicchart enrich --scope backend
-logicchart enrich --flow flow-id --finding finding-id --json
-logicchart enrich --scope frontend --send
-```
-
-Without `--send`, `enrich` is a local preview; `--dry-run` and `--preview` make that
-default explicit. It loads the existing model, selects a bounded set of flows/findings,
-prints the exact structured provider payload, and reports
-`provider_call_made: false`. With `--send`, it reads `.env.logicchart`, calls the
-configured OpenAI-compatible provider, validates the returned annotation sidecar against
-the current model hash, and writes `logicchart-out/logic-annotations.json`.
-Default selection prioritizes flows with logical findings so error explanations are part
-of the first enrichment pass.
-
-The provider can only annotate existing scope, flow, node, and finding ids. It cannot
-change the deterministic flow structure, and provider output is rejected if it references
-unknown ids, stale hashes, unsupported fields, or overlong text.
-When present, finding annotations are shown separately from deterministic diagnostics in
-MCP finding/review/context tools and the Logical Errors panel.
-Scope annotations are also rendered as progressive flowchart group labels and included in
-flow-navigation annotation payloads for flows that belong to the annotated scope.
+Current MCP preview tools can identify candidate flow/finding targets for future
+annotation writes. Provider-managed enrichment code remains advanced/internal while the
+agent-authored annotation tools are being completed; it is not part of the public CLI
+workflow.
 
 ### `validate`
 
@@ -363,19 +328,16 @@ summarizes the generated `metadata.language_capabilities` contract by language i
 flag count, and limitation-note count without analyzing project files or running the smoke
 test suite.
 
-### `init`, `install`, and `mcp`
+### `mcp`
 
-These are optional:
+Start the MCP server for the configured project:
 
 ```bash
-logicchart init
-logicchart install
 logicchart mcp .
 ```
 
-- `init` creates a starter `logicchart.toml`.
-- `install` writes persistent agent instructions to supported project files.
-- `mcp` starts the optional MCP server over stdio.
+Normally `setup-agent` writes the project-scoped MCP config so the coding agent starts
+this command for you.
 
 ## Configuration
 
@@ -473,29 +435,28 @@ LogicChart is moving to an agent-first workflow. Use MCP for token-bounded code-
 context retrieval; use the CLI for setup, explicit artifact refresh, validation,
 diagnostics, and the manual viewer.
 
-Current setup commands while the `setup-agent` migration is underway:
+Configure an agent once:
 
 ```bash
-logicchart install
-logicchart install --mcp-config codex
+logicchart setup-agent codex
+logicchart setup-agent claude
+logicchart setup-agent cursor
 ```
 
 Supported instruction targets:
 
 - `AGENTS.md` for Codex
 - `CLAUDE.md` for Claude Code
-- `GEMINI.md` for Gemini CLI
 - `.cursor/rules/logicchart.mdc` for Cursor
 
 The installed block tells agents to start with `logicchart --help` and
 `logicchart <command> --help` when helping users set up or learn the tool, to use
-`logicchart doctor` for install/dependency uncertainty, and to guide optional LLM setup
-through `logicchart llm providers`, `logicchart llm setup --help`, and `logicchart llm
-show` without printing or committing API keys.
+`logicchart doctor` for install/dependency uncertainty, to prefer MCP tools for code
+logic questions, and to keep generated annotation text separate from deterministic facts.
 
 Each managed instruction block also contains a `logicchart:local-notes` section. Put
-project-specific private checks or local workflow notes there; later `logicchart install`
-runs preserve that section while refreshing the standard LogicChart guidance.
+project-specific private checks or local workflow notes there; later `logicchart
+setup-agent` runs preserve that section while refreshing the standard LogicChart guidance.
 
 Install the optional MCP dependency from this source checkout:
 
@@ -537,10 +498,9 @@ before deciding whether to request a complete flow or visual snapshot.
 The `get_subgraph_snapshot` tool is the bridge from query/impact/context results into one
 bounded SVG: pass returned `subgraph_flow_ids` and `subgraph_finding_ids` directly to
 render the focused model slice.
-Use MCP `preview_enrichment` to inspect the same bounded local payload as
-`logicchart enrich` before any optional provider send; use `logicchart enrich --json` when
-an agent or script needs the machine-readable payload. Provider calls remain an explicit
-CLI action through `logicchart enrich --send`.
+Use MCP `preview_enrichment` as a local-only way to inspect candidate annotation targets
+and bounded context. It does not call a provider and does not point agents at a public
+provider-send CLI path.
 If the generated model is missing or malformed, model-reading MCP tools return structured
 recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
 actions instead of surfacing a raw traceback. Unknown flow/finding targets and invalid

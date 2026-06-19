@@ -90,21 +90,21 @@ def send_enrichment_request(preview: dict[str, Any], timeout: float = 60.0) -> d
     llm_values = read_logicchart_env(Path(str(preview["env_file"])))
     provider_id = llm_values.get("LOGICCHART_LLM_PROVIDER")
     if not provider_id:
-        raise EnrichmentError("LLM config is missing. Run `logicchart llm setup` first.")
+        raise EnrichmentError("LLM config is missing for provider-managed enrichment.")
     provider = get_provider(provider_id)
     api_format = llm_values.get("LOGICCHART_LLM_API_FORMAT", provider.api_format)
     if api_format not in {"openai", "openai-compatible"}:
         raise EnrichmentError(
             f"provider {provider.id!r} uses api_format {api_format!r}; "
-            "this enrich command currently supports openai-compatible chat APIs only."
+            "provider-managed enrichment currently supports openai-compatible chat APIs only."
         )
     api_key = llm_values.get("LOGICCHART_LLM_API_KEY")
     model = llm_values.get("LOGICCHART_LLM_MODEL")
     base_url = llm_values.get("LOGICCHART_LLM_BASE_URL") or provider.base_url
     if not api_key:
-        raise EnrichmentError("LLM API key is missing. Run `logicchart llm setup` first.")
+        raise EnrichmentError("LLM API key is missing for provider-managed enrichment.")
     if not model:
-        raise EnrichmentError("LLM model is missing. Run `logicchart llm setup` first.")
+        raise EnrichmentError("LLM model is missing for provider-managed enrichment.")
 
     content = _call_openai_chat(
         base_url=base_url,
@@ -121,7 +121,7 @@ def send_enrichment_request(preview: dict[str, Any], timeout: float = 60.0) -> d
             "provider": provider.id,
             "model": model,
             "api_format": api_format,
-            "logicchart_command": "logicchart enrich",
+            "logicchart_workflow": "provider_managed_enrichment",
         },
     }
 

@@ -10,7 +10,7 @@ LOCAL_NOTES_START = "<!-- logicchart:local-notes:start -->"
 LOCAL_NOTES_END = "<!-- logicchart:local-notes:end -->"
 LOCAL_NOTES_HINT = (
     "<!-- Add project-specific local notes here. This section is preserved by "
-    "`logicchart install`. -->"
+    "`logicchart setup-agent`. -->"
 )
 MCP_CONFIG_TARGETS = ("codex", "claude", "cursor")
 CODEX_MCP_START = "# logicchart:mcp-config:start"

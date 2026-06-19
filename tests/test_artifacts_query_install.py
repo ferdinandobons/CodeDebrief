@@ -247,7 +247,7 @@ def test_install_preserves_project_local_notes(tmp_path: Path) -> None:
         content.replace(
             f"{LOCAL_NOTES_START}\n"
             "<!-- Add project-specific local notes here. This section is preserved by "
-            "`logicchart install`. -->\n"
+            "`logicchart setup-agent`. -->\n"
             f"{LOCAL_NOTES_END}",
             f"{LOCAL_NOTES_START}\n{local_note}{LOCAL_NOTES_END}",
         ),

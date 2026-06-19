@@ -316,19 +316,9 @@ model must remain the source of truth.
 
 ### Proposed design
 
-Add optional setup and enrichment commands:
-
-```bash
-logicchart llm providers
-logicchart llm setup
-logicchart enrich
-logicchart enrich --send
-```
-
-`logicchart llm setup` writes local credentials and provider/model selection to the
-dedicated `.env.logicchart` file without making a provider call. `logicchart enrich`
-previews the bounded request payload without making a provider call unless `--send` is
-passed. Successful enrichment writes:
+Prefer agent-authored annotations over provider-managed CLI enrichment. The coding agent
+should inspect deterministic LogicChart context through MCP, generate labels/summaries
+with its own model, and write a validated sidecar. Successful enrichment writes:
 
 ```text
 logicchart-out/logic-annotations.json
@@ -345,16 +335,13 @@ The sidecar should be keyed by stable ids:
 
 Current checkpoint:
 
-- `logicchart llm providers` lists current provider/model presets, with DeepSeek v4 as
-  the preferred default and free-form model/base-url overrides for provider drift.
-- `logicchart llm setup` writes `.env.logicchart`, masks secrets in output, and keeps the
-  setup path local-only.
-- `logicchart enrich` builds a local preview payload by default, including selected
+- Provider-managed setup/enrichment code exists only as advanced/internal compatibility
+  support, not as a public CLI workflow.
+- MCP `preview_enrichment` builds a local candidate-target payload, including selected
   scopes, flows, nodes, findings, diagnostic metadata, omission counts, and guardrails
   with `provider_call_made: false`.
-- `logicchart enrich --send` is the explicit external-send boundary. It currently supports
-  OpenAI-compatible chat APIs, calls the configured provider from `.env.logicchart`, and
-  writes annotations only after schema, model-hash, id, field, and text-limit validation.
+- Public setup does not request provider keys; generated annotation text should come from
+  the coding agent and be stored as `agent_generated` sidecar content.
 - `logicchart-out/logic-annotations.json` has a strict local schema.
 - Sidecars are keyed by stable flow/node/finding/scope ids plus a deterministic model hash.
 - `logicchart validate` validates a present sidecar automatically and `--annotations`
@@ -363,10 +350,8 @@ Current checkpoint:
   the sidecar hash matches the current model.
 - MCP summaries expose sidecar status, and flow-navigation packs include matching
   annotations for the selected flow.
-- MCP `preview_enrichment` exposes the same bounded local preview payload as
-  `logicchart enrich`, with `provider_call_made: false`, selected target ids,
-  next-tool pointers for review/snapshots, and maintenance hints for setup or explicit
-  provider send.
+- MCP `preview_enrichment` exposes selected target ids and next-tool pointers for
+  review/snapshots without suggesting removed public LLM/enrich commands.
 
 Still open:
 
@@ -797,27 +782,20 @@ Before the next release:
   when it fits the deterministic visual byte budget.
 - Next: add optional raster outputs if a local renderer path is worth the dependency.
 
-### Phase 3: LLM Enrichment
+### Phase 3: Agent-Authored Enrichment
 
-- Done: add local provider/model setup with `logicchart llm providers`, `logicchart llm
-  setup`, and `logicchart llm show`.
-- Done: use DeepSeek v4 (`deepseek-v4-pro`) as the preferred default while allowing
-  free-form model and base URL overrides for changing provider catalogs.
-- Done: save optional credentials in a dedicated, git-ignored `.env.logicchart` file with
-  masked command output and no provider calls during setup.
-- Done: add `logicchart enrich` as an explicit opt-in command that previews the bounded
-  provider payload before any request, supports explicit `--dry-run`/`--preview` aliases,
-  and calls the configured provider only with `--send`.
-- Done: validate provider enrichment output against known ids, supported annotation
-  fields, text limits, and the current model hash before writing the sidecar.
-- Done: expose the enrichment preview through MCP as a local-only agent workflow helper,
-  without adding an MCP provider-send path.
+- Changed: the product direction now prefers coding-agent-authored annotations over
+  provider-key setup.
+- Changed: public CLI provider setup/enrich commands have been removed from the primary
+  surface; provider-managed code remains internal/advanced only.
+- Done: expose the enrichment target preview through MCP as a local-only helper, without
+  adding an MCP provider-send path.
 - Done: write/load `logic-annotations.json`.
 - Done: validate annotations against a schema and model hash.
 - Done: add viewer overlays for better flow/node labels and descriptions.
 - Done: expose annotation status and matching flow annotations over MCP.
-- Done: expose fresh finding annotations as optional enrichment in CLI explain/navigate,
-  MCP finding/review/context tools, and the Logical Errors panel.
+- Done: expose fresh finding annotations as optional enrichment in MCP finding/review/context
+  tools and the Logical Errors panel.
 - Done: expose fresh scope annotations as progressive flowchart group labels and matching
   flow-navigation annotations, with sidecar bucket counts for agent orientation.
 

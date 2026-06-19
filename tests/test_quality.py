@@ -58,7 +58,7 @@ def test_validate_quality_json_and_text_output(tmp_path: Path, capsys) -> None:
         encoding="utf-8",
     )
     ProjectAnalyzer(tmp_path).analyze(full=True)
-    assert main(["analyze", str(tmp_path), "--full", "--no-html"]) == 0
+    assert main(["update", str(tmp_path), "--full", "--no-html"]) == 0
     capsys.readouterr()
 
     assert main(["validate", str(tmp_path), "--quality", "--json"]) == 0
@@ -77,7 +77,7 @@ def test_validate_quality_json_and_text_output(tmp_path: Path, capsys) -> None:
 
 def test_validate_report_can_compute_quality_for_older_artifact(tmp_path: Path) -> None:
     (tmp_path / "app.py").write_text("def f():\n    return 1\n", encoding="utf-8")
-    assert main(["analyze", str(tmp_path), "--full", "--no-html"]) == 0
+    assert main(["update", str(tmp_path), "--full", "--no-html"]) == 0
     artifact_path = tmp_path / "logicchart-out" / "logic-flow.json"
     artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
     artifact["metadata"].pop("quality", None)
