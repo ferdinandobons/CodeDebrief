@@ -11,14 +11,23 @@ enrichment workflow is handled by the coding agent that is already working with 
 Generated annotation text must be treated as `agent_generated`. It can improve readability,
 but it must not replace source-backed flow data, diagnostic evidence, or finding tiers.
 
-## MCP Preview
+## MCP Annotation Workflow
 
-`preview_enrichment` is a local-only MCP helper. It selects bounded candidate flows and
-findings, returns the context an agent may want to annotate, and always reports
-`provider_call_made: false`.
+`preview_annotation_targets` is the preferred local-only MCP helper. It selects bounded
+candidate flows and findings, returns the context an agent may want to annotate, and
+always reports `provider_call_made: false`.
 
-Use it to inspect annotation targets and payload size. Do not treat it as a provider-send
-workflow. The public CLI intentionally does not expose `llm` or `enrich` commands.
+Use it to inspect annotation targets and payload size. Then use:
+
+- `write_annotations` to merge validated `agent_generated` labels, summaries,
+  explanations, and remediation notes into `logicchart-out/logic-annotations.json`.
+- `validate_annotations` to check the sidecar against the current model hash and ids.
+- `annotation_status` to inspect sidecar status, counts, and optional contents.
+- `clear_annotations` with `confirm=true` to remove optional generated annotation text.
+
+`preview_enrichment` remains as a compatibility/local-preview helper, but should not be
+treated as a provider-send workflow. The public CLI intentionally does not expose `llm` or
+`enrich` commands.
 
 ## Provider-Managed Code Path
 

@@ -112,6 +112,11 @@ def authorize(user):
                     "get_subgraph_snapshot",
                     "get_impact_snapshot",
                     "preview_enrichment",
+                    "preview_annotation_targets",
+                    "annotation_status",
+                    "validate_annotations",
+                    "write_annotations",
+                    "clear_annotations",
                     "where_state_handled",
                     "find_decision_nodes",
                     "review_queue",
@@ -139,6 +144,7 @@ def authorize(user):
                     "finding_rules",
                     "analyze_impact",
                     "preview_enrichment",
+                    "preview_annotation_targets",
                     "review_queue",
                     "context_pack",
                     "agent_context",
@@ -181,6 +187,18 @@ def authorize(user):
                 enrichment_properties = schema_by_name["preview_enrichment"].get("properties", {})
                 assert {"flow_ids", "finding_ids", "max_nodes_per_flow"} <= set(
                     enrichment_properties
+                )
+                annotation_target_properties = schema_by_name["preview_annotation_targets"].get(
+                    "properties", {}
+                )
+                assert {"flow_ids", "finding_ids", "max_nodes_per_flow"} <= set(
+                    annotation_target_properties
+                )
+                write_annotation_properties = schema_by_name["write_annotations"].get(
+                    "properties", {}
+                )
+                assert {"flows", "nodes", "findings", "scopes", "replace_existing"} <= set(
+                    write_annotation_properties
                 )
 
                 response = await session.call_tool(
@@ -249,6 +267,83 @@ def authorize(user):
                 )
                 assert "next_cli" not in enrichment_payload
                 assert "logicchart validate" in enrichment_payload["next_actions"][2]  # type: ignore[index]
+
+                preview_targets = await session.call_tool(
+                    "preview_annotation_targets",
+                    {"flow_ids": [flow.id], "token_budget": 240},
+                )
+                assert not preview_targets.isError
+                preview_targets_payload = preview_targets.structuredContent  # type: ignore[assignment]
+                assert preview_targets_payload["tool"] == "preview_annotation_targets"  # type: ignore[index]
+                assert preview_targets_payload["send_required"] is False  # type: ignore[index]
+                assert preview_targets_payload["allowed_fields"]["flows"] == [  # type: ignore[index]
+                    "label",
+                    "description",
+                    "summary",
+                ]
+                assert (  # type: ignore[index]
+                    preview_targets_payload["next_tools"]["write_annotations"]["tool"]
+                    == "write_annotations"
+                )
+
+                annotation_status = await session.call_tool(
+                    "annotation_status",
+                    {"include_annotations": True},
+                )
+                assert not annotation_status.isError
+                annotation_status_payload = annotation_status.structuredContent  # type: ignore[assignment]
+                assert annotation_status_payload["status"] == "loaded"  # type: ignore[index]
+                assert annotation_status_payload["counts"]["flows"] == 1  # type: ignore[index]
+                assert annotation_status_payload["annotations"]["flows"][flow.id]["label"] == (  # type: ignore[index]
+                    "Annotated authorization"
+                )
+
+                invalid_annotation_write = await session.call_tool(
+                    "write_annotations",
+                    {"flows": {"missing-flow": {"label": "Unknown flow"}}},
+                )
+                assert not invalid_annotation_write.isError
+                invalid_write_payload = invalid_annotation_write.structuredContent  # type: ignore[assignment]
+                assert invalid_write_payload["ok"] is False  # type: ignore[index]
+                assert (  # type: ignore[index]
+                    invalid_write_payload["error_code"] == "annotation_validation_failed"
+                )
+                assert "missing-flow" in "; ".join(invalid_write_payload["errors"])  # type: ignore[index]
+
+                annotation_write = await session.call_tool(
+                    "write_annotations",
+                    {
+                        "flows": {
+                            flow.id: {
+                                "summary": "Agent-authored summary for authorization.",
+                            }
+                        },
+                        "generated_by": {
+                            "kind": "agent_generated",
+                            "agent": "test-agent",
+                        },
+                    },
+                )
+                assert not annotation_write.isError
+                annotation_write_payload = annotation_write.structuredContent  # type: ignore[assignment]
+                assert annotation_write_payload["ok"] is True  # type: ignore[index]
+                assert annotation_write_payload["tool"] == "write_annotations"  # type: ignore[index]
+                assert annotation_write_payload["counts"]["flows"] == 1  # type: ignore[index]
+                validate_annotation_sidecar = await session.call_tool(
+                    "validate_annotations",
+                    {"include_annotations": True},
+                )
+                assert not validate_annotation_sidecar.isError
+                validate_annotation_payload = validate_annotation_sidecar.structuredContent  # type: ignore[assignment]
+                assert validate_annotation_payload["ok"] is True  # type: ignore[index]
+                assert (  # type: ignore[index]
+                    validate_annotation_payload["annotations"]["flows"][flow.id]["summary"]
+                    == "Agent-authored summary for authorization."
+                )
+                assert (  # type: ignore[index]
+                    validate_annotation_payload["next_tools"]["validate_artifacts"]["tool"]
+                    == "validate_artifacts"
+                )
 
                 quality = await session.call_tool("analysis_quality", {"token_budget": 240})
                 assert not quality.isError
@@ -447,7 +542,8 @@ def authorize(user):
                 assert context_navigation["flow_budget"] >= 1
                 assert context_navigation["flows"][0]["flow"]["id"] == flow.id
                 assert context_navigation["flows"][0]["annotations"]["flow"] == {
-                    "label": "Annotated authorization"
+                    "label": "Annotated authorization",
+                    "summary": "Agent-authored summary for authorization.",
                 }
                 assert (
                     context_navigation["next_tools"]["flow_navigation"][0]["tool"]
@@ -513,6 +609,20 @@ def authorize(user):
                 )
                 assert not validation_threshold.isError
                 assert "quality" in str(validation_threshold.content)
+                clear_without_confirm = await session.call_tool("clear_annotations", {})
+                assert not clear_without_confirm.isError
+                assert (  # type: ignore[index]
+                    clear_without_confirm.structuredContent["error_code"]
+                    == "annotation_clear_confirmation_required"
+                )
+                clear_annotations = await session.call_tool(
+                    "clear_annotations",
+                    {"confirm": True},
+                )
+                assert not clear_annotations.isError
+                clear_payload = clear_annotations.structuredContent  # type: ignore[assignment]
+                assert clear_payload["status"] == "absent"  # type: ignore[index]
+                assert clear_payload["cleared"] is True  # type: ignore[index]
 
                 state = await session.call_tool("where_state_handled", {"domain": "role"})
                 assert not state.isError

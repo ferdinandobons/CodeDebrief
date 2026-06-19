@@ -351,14 +351,19 @@ Current checkpoint:
   the sidecar hash matches the current model.
 - MCP summaries expose sidecar status, and flow-navigation packs include matching
   annotations for the selected flow.
+- MCP exposes `preview_annotation_targets`, `write_annotations`, `validate_annotations`,
+  `annotation_status`, and `clear_annotations` so coding agents can create, validate,
+  inspect, and remove local `agent_generated` sidecar content without provider keys.
 - MCP `preview_enrichment` exposes selected target ids and next-tool pointers for
-  review/snapshots without suggesting removed public LLM/enrich commands.
+  review/snapshots without suggesting removed public LLM/enrich commands; it now acts as a
+  compatibility preview behind the clearer annotation-target workflow.
 
 Still open:
 
 - Add dedicated send adapters for non-OpenAI-compatible API formats only when there is a
   clear provider need.
-- Add finding/scoped summary overlays beyond the current flow/node label/description layer.
+- Continue broadening viewer placement for finding and scope summaries where it materially
+  improves inspection.
 
 ### Safety rules
 
@@ -808,6 +813,9 @@ Before the next release:
   tools and the Logical Errors panel.
 - Done: expose fresh scope annotations as progressive flowchart group labels and matching
   flow-navigation annotations, with sidecar bucket counts for agent orientation.
+- Done: add MCP `preview_annotation_targets`, `write_annotations`, `validate_annotations`,
+  `annotation_status`, and `clear_annotations` so coding agents can author enrichment
+  locally without provider-managed LLM setup.
 
 ### Phase 4: Real-World Quality Gates
 

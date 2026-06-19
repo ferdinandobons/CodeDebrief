@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, cast
 
 from logicchart.analysis import ProjectAnalyzer
-from logicchart.annotations import load_annotations
+from logicchart.annotations import (
+    ANNOTATIONS_SCHEMA_VERSION,
+    AnnotationLoadResult,
+    annotations_path,
+    load_annotations,
+    model_hash,
+    validate_annotations_payload,
+)
 from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import LogicChartConfig
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts
@@ -50,8 +58,8 @@ the synchronized logic-flow.json and logic-flow.md artifacts when they changed. 
 update_logicchart(full=true) when artifacts are missing, stale, or analyzer behavior
 changed and cached file models should be ignored. Treat VERIFIED as syntax-backed,
 INFERRED as deterministic heuristic, and POTENTIAL_GAP as a review candidate, not a
-confirmed bug. Use preview_enrichment only to inspect local candidate annotation targets
-for agent-authored annotations."""
+confirmed bug. Use preview_annotation_targets and write_annotations for local
+agent-authored annotations without provider keys."""
 
 
 def _cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]:
@@ -351,6 +359,139 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             env_file=env_file,
             token_budget=token_budget,
         )
+
+    @server.tool()
+    def preview_annotation_targets(
+        scope: str | None = None,
+        flow_ids: list[str] | None = None,
+        finding_ids: list[str] | None = None,
+        max_flows: int = 8,
+        max_nodes_per_flow: int = 12,
+        max_findings: int = 12,
+        token_budget: int = 0,
+    ) -> dict[str, Any]:
+        """Preview local annotation targets without provider setup or network calls."""
+        preview = cast(
+            dict[str, Any],
+            preview_enrichment(
+                scope=scope,
+                flow_ids=flow_ids,
+                finding_ids=finding_ids,
+                max_flows=max_flows,
+                max_nodes_per_flow=max_nodes_per_flow,
+                max_findings=max_findings,
+                env_file=None,
+                token_budget=token_budget,
+            ),
+        )
+        if "error" in preview:
+            return preview
+        preview["tool"] = "preview_annotation_targets"
+        preview["send_required"] = False
+        preview["schema_version"] = ANNOTATIONS_SCHEMA_VERSION
+        preview["allowed_fields"] = _annotation_allowed_fields()
+        preview["guardrail"] = (
+            "This tool only previews local targets. Use write_annotations for "
+            "agent_generated text, and keep annotation content separate from "
+            "deterministic LogicChart facts."
+        )
+        preview["next_tools"]["write_annotations"] = {
+            "tool": "write_annotations",
+            "arguments": {
+                "replace_existing": False,
+                "generated_by": {
+                    "kind": "agent_generated",
+                    "logicchart_workflow": "agent_authored_annotations",
+                },
+            },
+        }
+        return preview
+
+    @server.tool()
+    def annotation_status(include_annotations: bool = False) -> dict[str, Any]:
+        """Return annotation sidecar status, counts, and validation guardrails."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        return _annotation_status_payload(project_root, model, active_config, include_annotations)
+
+    @server.tool()
+    def validate_annotations(include_annotations: bool = False) -> dict[str, Any]:
+        """Validate the optional annotation sidecar against the current model."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        payload = _annotation_status_payload(
+            project_root,
+            model,
+            active_config,
+            include_annotations,
+        )
+        payload["tool"] = "validate_annotations"
+        payload["next_tools"] = {
+            **payload.get("next_tools", {}),
+            "validate_artifacts": {
+                "tool": "validate_artifacts",
+                "arguments": {"check_sync": True, "include_quality": True},
+            },
+        }
+        return payload
+
+    @server.tool()
+    def write_annotations(
+        annotations: dict[str, Any] | None = None,
+        flows: dict[str, dict[str, str]] | None = None,
+        nodes: dict[str, dict[str, str]] | None = None,
+        findings: dict[str, dict[str, str]] | None = None,
+        scopes: dict[str, dict[str, str]] | None = None,
+        generated_by: dict[str, Any] | None = None,
+        replace_existing: bool = False,
+    ) -> dict[str, Any]:
+        """Write validated agent-authored annotations to logic-annotations.json."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        return _write_annotations_payload(
+            project_root,
+            model,
+            active_config,
+            annotations=annotations,
+            flows=flows,
+            nodes=nodes,
+            findings=findings,
+            scopes=scopes,
+            generated_by=generated_by,
+            replace_existing=replace_existing,
+        )
+
+    @server.tool()
+    def clear_annotations(confirm: bool = False) -> dict[str, Any]:
+        """Remove logic-annotations.json only when confirm=true is supplied."""
+        model, error = _try_load(project_root, active_config)
+        if error is not None:
+            return error
+        assert model is not None
+        path = annotations_path(project_root, active_config)
+        if not confirm:
+            return {
+                "ok": False,
+                "error": "clear_annotations requires confirm=true.",
+                "error_code": "annotation_clear_confirmation_required",
+                "path": str(path),
+                "guardrail": (
+                    "Clearing annotations removes optional agent-generated text only; it "
+                    "does not change deterministic LogicChart artifacts."
+                ),
+            }
+        if path.exists():
+            path.unlink()
+        payload = _annotation_status_payload(project_root, model, active_config, False)
+        payload["tool"] = "clear_annotations"
+        payload["cleared"] = True
+        return payload
 
     @server.tool()
     def analysis_quality(token_budget: int = 0) -> dict[str, Any]:
@@ -1275,6 +1416,204 @@ def _enrichment_preview_payload(
             "Run logicchart validate after annotation sidecar changes.",
         ],
     }
+
+
+def _annotation_allowed_fields() -> dict[str, list[str]]:
+    return {
+        "flows": ["label", "description", "summary"],
+        "nodes": ["label", "description"],
+        "findings": ["summary", "explanation", "remediation"],
+        "scopes": ["label", "description", "summary"],
+    }
+
+
+def _annotation_status_payload(
+    root: Path,
+    model: ProjectModel,
+    config: LogicChartConfig,
+    include_annotations: bool,
+) -> dict[str, Any]:
+    loaded = load_annotations(root, model, config)
+    payload = {
+        "tool": "annotation_status",
+        "guardrail": (
+            "Annotations are optional agent-generated presentation text. They do not "
+            "change deterministic flows, findings, or validation facts."
+        ),
+        **loaded.to_dict(),
+        "schema_version": ANNOTATIONS_SCHEMA_VERSION,
+        "allowed_fields": _annotation_allowed_fields(),
+        "next_tools": {
+            "preview_annotation_targets": {
+                "tool": "preview_annotation_targets",
+                "arguments": {},
+            },
+            "write_annotations": {
+                "tool": "write_annotations",
+                "arguments": {"replace_existing": False},
+            },
+        },
+    }
+    if include_annotations and loaded.annotations is not None:
+        payload["annotations"] = loaded.annotations
+    return payload
+
+
+def _write_annotations_payload(
+    root: Path,
+    model: ProjectModel,
+    config: LogicChartConfig,
+    *,
+    annotations: dict[str, Any] | None,
+    flows: dict[str, dict[str, str]] | None,
+    nodes: dict[str, dict[str, str]] | None,
+    findings: dict[str, dict[str, str]] | None,
+    scopes: dict[str, dict[str, str]] | None,
+    generated_by: dict[str, Any] | None,
+    replace_existing: bool,
+) -> dict[str, Any]:
+    bucket_inputs: dict[str, dict[str, dict[str, str]] | None] = {
+        "flows": flows,
+        "nodes": nodes,
+        "findings": findings,
+        "scopes": scopes,
+    }
+    has_bucket_inputs = any(value is not None for value in bucket_inputs.values())
+    if annotations is not None and has_bucket_inputs:
+        return _annotation_write_error(
+            root,
+            model,
+            config,
+            "annotation_write_ambiguous_payload",
+            "Use either a full annotations object or bucket arguments, not both.",
+        )
+
+    loaded = load_annotations(root, model, config)
+    if loaded.status != "absent" and not loaded.ok and not replace_existing:
+        return _annotation_write_error(
+            root,
+            model,
+            config,
+            "annotation_existing_sidecar_invalid",
+            (
+                "Existing annotations are invalid or stale; pass replace_existing=true "
+                "to replace them."
+            ),
+            errors=loaded.errors,
+            status=loaded.to_dict(),
+        )
+
+    candidate = _annotation_candidate_payload(
+        model,
+        loaded.annotations if loaded.ok else None,
+        annotations=annotations,
+        bucket_inputs=bucket_inputs,
+        generated_by=generated_by,
+        replace_existing=replace_existing,
+    )
+    path = annotations_path(root, config)
+    result = AnnotationLoadResult(path=str(path), expected_model_hash=model_hash(model))
+    normalized = validate_annotations_payload(candidate, model, result)
+    if normalized is None or not result.ok:
+        return _annotation_write_error(
+            root,
+            model,
+            config,
+            "annotation_validation_failed",
+            "Annotation payload did not validate against the current model.",
+            errors=result.errors,
+        )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(normalized, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    status = _annotation_status_payload(root, model, config, include_annotations=False)
+    status["tool"] = "write_annotations"
+    status["written"] = True
+    status["replace_existing"] = replace_existing
+    return status
+
+
+def _annotation_candidate_payload(
+    model: ProjectModel,
+    existing: dict[str, Any] | None,
+    *,
+    annotations: dict[str, Any] | None,
+    bucket_inputs: dict[str, dict[str, dict[str, str]] | None],
+    generated_by: dict[str, Any] | None,
+    replace_existing: bool,
+) -> dict[str, Any]:
+    if annotations is not None:
+        candidate = dict(annotations)
+    else:
+        candidate = {
+            bucket: dict((existing or {}).get(bucket, {}))
+            for bucket in ("flows", "nodes", "findings", "scopes")
+        }
+        if replace_existing:
+            candidate = {bucket: {} for bucket in ("flows", "nodes", "findings", "scopes")}
+        for bucket, entries in bucket_inputs.items():
+            if entries is not None:
+                bucket_payload = candidate.setdefault(bucket, {})
+                if not isinstance(bucket_payload, dict):
+                    candidate[bucket] = entries
+                    continue
+                for target_id, fields in entries.items():
+                    existing_fields = bucket_payload.get(target_id, {})
+                    if isinstance(existing_fields, dict):
+                        merged_fields = dict(existing_fields)
+                        merged_fields.update(fields)
+                        bucket_payload[target_id] = merged_fields
+                    else:
+                        bucket_payload[target_id] = fields
+
+    candidate["schema_version"] = ANNOTATIONS_SCHEMA_VERSION
+    candidate["model_hash"] = model_hash(model)
+    if generated_by is not None:
+        candidate["generated_by"] = generated_by
+    elif "generated_by" not in candidate:
+        candidate["generated_by"] = {
+            "kind": "agent_generated",
+            "logicchart_workflow": "agent_authored_annotations",
+            "tool": "write_annotations",
+        }
+    return candidate
+
+
+def _annotation_write_error(
+    root: Path,
+    model: ProjectModel,
+    config: LogicChartConfig,
+    error_code: str,
+    message: str,
+    *,
+    errors: list[str] | None = None,
+    status: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload = {
+        "ok": False,
+        "error": message,
+        "error_code": error_code,
+        "path": str(annotations_path(root, config)),
+        "expected_model_hash": model_hash(model),
+        "guardrail": (
+            "Rejecting annotation writes protects deterministic LogicChart facts from "
+            "unknown ids, stale models, oversized text, or malformed generated content."
+        ),
+        "errors": errors or [],
+        "next_tools": {
+            "preview_annotation_targets": {
+                "tool": "preview_annotation_targets",
+                "arguments": {},
+            },
+            "annotation_status": {
+                "tool": "annotation_status",
+                "arguments": {"include_annotations": False},
+            },
+        },
+    }
+    if status is not None:
+        payload["status"] = status
+    return payload
 
 
 def _string_list(value: Any) -> list[str]:

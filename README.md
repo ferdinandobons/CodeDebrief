@@ -272,9 +272,10 @@ coding agent reads deterministic MCP context, writes validated annotation sideca
 keeps generated text separate from deterministic facts.
 
 Current MCP preview tools can identify candidate flow/finding targets for future
-annotation writes. Provider-managed enrichment code remains advanced/internal while the
-agent-authored annotation tools are being completed; it is not part of the public CLI
-workflow.
+annotation writes. The agent can then use MCP `write_annotations`,
+`validate_annotations`, `annotation_status`, and `clear_annotations` to manage the
+validated `logic-annotations.json` sidecar without provider keys. Provider-managed
+enrichment code remains advanced/internal and is not part of the public CLI workflow.
 
 ### `validate`
 
@@ -482,9 +483,9 @@ reports, flow listing, flow retrieval, flow-navigation packs, query, findings,
 finding-rule contracts, finding-chain explanation, finding-context subgraphs,
 state-handling lookup, decision-node search, impact analysis, token-bounded deterministic
 SVG snapshots for flows, findings, impact sets, and explicit flow/finding subgraphs,
-local annotation-target preview, review queue, context pack, artifact validation, and
-artifact update. Artifact validation and update responses include guardrails plus
-`next_tools` and maintenance CLI hints for the
+annotation-target preview/write/status/validation/clear tools, review queue, context pack,
+artifact validation, and artifact update. Artifact validation and update responses include
+guardrails plus `next_tools` and maintenance CLI hints for the
 update -> validate -> review sequence, so agents can recover from stale generated models
 without guessing the workflow. Recovery hints use `update_logicchart(full=true)` and
 `logicchart update --full` when bypassing the incremental cache is the safer default.
@@ -506,9 +507,9 @@ before deciding whether to request a complete flow or visual snapshot.
 The `get_subgraph_snapshot` tool is the bridge from query/impact/context results into one
 bounded SVG: pass returned `subgraph_flow_ids` and `subgraph_finding_ids` directly to
 render the focused model slice.
-Use MCP `preview_enrichment` as a local-only way to inspect candidate annotation targets
-and bounded context. It does not call a provider and does not point agents at a public
-provider-send CLI path.
+Use MCP `preview_annotation_targets` as a local-only way to inspect candidate annotation
+targets and bounded context before calling `write_annotations`. It does not call a
+provider and does not point agents at a public provider-send CLI path.
 If the generated model is missing or malformed, model-reading MCP tools return structured
 recoverable errors with an `error_code`, artifact path, guardrail text, and next tool/CLI
 actions instead of surfacing a raw traceback. Unknown flow/finding targets and invalid
