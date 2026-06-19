@@ -192,7 +192,7 @@ def query_model(
         flow_findings = [
             finding
             for finding in findings_by_flow.get(flow.id, [])
-            if _finding_matches_filters(
+            if finding_matches_filters(
                 finding,
                 kind=finding_kind,
                 severity=finding_severity,
@@ -937,7 +937,7 @@ def finding_priority(finding: Finding) -> int:
     )
 
 
-def _finding_matches_filters(
+def finding_matches_filters(
     finding: Finding,
     *,
     kind: str | None,

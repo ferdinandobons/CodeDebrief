@@ -25,6 +25,7 @@ from logicchart.query import (
     find_decisions,
     finding_annotation,
     finding_context,
+    finding_matches_filters,
     finding_next_tools,
     finding_priority,
     flow_navigation,
@@ -1017,7 +1018,7 @@ def _context_pack_payload(
         and (
             finding.flow_id in review_flow_ids or (not review_flow_ids and not has_specific_context)
         )
-        and _finding_matches_agent_filters(
+        and finding_matches_filters(
             finding,
             kind=finding_kind,
             severity=finding_severity,
@@ -2298,17 +2299,3 @@ def _model_load_error_code(error: BaseException) -> str:
 
 def flow_in_agent_scope(flow: Any, scope: str | None) -> bool:
     return scope is None or scope in flow.metadata.get("scope", [])
-
-
-def _finding_matches_agent_filters(
-    finding: Any,
-    *,
-    kind: str | None,
-    severity: str | None,
-    evidence: str | None,
-) -> bool:
-    if kind is not None and finding.kind != kind:
-        return False
-    if severity is not None and finding.severity.value != severity:
-        return False
-    return evidence is None or finding.evidence.value == evidence
