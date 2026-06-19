@@ -116,6 +116,9 @@ The project follows Semantic Versioning.
 - Added optional local LLM provider setup commands (`logicchart llm providers`,
   `logicchart llm setup`, and `logicchart llm show`) with DeepSeek v4 as the preferred
   default and a git-ignored `.env.logicchart` key/model file.
+- Added `logicchart enrich` with local preview payloads by default and explicit `--send`
+  provider calls that write `logic-annotations.json` only after model-hash and id
+  validation.
 - Added Python analyzer modeling for `try`/`else` success paths, so post-success work is
   connected before the flow continues.
 - Added Python loop-body flow modeling, so decisions and calls inside `for`, `async for`,
@@ -141,6 +144,8 @@ The project follows Semantic Versioning.
 - Updated generated agent instructions across Codex, Claude, Gemini, and Cursor to use
   `logicchart --help`, subcommand help, `doctor`, and safe `llm` setup guidance when
   helping users set up or learn LogicChart.
+- Updated generated agent instructions to point users at `logicchart enrich --help` and
+  to review enrichment previews before running provider calls with `--send`.
 - Updated Details rail section headers so Project Quality, Source, and Logical Errors can
   be collapsed by click or keyboard with synchronized expanded state.
 - Updated the Logical Errors panel so selected findings expand into a compact diagnostic

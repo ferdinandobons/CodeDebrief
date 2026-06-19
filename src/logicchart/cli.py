@@ -26,6 +26,13 @@ from logicchart.llm_config import (
     render_setup_text,
     write_logicchart_env,
 )
+from logicchart.llm_enrich import (
+    EnrichmentOptions,
+    build_enrichment_preview,
+    render_enrichment_preview,
+    send_enrichment_request,
+    write_enrichment_annotations,
+)
 from logicchart.quality import render_quality
 from logicchart.query import (
     explain_finding,
@@ -259,6 +266,61 @@ def build_parser() -> argparse.ArgumentParser:
     )
     llm_show.add_argument("--json", action="store_true", dest="json_output")
 
+    enrich = subparsers.add_parser(
+        "enrich",
+        help="Preview or run optional LLM annotation enrichment.",
+    )
+    enrich.add_argument("path", nargs="?", default=".")
+    enrich.add_argument("--scope", default=None, help="Restrict enrichment to one scope.")
+    enrich.add_argument(
+        "--flow",
+        action="append",
+        default=[],
+        help="Restrict enrichment to a flow id, symbol, or name.",
+    )
+    enrich.add_argument(
+        "--finding",
+        action="append",
+        default=[],
+        help="Restrict enrichment to a finding id.",
+    )
+    enrich.add_argument(
+        "--max-flows",
+        type=int,
+        default=12,
+        help="Maximum selected flows to include in the provider payload.",
+    )
+    enrich.add_argument(
+        "--max-nodes-per-flow",
+        type=int,
+        default=18,
+        help="Maximum nodes per selected flow to include in the provider payload.",
+    )
+    enrich.add_argument(
+        "--max-findings",
+        type=int,
+        default=20,
+        help="Maximum selected findings to include in the provider payload.",
+    )
+    enrich.add_argument(
+        "--env-file",
+        default=None,
+        help="Path to the dedicated env file. Defaults to .env.logicchart under PATH.",
+    )
+    enrich.add_argument(
+        "--send",
+        action="store_true",
+        help="Call the configured provider and write validated logic-annotations.json.",
+    )
+    enrich.add_argument(
+        "--timeout",
+        type=float,
+        default=60.0,
+        help="Provider request timeout in seconds when --send is used.",
+    )
+    _add_profile_argument(enrich)
+    enrich.add_argument("--json", action="store_true", dest="json_output")
+
     init = subparsers.add_parser("init", help="Create a starter LogicChart configuration.")
     init.add_argument("path", nargs="?", default=".")
 
@@ -410,6 +472,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _install(Path(args.path), args.platform, args.mcp_config)
         if args.command == "llm":
             return _llm(args)
+        if args.command == "enrich":
+            return _enrich(args)
         if args.command == "init":
             return _init(Path(args.path))
         if args.command == "validate":
@@ -494,6 +558,52 @@ def _llm(args: argparse.Namespace) -> int:
         return 0
 
     raise ValueError(f"unknown llm command: {args.llm_command}")
+
+
+def _enrich(args: argparse.Namespace) -> int:
+    root = Path(args.path).resolve()
+    config = LogicChartConfig.load(root, profile=args.profile)
+    model = load_model(root, config)
+    options = EnrichmentOptions(
+        scope=args.scope,
+        flow_ids=tuple(args.flow),
+        finding_ids=tuple(args.finding),
+        max_flows=args.max_flows,
+        max_nodes_per_flow=args.max_nodes_per_flow,
+        max_findings=args.max_findings,
+    )
+    preview = build_enrichment_preview(root, model, config, options, args.env_file)
+
+    if not args.send:
+        output = (
+            json.dumps(preview, indent=2)
+            if args.json_output
+            else render_enrichment_preview(preview)
+        )
+        print(output)
+        return 0
+
+    annotations = send_enrichment_request(preview, timeout=args.timeout)
+    output_path = write_enrichment_annotations(root, model, config, annotations)
+    payload = {
+        "provider_call_made": True,
+        "provider": preview["provider"],
+        "model": preview["model"],
+        "output": str(output_path),
+        "model_hash": preview["model_hash"],
+        "annotation_counts": {
+            "flows": len(annotations.get("flows", {})),
+            "nodes": len(annotations.get("nodes", {})),
+            "findings": len(annotations.get("findings", {})),
+            "scopes": len(annotations.get("scopes", {})),
+        },
+    }
+    if args.json_output:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"Wrote {output_path}")
+        print(f"provider call made: true ({preview['provider']} / {preview['model']})")
+    return 0
 
 
 def _read_api_key(args: argparse.Namespace) -> str:

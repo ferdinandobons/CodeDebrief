@@ -36,7 +36,9 @@ LogicChart is in a strong alpha state.
   skipped-file or parse-warning quality signals instead of silently clean canonical
   flowcharts.
 - The deterministic baseline is correct for the product: no API key is required, and LLM
-  usage should remain optional enrichment, never a requirement for core correctness.
+  usage remains optional enrichment, never a requirement for core correctness. The
+  `logicchart enrich` path previews the bounded provider payload locally by default and
+  calls a provider only with explicit `--send`.
 - Local quality gates are currently healthy: Python tests, coverage, type checking,
   frontend tests, frontend type checking, viewer build, artifact validation, and npm audit
   have all passed in this workspace.
@@ -280,12 +282,14 @@ Add optional setup and enrichment commands:
 ```bash
 logicchart llm providers
 logicchart llm setup --provider deepseek --model deepseek-v4-pro --api-key-stdin
-logicchart enrich --provider openai --model <model> --scope frontend
+logicchart enrich --scope frontend --json
+logicchart enrich --scope frontend --send
 ```
 
 `logicchart llm setup` writes local credentials and provider/model selection to the
-dedicated `.env.logicchart` file without making a provider call. A future explicit
-`logicchart enrich` command writes:
+dedicated `.env.logicchart` file without making a provider call. `logicchart enrich`
+previews the bounded request payload without making a provider call unless `--send` is
+passed. Successful enrichment writes:
 
 ```text
 logicchart-out/logic-annotations.json
@@ -306,6 +310,12 @@ Current checkpoint:
   the preferred default and free-form model/base-url overrides for provider drift.
 - `logicchart llm setup` writes `.env.logicchart`, masks secrets in output, and keeps the
   setup path local-only.
+- `logicchart enrich` builds a local preview payload by default, including selected
+  scopes, flows, nodes, findings, diagnostic metadata, omission counts, and guardrails
+  with `provider_call_made: false`.
+- `logicchart enrich --send` is the explicit external-send boundary. It currently supports
+  OpenAI-compatible chat APIs, calls the configured provider from `.env.logicchart`, and
+  writes annotations only after schema, model-hash, id, field, and text-limit validation.
 - `logicchart-out/logic-annotations.json` has a strict local schema.
 - Sidecars are keyed by stable flow/node/finding/scope ids plus a deterministic model hash.
 - `logicchart validate` validates a present sidecar automatically and `--annotations`
@@ -317,8 +327,8 @@ Current checkpoint:
 
 Still open:
 
-- Add `logicchart enrich` only after the external-code-send boundary is explicitly
-  approved for the selected run.
+- Add dedicated send adapters for non-OpenAI-compatible API formats only when there is a
+  clear provider need.
 - Add finding/scoped summary overlays beyond the current flow/node label/description layer.
 
 ### Safety rules
@@ -742,8 +752,10 @@ Before the next release:
   free-form model and base URL overrides for changing provider catalogs.
 - Done: save optional credentials in a dedicated, git-ignored `.env.logicchart` file with
   masked command output and no provider calls during setup.
-- Next: add `logicchart enrich` as an explicit opt-in command that previews what text will
-  be sent before any provider request.
+- Done: add `logicchart enrich` as an explicit opt-in command that previews the bounded
+  provider payload before any request and calls the configured provider only with `--send`.
+- Done: validate provider enrichment output against known ids, supported annotation
+  fields, text limits, and the current model hash before writing the sidecar.
 - Done: write/load `logic-annotations.json`.
 - Done: validate annotations against a schema and model hash.
 - Done: add viewer overlays for better flow/node labels and descriptions.

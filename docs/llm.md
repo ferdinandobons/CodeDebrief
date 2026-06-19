@@ -26,6 +26,52 @@ LOGICCHART_LLM_API_KEY=...
 `.env.logicchart` is ignored by git. `logicchart llm show` masks the key, and `setup`
 does not make a provider request.
 
+## Enrichment Preview
+
+Use `logicchart enrich` before sending anything to a provider:
+
+```bash
+logicchart enrich --json
+logicchart enrich --scope backend --json
+logicchart enrich --flow flow-id --finding finding-id --json
+```
+
+Preview mode is local-only. It reads the existing `logic-flow.json`, selects a bounded
+slice of flows/findings, prints the exact structured request payload, and reports
+`provider_call_made: false`. Default selection prioritizes flows with logical findings,
+so error explanations are included early.
+
+The request contains ids, names, source locations, node labels, calls, findings,
+diagnostic metadata, scopes, and omission counts. It does not upload an entire repository.
+Tune the selection with:
+
+- `--scope`
+- `--flow`
+- `--finding`
+- `--max-flows`
+- `--max-nodes-per-flow`
+- `--max-findings`
+
+## Running Enrichment
+
+After reviewing the preview and configuring `.env.logicchart`, explicitly add `--send`:
+
+```bash
+logicchart enrich --scope frontend --send
+```
+
+`--send` calls the configured OpenAI-compatible chat endpoint and writes
+`logicchart-out/logic-annotations.json` only after the provider response validates against
+the current model hash and known ids. Provider output can annotate existing scopes, flows,
+nodes, and findings with labels, descriptions, summaries, explanations, or remediation
+text. It cannot create, remove, or rename flow structure.
+
+The first implementation supports `openai` and `openai-compatible` API formats, including
+DeepSeek, OpenAI, xAI, Alibaba Qwen compatible endpoints, Z.AI, and Kimi/Moonshot. Other
+provider presets can still be stored with `logicchart llm setup`, but running
+`logicchart enrich --send` will reject non-compatible API formats until dedicated
+adapters are added.
+
 ## Provider Presets
 
 The presets below were checked against official provider docs on 2026-06-19. Catalogs
@@ -75,5 +121,9 @@ printf '%s' "$DASHSCOPE_API_KEY" | logicchart llm setup \
 - Use `--api-key-stdin` instead of `--api-key` when working in a shared shell history.
 - Running `logicchart llm setup` only stores local configuration. It does not enrich,
   upload, or call a provider.
-- Future enrichment commands must stay explicit and should summarize what text they will
-  send before making provider requests.
+- Running `logicchart enrich` without `--send` is a local preview and never calls a
+  provider.
+- Running `logicchart enrich --send` is the explicit external-send boundary. Review the
+  preview first when the codebase or payload is sensitive.
+- Provider output is rejected when it references unknown ids, stale model hashes,
+  unsupported annotation fields, or overlong text.

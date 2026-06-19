@@ -304,6 +304,29 @@ this file; LLM enrichment remains opt-in and must be run explicitly before any c
 artifact text is sent to a provider. See [docs/llm.md](docs/llm.md) for the verified
 provider snapshot.
 
+### `enrich`
+
+Preview or run optional LLM annotation enrichment:
+
+```bash
+logicchart enrich --json
+logicchart enrich --scope backend --json
+logicchart enrich --flow flow-id --finding finding-id --json
+logicchart enrich --scope frontend --send
+```
+
+Without `--send`, `enrich` is a local preview: it loads the existing model, selects a
+bounded set of flows/findings, prints the exact structured provider payload, and reports
+`provider_call_made: false`. With `--send`, it reads `.env.logicchart`, calls the
+configured OpenAI-compatible provider, validates the returned annotation sidecar against
+the current model hash, and writes `logicchart-out/logic-annotations.json`.
+Default selection prioritizes flows with logical findings so error explanations are part
+of the first enrichment pass.
+
+The provider can only annotate existing scope, flow, node, and finding ids. It cannot
+change the deterministic flow structure, and provider output is rejected if it references
+unknown ids, stale hashes, unsupported fields, or overlong text.
+
 ### `snapshot`
 
 Render deterministic SVG visual context without starting the viewer or MCP server:
