@@ -586,8 +586,10 @@ sets, and explicit flow/finding subgraphs, optional LLM enrichment preview, revi
 context pack, artifact validation, and artifact update. Artifact
 validation and update responses include guardrails plus `next_tools`/`next_cli` hints for
 the update -> validate -> review sequence, so agents can recover from stale generated
-models without guessing the workflow. Finding snapshots include a compact diagnostic panel
-with evidence tier, confidence, review prompt, and evidence-chain summaries. MCP impact
+models without guessing the workflow. Recovery hints use `update_logicchart(full=true)`
+and `logicchart update --full` when bypassing the incremental cache is the safer default.
+Finding snapshots include a compact diagnostic panel with evidence tier, confidence,
+review prompt, and evidence-chain summaries. MCP impact
 analysis and `context_pack` include per-flow `reasons` alongside a top-level
 `impact_reasons` map so agents can explain direct and transitive impact without
 reconstructing the traversal. Snapshot payloads carry deterministic layout metadata along

@@ -48,10 +48,11 @@ Prefer context_pack, query_logic, review_queue, and analyze_impact for bounded o
 before broad file-by-file search. Use get_finding_context and get_finding_snapshot before
 treating a logical error as actionable. After substantial code edits, call update_logicchart
 and validate_artifacts, then commit the synchronized logic-flow.json and logic-flow.md
-artifacts when they changed. Treat VERIFIED as syntax-backed, INFERRED as deterministic
-heuristic, and POTENTIAL_GAP as a review candidate, not a confirmed bug. Use
-preview_enrichment to inspect the bounded optional LLM payload locally before any explicit
-provider send through the CLI."""
+artifacts when they changed. Use update_logicchart(full=true) when artifacts are missing,
+stale, or analyzer behavior changed and cached file models should be ignored. Treat
+VERIFIED as syntax-backed, INFERRED as deterministic heuristic, and POTENTIAL_GAP as a
+review candidate, not a confirmed bug. Use preview_enrichment to inspect the bounded
+optional LLM payload locally before any explicit provider send through the CLI."""
 
 
 def _cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]:
@@ -1383,7 +1384,7 @@ def _validation_next_cli(ok: bool) -> list[str]:
             "logicchart explain <finding-id>",
         ]
     return [
-        "logicchart update",
+        "logicchart update --full",
         "logicchart validate --check-sync --json",
     ]
 
@@ -1579,7 +1580,7 @@ def _model_load_error(
             },
         },
         "next_cli": [
-            "logicchart analyze --full",
+            "logicchart update --full",
             "logicchart validate --check-sync --json",
         ],
     }

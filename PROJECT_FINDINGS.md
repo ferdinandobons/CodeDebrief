@@ -587,6 +587,8 @@ Current checkpoint:
 - MCP `context_pack` also accepts the deterministic query filters from `query_logic`, so
   agents can request bounded packs for source, language, state-domain, handled-value, or
   finding evidence slices without retrieving the whole project review queue.
+- MCP recovery and validation hints now point agents to `update_logicchart(full=true)` and
+  `logicchart update --full` when artifacts are missing, stale, or cache bypass is safer.
 - Generated `files[]` records now include first-party `dependencies` for Python,
   TypeScript/JavaScript, Go, and Java imports; `impact` uses those edges to include flows
   from files that import a changed file even when the changed file has no modeled flow of

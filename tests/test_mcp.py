@@ -121,6 +121,8 @@ def authorize(user):
 
                 # Spec §5.2: every query/list tool exposes a token_budget cap.
                 schema_by_name = {tool.name: tool.inputSchema for tool in tools.tools}
+                update_properties = schema_by_name["update_logicchart"].get("properties", {})
+                assert "full" in update_properties
                 validation_properties = schema_by_name["validate_artifacts"].get("properties", {})
                 assert "max_parse_warnings" in validation_properties
                 for budget_tool in (
@@ -653,7 +655,7 @@ def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> 
                 assert (  # type: ignore[index]
                     payload["next_tools"]["update_model"]["tool"] == "update_logicchart"
                 )
-                assert "logicchart analyze --full" in payload["next_cli"]  # type: ignore[index]
+                assert "logicchart update --full" in payload["next_cli"]  # type: ignore[index]
 
                 flows = await session.call_tool("list_flows", {})
                 assert not flows.isError
@@ -728,7 +730,7 @@ def test_mcp_update_validate_sequence_after_source_change(tmp_path: Path) -> Non
                 assert (  # type: ignore[index]
                     stale_payload["next_tools"]["update_model"]["tool"] == "update_logicchart"
                 )
-                assert "logicchart update" in stale_payload["next_cli"]  # type: ignore[index]
+                assert "logicchart update --full" in stale_payload["next_cli"]  # type: ignore[index]
 
                 update = await session.call_tool("update_logicchart", {"full": True})
                 assert not update.isError
@@ -979,7 +981,7 @@ def test_mcp_recovery_payload_helpers_are_actionable(tmp_path: Path) -> None:
     assert missing["recoverable"] is True
     assert missing["artifact"].endswith("logicchart-out/logic-flow.json")
     assert missing["next_tools"]["update_model"]["tool"] == "update_logicchart"
-    assert "logicchart analyze --full" in missing["next_cli"]
+    assert "logicchart update --full" in missing["next_cli"]
 
     malformed = _model_load_error(tmp_path, config, ValueError("invalid JSON in artifact"))
     assert malformed["error_code"] == "artifact_malformed_json"
@@ -996,7 +998,7 @@ def test_mcp_recovery_payload_helpers_are_actionable(tmp_path: Path) -> None:
     stale = _validation_payload({"ok": False, "errors": ["stale"], "warnings": []})
     assert stale["next_tools"]["update_model"]["tool"] == "update_logicchart"
     assert stale["next_cli"] == [
-        "logicchart update",
+        "logicchart update --full",
         "logicchart validate --check-sync --json",
     ]
 
