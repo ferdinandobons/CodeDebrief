@@ -169,6 +169,9 @@ The project follows Semantic Versioning.
   helping users set up or learn LogicChart.
 - Updated generated agent instructions to point users at `logicchart enrich --help` and
   to review enrichment previews before running provider calls with `--send`.
+- Updated the optional LLM provider preset list to keep the documented Qwen coder model
+  aligned with `logicchart llm providers`, while keeping free-form model overrides for
+  fast-moving provider catalogs.
 - Updated Details rail section headers so Project Quality, Source, and Logical Errors can
   be collapsed by click or keyboard with synchronized expanded state.
 - Updated the Logical Errors panel so selected findings expand into a compact diagnostic

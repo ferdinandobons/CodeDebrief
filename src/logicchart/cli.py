@@ -216,7 +216,7 @@ def build_parser() -> argparse.ArgumentParser:
     llm = subparsers.add_parser("llm", help="Configure optional local LLM enrichment settings.")
     llm_subparsers = llm.add_subparsers(dest="llm_command", required=True)
     llm_providers = llm_subparsers.add_parser(
-        "providers", help="List verified provider/model presets."
+        "providers", help="List curated provider/model presets."
     )
     llm_providers.add_argument("--json", action="store_true", dest="json_output")
 

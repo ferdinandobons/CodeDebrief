@@ -25,6 +25,13 @@ def test_deepseek_v4_is_the_preferred_default() -> None:
     assert "deepseek-v4-flash" in provider.models
 
 
+def test_qwen_provider_includes_documented_coder_preset() -> None:
+    provider = get_provider("qwen")
+
+    assert provider.default_model == "qwen3-max"
+    assert "qwen3-coder-plus" in provider.models
+
+
 def test_logicchart_env_writer_preserves_unrelated_values_and_masks_key(tmp_path: Path) -> None:
     env_path = logicchart_env_path(tmp_path)
     env_path.write_text(

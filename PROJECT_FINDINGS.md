@@ -831,8 +831,11 @@ Before the next release:
 
 ### Phase 5: Release Consolidation
 
-- Update changelog.
-- Re-run local CI gates.
-- Verify GitHub CI.
-- Refresh installed CLI.
-- Release only after the cumulative state is stable.
+- Done: update changelog, README/docs guidance, generated agent instructions, and this
+  findings file to describe the current stabilized surfaces.
+- Done: re-run local Python, viewer, LogicChart artifact, demo render, and private
+  Certifexp gates on the stabilization branch.
+- Done: verify the installed user-facing CLI resolves to this checkout and reports a
+  healthy `logicchart doctor --json`.
+- Pending external check: verify GitHub CI after the branch push.
+- Pending user approval: merge to `main`, version bump, tag, and release.
