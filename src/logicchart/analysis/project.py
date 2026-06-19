@@ -301,6 +301,8 @@ class ProjectAnalyzer:
             short = flow.symbol.split(":", 1)[-1].split(".")[-1]
             named.setdefault(short, []).append(flow)
 
+        calls_seen = {flow.id: set(flow.calls) for flow in flows}
+        called_by_seen = {flow.id: set(flow.called_by) for flow in flows}
         for flow in flows:
             lang_qualified = by_qualified.get(flow.language, {})
             lang_name = by_name.get(flow.language, {})
@@ -316,10 +318,12 @@ class ProjectAnalyzer:
                     target = next(iter(candidates.values()))
                     node.metadata["target_flow"] = target.id
                     node.metadata["target_symbol"] = target.symbol
-                    if target.id not in flow.calls:
+                    if target.id not in calls_seen[flow.id]:
                         flow.calls.append(target.id)
-                    if flow.id not in target.called_by:
+                        calls_seen[flow.id].add(target.id)
+                    if flow.id not in called_by_seen[target.id]:
                         target.called_by.append(flow.id)
+                        called_by_seen[target.id].add(flow.id)
 
     @staticmethod
     def _resolve_call(
