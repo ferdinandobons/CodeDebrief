@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, cast
@@ -166,11 +167,12 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         )
         annotations = load_annotations(project_root, model, active_config)
         annotation_payload = annotations.annotations if annotations.ok else None
+        flow_lookup = {flow.id: flow}
         return {
             "flow": flow_dict,
             "findings": _cap(
                 [
-                    _finding_dict(item, model, annotation_payload)
+                    _finding_dict(item, model, annotation_payload, flows_by_id=flow_lookup)
                     for item in model.findings
                     if item.flow_id == flow.id
                 ],
@@ -256,9 +258,10 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         assert model is not None
         annotations = load_annotations(project_root, model, active_config)
         annotation_payload = annotations.annotations if annotations.ok else None
+        flows_by_id = {flow.id: flow for flow in model.flows}
         return _cap(
             [
-                _finding_dict(item, model, annotation_payload)
+                _finding_dict(item, model, annotation_payload, flows_by_id=flows_by_id)
                 for item in model.findings
                 if flow_id is None or item.flow_id == flow_id
             ],
@@ -635,6 +638,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             _impact_flow_summary(item, result.impact_reasons)
             for item in result.transitively_impacted
         ]
+        flows_by_id = {flow.id: flow for flow in model.flows}
         return {
             "changed_files": result.changed_files,
             "target_flow_ids": result.target_flow_ids,
@@ -646,7 +650,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             "direct": _cap(direct, token_budget),
             "transitive": _cap(transitive, token_budget),
             "findings": _cap(
-                [_finding_dict(item, model) for item in result.findings], token_budget
+                [_finding_dict(item, model, flows_by_id=flows_by_id) for item in result.findings],
+                token_budget,
             ),
             "subgraph_flow_ids": result.subgraph_flow_ids,
             "subgraph_finding_ids": result.subgraph_finding_ids,
@@ -724,7 +729,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             flow = flows[finding.flow_id]
             rows.append(
                 {
-                    **_finding_dict(finding, model, annotation_payload),
+                    **_finding_dict(finding, model, annotation_payload, flows_by_id=flows),
                     "flow": flow_summary(flow),
                     "priority": finding_priority(finding),
                 }
@@ -1025,7 +1030,11 @@ def _context_pack_payload(
     )
     annotations = load_annotations(root, model, config)
     annotation_payload = annotations.annotations if annotations.ok else None
-    review_rows = [_finding_dict(finding, model, annotation_payload) for finding in review_findings]
+    flows_by_id = {flow.id: flow for flow in model.flows}
+    review_rows = [
+        _finding_dict(finding, model, annotation_payload, flows_by_id=flows_by_id)
+        for finding in review_findings
+    ]
     return {
         "summary": model_summary(model),
         "query_filters": query_filters,
@@ -2159,16 +2168,19 @@ def _finding_dict(
     finding: Any,
     model: ProjectModel | None = None,
     annotations: dict[str, Any] | None = None,
+    flows_by_id: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     data = asdict(finding)
     metadata = data.setdefault("metadata", {})
     if not isinstance(metadata.get("diagnostic"), dict):
         flow = None
         node = None
-        if model is not None:
+        if flows_by_id is not None:
+            flow = flows_by_id.get(finding.flow_id)
+        elif model is not None:
             flow = next((item for item in model.flows if item.id == finding.flow_id), None)
-            if flow is not None and finding.node_id:
-                node = next((item for item in flow.nodes if item.id == finding.node_id), None)
+        if flow is not None and finding.node_id:
+            node = next((item for item in flow.nodes if item.id == finding.node_id), None)
         metadata["diagnostic"] = diagnostic_for_finding(
             finding,
             flow=flow,

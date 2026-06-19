@@ -51,14 +51,17 @@ def handle(status):
     )
     model = ProjectAnalyzer(tmp_path).analyze(full=True).model
     finding = model.findings[0]
+    flow = next(flow for flow in model.flows if flow.id == finding.flow_id)
     row = _finding_dict(
         finding,
         model,
         {"findings": {finding.id: {"summary": "Missing deleted branch."}}},
     )
+    indexed_row = _finding_dict(finding, model, flows_by_id={flow.id: flow})
 
     assert row["annotation"]["summary"] == "Missing deleted branch."
     assert row["metadata"]["diagnostic"]["rule_id"] == finding.kind
+    assert indexed_row["metadata"]["diagnostic"] == row["metadata"]["diagnostic"]
     assert row["next_tools"]["finding_context"]["tool"] == "get_finding_context"
 
 
