@@ -1,4 +1,7 @@
+import ast
 from pathlib import Path
+
+import pytest
 
 from logicchart.analysis.python import PythonAnalyzer
 from logicchart.config import LogicChartConfig
@@ -56,6 +59,34 @@ def get_profile(user_id: str):
 
     call_node = next(node for node in profile.nodes if node.kind is NodeKind.CALL)
     assert "load_user" in call_node.metadata["calls"]
+
+
+def test_python_source_snippets_do_not_resplit_large_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "large_service.py"
+    source.write_text(
+        "\n".join(["# filler"] * 5000)
+        + """
+
+def process(order):
+    if order.status:
+        return handle(order)
+    return reject(order)
+""",
+        encoding="utf-8",
+    )
+
+    def fail_get_source_segment(source: str, node: ast.AST) -> str:
+        raise AssertionError("PythonAnalyzer must not call ast.get_source_segment")
+
+    monkeypatch.setattr(ast, "get_source_segment", fail_get_source_segment)
+
+    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = analysis.flows[0]
+
+    assert any(node.detail == "order.status" for node in flow.nodes)
+    assert any(node.detail == "return handle(order)" for node in flow.nodes)
 
 
 def test_local_function_body_does_not_pollute_outer_flow(tmp_path: Path) -> None:

@@ -48,6 +48,40 @@ CLI_DECORATORS = {"command", "callback"}
 HANDLER_PREFIXES = ("handle_", "on_", "process_")
 
 
+class _SourceText:
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.lines = text.splitlines(keepends=True)
+
+    def segment(self, node: ast.AST) -> str:
+        start_line = getattr(node, "lineno", None)
+        end_line = getattr(node, "end_lineno", None)
+        start_col = getattr(node, "col_offset", None)
+        end_col = getattr(node, "end_col_offset", None)
+        if (
+            not isinstance(start_line, int)
+            or not isinstance(end_line, int)
+            or not isinstance(start_col, int)
+            or not isinstance(end_col, int)
+            or start_line < 1
+            or end_line < start_line
+            or start_line > len(self.lines)
+        ):
+            return ""
+
+        end_line = min(end_line, len(self.lines))
+        selected = self.lines[start_line - 1 : end_line]
+        if not selected:
+            return ""
+        if start_line == end_line:
+            return _slice_line_utf8(selected[0], start_col, end_col)
+
+        first = _slice_line_utf8(selected[0], start_col, None)
+        middle = selected[1:-1]
+        last = _slice_line_utf8(selected[-1], 0, end_col)
+        return "".join([first, *middle, last])
+
+
 class PythonAnalyzer:
     def __init__(self, root: Path, config: LogicChartConfig) -> None:
         self.root = root
@@ -56,9 +90,9 @@ class PythonAnalyzer:
     def analyze(self, path: Path) -> FileAnalysis:
         # utf-8-sig transparently strips a leading BOM (a valid file an editor saved as
         # UTF-8-with-BOM), so it parses instead of choking on a stray ﻿ token.
-        source = path.read_text(encoding="utf-8-sig")
+        source = _SourceText(path.read_text(encoding="utf-8-sig"))
         relative = relpath(path, self.root)
-        tree = ast.parse(source, filename=relative)
+        tree = ast.parse(source.text, filename=relative)
         module_name = _module_name(relative)
         constants = _harvest_constants(tree)
         constant_names = set(constants)
@@ -111,7 +145,7 @@ class PythonAnalyzer:
         self,
         definition: ast.FunctionDef | ast.AsyncFunctionDef,
         owner: str,
-        source: str,
+        source: _SourceText,
         relative: str,
         module_name: str,
         findings: list[Finding],
@@ -179,7 +213,7 @@ class PythonAnalyzer:
         incoming: list[PendingEdge],
         builder: FlowBuilder,
         findings: list[Finding],
-        source: str,
+        source: _SourceText,
         relative: str,
     ) -> list[PendingEdge]:
         endpoints = incoming
@@ -278,7 +312,7 @@ class PythonAnalyzer:
         incoming: list[PendingEdge],
         builder: FlowBuilder,
         findings: list[Finding],
-        source: str,
+        source: _SourceText,
         relative: str,
     ) -> list[PendingEdge]:
         node = builder.add_node(
@@ -323,11 +357,11 @@ class PythonAnalyzer:
         incoming: list[PendingEdge],
         builder: FlowBuilder,
         findings: list[Finding],
-        source: str,
+        source: _SourceText,
         relative: str,
     ) -> list[PendingEdge]:
         condition = _safe_unparse(statement.test)
-        branch_source = _branch_behavior_source(statement.body, source)
+        branch_source = _branch_behavior_source(statement.body)
         functional = is_functional_condition(condition, branch_source)
         if not functional:
             node = builder.add_node(
@@ -383,7 +417,7 @@ class PythonAnalyzer:
         incoming: list[PendingEdge],
         builder: FlowBuilder,
         findings: list[Finding],
-        source: str,
+        source: _SourceText,
         relative: str,
     ) -> list[PendingEdge]:
         subject = _safe_unparse(statement.subject)
@@ -442,7 +476,7 @@ class PythonAnalyzer:
         incoming: list[PendingEdge],
         builder: FlowBuilder,
         findings: list[Finding],
-        source: str,
+        source: _SourceText,
         relative: str,
     ) -> list[PendingEdge]:
         node = builder.add_node(
@@ -612,8 +646,15 @@ def _location(relative: str, node: ast.AST) -> SourceLocation:
     return SourceLocation(relative, start, end)
 
 
-def _source_segment(source: str, node: ast.AST) -> str:
-    return compact_text(ast.get_source_segment(source, node) or _safe_unparse(node), 500)
+def _source_segment(source: _SourceText, node: ast.AST) -> str:
+    return compact_text(source.segment(node) or _safe_unparse(node), 500)
+
+
+def _slice_line_utf8(line: str, start: int, end: int | None) -> str:
+    data = line.encode("utf-8")
+    safe_start = max(0, min(start, len(data)))
+    safe_end = len(data) if end is None else max(safe_start, min(end, len(data)))
+    return data[safe_start:safe_end].decode("utf-8", "replace")
 
 
 def _safe_unparse(node: ast.AST | None) -> str:
@@ -697,7 +738,7 @@ def _argument_names(arguments: ast.arguments) -> set[str]:
     return names
 
 
-def _branch_behavior_source(stmts: list[ast.stmt], source: str) -> str:
+def _branch_behavior_source(stmts: list[ast.stmt]) -> str:
     return " ".join(
         _safe_unparse(_strip_nested_callable_bodies(statement))
         for statement in stmts

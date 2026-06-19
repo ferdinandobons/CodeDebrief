@@ -177,6 +177,9 @@ The project follows Semantic Versioning.
 
 ### Fixed
 
+- Fixed Python source-snippet extraction to avoid repeatedly splitting large files through
+  `ast.get_source_segment`, making full analysis of large Python services substantially
+  faster.
 - Fixed Python parent-flow attribution so calls, decisions, local constant-shadow metadata,
   and lambda callback bodies inside local helpers no longer leak into the enclosing flow.
 - Fixed finding/source panel activation so opening a flow no longer clears the more precise
