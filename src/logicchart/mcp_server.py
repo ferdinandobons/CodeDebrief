@@ -511,6 +511,13 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         symbols: list[str] | None = None,
         finding_ids: list[str] | None = None,
         dependency_paths: list[str] | None = None,
+        language: str | None = None,
+        source_path: str | None = None,
+        domain: str | None = None,
+        value: str | None = None,
+        finding_kind: str | None = None,
+        finding_severity: str | None = None,
+        finding_evidence: str | None = None,
         include_visual: bool = False,
         token_budget: int = 600,
         visual_byte_budget: int = _DEFAULT_CONTEXT_VISUAL_BYTE_BUDGET,
@@ -520,6 +527,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         ``flow_ids``, ``symbols``, ``finding_ids``, and ``dependency_paths`` mirror
         ``analyze_impact`` so an agent can build a context pack around an exact flow,
         symbol, diagnostic, or source subtree without pretending a file changed.
+        Query filters mirror ``query_logic`` so agents can request a bounded pack for
+        source, state-domain, language, or finding evidence slices without lexical terms.
         ``visual_byte_budget`` caps inline SVG bytes when ``include_visual`` is true;
         omitted snapshots remain available through the returned ``next_tools``.
         """
@@ -539,14 +548,59 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             finding_ids=finding_ids,
             dependency_paths=dependency_paths,
         )
-        matches = query_model(model, question or " ".join(changes), limit=8, scope=scope)
+        query_filters = {
+            key: val
+            for key, val in {
+                "language": language,
+                "source_path": source_path,
+                "domain": domain,
+                "value": value,
+                "finding_kind": finding_kind,
+                "finding_severity": finding_severity,
+                "finding_evidence": finding_evidence,
+            }.items()
+            if val is not None
+        }
+        matches = query_model(
+            model,
+            question or " ".join(changes),
+            limit=8,
+            scope=scope,
+            language=language,
+            source_path=source_path,
+            domain=domain,
+            value=value,
+            finding_kind=finding_kind,
+            finding_severity=finding_severity,
+            finding_evidence=finding_evidence,
+        )
         review_flow_ids = {flow.id for flow in impact.all_flows} | {
             match.flow.id for match in matches
         }
+        has_specific_context = bool(
+            (question and question.strip())
+            or changes
+            or flow_ids
+            or symbols
+            or finding_ids
+            or dependency_paths
+            or query_filters
+        )
+        scoped_flow_ids = {flow.id for flow in model.flows if flow_in_agent_scope(flow, scope)}
         review_findings = [
             finding
             for finding in model.findings
-            if not review_flow_ids or finding.flow_id in review_flow_ids
+            if finding.flow_id in scoped_flow_ids
+            and (
+                finding.flow_id in review_flow_ids
+                or (not review_flow_ids and not has_specific_context)
+            )
+            and _finding_matches_agent_filters(
+                finding,
+                kind=finding_kind,
+                severity=finding_severity,
+                evidence=finding_evidence,
+            )
         ]
         review_findings.sort(
             key=lambda item: (_finding_priority(item), item.location.path, item.message)
@@ -556,6 +610,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         annotation_payload = annotations.annotations if annotations.ok else None
         return {
             "summary": model_summary(model),
+            "query_filters": query_filters,
             "query": _cap([match.to_dict() for match in matches], token_budget),
             "impact": {
                 "changed_files": impact.changed_files,
@@ -1328,6 +1383,20 @@ def _model_load_error_code(error: BaseException) -> str:
 
 def flow_in_agent_scope(flow: Any, scope: str | None) -> bool:
     return scope is None or scope in flow.metadata.get("scope", [])
+
+
+def _finding_matches_agent_filters(
+    finding: Any,
+    *,
+    kind: str | None,
+    severity: str | None,
+    evidence: str | None,
+) -> bool:
+    if kind is not None and finding.kind != kind:
+        return False
+    if severity is not None and finding.severity.value != severity:
+        return False
+    return evidence is None or finding.evidence.value == evidence
 
 
 def _finding_priority(finding: Any) -> int:

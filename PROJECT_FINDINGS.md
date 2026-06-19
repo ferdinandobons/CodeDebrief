@@ -447,6 +447,9 @@ Current checkpoint:
   context, and snapshot tools as structured recoverable errors.
 - MCP `context_pack` now embeds bounded flow-navigation packs for the relevant impact/query
   flows, including caller/callee, decision, finding, annotation, and next-tool orientation.
+- MCP `context_pack` now accepts the same deterministic source/language/domain/value and
+  finding kind/severity/evidence filters as `query_logic`, keeping filtered review and
+  visual context aligned with the requested slice.
 - MCP tests now directly pin the visual `context_pack` helper contract, including inline
   impact/subgraph/flow/finding snapshots and `visual_byte_budget` omissions, without
   relying only on stdio integration.
@@ -542,6 +545,9 @@ Current checkpoint:
 - MCP `context_pack` accepts the same explicit impact targets and preserves per-flow
   impact reasons plus subgraph ids, so agents can request a bounded context pack for an
   exact flow, symbol, finding, or source subtree without inventing a changed file.
+- MCP `context_pack` also accepts the deterministic query filters from `query_logic`, so
+  agents can request bounded packs for source, language, state-domain, handled-value, or
+  finding evidence slices without retrieving the whole project review queue.
 - Generated `files[]` records now include first-party `dependencies` for Python,
   TypeScript/JavaScript, Go, and Java imports; `impact` uses those edges to include flows
   from files that import a changed file even when the changed file has no modeled flow of

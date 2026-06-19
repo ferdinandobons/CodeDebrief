@@ -523,9 +523,11 @@ summaries for complete versus compact renderings and `clarity` signals for overl
 overflow, gaps, and edge obstacles, so agents can reason about omitted or visually crowded
 context without parsing SVG geometry. `context_pack` accepts the same explicit `flow_ids`,
 `symbols`, `finding_ids`, and `dependency_paths` impact targets as `analyze_impact`.
-It also includes bounded flow-navigation packs for relevant flows, so agents can inspect
-callers, callees, decisions, findings, annotations, and follow-up tools before deciding
-whether to request a complete flow or visual snapshot.
+It also accepts the same deterministic query filters as `query_logic` for source paths,
+language ids, state domains, handled values, finding kinds, severities, and evidence
+tiers. The returned pack includes bounded flow-navigation packs for relevant flows, so
+agents can inspect callers, callees, decisions, findings, annotations, and follow-up tools
+before deciding whether to request a complete flow or visual snapshot.
 The `get_subgraph_snapshot` tool and `logicchart snapshot subgraph` CLI command are the
 bridge from query/impact/context results into one bounded SVG: pass returned `flow_ids`
 and `finding_ids` directly to render the focused model slice.

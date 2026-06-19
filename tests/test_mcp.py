@@ -106,6 +106,15 @@ def authorize(user):
                 assert {"flow_ids", "symbols", "finding_ids", "dependency_paths"} <= set(
                     context_properties
                 )
+                assert {
+                    "language",
+                    "source_path",
+                    "domain",
+                    "value",
+                    "finding_kind",
+                    "finding_severity",
+                    "finding_evidence",
+                } <= set(context_properties)
                 assert "visual_byte_budget" in context_properties
                 for impact_tool in ("analyze_impact", "get_impact_snapshot"):
                     impact_properties = schema_by_name[impact_tool].get("properties", {})
@@ -440,6 +449,7 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
 
     mcp_rows: list[dict[str, object]] = []
     mcp_finding_rows: list[dict[str, object]] = []
+    mcp_context_payloads: list[dict[str, object]] = []
     assert (
         cli_main(
             [
@@ -487,6 +497,18 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
                 assert not finding_response.isError
                 finding_payload = finding_response.structuredContent["result"]  # type: ignore[index]
                 mcp_finding_rows.extend(finding_payload)
+                context_response = await session.call_tool(
+                    "context_pack",
+                    {
+                        "question": "",
+                        "finding_kind": "missing_branch",
+                        "finding_severity": "warning",
+                        "finding_evidence": "POTENTIAL_GAP",
+                        "token_budget": 240,
+                    },
+                )
+                assert not context_response.isError
+                mcp_context_payloads.append(context_response.structuredContent)  # type: ignore[arg-type]
 
     asyncio.run(call_mcp())
 
@@ -497,6 +519,18 @@ def test_cli_json_and_mcp_query_logic_have_same_shape(tmp_path: Path, capsys: ob
     assert any(
         "finding evidence matches `POTENTIAL_GAP`" in row["reasons"] for row in cli_finding_rows
     )
+    assert len(mcp_context_payloads) == 1
+    context_payload = mcp_context_payloads[0]
+    assert context_payload["query_filters"] == {
+        "finding_kind": "missing_branch",
+        "finding_severity": "warning",
+        "finding_evidence": "POTENTIAL_GAP",
+    }
+    assert context_payload["query"] == cli_finding_rows
+    assert context_payload["review"]
+    assert {
+        (row["kind"], row["severity"], row["evidence"]) for row in context_payload["review"]
+    } == {("missing_branch", "warning", "POTENTIAL_GAP")}
     for row in cli_rows:
         assert set(row) == {
             "flow_id",
