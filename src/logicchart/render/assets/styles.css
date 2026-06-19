@@ -1246,6 +1246,37 @@
       text-transform: uppercase;
       flex: none;
     }
+    .panel-stack-tools {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      padding: 2px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--panel-2);
+    }
+    .panel-stack-control {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 15px;
+      font-weight: 850;
+      line-height: 1;
+    }
+    .panel-stack-control:hover,
+    .panel-stack-control:focus-visible {
+      background: var(--hover);
+      color: var(--blue);
+      outline: none;
+    }
     .panel-close {
       width: 32px;
       height: 32px;

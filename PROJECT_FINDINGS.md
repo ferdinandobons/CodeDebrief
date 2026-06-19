@@ -14,8 +14,9 @@ LogicChart is in a strong alpha state.
   focus, aggregate minimap navigation, graph-bounds-aware PNG/JPG export, and layout
   quality tests. The Details rail now lets Project Quality, Source, and Logical Errors
   collapse independently during large-codebase inspection with visible, keyboard-accessible
-  section headers. Flow nodes also expose deterministic accessibility summaries for source,
-  node, decision, call, caller, and finding counts.
+  section headers plus rail-level expand-all/collapse-all controls. Flow nodes also expose
+  deterministic accessibility summaries for source, node, decision, call, caller, and
+  finding counts.
 - The static-analysis core is usable across 11 language ids and has a stable model shape:
   `Flow`, `FlowNode`, `FlowEdge`, `Finding`, evidence tiers, scopes, files, and metadata.
 - TypeScript/JavaScript expression-bodied arrow functions now produce real return flow,

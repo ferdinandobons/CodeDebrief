@@ -81,6 +81,8 @@
     const leftRail = document.getElementById("leftRail");
     const detailButton = document.getElementById("detailButton");
     const detailsClose = document.getElementById("detailsClose");
+    const detailsCollapseAll = document.getElementById("detailsCollapseAll");
+    const detailsExpandAll = document.getElementById("detailsExpandAll");
     const menuButton = document.getElementById("menuButton");
     const typedViewerHost = document.getElementById("typedViewerHost");
     const exportPngButton = document.getElementById("exportPng");
@@ -324,12 +326,25 @@
 
     function initCollapsiblePanels() {
       const panels = Array.from(document.querySelectorAll("[data-collapsible-panel]"));
-      panels.forEach(panel => {
+      function panelParts(panel) {
         const button = panel.querySelector("[data-panel-toggle]");
-        if (!button) return;
-        const heading = panel.querySelector("[data-panel-heading]");
+        if (!button) return null;
         const bodyId = button.getAttribute("aria-controls");
         const body = bodyId ? document.getElementById(bodyId) : null;
+        return { body, bodyId, button };
+      }
+      function setAllPanelsCollapsed(collapsed) {
+        panels.forEach(panel => {
+          const parts = panelParts(panel);
+          if (!parts) return;
+          setPanelCollapsed(panel, parts.button, parts.body, collapsed, true);
+        });
+      }
+      panels.forEach(panel => {
+        const parts = panelParts(panel);
+        if (!parts) return;
+        const { body, bodyId, button } = parts;
+        const heading = panel.querySelector("[data-panel-heading]");
         const key = panel.getAttribute("data-panel-state") || panel.id || bodyId;
         let stored = null;
         if (heading) {
@@ -361,6 +376,12 @@
           });
         }
       });
+      if (detailsCollapseAll) {
+        detailsCollapseAll.addEventListener("click", () => setAllPanelsCollapsed(true));
+      }
+      if (detailsExpandAll) {
+        detailsExpandAll.addEventListener("click", () => setAllPanelsCollapsed(false));
+      }
     }
 
     loadStoredRailWidths();

@@ -65,6 +65,8 @@ The project follows Semantic Versioning.
   `analysis_quality`.
 - Added a Project Quality panel to the generated viewer details rail, showing analyzer
   coverage, call-resolution, finding, generic-label, graph-density, and language metrics.
+- Added right-rail expand-all and collapse-all controls for the Project Quality, Source,
+  and Logical Errors detail sections.
 - Added a deterministic language capability matrix to generated metadata and MCP summaries.
 - Added a fast `logicchart doctor` language-capability summary for supported language ids,
   feature flags, and limitation notes without running analysis or smoke tests.

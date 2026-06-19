@@ -310,6 +310,8 @@ def test_render_html_emits_source_and_errors_panels(tmp_path: Path) -> None:
     assert 'id="qualityPanelToggle"' in html
     assert 'id="sourcePanelToggle"' in html
     assert 'id="errorsPanelToggle"' in html
+    assert 'id="detailsCollapseAll"' in html
+    assert 'id="detailsExpandAll"' in html
     assert 'aria-controls="quality"' in html
     assert 'aria-controls="source"' in html
     assert 'aria-controls="errors"' in html
@@ -459,7 +461,10 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert 'heading.setAttribute("aria-expanded"' in html
     assert 'heading.addEventListener("keydown"' in html
     assert 'event.key !== "Enter" && event.key !== " "' in html
+    assert "setAllPanelsCollapsed" in html
+    assert "detailsCollapseAll.addEventListener" in html
     assert ".panel-collapse-toggle" in html
+    assert ".panel-stack-control" in html
     assert ".panel[data-collapsed]" in html
     assert ".panel-head[data-panel-heading]:focus-visible" in html
     assert "resizeRailFromKeyboard" in html

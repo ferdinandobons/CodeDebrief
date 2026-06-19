@@ -137,6 +137,10 @@ _HTML_TEMPLATE = r"""<!doctype html>
       <div class="rail-inner">
         <div class="detail-drawer-head">
           <span>Details</span>
+          <div class="panel-stack-tools" aria-label="Details sections">
+            <button class="panel-stack-control" id="detailsCollapseAll" type="button" title="Collapse all detail sections" aria-label="Collapse all detail sections">-</button>
+            <button class="panel-stack-control" id="detailsExpandAll" type="button" title="Expand all detail sections" aria-label="Expand all detail sections">+</button>
+          </div>
           <button class="panel-close" id="detailsClose" type="button" title="Hide source and findings" aria-label="Hide source and findings">&times;</button>
         </div>
         <section class="panel panel-quality" id="qualityPanel" aria-label="Project quality" data-collapsible-panel data-panel-state="quality">
