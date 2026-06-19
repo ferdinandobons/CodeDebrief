@@ -301,6 +301,47 @@ def test_install_preserves_project_local_notes(tmp_path: Path) -> None:
     assert updated.count(LOCAL_NOTES_END) == 1
 
 
+def test_install_all_refreshes_every_agent_target_and_preserves_local_notes(
+    tmp_path: Path,
+) -> None:
+    install_agent_instructions(tmp_path, "all")
+    targets = {
+        "codex": tmp_path / "AGENTS.md",
+        "claude": tmp_path / "CLAUDE.md",
+        "gemini": tmp_path / "GEMINI.md",
+        "cursor": tmp_path / ".cursor" / "rules" / "logicchart.mdc",
+    }
+    local_notes = {
+        "codex": "Codex local note: keep private fixtures untracked.",
+        "claude": "Claude local note: preserve project-specific workflow notes.",
+        "gemini": "Gemini local note: keep generated examples out of commits.",
+        "cursor": "Cursor local note: keep this rule project-scoped.",
+    }
+
+    for name, target in targets.items():
+        content = target.read_text(encoding="utf-8")
+        target.write_text(
+            content.replace(
+                f"{LOCAL_NOTES_START}\n"
+                "<!-- Add project-specific local notes here. This section is preserved by "
+                "`logicchart setup-agent`. -->\n"
+                f"{LOCAL_NOTES_END}",
+                f"{LOCAL_NOTES_START}\n{local_notes[name]}\n{LOCAL_NOTES_END}",
+            ),
+            encoding="utf-8",
+        )
+
+    changed = install_agent_instructions(tmp_path, "all")
+
+    assert changed == []
+    for name, target in targets.items():
+        content = target.read_text(encoding="utf-8")
+        _assert_current_agent_instructions(content)
+        assert local_notes[name] in content
+        assert content.count(LOCAL_NOTES_START) == 1
+        assert content.count(LOCAL_NOTES_END) == 1
+
+
 def test_install_migrates_legacy_local_notes(tmp_path: Path) -> None:
     target = tmp_path / "AGENTS.md"
     target.write_text(
