@@ -115,6 +115,23 @@ def model_quality(model: ProjectModel) -> dict[str, Any]:
     }
 
 
+def finding_counts(findings: list[Finding]) -> dict[str, Any]:
+    """Count findings by the dimensions shown in summaries and quality reports."""
+    by_kind: Counter[Any] = Counter()
+    by_severity: Counter[str] = Counter()
+    by_evidence: Counter[str] = Counter()
+    for finding in findings:
+        by_kind[finding.kind] += 1
+        by_severity[finding.severity.value] += 1
+        by_evidence[finding.evidence.value] += 1
+    return {
+        "total": len(findings),
+        "by_kind": dict(by_kind),
+        "by_severity": dict(by_severity),
+        "by_evidence": dict(by_evidence),
+    }
+
+
 def render_quality(quality: dict[str, Any]) -> str:
     files = quality["files"]
     flows = quality["flows"]
@@ -180,12 +197,7 @@ def render_quality(quality: dict[str, Any]) -> str:
 
 
 def _finding_quality(findings: list[Finding]) -> dict[str, Any]:
-    return {
-        "total": len(findings),
-        "by_kind": dict(Counter(finding.kind for finding in findings)),
-        "by_severity": dict(Counter(finding.severity.value for finding in findings)),
-        "by_evidence": dict(Counter(finding.evidence.value for finding in findings)),
-    }
+    return finding_counts(findings)
 
 
 def _flow_distribution(flows: list[Flow]) -> dict[str, Any]:

@@ -9,7 +9,7 @@ from typing import Any
 
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts_by_kind
 from logicchart.model import Finding, FindingKind, Flow, FlowNode, NodeKind, ProjectModel
-from logicchart.quality import model_quality
+from logicchart.quality import finding_counts, model_quality
 from logicchart.util import without_diagnostic_metadata
 
 # Per-bucket relevance weights. Named constants instead of inline magic numbers so the
@@ -676,12 +676,7 @@ def model_summary(model: ProjectModel) -> dict[str, Any]:
         "flows": len(model.flows),
         "entrypoints": sum(flow.is_entrypoint for flow in model.flows),
         "languages": model.metadata.get("languages", []),
-        "findings": {
-            "total": len(model.findings),
-            "by_kind": dict(Counter(item.kind for item in model.findings)),
-            "by_severity": dict(Counter(item.severity.value for item in model.findings)),
-            "by_evidence": dict(Counter(item.evidence.value for item in model.findings)),
-        },
+        "findings": finding_counts(model.findings),
         "finding_rules": {
             "total": len(rules),
             "by_category": dict(

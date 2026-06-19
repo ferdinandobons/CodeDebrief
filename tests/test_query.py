@@ -43,9 +43,13 @@ def _flow(flow_id: str, name: str, symbol: str) -> Flow:
 
 
 def test_model_summary_counts_by_kind(tmp_path: Path) -> None:
-    summary = model_summary(_model(tmp_path, _CHAIN))
+    model = _model(tmp_path, _CHAIN)
+    summary = model_summary(model)
     assert summary["flows"] >= 1
+    assert summary["findings"]["total"] == len(model.findings)
     assert "missing_branch" in summary["findings"]["by_kind"]
+    assert summary["findings"]["by_severity"]
+    assert summary["findings"]["by_evidence"]
 
 
 def test_explain_finding_returns_chain(tmp_path: Path) -> None:
