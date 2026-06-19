@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.model import ProjectModel
+from logicchart.model import Flow, ProjectModel, SourceLocation
 from logicchart.query import (
     explain_finding,
     find_decisions,
@@ -27,6 +27,19 @@ _CHAIN = (
 def _model(tmp_path: Path, body: str) -> ProjectModel:
     (tmp_path / "m.py").write_text(body, encoding="utf-8")
     return ProjectAnalyzer(tmp_path).analyze(full=True).model
+
+
+def _flow(flow_id: str, name: str, symbol: str) -> Flow:
+    return Flow(
+        id=flow_id,
+        name=name,
+        symbol=symbol,
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=False,
+        location=SourceLocation(path="app.py", start_line=1, end_line=1),
+    )
 
 
 def test_model_summary_counts_by_kind(tmp_path: Path) -> None:
@@ -77,6 +90,26 @@ def test_finding_annotations_are_exposed_in_query_surfaces(tmp_path: Path) -> No
     assert context is not None
     assert context["finding"]["annotation"]["explanation"].startswith("The enum-like")
     assert context["focus_flow"]["findings"] == 1
+
+
+def test_flow_navigation_resolves_target_without_name_ambiguity_regression(
+    tmp_path: Path,
+) -> None:
+    model = ProjectModel.empty(tmp_path)
+    model.flows = [
+        _flow("target-id", "shared name", "pkg:target"),
+        _flow("symbol-flow", "shared name", "pkg:symbol"),
+        _flow("name-flow", "unique name", "pkg:name"),
+    ]
+
+    assert flow_navigation(model, "target-id")["flow"]["id"] == "target-id"
+    assert flow_navigation(model, "pkg:symbol")["flow"]["id"] == "symbol-flow"
+    assert flow_navigation(model, "unique name")["flow"]["id"] == "name-flow"
+
+    ambiguous = flow_navigation(model, "shared name")
+
+    assert ambiguous["error_code"] == "flow_target_ambiguous"
+    assert [item["id"] for item in ambiguous["matches"]] == ["target-id", "symbol-flow"]
 
 
 def test_where_is_state_handled(tmp_path: Path) -> None:

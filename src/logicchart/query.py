@@ -742,21 +742,25 @@ def _location_text(value: Any) -> str | None:
 def _resolve_flow_target(
     model: ProjectModel, target: str
 ) -> tuple[Flow | None, dict[str, Any] | None]:
-    exact = [flow for flow in model.flows if flow.id == target]
-    if exact:
-        return exact[0], None
-    exact = [flow for flow in model.flows if flow.symbol == target]
-    if exact:
-        return exact[0], None
-    by_name = [flow for flow in model.flows if flow.name == target]
-    if len(by_name) == 1:
-        return by_name[0], None
-    if len(by_name) > 1:
+    symbol_match: Flow | None = None
+    name_matches: list[Flow] = []
+    for flow in model.flows:
+        if flow.id == target:
+            return flow, None
+        if symbol_match is None and flow.symbol == target:
+            symbol_match = flow
+        if flow.name == target:
+            name_matches.append(flow)
+    if symbol_match is not None:
+        return symbol_match, None
+    if len(name_matches) == 1:
+        return name_matches[0], None
+    if len(name_matches) > 1:
         return None, _flow_target_error(
             f"ambiguous flow target: {target}",
             "flow_target_ambiguous",
             target,
-            matches=[flow_summary(flow) for flow in by_name],
+            matches=[flow_summary(flow) for flow in name_matches],
         )
     return None, _flow_target_error(f"flow not found: {target}", "flow_not_found", target)
 
