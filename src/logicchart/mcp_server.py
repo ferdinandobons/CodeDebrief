@@ -1467,9 +1467,8 @@ def _attach_domain_findings(
             concept_subjects = concept["subjects"]
             matches_key = concept["domain"] in finding_keys
             matches_subject = isinstance(subject, str) and subject in concept_subjects
-            matches_flow = finding.flow_id in concept["flow_ids"]
             matches_node = bool(finding.node_id and finding.node_id in concept["node_ids"])
-            if not (matches_key or matches_subject or matches_flow or matches_node):
+            if not (matches_key or matches_subject or matches_node):
                 continue
             concept["missing_values"].update(missing_values)
             concept["findings"].append(

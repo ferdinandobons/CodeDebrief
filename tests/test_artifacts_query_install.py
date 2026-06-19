@@ -25,6 +25,25 @@ from logicchart.validation import (
     validate_logicchart,
 )
 
+REMOVED_AGENT_COMMAND_SNIPPETS = (
+    "logicchart query",
+    "logicchart impact",
+    "logicchart explain",
+    "logicchart navigate",
+    "logicchart snapshot",
+    "logicchart llm",
+    "logicchart enrich",
+    "--api-key-stdin",
+)
+
+
+def _assert_current_agent_instructions(content: str) -> None:
+    assert "Prefer the LogicChart MCP `agent_context` tool" in content
+    assert "logicchart view ..." in content
+    assert "provider keys" in content
+    for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
+        assert snippet not in content
+
 
 def test_artifacts_query_impact_and_agent_install(tmp_path: Path) -> None:
     source = tmp_path / "users.py"
@@ -71,6 +90,7 @@ def get_user(user_id: str):
     contents = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     assert contents.count(START) == 1
     assert contents.count(END) == 1
+    _assert_current_agent_instructions(contents)
 
 
 def test_validate_logicchart_reports_ok_for_current_artifact(tmp_path: Path) -> None:
@@ -219,11 +239,23 @@ def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
     # A fresh plain-markdown agent file (no existing block) must reach a fixed point on
     # the first install: the second run changes nothing and reports nothing.
     first = install_agent_instructions(tmp_path, "all")
-    assert first  # all four targets were created
+    expected_targets = [
+        tmp_path / "AGENTS.md",
+        tmp_path / "CLAUDE.md",
+        tmp_path / "GEMINI.md",
+        tmp_path / ".cursor" / "rules" / "logicchart.mdc",
+    ]
+    assert first == expected_targets
     for target in first:
         content = target.read_text(encoding="utf-8")
         assert content.count(START) == 1
         assert content.count(END) == 1
+        _assert_current_agent_instructions(content)
+    assert (
+        first[-1]
+        .read_text(encoding="utf-8")
+        .startswith("---\ndescription: Keep LogicChart synchronized\nalwaysApply: true\n---\n\n")
+    )
 
     contents_after_first = {target: target.read_text(encoding="utf-8") for target in first}
 

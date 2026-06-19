@@ -5,6 +5,26 @@ import pytest
 
 from logicchart.cli import build_parser, main
 
+REMOVED_AGENT_COMMAND_SNIPPETS = (
+    "logicchart query",
+    "logicchart impact",
+    "logicchart explain",
+    "logicchart navigate",
+    "logicchart snapshot",
+    "logicchart llm",
+    "logicchart enrich",
+    "--api-key-stdin",
+)
+
+
+def _assert_current_agent_instructions(content: str) -> None:
+    assert "Prefer the LogicChart MCP `agent_context` tool" in content
+    assert "logicchart view ..." in content
+    assert "logicchart <command> --help" in content
+    assert "provider keys" in content
+    for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
+        assert snippet not in content
+
 
 def test_top_level_help_prioritizes_flag_light_quickstart() -> None:
     help_text = build_parser().format_help()
@@ -162,33 +182,44 @@ def test_cli_validate_reports_absent_annotation_status(
     assert payload["annotations"]["status"] == "absent"
 
 
+@pytest.mark.parametrize(
+    ("agent", "instruction_path", "mcp_path", "display"),
+    [
+        ("codex", Path("AGENTS.md"), Path(".codex/config.toml"), "Codex"),
+        ("claude", Path("CLAUDE.md"), Path(".mcp.json"), "Claude"),
+        (
+            "cursor",
+            Path(".cursor/rules/logicchart.mdc"),
+            Path(".cursor/mcp.json"),
+            "Cursor",
+        ),
+    ],
+)
 def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    agent: str,
+    instruction_path: Path,
+    mcp_path: Path,
+    display: str,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     (tmp_path / "main.py").write_text("def f():\n    return 1\n", encoding="utf-8")
 
-    assert main(["setup-agent", "codex", str(tmp_path), "--no-html"]) == 0
+    assert main(["setup-agent", agent, str(tmp_path), "--no-html"]) == 0
     assert (tmp_path / "logicchart.toml").exists()
-    assert (tmp_path / "AGENTS.md").exists()
-    assert (tmp_path / ".codex" / "config.toml").exists()
+    assert (tmp_path / instruction_path).exists()
+    assert (tmp_path / mcp_path).exists()
     assert (tmp_path / "logicchart-out" / "logic-flow.json").exists()
     assert (tmp_path / "logicchart-out" / "logic-flow.md").exists()
-    agents_text = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
-    assert "Prefer the LogicChart MCP `agent_context` tool" in agents_text
-    assert "logicchart view ..." in agents_text
-    assert "logicchart <command> --help" in agents_text
-    assert "provider keys" in agents_text
-    assert "logicchart explain <finding-id>" not in agents_text
-    assert "logicchart llm setup --help" not in agents_text
-    assert "logicchart enrich" not in agents_text
-    assert "--api-key-stdin" not in agents_text
+    agents_text = (tmp_path / instruction_path).read_text(encoding="utf-8")
+    _assert_current_agent_instructions(agents_text)
     output = capsys.readouterr().out
     assert "Created" in output
     assert "LogicChart doctor OK" in output
     assert "LogicChart validation OK" in output
-    assert "LogicChart agent setup complete for Codex" in output
+    assert f"LogicChart agent setup complete for {display}" in output
 
-    assert main(["setup-agent", "codex", str(tmp_path), "--no-html"]) == 0
+    assert main(["setup-agent", agent, str(tmp_path), "--no-html"]) == 0
     assert "already up to date" in capsys.readouterr().out
 
 

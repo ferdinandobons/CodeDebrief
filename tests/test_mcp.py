@@ -15,6 +15,7 @@ from logicchart.mcp_server import (
     MCP_INSTRUCTIONS,
     _context_navigation_pack,
     _context_visual_pack,
+    _domain_logic_map,
     _enrichment_options,
     _enrichment_preview_payload,
     _finding_dict,
@@ -799,6 +800,40 @@ def test_query_model_and_mcp_query_logic_have_same_shape(tmp_path: Path) -> None
         assert (
             row["next_tools"]["subgraph_snapshot"]["arguments"]["finding_ids"] == row["finding_ids"]
         )
+
+
+def test_domain_map_does_not_attach_findings_to_unrelated_same_flow_domain(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "app.py"
+    source.write_text(
+        """
+def route(user, order):
+    if user.role == "admin":
+        audit(user)
+    if order.status == "draft":
+        return draft(order)
+    elif order.status == "paid":
+        return paid(order)
+    return fallback(order)
+""",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+
+    payload = _domain_logic_map(
+        model,
+        domain=None,
+        value=None,
+        scope=None,
+        token_budget=0,
+    )
+
+    concepts = {row["domain"]: row for row in payload["concepts"]}
+    assert concepts["status"]["finding_count"] == 1
+    assert [item["kind"] for item in concepts["status"]["findings"]] == ["missing_branch"]
+    assert concepts["role"]["finding_count"] == 0
+    assert concepts["role"]["findings"] == []
 
 
 def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> None:
