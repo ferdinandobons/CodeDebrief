@@ -963,11 +963,12 @@ function progressiveFlowCallEdges(
   obstacles: readonly LayoutBox[],
 ): FlowCallEdge[] {
   const pairs: FlowCallPair[] = [];
+  const visibleTargetsByCaller = visibleCallTargetsByCaller(flowById);
   flowById.forEach(flow => {
     if (!isLogicChartFlow(flow)) return;
     const source = positions.get(flow.id);
     if (!source) return;
-    visibleCallTargetIds(flow, flowById).forEach(targetId => {
+    visibleCallTargetIds(flow, flowById, visibleTargetsByCaller).forEach(targetId => {
       const target = positions.get(targetId);
       if (!target) return;
       const sourceBottomY = source.y + source.height / 2;
@@ -1026,17 +1027,30 @@ function progressiveFlowCallEdges(
 function visibleCallTargetIds(
   flow: LogicChartFlow,
   visibleFlowById: ReadonlyMap<string, ProgressiveFlowNode>,
+  visibleTargetsByCaller: ReadonlyMap<string, ReadonlySet<string>>,
 ): string[] {
   const targetIds = new Set<string>();
   (flow.calls || []).forEach(targetId => {
     if (visibleFlowById.has(targetId) && targetId !== flow.id) targetIds.add(targetId);
   });
+  visibleTargetsByCaller.get(flow.id)?.forEach(targetId => targetIds.add(targetId));
+  return [...targetIds].sort();
+}
+
+function visibleCallTargetsByCaller(
+  visibleFlowById: ReadonlyMap<string, ProgressiveFlowNode>,
+): Map<string, Set<string>> {
+  const targetsByCaller = new Map<string, Set<string>>();
   visibleFlowById.forEach(candidate => {
     if (!isLogicChartFlow(candidate)) return;
-    if (candidate.id === flow.id) return;
-    if ((candidate.called_by || []).includes(flow.id)) targetIds.add(candidate.id);
+    (candidate.called_by || []).forEach(callerId => {
+      if (callerId === candidate.id || !visibleFlowById.has(callerId)) return;
+      const targets = targetsByCaller.get(callerId) || new Set<string>();
+      targets.add(candidate.id);
+      targetsByCaller.set(callerId, targets);
+    });
   });
-  return [...targetIds].sort();
+  return targetsByCaller;
 }
 
 function openedCallChildGroups(

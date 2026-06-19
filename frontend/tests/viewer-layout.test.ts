@@ -139,6 +139,46 @@ describe("viewer layout composition", () => {
     });
   });
 
+  it("routes flow calls from called_by metadata without scanning every visible flow per source", () => {
+    const calledByOnlyPayload: LogicChartPayload = {
+      flows: [
+        {
+          id: "entry",
+          name: "Entry",
+          language: "python",
+          entry_kind: "function",
+          is_entrypoint: true,
+          location: { path: "service.py", start_line: 1 },
+          calls: [],
+          called_by: [],
+          metadata: { scope: ["backend"] },
+        },
+        {
+          id: "worker",
+          name: "Worker",
+          language: "python",
+          entry_kind: "function",
+          location: { path: "service.py", start_line: 10 },
+          calls: [],
+          called_by: ["entry"],
+          metadata: { scope: ["backend"] },
+        },
+      ],
+    };
+
+    const layout = createViewerLayout({
+      expandedScopes: ["backend"],
+      payload: calledByOnlyPayload,
+      routeFlowIds: ["entry"],
+      scope: "backend",
+    });
+
+    expect(layout.flowPositions.has("worker")).toBe(true);
+    expect(layout.flowCallEdges.map(edge => `${edge.source}->${edge.target}`)).toEqual([
+      "entry->worker",
+    ]);
+  });
+
   it("keeps multiple codebase scopes expanded in the same progressive canvas", () => {
     const layout = createViewerLayout({
       expandedMeasures,

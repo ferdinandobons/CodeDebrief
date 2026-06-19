@@ -19,9 +19,6 @@ import type {
 import type { ManualNodePosition } from "./viewer-layout";
 import type { SelectedConnection } from "./viewer-store";
 
-const EXPAND_FLOW_CHUNK_SIZE = 48;
-const EXPAND_SCOPE_CHUNK_SIZE = 1;
-
 export interface StandaloneViewerOptions {
   initialScope?: string;
   location?: Pick<Location, "hash">;
@@ -219,56 +216,43 @@ export function mountStandaloneLogicChartViewer(
       const flowIds = payload.flows
         .filter(flow => !flow.metadata?.test)
         .map(flow => flow.id);
-      const total = scopeNames.length + flowIds.length;
+      const total = Math.max(1, scopeNames.length + flowIds.length + 2);
       const job = createExpansionJob(() => {
-        let completed = 0;
         progress.start("Expanding canvas", total);
-        const applyNextChunk = () => {
+        progress.update(0, total);
+        job.schedule(() => {
           if (expansionJob !== job) return;
-          for (
-            let count = 0;
-            count < EXPAND_SCOPE_CHUNK_SIZE && scopeNames.length;
-            count += 1
-          ) {
-            const nextScope = scopeNames.shift();
-            if (nextScope) openedScopeIds.add(nextScope);
-            completed += 1;
-          }
-          for (
-            let count = 0;
-            count < EXPAND_FLOW_CHUNK_SIZE && !scopeNames.length && flowIds.length;
-            count += 1
-          ) {
-            const nextFlowId = flowIds.shift();
-            if (nextFlowId) openedFlowIds.add(nextFlowId);
-            completed += 1;
-          }
+          scopeNames.forEach(scope => openedScopeIds.add(scope));
+          flowIds.forEach(flowId => openedFlowIds.add(flowId));
           persistState();
-          progress.update(completed, total);
+          progress.update(scopeNames.length + flowIds.length, total);
           const hash = currentHash();
           const isCollapsedRoot = !hash || hash === "#root";
           if (isCollapsedRoot) {
-            const firstScope = [...openedScopeIds][0];
+            const firstScope = scopeNames[0] ?? [...openedScopeIds][0];
             if (firstScope) {
               navigateToHash(`#scope=${encodeHashValue(firstScope)}`);
               publishShellScopeSelection(firstScope);
             }
           }
-          const props = buildProps();
-          mounted?.update(props);
-          publishShellRouteSelection(flowById, props);
-          if (scopeNames.length || flowIds.length) {
-            job.schedule(applyNextChunk);
-            return;
-          }
-          mounted?.fitView();
           job.schedule(() => {
             if (expansionJob !== job) return;
-            progress.finish();
-            expansionJob = null;
+            const props = buildProps();
+            mounted?.update(props);
+            publishShellRouteSelection(flowById, props);
+            progress.update(total - 1, total);
+            job.schedule(() => {
+              if (expansionJob !== job) return;
+              mounted?.fitView();
+              progress.update(total, total);
+              job.schedule(() => {
+                if (expansionJob !== job) return;
+                progress.finish();
+                expansionJob = null;
+              });
+            });
           });
-        };
-        job.schedule(applyNextChunk);
+        });
       });
       expansionJob = job;
       job.start();

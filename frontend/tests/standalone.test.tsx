@@ -1010,7 +1010,7 @@ describe("standalone viewer bridge", () => {
     expect(progress?.textContent).toContain("Expanding canvas");
 
     await act(async () => {
-      await flushAsyncTimers(8);
+      await flushAsyncTimers(1);
     });
 
     expect(window.location.hash).toBe("#scope=backend");
@@ -1023,7 +1023,13 @@ describe("standalone viewer bridge", () => {
     expect(container.querySelector('[data-flow-id="backend-auth"]')).not.toBeNull();
     expect(container.querySelector('[data-flow-id="orders-route"]')).not.toBeNull();
     expect(container.querySelector('[data-flow-id="users-route"]')).not.toBeNull();
+    expect(container.querySelector('[data-flow-id="load-order"]')).not.toBeNull();
     expect(container.querySelector(".flow-detail")).not.toBeNull();
+
+    await act(async () => {
+      await flushAsyncTimers(3);
+    });
+
     expect(progress?.hidden).toBe(true);
 
     await act(async () => {

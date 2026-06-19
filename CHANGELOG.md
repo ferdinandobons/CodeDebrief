@@ -172,6 +172,9 @@ The project follows Semantic Versioning.
 - Updated quickstart and command help to prioritize simple no-flag first-run commands,
   including `logicchart analyze`, `logicchart view`, `logicchart llm setup`, and
   `logicchart enrich`, while keeping advanced flags documented for automation.
+- Updated Expand All performance so the viewer opens all scopes and flows in one bounded
+  render pass with progress feedback, avoiding repeated large-layout recalculations on
+  real-world codebases.
 - Updated the optional LLM provider preset list to keep the documented Qwen coder model
   aligned with `logicchart llm providers`, while keeping free-form model overrides for
   fast-moving provider catalogs.
