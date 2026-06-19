@@ -643,11 +643,11 @@ def render_flow_navigation(navigation: dict[str, Any]) -> str:
     findings = navigation.get("findings") or []
     if findings:
         lines.append("\nFindings:")
-        for item in findings:
-            lines.append(
-                f"- {_enum_text(item['severity']).upper()} · {_enum_text(item['evidence'])} · "
-                f"{item['kind']}: {item['message']} (id {item['id']})"
-            )
+        lines.extend(
+            f"- {_enum_text(item['severity']).upper()} · {_enum_text(item['evidence'])} · "
+            f"{item['kind']}: {item['message']} (id {item['id']})"
+            for item in findings
+        )
     called = navigation.get("called_flows") or []
     if called:
         lines.append("\nCalled flows:")

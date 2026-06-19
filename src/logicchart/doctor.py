@@ -98,8 +98,10 @@ def render_doctor(report: DoctorReport) -> str:
     if report.missing_dependencies:
         lines.append("")
         lines.append("Missing runtime dependencies:")
-        for item in report.missing_dependencies:
-            lines.append(f"- {item.package} (import {item.import_name}) for {item.purpose}")
+        lines.extend(
+            f"- {item.package} (import {item.import_name}) for {item.purpose}"
+            for item in report.missing_dependencies
+        )
         lines.append("")
         lines.append("Repair this interpreter with:")
         lines.append(f"  {report.repair_command}")
