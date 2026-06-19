@@ -147,10 +147,16 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             ],
             token_budget,
         )
+        annotations = load_annotations(project_root, model, active_config)
+        annotation_payload = annotations.annotations if annotations.ok else None
         return {
             "flow": flow_dict,
             "findings": _cap(
-                [_finding_dict(item, model) for item in model.findings if item.flow_id == flow.id],
+                [
+                    _finding_dict(item, model, annotation_payload)
+                    for item in model.findings
+                    if item.flow_id == flow.id
+                ],
                 token_budget,
             ),
         }
@@ -231,9 +237,11 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return [error]
         assert model is not None
+        annotations = load_annotations(project_root, model, active_config)
+        annotation_payload = annotations.annotations if annotations.ok else None
         return _cap(
             [
-                _finding_dict(item, model)
+                _finding_dict(item, model, annotation_payload)
                 for item in model.findings
                 if flow_id is None or item.flow_id == flow_id
             ],
@@ -367,7 +375,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return error
         assert model is not None
-        result = explain_finding(model, finding_id)
+        annotations = load_annotations(project_root, model, active_config)
+        annotation_payload = annotations.annotations if annotations.ok else None
+        result = explain_finding(model, finding_id, annotation_payload)
         if result is None:
             return _unknown_target_error("finding", finding_id)
         result["next_tools"] = {
@@ -389,7 +399,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return error
         assert model is not None
-        result = finding_context(model, finding_id, token_budget)
+        annotations = load_annotations(project_root, model, active_config)
+        annotation_payload = annotations.annotations if annotations.ok else None
+        result = finding_context(model, finding_id, token_budget, annotation_payload)
         return result if result is not None else _unknown_target_error("finding", finding_id)
 
     @server.tool()
@@ -535,6 +547,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return [error]
         assert model is not None
+        annotations = load_annotations(project_root, model, active_config)
+        annotation_payload = annotations.annotations if annotations.ok else None
         flows = {flow.id: flow for flow in model.flows if flow_in_agent_scope(flow, scope)}
         rows = []
         for finding in model.findings:
@@ -547,7 +561,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             flow = flows[finding.flow_id]
             rows.append(
                 {
-                    **_finding_dict(finding, model),
+                    **_finding_dict(finding, model, annotation_payload),
                     "flow": _flow_summary(flow),
                     "priority": _finding_priority(finding),
                 }
@@ -658,9 +672,11 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         review_findings.sort(
             key=lambda item: (_finding_priority(item), item.location.path, item.message)
         )
-        review_rows = [_finding_dict(finding, model) for finding in review_findings]
         annotations = load_annotations(project_root, model, active_config)
         annotation_payload = annotations.annotations if annotations.ok else None
+        review_rows = [
+            _finding_dict(finding, model, annotation_payload) for finding in review_findings
+        ]
         return {
             "summary": model_summary(model),
             "query_filters": query_filters,
@@ -1417,7 +1433,11 @@ def _quality_item_budget(token_budget: int) -> int:
     return max(1, min(8, token_budget // 120))
 
 
-def _finding_dict(finding: Any, model: ProjectModel | None = None) -> dict[str, Any]:
+def _finding_dict(
+    finding: Any,
+    model: ProjectModel | None = None,
+    annotations: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     data = asdict(finding)
     metadata = data.setdefault("metadata", {})
     if not isinstance(metadata.get("diagnostic"), dict):
@@ -1433,8 +1453,21 @@ def _finding_dict(finding: Any, model: ProjectModel | None = None) -> dict[str, 
             node=node,
             model=model,
         )
+    annotation = _finding_annotation(finding, annotations)
+    if annotation:
+        data["annotation"] = annotation
     data["next_tools"] = _finding_next_tools(finding)
     return data
+
+
+def _finding_annotation(finding: Any, annotations: dict[str, Any] | None) -> dict[str, str] | None:
+    if not annotations:
+        return None
+    finding_annotations = annotations.get("findings", {})
+    if not isinstance(finding_annotations, dict):
+        return None
+    annotation = finding_annotations.get(finding.id)
+    return annotation if isinstance(annotation, dict) and annotation else None
 
 
 def _finding_next_tools(finding: Any) -> dict[str, dict[str, Any]]:

@@ -491,6 +491,7 @@ def render_finding_explanation(explanation: dict[str, Any]) -> str:
     confidence = diagnostic.get("confidence") or {}
     scope = diagnostic.get("scope") or {}
     decision = explanation.get("decision") or {}
+    annotation = explanation.get("annotation") or {}
     lines = [
         f"Finding: {explanation['id']}",
         f"Kind: {explanation['kind']}",
@@ -502,6 +503,14 @@ def render_finding_explanation(explanation: dict[str, Any]) -> str:
     ]
     if explanation.get("detail"):
         lines.append(f"Detail: {explanation['detail']}")
+    if annotation:
+        lines.append("\nAnnotation:")
+        if annotation.get("summary"):
+            lines.append(f"- summary: {annotation['summary']}")
+        if annotation.get("explanation"):
+            lines.append(f"- explanation: {annotation['explanation']}")
+        if annotation.get("remediation"):
+            lines.append(f"- remediation: {annotation['remediation']}")
     if decision:
         lines.append("\nDecision:")
         lines.append(f"- label: {decision.get('label') or '(unknown)'}")
@@ -595,7 +604,7 @@ def flow_navigation(
             token_budget,
         ),
         "findings": _navigation_cap(
-            [_finding_dict(item, model) for item in findings], token_budget
+            [_finding_dict(item, model, annotations) for item in findings], token_budget
         ),
         "annotations": _flow_annotations(flow, findings, annotations),
         "next_tools": {
@@ -835,7 +844,11 @@ def _decision_navigation(node: FlowNode, has_findings: bool) -> dict[str, Any]:
     }
 
 
-def _finding_dict(finding: Finding, model: ProjectModel | None = None) -> dict[str, Any]:
+def _finding_dict(
+    finding: Finding,
+    model: ProjectModel | None = None,
+    annotations: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     data = asdict(finding)
     data["kind"] = _enum_text(finding.kind)
     data["severity"] = _enum_text(finding.severity)
@@ -854,8 +867,24 @@ def _finding_dict(finding: Finding, model: ProjectModel | None = None) -> dict[s
             node=node,
             model=model,
         )
+    annotation = _finding_annotation(finding, annotations)
+    if annotation:
+        data["annotation"] = annotation
     data["next_tools"] = _finding_next_tools(finding)
     return data
+
+
+def _finding_annotation(
+    finding: Finding,
+    annotations: dict[str, Any] | None,
+) -> dict[str, str] | None:
+    if not annotations:
+        return None
+    finding_annotations = annotations.get("findings", {})
+    if not isinstance(finding_annotations, dict):
+        return None
+    annotation = finding_annotations.get(finding.id)
+    return annotation if isinstance(annotation, dict) and annotation else None
 
 
 def _finding_next_tools(finding: Finding) -> dict[str, dict[str, Any]]:
@@ -991,7 +1020,11 @@ def _decision_values(node: FlowNode) -> set[str]:
     return values
 
 
-def explain_finding(model: ProjectModel, finding_id: str) -> dict[str, Any] | None:
+def explain_finding(
+    model: ProjectModel,
+    finding_id: str,
+    annotations: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     """The full deterministic evidence chain behind one finding."""
     finding = next((item for item in model.findings if item.id == finding_id), None)
     if finding is None:
@@ -1023,11 +1056,15 @@ def explain_finding(model: ProjectModel, finding_id: str) -> dict[str, Any] | No
         "decision": decision,
         "metadata": finding.metadata,
         "diagnostic": diagnostic,
+        "annotation": _finding_annotation(finding, annotations),
     }
 
 
 def finding_context(
-    model: ProjectModel, finding_id: str, token_budget: int = 0
+    model: ProjectModel,
+    finding_id: str,
+    token_budget: int = 0,
+    annotations: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """A bounded deterministic subgraph around one finding for agents and MCP clients."""
     finding = next((item for item in model.findings if item.id == finding_id), None)
@@ -1051,7 +1088,7 @@ def finding_context(
         and _finding_matches_context(candidate, finding)
     ]
     return {
-        "finding": _finding_context_finding(finding),
+        "finding": _finding_context_finding(finding, annotations),
         "evidence_guardrail": _evidence_guardrail(finding),
         "diagnostic_summary": {
             "rule_id": diagnostic.get("rule_id"),
@@ -1305,8 +1342,11 @@ def _finding_matches_context(candidate: Finding, finding: Finding) -> bool:
     return bool(missing and missing & candidate_missing)
 
 
-def _finding_context_finding(finding: Finding) -> dict[str, Any]:
-    return {
+def _finding_context_finding(
+    finding: Finding,
+    annotations: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    data: dict[str, Any] = {
         "id": finding.id,
         "kind": _enum_text(finding.kind),
         "severity": _enum_text(finding.severity),
@@ -1316,6 +1356,10 @@ def _finding_context_finding(finding: Finding) -> dict[str, Any]:
         "node_id": finding.node_id,
         "source": f"{finding.location.path}:{finding.location.start_line}",
     }
+    annotation = _finding_annotation(finding, annotations)
+    if annotation:
+        data["annotation"] = annotation
+    return data
 
 
 def _context_flow_summary(flow: Flow, roles: list[str], model: ProjectModel) -> dict[str, Any]:

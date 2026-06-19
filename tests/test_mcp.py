@@ -18,6 +18,7 @@ from logicchart.mcp_server import (
     _context_visual_pack,
     _enrichment_options,
     _enrichment_preview_payload,
+    _finding_dict,
     _model_load_error,
     _quality_report,
     _unknown_target_error,
@@ -25,6 +26,40 @@ from logicchart.mcp_server import (
     _validation_payload,
 )
 from logicchart.query import impact_model
+
+
+def test_mcp_finding_dict_includes_optional_annotation(tmp_path: Path) -> None:
+    (tmp_path / "service.py").write_text(
+        """
+from enum import Enum
+
+
+class Status(Enum):
+    OPEN = "open"
+    CLOSED = "closed"
+    DELETED = "deleted"
+
+
+def handle(status):
+    match status:
+        case Status.OPEN:
+            return "open"
+        case Status.CLOSED:
+            return "closed"
+""",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    finding = model.findings[0]
+    row = _finding_dict(
+        finding,
+        model,
+        {"findings": {finding.id: {"summary": "Missing deleted branch."}}},
+    )
+
+    assert row["annotation"]["summary"] == "Missing deleted branch."
+    assert row["metadata"]["diagnostic"]["rule_id"] == finding.kind
+    assert row["next_tools"]["finding_context"]["tool"] == "get_finding_context"
 
 
 def test_mcp_lists_and_queries_flows(tmp_path: Path) -> None:

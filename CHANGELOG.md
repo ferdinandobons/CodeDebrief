@@ -17,6 +17,8 @@ The project follows Semantic Versioning.
   and node ids plus source ranges for evidence-chain entries.
 - Added `logicchart explain <finding-id>` for deterministic CLI finding explanations with
   evidence-tier guardrails and JSON output for agents.
+- Added optional finding-annotation enrichment overlays across `logicchart explain`,
+  `logicchart navigate`, MCP finding/review/context tools, and the Logical Errors panel.
 - Added finding ids and ready-to-run `logicchart explain ...` commands to the generated
   Markdown findings list.
 - Added a shared finding-rule registry to generated model metadata and exposed it through

@@ -65,6 +65,10 @@ logicchart enrich --scope frontend --send
 the current model hash and known ids. Provider output can annotate existing scopes, flows,
 nodes, and findings with labels, descriptions, summaries, explanations, or remediation
 text. It cannot create, remove, or rename flow structure.
+Finding annotations are consumed as optional enrichment by `logicchart explain`,
+`logicchart navigate`, MCP finding/review/context tools, and the Logical Errors panel.
+The deterministic `diagnostic` data remains the source of correctness; enrichment text is
+kept in a separate `annotation` field.
 
 The first implementation supports `openai` and `openai-compatible` API formats, including
 DeepSeek, OpenAI, xAI, Alibaba Qwen compatible endpoints, Z.AI, and Kimi/Moonshot. Other

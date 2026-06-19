@@ -72,6 +72,11 @@ expands the row with the normalized diagnostic metadata from the model:
 - related flows and evidence nodes derived from diagnostic scope, caller/callee context,
   and shared decision metadata, each linked back into the progressive flowchart.
 
+If `logicchart-out/logic-annotations.json` includes a fresh finding annotation, the row
+shows an enrichment badge and the expanded inspector renders summary, explanation, and
+remediation text in a separate enrichment block. This never replaces the normalized
+diagnostic metadata.
+
 This panel must preserve the model's evidence language: `VERIFIED` means syntax-backed,
 `INFERRED` means deterministic heuristic, and `POTENTIAL_GAP` remains a review candidate,
 not a confirmed bug.

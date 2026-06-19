@@ -9,8 +9,11 @@ from logicchart.model import ProjectModel
 from logicchart.query import (
     explain_finding,
     find_decisions,
+    finding_context,
+    flow_navigation,
     model_summary,
     query_model,
+    render_finding_explanation,
     where_is_state_handled,
 )
 
@@ -40,6 +43,35 @@ def test_explain_finding_returns_chain(tmp_path: Path) -> None:
     assert chain["kind"] == "missing_branch"
     assert chain["decision"] is not None
     assert explain_finding(model, "does-not-exist") is None
+
+
+def test_finding_annotations_are_exposed_in_query_surfaces(tmp_path: Path) -> None:
+    model = _model(tmp_path, _CHAIN)
+    finding = next(f for f in model.findings if f.kind == "missing_branch")
+    annotations = {
+        "findings": {
+            finding.id: {
+                "summary": "Status C is not handled.",
+                "explanation": "The enum-like branch set only covers A and B.",
+                "remediation": "Add an explicit Status.C branch or fallback.",
+            }
+        }
+    }
+
+    chain = explain_finding(model, finding.id, annotations)
+    assert chain is not None
+    assert chain["annotation"]["summary"] == "Status C is not handled."
+    assert "Annotation:" in render_finding_explanation(chain)
+
+    navigation = flow_navigation(model, finding.flow_id, annotations=annotations)
+    assert navigation["findings"][0]["annotation"]["remediation"].startswith("Add an explicit")
+    assert navigation["annotations"]["findings"][finding.id]["summary"] == (
+        "Status C is not handled."
+    )
+
+    context = finding_context(model, finding.id, annotations=annotations)
+    assert context is not None
+    assert context["finding"]["annotation"]["explanation"].startswith("The enum-like")
 
 
 def test_where_is_state_handled(tmp_path: Path) -> None:

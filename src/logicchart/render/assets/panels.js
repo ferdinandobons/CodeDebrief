@@ -22,6 +22,7 @@
       const findingsByNode = LC.findingsByNode || new Map();
       const scopeFlows = model.scopes || {};
       const findingRules = (model.metadata && model.metadata.finding_rules) || {};
+      const findingAnnotations = (model.annotations && model.annotations.findings) || {};
       const quality = (model.metadata && model.metadata.quality) || null;
       // File-level source store: path -> {start_line, lines}. Each file's lines are
       // embedded ONCE here (payload.attach_source_snippets), and a flow's `source` is a
@@ -301,6 +302,16 @@
         const ruleId = diagnostic && diagnostic.rule_id ? diagnostic.rule_id : finding.kind;
         const rule = findingRules && findingRules[ruleId];
         return rule && typeof rule === "object" ? rule : null;
+      }
+
+      function findingAnnotation(finding) {
+        const entry = finding && finding.id ? findingAnnotations[finding.id] : null;
+        return entry && typeof entry === "object" ? entry : null;
+      }
+
+      function firstAnnotationText(annotation) {
+        if (!annotation) return "";
+        return annotation.summary || annotation.explanation || annotation.remediation || "";
       }
 
       function confidenceLabel(diagnostic) {
@@ -679,30 +690,51 @@
 
       function appendFindingDiagnostic(row, finding) {
         const diagnostic = findingDiagnostic(finding);
-        if (!diagnostic) return;
-        const rule = findingRule(finding, diagnostic);
+        const annotation = findingAnnotation(finding);
+        if (!diagnostic && !annotation) return;
+        const rule = diagnostic ? findingRule(finding, diagnostic) : null;
         const wrap = el("div", "finding-diagnostic");
-        const grid = el("div", "diagnostic-grid");
-        [
-          diagnosticLine("Severity", diagnostic.severity || finding.severity),
-          diagnosticLine("Confidence", confidenceLabel(diagnostic)),
-          diagnosticLine("Category", diagnostic.category),
-          diagnosticLine("Missing", diagnostic.missing),
-          diagnosticLine("Expected", diagnostic.expected),
-          diagnosticLine("Actual", diagnostic.actual),
-        ].forEach(line => {
-          if (line) grid.appendChild(line);
-        });
-        if (grid.childNodes.length) wrap.appendChild(grid);
+        if (annotation) {
+          const annotationBlock = el("div", "finding-annotation");
+          annotationBlock.appendChild(el("div", "finding-annotation-title", "Enrichment"));
+          if (annotation.summary) {
+            annotationBlock.appendChild(el("p", "diagnostic-copy", annotation.summary));
+          }
+          if (annotation.explanation) {
+            annotationBlock.appendChild(
+              el("p", "diagnostic-copy diagnostic-muted", annotation.explanation)
+            );
+          }
+          if (annotation.remediation) {
+            annotationBlock.appendChild(
+              el("p", "diagnostic-copy diagnostic-remediation", annotation.remediation)
+            );
+          }
+          wrap.appendChild(annotationBlock);
+        }
+        if (diagnostic) {
+          const grid = el("div", "diagnostic-grid");
+          [
+            diagnosticLine("Severity", diagnostic.severity || finding.severity),
+            diagnosticLine("Confidence", confidenceLabel(diagnostic)),
+            diagnosticLine("Category", diagnostic.category),
+            diagnosticLine("Missing", diagnostic.missing),
+            diagnosticLine("Expected", diagnostic.expected),
+            diagnosticLine("Actual", diagnostic.actual),
+          ].forEach(line => {
+            if (line) grid.appendChild(line);
+          });
+          if (grid.childNodes.length) wrap.appendChild(grid);
+        }
         if (rule && rule.purpose) {
           const ruleText = el("p", "diagnostic-copy", rule.purpose);
           wrap.appendChild(ruleText);
         }
-        if (diagnostic.review_prompt) {
+        if (diagnostic && diagnostic.review_prompt) {
           const prompt = el("p", "diagnostic-copy diagnostic-review", diagnostic.review_prompt);
           wrap.appendChild(prompt);
         }
-        const actions = Array.isArray(diagnostic.suggested_next_actions)
+        const actions = diagnostic && Array.isArray(diagnostic.suggested_next_actions)
           ? diagnostic.suggested_next_actions.slice(0, 3)
           : [];
         if (actions.length) {
@@ -712,9 +744,11 @@
           });
           wrap.appendChild(actionList);
         }
-        const context = contextForFinding(finding, diagnostic);
-        appendDiagnosticChart(wrap, finding, context);
-        appendFindingContext(wrap, finding, diagnostic, context);
+        if (diagnostic) {
+          const context = contextForFinding(finding, diagnostic);
+          appendDiagnosticChart(wrap, finding, context);
+          appendFindingContext(wrap, finding, diagnostic, context);
+        }
         row.appendChild(wrap);
       }
 
@@ -733,6 +767,8 @@
         const tier = el("span", "tier-badge " + tierClass(finding.evidence), finding.evidence || "");
         const kind = el("span", "finding-kind", finding.kind || "");
         head.append(tier, kind);
+        const annotation = findingAnnotation(finding);
+        if (annotation) head.appendChild(el("span", "finding-annotation-badge", "enriched"));
         row.appendChild(head);
 
         row.appendChild(el("div", "finding-message", finding.message || ""));
@@ -748,6 +784,7 @@
         }
         const diagnostic = findingDiagnostic(finding);
         row.title =
+          firstAnnotationText(annotation) ||
           (diagnostic && diagnostic.review_prompt) ||
           finding.detail ||
           `Open finding ${finding.kind || "review item"} in the flowchart`;

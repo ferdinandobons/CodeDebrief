@@ -1577,6 +1577,18 @@
       font-weight: 700;
       letter-spacing: .04em;
     }
+    .finding-annotation-badge {
+      flex: none;
+      margin-left: auto;
+      padding: 2px 7px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
     .finding-message { font-size: 12px; line-height: 1.45; }
     .finding-loc {
       margin-top: 5px;
@@ -1619,6 +1631,23 @@
       font-size: 11px;
       line-height: 1.5;
     }
+    .finding-annotation {
+      display: grid;
+      gap: 5px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: color-mix(in srgb, var(--blue) 7%, transparent);
+    }
+    .finding-annotation-title {
+      color: var(--blue);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .diagnostic-muted { color: var(--muted); }
+    .diagnostic-remediation { color: var(--ink); font-weight: 650; }
     .diagnostic-review { color: var(--blue); }
     .diagnostic-actions {
       margin: 0;

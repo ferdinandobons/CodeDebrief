@@ -12,6 +12,7 @@ from pathlib import Path
 
 from logicchart import __version__
 from logicchart.analysis import ProjectAnalyzer
+from logicchart.annotations import load_annotations
 from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import BUILTIN_PROFILES, LogicChartConfig
 from logicchart.doctor import doctor_report, render_doctor, render_doctor_json
@@ -725,7 +726,10 @@ def _navigate(
 ) -> int:
     root = root.resolve()
     config = LogicChartConfig.load(root, profile=profile)
-    navigation = flow_navigation(load_model(root, config), flow_target, token_budget)
+    model = load_model(root, config)
+    annotations = load_annotations(root, model, config)
+    annotation_payload = annotations.annotations if annotations.ok else None
+    navigation = flow_navigation(model, flow_target, token_budget, annotation_payload)
     if "error" in navigation:
         print(f"error: {navigation['error']}", file=sys.stderr)
         if navigation.get("matches"):
@@ -747,7 +751,10 @@ def _explain(
 ) -> int:
     root = root.resolve()
     config = LogicChartConfig.load(root, profile=profile)
-    explanation = explain_finding(load_model(root, config), finding_id)
+    model = load_model(root, config)
+    annotations = load_annotations(root, model, config)
+    annotation_payload = annotations.annotations if annotations.ok else None
+    explanation = explain_finding(model, finding_id, annotation_payload)
     if explanation is None:
         print(f"error: finding not found: {finding_id}", file=sys.stderr)
         return 1

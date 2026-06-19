@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from logicchart.annotations import annotations_path, model_hash
 from logicchart.artifacts import load_model
 from logicchart.cli import main
 from logicchart.config import LogicChartConfig
@@ -81,10 +82,28 @@ def handle(status):
     capsys.readouterr()
     model = load_model(tmp_path, LogicChartConfig())
     finding = model.findings[0]
+    annotations_path(tmp_path).write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "model_hash": model_hash(model),
+                "findings": {
+                    finding.id: {
+                        "summary": "Deleted status is missing.",
+                        "explanation": "The match covers OPEN and CLOSED only.",
+                        "remediation": "Add a DELETED case or explicit fallback.",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     assert main(["explain", finding.id, "--path", str(tmp_path)]) == 0
     human = capsys.readouterr().out
     assert f"Finding: {finding.id}" in human
+    assert "Annotation:" in human
+    assert "Deleted status is missing." in human
     assert "Evidence:" in human
     assert "Suggested next actions:" in human
     assert "Guardrail:" in human
@@ -92,6 +111,7 @@ def handle(status):
     assert main(["explain", finding.id, "--path", str(tmp_path), "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["id"] == finding.id
+    assert payload["annotation"]["remediation"] == "Add a DELETED case or explicit fallback."
     assert payload["diagnostic"]["rule_id"] == finding.kind
 
     assert main(["explain", "missing-finding", "--path", str(tmp_path)]) == 1
@@ -115,6 +135,18 @@ def authorize(user):
     capsys.readouterr()
     model = load_model(tmp_path, LogicChartConfig())
     flow = next(item for item in model.flows if item.name == "authorize")
+    finding = model.findings[0] if model.findings else None
+    if finding is not None:
+        annotations_path(tmp_path).write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "model_hash": model_hash(model),
+                    "findings": {finding.id: {"summary": "Authorization finding note."}},
+                }
+            ),
+            encoding="utf-8",
+        )
 
     assert main(["navigate", flow.id, "--path", str(tmp_path)]) == 0
     human = capsys.readouterr().out
@@ -127,6 +159,8 @@ def authorize(user):
     assert payload["flow"]["id"] == flow.id
     assert payload["decision_nodes"][0]["label"] == "user.role == 'admin'"
     assert payload["next_tools"]["visual_snapshot"]["tool"] == "get_flow_snapshot"
+    if finding is not None:
+        assert payload["findings"][0]["annotation"]["summary"] == "Authorization finding note."
 
     assert main(["navigate", "missing-flow", "--path", str(tmp_path)]) == 1
     assert "flow not found: missing-flow" in capsys.readouterr().err

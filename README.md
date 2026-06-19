@@ -326,6 +326,9 @@ of the first enrichment pass.
 The provider can only annotate existing scope, flow, node, and finding ids. It cannot
 change the deterministic flow structure, and provider output is rejected if it references
 unknown ids, stale hashes, unsupported fields, or overlong text.
+When present, finding annotations are shown separately from deterministic diagnostics in
+`logicchart explain`, `logicchart navigate`, MCP finding/review/context tools, and the
+Logical Errors panel.
 
 ### `snapshot`
 

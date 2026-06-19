@@ -94,6 +94,62 @@ def test_render_html_embeds_only_matching_annotations(tmp_path: Path) -> None:
     assert stale_payload["metadata"]["annotations"]["status"] == "stale"
 
 
+def test_render_html_embeds_finding_annotations(tmp_path: Path) -> None:
+    (tmp_path / "service.py").write_text(
+        """
+from enum import Enum
+
+
+class Status(Enum):
+    OPEN = "open"
+    CLOSED = "closed"
+    DELETED = "deleted"
+
+
+def handle(status):
+    match status:
+        case Status.OPEN:
+            return "open"
+        case Status.CLOSED:
+            return "closed"
+""",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    finding = model.findings[0]
+    annotations = annotations_path(tmp_path)
+    annotations.parent.mkdir(parents=True)
+    annotations.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "model_hash": model_hash(model),
+                "findings": {
+                    finding.id: {
+                        "summary": "Deleted status is not represented.",
+                        "explanation": "The rendered finding keeps enrichment separate.",
+                        "remediation": "Add the missing case or a fallback.",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    html = render_html(model, tmp_path)
+    match = re.search(
+        r'<script id="logicchart-data" type="application/json">(.*?)</script>',
+        html,
+        re.DOTALL,
+    )
+    assert match is not None
+    payload = json.loads(match.group(1).replace("<\\/", "</"))
+    assert payload["annotations"]["findings"][finding.id]["summary"] == (
+        "Deleted status is not represented."
+    )
+    assert "finding-annotation-badge" in html
+
+
 def test_render_html_emits_directory_tree(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
     # The directory tree container the left rail renders into is wired up.

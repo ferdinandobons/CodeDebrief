@@ -768,6 +768,8 @@ Before the next release:
 - Done: validate annotations against a schema and model hash.
 - Done: add viewer overlays for better flow/node labels and descriptions.
 - Done: expose annotation status and matching flow annotations over MCP.
+- Done: expose fresh finding annotations as optional enrichment in CLI explain/navigate,
+  MCP finding/review/context tools, and the Logical Errors panel.
 
 ### Phase 4: Real-World Quality Gates
 
