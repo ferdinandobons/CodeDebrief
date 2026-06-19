@@ -23,8 +23,10 @@ from logicchart.quality import model_quality
 from logicchart.query import (
     explain_finding,
     find_decisions,
+    finding_annotation,
     finding_context,
     finding_next_tools,
+    finding_priority,
     flow_navigation,
     flow_summary,
     git_changed_files,
@@ -728,7 +730,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 {
                     **_finding_dict(finding, model, annotation_payload),
                     "flow": flow_summary(flow),
-                    "priority": _finding_priority(finding),
+                    "priority": finding_priority(finding),
                 }
             )
         rows.sort(key=lambda item: (item["priority"], item["location"]["path"], item["message"]))
@@ -1023,7 +1025,7 @@ def _context_pack_payload(
         )
     ]
     review_findings.sort(
-        key=lambda item: (_finding_priority(item), item.location.path, item.message)
+        key=lambda item: (finding_priority(item), item.location.path, item.message)
     )
     annotations = load_annotations(root, model, config)
     annotation_payload = annotations.annotations if annotations.ok else None
@@ -2184,21 +2186,11 @@ def _finding_dict(
             node=node,
             model=model,
         )
-    annotation = _finding_annotation(finding, annotations)
+    annotation = finding_annotation(finding.id, annotations)
     if annotation:
         data["annotation"] = annotation
     data["next_tools"] = finding_next_tools(finding.id, finding.flow_id)
     return data
-
-
-def _finding_annotation(finding: Any, annotations: dict[str, Any] | None) -> dict[str, str] | None:
-    if not annotations:
-        return None
-    finding_annotations = annotations.get("findings", {})
-    if not isinstance(finding_annotations, dict):
-        return None
-    annotation = finding_annotations.get(finding.id)
-    return annotation if isinstance(annotation, dict) and annotation else None
 
 
 def _unknown_target_error(target_type: str, target_id: str) -> dict[str, Any]:
@@ -2320,12 +2312,3 @@ def _finding_matches_agent_filters(
     if severity is not None and finding.severity.value != severity:
         return False
     return evidence is None or finding.evidence.value == evidence
-
-
-def _finding_priority(finding: Any) -> int:
-    severity_rank = {"error": 0, "warning": 1, "info": 2}
-    evidence_rank = {"VERIFIED": 0, "INFERRED": 1, "POTENTIAL_GAP": 2}
-    return severity_rank.get(finding.severity.value, 3) * 10 + evidence_rank.get(
-        finding.evidence.value,
-        3,
-    )

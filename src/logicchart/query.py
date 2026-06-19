@@ -38,7 +38,7 @@ class QueryMatch:
         findings = sorted(
             self.findings,
             key=lambda finding: (
-                _finding_priority(finding),
+                finding_priority(finding),
                 finding.location.path,
                 finding.message,
             ),
@@ -561,7 +561,7 @@ def flow_navigation(
     by_id = {item.id: item for item in model.flows}
     findings = sorted(
         [item for item in model.findings if item.flow_id == flow.id],
-        key=lambda item: (_finding_priority(item), item.location.path, item.message),
+        key=lambda item: (finding_priority(item), item.location.path, item.message),
     )
     finding_node_ids = {item.node_id for item in findings if item.node_id}
     scope = flow.metadata.get("scope", [])
@@ -854,23 +854,22 @@ def _finding_dict(
             node=node,
             model=model,
         )
-    annotation = _finding_annotation(finding, annotations)
+    annotation = finding_annotation(finding.id, annotations)
     if annotation:
         data["annotation"] = annotation
     data["next_tools"] = finding_next_tools(finding.id, finding.flow_id)
     return data
 
 
-def _finding_annotation(
-    finding: Finding,
-    annotations: dict[str, Any] | None,
+def finding_annotation(
+    finding_id: str, annotations: dict[str, Any] | None
 ) -> dict[str, str] | None:
     if not annotations:
         return None
     finding_annotations = annotations.get("findings", {})
     if not isinstance(finding_annotations, dict):
         return None
-    annotation = finding_annotations.get(finding.id)
+    annotation = finding_annotations.get(finding_id)
     return annotation if isinstance(annotation, dict) and annotation else None
 
 
@@ -929,7 +928,7 @@ def _flow_annotations(
     }
 
 
-def _finding_priority(finding: Finding) -> int:
+def finding_priority(finding: Finding) -> int:
     severity_rank = {"error": 0, "warning": 1, "info": 2}
     evidence_rank = {"VERIFIED": 0, "INFERRED": 1, "POTENTIAL_GAP": 2}
     return severity_rank.get(finding.severity.value, 3) * 10 + evidence_rank.get(
@@ -1049,7 +1048,7 @@ def explain_finding(
         "decision": decision,
         "metadata": finding.metadata,
         "diagnostic": diagnostic,
-        "annotation": _finding_annotation(finding, annotations),
+        "annotation": finding_annotation(finding.id, annotations),
     }
 
 
@@ -1349,7 +1348,7 @@ def _finding_context_finding(
         "node_id": finding.node_id,
         "source": f"{finding.location.path}:{finding.location.start_line}",
     }
-    annotation = _finding_annotation(finding, annotations)
+    annotation = finding_annotation(finding.id, annotations)
     if annotation:
         data["annotation"] = annotation
     return data
