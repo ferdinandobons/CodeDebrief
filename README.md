@@ -583,6 +583,10 @@ The installed block tells agents to start with `logicchart --help` and
 through `logicchart llm providers`, `logicchart llm setup --help`, and `logicchart llm
 show` without printing or committing API keys.
 
+Each managed instruction block also contains a `logicchart:local-notes` section. Put
+project-specific private checks or local workflow notes there; later `logicchart install`
+runs preserve that section while refreshing the standard LogicChart guidance.
+
 Install the optional MCP dependency from this source checkout:
 
 ```bash

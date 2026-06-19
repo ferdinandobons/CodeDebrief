@@ -9,7 +9,14 @@ from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.analysis.registry import supported_language_ids
 from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import LogicChartConfig
-from logicchart.install import END, START, install_agent_instructions, install_mcp_config
+from logicchart.install import (
+    END,
+    LOCAL_NOTES_END,
+    LOCAL_NOTES_START,
+    START,
+    install_agent_instructions,
+    install_mcp_config,
+)
 from logicchart.query import impact_model, query_model
 from logicchart.util import read_json, write_json
 from logicchart.validation import (
@@ -225,6 +232,66 @@ def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
     for target, content in contents_after_first.items():
         # The on-disk content is byte-identical after the no-op second run.
         assert target.read_text(encoding="utf-8") == content
+
+
+def test_install_preserves_project_local_notes(tmp_path: Path) -> None:
+    changed = install_agent_instructions(tmp_path, "codex")
+    assert changed == [tmp_path / "AGENTS.md"]
+    target = tmp_path / "AGENTS.md"
+    content = target.read_text(encoding="utf-8")
+    local_note = (
+        "For local real-world regression checks:\n\n"
+        "1. Keep `examples/Certifexp/` private and untracked.\n"
+    )
+    target.write_text(
+        content.replace(
+            f"{LOCAL_NOTES_START}\n"
+            "<!-- Add project-specific local notes here. This section is preserved by "
+            "`logicchart install`. -->\n"
+            f"{LOCAL_NOTES_END}",
+            f"{LOCAL_NOTES_START}\n{local_note}{LOCAL_NOTES_END}",
+        ),
+        encoding="utf-8",
+    )
+
+    changed = install_agent_instructions(tmp_path, "codex")
+
+    assert changed == []
+    updated = target.read_text(encoding="utf-8")
+    assert local_note.strip() in updated
+    assert updated.count(LOCAL_NOTES_START) == 1
+    assert updated.count(LOCAL_NOTES_END) == 1
+
+
+def test_install_migrates_legacy_local_notes(tmp_path: Path) -> None:
+    target = tmp_path / "AGENTS.md"
+    target.write_text(
+        f"""{START}
+## LogicChart
+
+For viewer/UI changes:
+
+1. Check the generated demo viewer with a cache-buster URL.
+
+For local real-world regression checks:
+
+1. Keep `examples/Certifexp/` private and untracked.
+2. Do not commit Certifexp source or generated artifacts.
+
+Do not present inferred findings as confirmed bugs.
+{END}
+""",
+        encoding="utf-8",
+    )
+
+    changed = install_agent_instructions(tmp_path, "codex")
+
+    assert changed == [target]
+    updated = target.read_text(encoding="utf-8")
+    assert "For local real-world regression checks:" in updated
+    assert "Do not commit Certifexp source or generated artifacts." in updated
+    assert updated.index(LOCAL_NOTES_START) < updated.index("For local real-world")
+    assert updated.index("generated artifacts.") < updated.index(LOCAL_NOTES_END)
 
 
 def test_install_mcp_config_writes_project_scoped_files(tmp_path: Path) -> None:

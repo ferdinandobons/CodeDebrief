@@ -6,11 +6,20 @@ from pathlib import Path
 
 START = "<!-- logicchart:instructions:start -->"
 END = "<!-- logicchart:instructions:end -->"
+LOCAL_NOTES_START = "<!-- logicchart:local-notes:start -->"
+LOCAL_NOTES_END = "<!-- logicchart:local-notes:end -->"
+LOCAL_NOTES_HINT = (
+    "<!-- Add project-specific local notes here. This section is preserved by "
+    "`logicchart install`. -->"
+)
 MCP_CONFIG_TARGETS = ("codex", "claude", "cursor")
 CODEX_MCP_START = "# logicchart:mcp-config:start"
 CODEX_MCP_END = "# logicchart:mcp-config:end"
 
-INSTRUCTION_BLOCK = f"""{START}
+
+def _instruction_block(local_notes: str = "") -> str:
+    notes = local_notes.strip() or LOCAL_NOTES_HINT
+    return f"""{START}
 ## LogicChart
 
 This project uses LogicChart to keep decision flows synchronized with the source code.
@@ -52,10 +61,17 @@ For viewer/UI changes:
    `logicchart view examples/demo --render-only --no-open`.
 3. Check the generated demo viewer with a cache-buster URL.
 
+{LOCAL_NOTES_START}
+{notes}
+{LOCAL_NOTES_END}
+
 Do not present inferred findings as confirmed bugs. LogicChart marks syntax-backed facts as
 `VERIFIED`, deterministic heuristics as `INFERRED`, and review candidates as `POTENTIAL_GAP`.
 {END}
 """
+
+
+INSTRUCTION_BLOCK = _instruction_block()
 
 
 def install_all(root: Path, platform: str = "all", mcp_config: str = "none") -> list[Path]:
@@ -116,7 +132,8 @@ def install_mcp_config(root: Path, target: str = "all") -> list[Path]:
 def _upsert(existing: str, block: str) -> str:
     if START in existing and END in existing:
         before, remainder = existing.split(START, 1)
-        _, after = remainder.split(END, 1)
+        managed, after = remainder.split(END, 1)
+        block = _instruction_block(_extract_local_notes(managed))
         # When the block sits at the very top (no prose before it), don't reintroduce a
         # leading blank line - otherwise re-running `install` on a freshly created file
         # would keep prepending whitespace instead of reaching a fixed point.
@@ -127,6 +144,26 @@ def _upsert(existing: str, block: str) -> str:
         # second `install` on a freshly created file is a true no-op.
         return block.rstrip() + "\n"
     return existing.rstrip() + "\n\n" + block.rstrip() + "\n"
+
+
+def _extract_local_notes(managed: str) -> str:
+    if LOCAL_NOTES_START in managed and LOCAL_NOTES_END in managed:
+        _, remainder = managed.split(LOCAL_NOTES_START, 1)
+        notes, _ = remainder.split(LOCAL_NOTES_END, 1)
+        stripped = notes.strip()
+        return "" if stripped == LOCAL_NOTES_HINT else stripped
+    return _extract_legacy_local_notes(managed)
+
+
+def _extract_legacy_local_notes(managed: str) -> str:
+    marker = "For local real-world regression checks:"
+    start = managed.find(marker)
+    if start == -1:
+        return ""
+    end = managed.find("\nDo not present inferred findings", start)
+    if end == -1:
+        end = len(managed)
+    return managed[start:end].strip()
 
 
 def _install_codex_mcp_config(root: Path) -> Path | None:

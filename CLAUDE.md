@@ -38,8 +38,18 @@ For viewer/UI changes:
 1. Run `npm run viewer:typecheck`, `npm run viewer:test`, and `npm run viewer:build`.
 2. Regenerate HTML artifacts with `logicchart update` and
    `logicchart view examples/demo --render-only --no-open`.
-3. Check the generated demo viewer with a cache-buster URL; use `?runtime=react` for the
-   framework-backed canvas path.
+3. Check the generated demo viewer with a cache-buster URL.
+
+<!-- logicchart:local-notes:start -->
+For local real-world regression checks:
+
+1. Keep `examples/Certifexp/` private and untracked.
+2. If `examples/Certifexp/` exists locally, run
+   `UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest tests/test_certifexp_local.py`
+   in addition to tracked demo/shop checks.
+3. Do not commit Certifexp source, generated artifacts, caches, nested repository data, or
+   analysis output.
+<!-- logicchart:local-notes:end -->
 
 Do not present inferred findings as confirmed bugs. LogicChart marks syntax-backed facts as
 `VERIFIED`, deterministic heuristics as `INFERRED`, and review candidates as `POTENTIAL_GAP`.

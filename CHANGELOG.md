@@ -155,6 +155,8 @@ The project follows Semantic Versioning.
   and Logical Errors.
 - Added React viewer layout/detail caches and asynchronous chunked expansion with a visible
   loader/progress bar for large-codebase expand operations.
+- Added a preserved `logicchart:local-notes` section to generated agent instructions, so
+  project-specific private checks survive later `logicchart install` refreshes.
 
 ### Changed
 
