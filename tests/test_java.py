@@ -71,6 +71,40 @@ def test_java_switch_values_and_missing_branch(tmp_path: Path) -> None:
     assert "missing_branch" in {f.kind for f in model.findings if f.flow_id == handle.id}
 
 
+def test_java_switch_try_finally_case_outcome_returns(tmp_path: Path) -> None:
+    pkg = tmp_path / "com" / "svc"
+    pkg.mkdir(parents=True)
+    (pkg / "Svc.java").write_text(
+        """package com.svc;
+
+public class Svc {
+  public String handle(Status status) {
+    switch (status) {
+      case ACTIVE:
+        try {
+          return "a";
+        } finally {
+          cleanup();
+        }
+      case SUSPENDED:
+        return "s";
+      default:
+        return "other";
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    handle = _flow(model, "Svc.handle")
+    switch = next(
+        n for n in handle.nodes if n.kind is NodeKind.DECISION and n.label.startswith("Switch")
+    )
+    active = next(branch for branch in switch.metadata["branches"] if branch["label"] == "ACTIVE")
+    assert active["outcome"] == "returns"
+
+
 def test_java_same_class_call_resolves(tmp_path: Path) -> None:
     model = _analyze(tmp_path)
     handle = _flow(model, "Svc.handle")

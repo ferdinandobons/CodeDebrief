@@ -964,6 +964,10 @@ def _branch_outcome(statements: list[Any]) -> str:
         if stmt.type == "break_statement":
             # break exits the enclosing loop/switch; control resumes after it.
             return FALLS_THROUGH
+        if stmt.type == "try_statement":
+            try_outcome = _try_statement_outcome(stmt)
+            if _terminates(try_outcome):
+                return try_outcome
         if stmt.type == "if_statement":
             alternative = stmt.child_by_field_name("alternative")
             if alternative is not None:
@@ -973,6 +977,21 @@ def _branch_outcome(statements: list[Any]) -> str:
                 else_outcome = _branch_outcome(_statement_children(alternative))
                 if _terminates(then_outcome) and _terminates(else_outcome):
                     return then_outcome if then_outcome == else_outcome else RETURNS
+    return FALLS_THROUGH
+
+
+def _try_statement_outcome(statement: Any) -> str:
+    finalizer = statement.child_by_field_name("finalizer")
+    final_outcome = _branch_outcome(_statement_children(finalizer))
+    if _terminates(final_outcome):
+        return final_outcome
+
+    outcomes = [_branch_outcome(_statement_children(statement.child_by_field_name("body")))]
+    handler = statement.child_by_field_name("handler")
+    if handler is not None:
+        outcomes.append(_branch_outcome(_statement_children(handler)))
+    if outcomes and all(_terminates(outcome) for outcome in outcomes):
+        return outcomes[0] if all(outcome == outcomes[0] for outcome in outcomes) else RETURNS
     return FALLS_THROUGH
 
 
@@ -994,7 +1013,32 @@ def _case_falls_through(statements: list[Any]) -> bool:
             "break_statement",
         ):
             return False
+        if stmt.type == "try_statement" and not _try_case_falls_through(stmt):
+            return False
+        if stmt.type == "if_statement":
+            alternative = stmt.child_by_field_name("alternative")
+            if alternative is not None:
+                then_falls_through = _case_falls_through(
+                    _statement_children(stmt.child_by_field_name("consequence"))
+                )
+                else_falls_through = _case_falls_through(_statement_children(alternative))
+                if not then_falls_through and not else_falls_through:
+                    return False
     return True
+
+
+def _try_case_falls_through(statement: Any) -> bool:
+    finalizer = statement.child_by_field_name("finalizer")
+    if finalizer is not None and not _case_falls_through(_statement_children(finalizer)):
+        return False
+
+    body_falls_through = _case_falls_through(
+        _statement_children(statement.child_by_field_name("body"))
+    )
+    handler = statement.child_by_field_name("handler")
+    if handler is None:
+        return body_falls_through
+    return body_falls_through or _case_falls_through(_statement_children(handler))
 
 
 def _terminates(outcome: str) -> bool:

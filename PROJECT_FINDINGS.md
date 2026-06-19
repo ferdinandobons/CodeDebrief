@@ -24,6 +24,9 @@ LogicChart is in a strong alpha state.
   agent orientation.
 - Python `try`/`else` blocks now model the success-only `else` path before reconnecting to
   the following flow, while skipping that path when the `try` body already terminates.
+- Python, TypeScript/JavaScript, and profile-driven tree-sitter analyzers now classify
+  branch outcomes through `try`/`finally`, so switch/case fall-through and asymmetric
+  return findings do not treat returning cleanup paths as ordinary fall-through.
 - Python loops now expose decisions and calls inside `for`, `async for`, `while`, and loop
   `else` bodies before reconnecting to post-loop flow.
 - Python flow extraction now keeps nested local functions, classes, and lambdas out of the
@@ -788,6 +791,8 @@ Before the next release:
   recoverable tree-sitter parse errors.
 - Done: model Python `try`/`else` success paths without treating terminating `try` bodies as
   fall-through.
+- Done: classify `try`/`finally` branch outcomes in Python, TypeScript/JavaScript, and
+  profile-driven tree-sitter analyzers, including C-style switch case fall-through.
 - Done: model Python loop bodies and loop `else` blocks so useful internal decisions/calls
   are no longer hidden behind a single loop action node.
 - Done: keep Python local helper scopes from polluting parent-flow calls, decisions, and

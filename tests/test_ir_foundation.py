@@ -60,6 +60,24 @@ def handle(x):
     assert branches["No"]["implicit"] is False
 
 
+def test_python_try_finally_branch_outcome_returns(tmp_path: Path) -> None:
+    node = _py_decision(
+        tmp_path,
+        """
+def handle(x):
+    if x.status == State.A:
+        try:
+            return 1
+        finally:
+            cleanup()
+    return 0
+""",
+    )
+    branches = _branches(node)
+    assert branches["Yes"]["outcome"] == "returns"
+    assert branches["No"]["outcome"] == "falls_through"
+
+
 def test_python_decision_identity(tmp_path: Path) -> None:
     node = _py_decision(
         tmp_path,
@@ -160,6 +178,35 @@ export async function POST(request: Request) {
     paid = next(b for label, b in branches.items() if "PAID" in label)
     assert paid["outcome"] == "falls_through"
     assert all(b["outcome"] in BRANCH_OUTCOMES for b in node.metadata["branches"])
+
+
+def test_typescript_try_finally_case_outcome_returns(tmp_path: Path) -> None:
+    route = tmp_path / "app" / "api" / "try-finally"
+    route.mkdir(parents=True)
+    source = route / "route.ts"
+    source.write_text(
+        """
+export async function POST(request: Request) {
+  switch (order.status) {
+    case OrderStatus.PAID:
+      try {
+        return paid();
+      } finally {
+        audit();
+      }
+    default:
+      return fallback();
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    flow = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source).flows[0]
+    node = next(n for n in flow.nodes if n.kind is NodeKind.DECISION)
+    branches = _branches(node)
+
+    paid = next(b for label, b in branches.items() if "PAID" in label)
+    assert paid["outcome"] == "returns"
 
 
 def test_parse_subject_operator_unit() -> None:

@@ -857,11 +857,37 @@ def _branch_outcome(stmts: list[ast.stmt]) -> str:
         if isinstance(stmt, ast.Break):
             # break exits the enclosing loop/switch; control resumes after it.
             return FALLS_THROUGH
+        if isinstance(stmt, ast.Try):
+            try_outcome = _try_statement_outcome(stmt)
+            if _terminates(try_outcome):
+                return try_outcome
         if isinstance(stmt, ast.If) and stmt.orelse:
             then_outcome = _branch_outcome(stmt.body)
             else_outcome = _branch_outcome(stmt.orelse)
             if _terminates(then_outcome) and _terminates(else_outcome):
                 return then_outcome if then_outcome == else_outcome else RETURNS
+    return FALLS_THROUGH
+
+
+def _try_statement_outcome(statement: ast.Try) -> str:
+    final_outcome = _branch_outcome(statement.finalbody)
+    if _terminates(final_outcome):
+        return final_outcome
+
+    success_outcome = _branch_outcome(statement.body)
+    if success_outcome == FALLS_THROUGH and statement.orelse:
+        success_outcome = _branch_outcome(statement.orelse)
+
+    branch_outcomes = [
+        success_outcome,
+        *(_branch_outcome(handler.body) for handler in statement.handlers),
+    ]
+    if branch_outcomes and all(_terminates(outcome) for outcome in branch_outcomes):
+        return (
+            branch_outcomes[0]
+            if all(outcome == branch_outcomes[0] for outcome in branch_outcomes)
+            else RETURNS
+        )
     return FALLS_THROUGH
 
 

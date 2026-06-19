@@ -673,7 +673,44 @@ class TreeSitterAnalyzer:
                 or statement.type in profile.break_types
             ):
                 return False
+            if (
+                profile.try_type is not None
+                and statement.type == profile.try_type
+                and not self._try_case_falls_through(statement)
+            ):
+                return False
+            if statement.type == profile.if_type:
+                alternative = statement.child_by_field_name(profile.alternative_field)
+                if alternative is not None:
+                    then_falls_through = self._case_falls_through(
+                        self._statement_children(
+                            statement.child_by_field_name(profile.consequence_field)
+                        )
+                    )
+                    else_falls_through = self._case_falls_through(
+                        self._statement_children(alternative)
+                    )
+                    if not then_falls_through and not else_falls_through:
+                        return False
         return True
+
+    def _try_case_falls_through(self, statement: Any) -> bool:
+        profile = self.profile
+        finals = [c for c in _named_children(statement) if c.type in profile.finally_types]
+        if finals and not self._case_falls_through(
+            self._statement_children(self._block_of(finals[0]))
+        ):
+            return False
+
+        body = statement.child_by_field_name(profile.try_body_field)
+        body_falls_through = self._case_falls_through(self._statement_children(body))
+        catches = [c for c in _named_children(statement) if c.type in profile.catch_types]
+        if not catches:
+            return body_falls_through
+        return body_falls_through or any(
+            self._case_falls_through(self._statement_children(self._block_of(catch)))
+            for catch in catches
+        )
 
     def _branch_outcome(self, statements: list[Any]) -> str:
         profile = self.profile
@@ -689,6 +726,10 @@ class TreeSitterAnalyzer:
                 return CONTINUES
             if statement.type in profile.break_types:
                 return FALLS_THROUGH
+            if profile.try_type is not None and statement.type == profile.try_type:
+                try_outcome = self._try_statement_outcome(statement)
+                if _terminates(try_outcome):
+                    return try_outcome
             if statement.type == profile.if_type:
                 alternative = statement.child_by_field_name(profile.alternative_field)
                 if alternative is not None:
@@ -700,6 +741,27 @@ class TreeSitterAnalyzer:
                     else_outcome = self._branch_outcome(self._statement_children(alternative))
                     if _terminates(then_outcome) and _terminates(else_outcome):
                         return then_outcome if then_outcome == else_outcome else RETURNS
+        return FALLS_THROUGH
+
+    def _try_statement_outcome(self, statement: Any) -> str:
+        profile = self.profile
+        finals = [c for c in _named_children(statement) if c.type in profile.finally_types]
+        if finals:
+            final_outcome = self._branch_outcome(
+                self._statement_children(self._block_of(finals[0]))
+            )
+            if _terminates(final_outcome):
+                return final_outcome
+
+        body = statement.child_by_field_name(profile.try_body_field)
+        outcomes = [self._branch_outcome(self._statement_children(body))]
+        outcomes.extend(
+            self._branch_outcome(self._statement_children(self._block_of(catch)))
+            for catch in _named_children(statement)
+            if catch.type in profile.catch_types
+        )
+        if outcomes and all(_terminates(outcome) for outcome in outcomes):
+            return outcomes[0] if all(outcome == outcomes[0] for outcome in outcomes) else RETURNS
         return FALLS_THROUGH
 
     def _statement_summary(self, statement: Any, source: bytes) -> tuple[NodeKind, str, list[str]]:
