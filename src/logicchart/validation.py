@@ -11,6 +11,7 @@ from logicchart.analysis.registry import supported_language_ids
 from logicchart.annotations import load_annotations
 from logicchart.artifacts import output_paths
 from logicchart.config import LogicChartConfig
+from logicchart.diagnostics import finding_rule_contracts_by_kind
 from logicchart.model import ProjectModel
 from logicchart.quality import model_quality
 from logicchart.util import read_json
@@ -141,6 +142,8 @@ def _validate_finding_rule_contracts(model: ProjectModel, report: ValidationRepo
     if not isinstance(rules, dict):
         report.add_error("metadata.finding_rules must be an object when present.")
         return
+    current_rules = finding_rule_contracts_by_kind()
+    _validate_current_finding_rules(rules, current_rules, report)
     for finding in model.findings:
         rule = rules.get(finding.kind)
         if not isinstance(rule, dict):
@@ -171,6 +174,24 @@ def _validate_finding_rule_contracts(model: ProjectModel, report: ValidationRepo
                 f"{finding.id}: diagnostic rule_id {diagnostic.get('rule_id')!r} "
                 f"does not match finding kind {finding.kind!r}."
             )
+
+
+def _validate_current_finding_rules(
+    artifact_rules: dict[str, Any],
+    current_rules: dict[str, dict[str, Any]],
+    report: ValidationReport,
+) -> None:
+    missing = sorted(kind for kind in current_rules if kind not in artifact_rules)
+    if missing:
+        report.add_error(
+            "metadata.finding_rules is missing current detector contracts: " + ", ".join(missing)
+        )
+    for kind, expected in current_rules.items():
+        observed = artifact_rules.get(kind)
+        if observed is None:
+            continue
+        if observed != expected:
+            report.add_error(f"metadata.finding_rules[{kind!r}] is stale; run `logicchart update`.")
 
 
 def _validate_json_schema(artifact: dict[str, Any], report: ValidationReport) -> None:

@@ -409,8 +409,9 @@ logicchart validate --max-skipped-files 0 --max-parse-warnings 0 --min-call-reso
 ```
 
 `--check-sync` re-analyzes sources and fails if the committed JSON model is stale.
-Validation also checks present finding-rule contracts: rule-declared metadata fields must
-exist on matching findings, and a diagnostic `rule_id` must match the finding kind.
+Validation also checks present finding-rule contracts against the current detector
+registry: rule-declared metadata fields must exist on matching findings, and a diagnostic
+`rule_id` must match the finding kind.
 `--quality` includes deterministic analysis metrics such as files and flows by language,
 call-resolution rate, generic-label ratio, source-location coverage, finding counts, and
 graph density. It also reports skipped-file counts and reasons when a source file could

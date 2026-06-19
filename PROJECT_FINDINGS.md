@@ -147,8 +147,9 @@ Current checkpoint:
 - Single-flow diagnostics include detector-specific evidence-chain entries for implicit
   fallbacks, constant guards, handler outcomes, empty branches, and asymmetric dispatch
   returns.
-- `logicchart validate` now checks present finding-rule contracts against emitted findings,
-  so rule-declared metadata fields and diagnostic rule ids cannot drift silently.
+- `logicchart validate` now checks present finding-rule contracts against the current
+  detector registry and emitted findings, so rule-declared metadata fields and diagnostic
+  rule ids cannot drift silently.
 - The viewer shows selected-finding diagnostics with confidence, missing/expected/actual
   state, rule purpose, review prompt, next actions, a compact focused diagnostic subgraph,
   related flows, and evidence nodes.

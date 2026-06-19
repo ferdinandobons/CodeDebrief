@@ -143,6 +143,29 @@ def test_validate_checks_finding_rule_metadata_contract(tmp_path: Path) -> None:
     assert any("missing_contract_field" in error for error in report.errors)
 
 
+def test_validate_checks_finding_rule_registry_is_current(tmp_path: Path) -> None:
+    (tmp_path / "orders.py").write_text(
+        "def route(order):\n"
+        "    if order.status == 'draft':\n"
+        "        return draft(order)\n"
+        "    elif order.status == 'paid':\n"
+        "        return paid(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
+    artifact = read_json(json_path)
+    finding = artifact["findings"][0]
+
+    artifact["metadata"]["finding_rules"][finding["kind"]]["review_prompt"] = "stale"
+    write_json(json_path, artifact)
+
+    report = validate_logicchart(tmp_path)
+
+    assert not report.ok
+    assert any("metadata.finding_rules" in error and "stale" in error for error in report.errors)
+
+
 def test_validate_checks_diagnostic_rule_id_matches_finding_kind(tmp_path: Path) -> None:
     (tmp_path / "orders.py").write_text(
         "def route(order):\n"
@@ -162,6 +185,27 @@ def test_validate_checks_diagnostic_rule_id_matches_finding_kind(tmp_path: Path)
 
     assert not report.ok
     assert any("does not match finding kind" in error for error in report.errors)
+
+
+def test_validate_allows_legacy_artifact_without_finding_rule_registry(tmp_path: Path) -> None:
+    (tmp_path / "orders.py").write_text(
+        "def route(order):\n"
+        "    if order.status == 'draft':\n"
+        "        return draft(order)\n"
+        "    elif order.status == 'paid':\n"
+        "        return paid(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
+    artifact = read_json(json_path)
+    artifact["metadata"].pop("finding_rules")
+    write_json(json_path, artifact)
+
+    report = validate_logicchart(tmp_path)
+
+    assert report.ok
+    assert report.errors == []
 
 
 def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
