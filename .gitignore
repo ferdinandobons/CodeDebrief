@@ -17,6 +17,7 @@ build/
 .codex/config.toml
 .mcp.json
 .cursor/mcp.json
+.env.logicchart
 
 # Local analysis state and generated browser view
 .logicchart/

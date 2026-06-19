@@ -113,6 +113,9 @@ The project follows Semantic Versioning.
   scanning.
 - Added a local optional `logic-annotations.json` sidecar schema, validation, viewer
   overlays, and MCP status/navigation exposure.
+- Added optional local LLM provider setup commands (`logicchart llm providers`,
+  `logicchart llm setup`, and `logicchart llm show`) with DeepSeek v4 as the preferred
+  default and a git-ignored `.env.logicchart` key/model file.
 - Added Python analyzer modeling for `try`/`else` success paths, so post-success work is
   connected before the flow continues.
 - Added Python loop-body flow modeling, so decisions and calls inside `for`, `async for`,

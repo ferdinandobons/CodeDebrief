@@ -55,6 +55,7 @@ No `init` step is required. LogicChart analyzes `.` by default and writes:
 | `logicchart-out/logic-flow.md` | reviewable decision flowcharts and findings, including finding ids and `logicchart explain ...` commands; commit it |
 | `logicchart-out/logic-flow.html` | local interactive viewer; regenerated and normally ignored |
 | `logicchart-out/logic-annotations.json` | optional labels/summaries sidecar; never required for correctness |
+| `.env.logicchart` | optional local LLM provider key/model config; ignored and never required |
 
 For development inside this repository:
 
@@ -277,6 +278,31 @@ logicchart navigate flow-id --token-budget 240
 The command returns the same bounded navigation pack as MCP `get_flow_navigation`: flow
 shape, caller/callee summaries, decision nodes, related findings, annotations when present,
 and next-tool hints for full flow, impact, query, and visual snapshot follow-up.
+
+### `llm`
+
+Configure optional enrichment credentials without making any provider call:
+
+```bash
+logicchart llm providers
+printf '%s' "$DEEPSEEK_API_KEY" | logicchart llm setup --api-key-stdin
+printf '%s' "$DASHSCOPE_API_KEY" | logicchart llm setup --provider qwen --model qwen3-coder-plus --base-url https://dashscope-us.aliyuncs.com/compatible-mode/v1 --api-key-stdin
+logicchart llm show
+```
+
+The default provider is DeepSeek with `deepseek-v4-pro`; `deepseek-v4-flash` is also
+available as the fast/cost-oriented DeepSeek v4 preset. `setup` writes
+`.env.logicchart` with `LOGICCHART_LLM_PROVIDER`, `LOGICCHART_LLM_MODEL`,
+`LOGICCHART_LLM_BASE_URL`, `LOGICCHART_LLM_API_FORMAT`, and
+`LOGICCHART_LLM_API_KEY`, and masks the key in all command output. The file is ignored by
+git and chmodded to owner-only permissions when the platform supports it.
+
+Provider/model presets cover DeepSeek, OpenAI, Anthropic, Google Gemini, xAI, Alibaba
+Qwen, Z.AI, Kimi/Moonshot, and Mistral. Model catalogs change frequently, so `--model`
+and `--base-url` are free-form overrides. LogicChart still works fully offline without
+this file; LLM enrichment remains opt-in and must be run explicitly before any code or
+artifact text is sent to a provider. See [docs/llm.md](docs/llm.md) for the verified
+provider snapshot.
 
 ### `snapshot`
 

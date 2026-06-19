@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import sys
 import webbrowser
@@ -15,6 +16,16 @@ from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import BUILTIN_PROFILES, LogicChartConfig
 from logicchart.doctor import doctor_report, render_doctor, render_doctor_json
 from logicchart.install import install_all
+from logicchart.llm_config import (
+    PROVIDERS,
+    config_to_json,
+    get_provider,
+    logicchart_env_path,
+    render_current_config,
+    render_providers_text,
+    render_setup_text,
+    write_logicchart_env,
+)
 from logicchart.quality import render_quality
 from logicchart.query import (
     explain_finding,
@@ -193,6 +204,61 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also install project-scoped MCP config for Codex, Claude Code, or Cursor.",
     )
 
+    llm = subparsers.add_parser("llm", help="Configure optional local LLM enrichment settings.")
+    llm_subparsers = llm.add_subparsers(dest="llm_command", required=True)
+    llm_providers = llm_subparsers.add_parser(
+        "providers", help="List verified provider/model presets."
+    )
+    llm_providers.add_argument("--json", action="store_true", dest="json_output")
+
+    llm_setup = llm_subparsers.add_parser(
+        "setup", help="Write a local .env.logicchart provider configuration."
+    )
+    llm_setup.add_argument("path", nargs="?", default=".")
+    llm_setup.add_argument(
+        "--provider",
+        choices=[provider.id for provider in PROVIDERS],
+        default="deepseek",
+        help="LLM provider preset to configure. Defaults to DeepSeek v4.",
+    )
+    llm_setup.add_argument(
+        "--model",
+        default=None,
+        help="Provider model id. Defaults to the provider's recommended preset.",
+    )
+    llm_setup.add_argument(
+        "--base-url",
+        default=None,
+        help="Override the provider base URL when using a region-specific endpoint.",
+    )
+    llm_setup.add_argument(
+        "--api-key",
+        default=None,
+        help="API key to write. Prefer --api-key-stdin for shell-history safety.",
+    )
+    llm_setup.add_argument(
+        "--api-key-stdin",
+        action="store_true",
+        help="Read the API key from stdin.",
+    )
+    llm_setup.add_argument(
+        "--env-file",
+        default=None,
+        help="Path to the dedicated env file. Defaults to .env.logicchart under PATH.",
+    )
+    llm_setup.add_argument("--json", action="store_true", dest="json_output")
+
+    llm_show = llm_subparsers.add_parser(
+        "show", help="Show the current local LLM configuration with secrets masked."
+    )
+    llm_show.add_argument("path", nargs="?", default=".")
+    llm_show.add_argument(
+        "--env-file",
+        default=None,
+        help="Path to the dedicated env file. Defaults to .env.logicchart under PATH.",
+    )
+    llm_show.add_argument("--json", action="store_true", dest="json_output")
+
     init = subparsers.add_parser("init", help="Create a starter LogicChart configuration.")
     init.add_argument("path", nargs="?", default=".")
 
@@ -342,6 +408,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.command == "install":
             return _install(Path(args.path), args.platform, args.mcp_config)
+        if args.command == "llm":
+            return _llm(args)
         if args.command == "init":
             return _init(Path(args.path))
         if args.command == "validate":
@@ -368,6 +436,81 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"error: {error}", file=sys.stderr)
         return 1
     return 0
+
+
+def _llm(args: argparse.Namespace) -> int:
+    if args.llm_command == "providers":
+        if args.json_output:
+            print(
+                json.dumps(
+                    {
+                        "preferred_provider": "deepseek",
+                        "providers": [provider.to_dict() for provider in PROVIDERS],
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(render_providers_text())
+        return 0
+
+    if args.llm_command == "show":
+        env_path = logicchart_env_path(Path(args.path).resolve(), args.env_file)
+        print(
+            json.dumps(config_to_json(env_path), indent=2)
+            if args.json_output
+            else render_current_config(env_path)
+        )
+        return 0
+
+    if args.llm_command == "setup":
+        root = Path(args.path).resolve()
+        provider = get_provider(args.provider)
+        model = args.model or provider.default_model
+        if not model.strip():
+            raise ValueError("LLM model id cannot be empty.")
+        api_key = _read_api_key(args)
+        env_path = logicchart_env_path(root, args.env_file)
+        values = write_logicchart_env(
+            env_path,
+            provider=provider,
+            model=model.strip(),
+            api_key=api_key,
+            base_url=args.base_url,
+        )
+        if args.json_output:
+            payload = {
+                "env_file": str(env_path),
+                "provider": values["LOGICCHART_LLM_PROVIDER"],
+                "model": values["LOGICCHART_LLM_MODEL"],
+                "base_url": values["LOGICCHART_LLM_BASE_URL"],
+                "api_format": values["LOGICCHART_LLM_API_FORMAT"],
+                "api_key": "<set>",
+                "provider_call_made": False,
+            }
+            print(json.dumps(payload, indent=2))
+        else:
+            print(render_setup_text(env_path, values))
+        return 0
+
+    raise ValueError(f"unknown llm command: {args.llm_command}")
+
+
+def _read_api_key(args: argparse.Namespace) -> str:
+    if args.api_key and args.api_key_stdin:
+        raise ValueError("pass only one of --api-key or --api-key-stdin.")
+    if args.api_key_stdin:
+        api_key = sys.stdin.read().strip()
+    elif args.api_key:
+        api_key = args.api_key.strip()
+    elif sys.stdin.isatty():
+        api_key = getpass.getpass("LLM API key: ").strip()
+    else:
+        raise ValueError("provide an API key with --api-key or --api-key-stdin.")
+
+    if not api_key:
+        raise ValueError("LLM API key cannot be empty.")
+    return api_key
 
 
 def _snapshot(args: argparse.Namespace) -> int:

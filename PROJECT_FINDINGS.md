@@ -275,13 +275,17 @@ model must remain the source of truth.
 
 ### Proposed design
 
-Add an optional command:
+Add optional setup and enrichment commands:
 
 ```bash
+logicchart llm providers
+logicchart llm setup --provider deepseek --model deepseek-v4-pro --api-key-stdin
 logicchart enrich --provider openai --model <model> --scope frontend
 ```
 
-It writes:
+`logicchart llm setup` writes local credentials and provider/model selection to the
+dedicated `.env.logicchart` file without making a provider call. A future explicit
+`logicchart enrich` command writes:
 
 ```text
 logicchart-out/logic-annotations.json
@@ -298,6 +302,10 @@ The sidecar should be keyed by stable ids:
 
 Current checkpoint:
 
+- `logicchart llm providers` lists current provider/model presets, with DeepSeek v4 as
+  the preferred default and free-form model/base-url overrides for provider drift.
+- `logicchart llm setup` writes `.env.logicchart`, masks secrets in output, and keeps the
+  setup path local-only.
 - `logicchart-out/logic-annotations.json` has a strict local schema.
 - Sidecars are keyed by stable flow/node/finding/scope ids plus a deterministic model hash.
 - `logicchart validate` validates a present sidecar automatically and `--annotations`
@@ -309,8 +317,8 @@ Current checkpoint:
 
 Still open:
 
-- Add `logicchart enrich` only after the provider/model and external-code-send boundaries
-  are explicitly approved.
+- Add `logicchart enrich` only after the external-code-send boundary is explicitly
+  approved for the selected run.
 - Add finding/scoped summary overlays beyond the current flow/node label/description layer.
 
 ### Safety rules
@@ -725,7 +733,14 @@ Before the next release:
 
 ### Phase 3: LLM Enrichment
 
-- Next: add `logicchart enrich` after provider/model approval.
+- Done: add local provider/model setup with `logicchart llm providers`, `logicchart llm
+  setup`, and `logicchart llm show`.
+- Done: use DeepSeek v4 (`deepseek-v4-pro`) as the preferred default while allowing
+  free-form model and base URL overrides for changing provider catalogs.
+- Done: save optional credentials in a dedicated, git-ignored `.env.logicchart` file with
+  masked command output and no provider calls during setup.
+- Next: add `logicchart enrich` as an explicit opt-in command that previews what text will
+  be sent before any provider request.
 - Done: write/load `logic-annotations.json`.
 - Done: validate annotations against a schema and model hash.
 - Done: add viewer overlays for better flow/node labels and descriptions.
