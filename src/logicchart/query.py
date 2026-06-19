@@ -1080,6 +1080,7 @@ def finding_context(
         and candidate.flow_id in related_flow_ids
         and _finding_matches_context(candidate, finding)
     ]
+    findings_by_flow = Counter(candidate.flow_id for candidate in model.findings)
     return {
         "finding": _finding_context_finding(finding, annotations),
         "evidence_guardrail": _evidence_guardrail(finding),
@@ -1092,11 +1093,19 @@ def finding_context(
             "actual": diagnostic.get("actual"),
             "review_prompt": diagnostic.get("review_prompt"),
         },
-        "focus_flow": _context_flow_summary(flow, ["finding_flow"], model) if flow else None,
+        "focus_flow": (
+            _context_flow_summary(flow, ["finding_flow"], findings_by_flow[flow.id])
+            if flow
+            else None
+        ),
         "focus_node": _context_node_summary(flow, node, ["finding_node"]) if node else None,
         "related_flows": _context_cap(
             [
-                _context_flow_summary(related_flow, roles, model)
+                _context_flow_summary(
+                    related_flow,
+                    roles,
+                    findings_by_flow[related_flow.id],
+                )
                 for related_flow, roles in related_flows
                 if related_flow.id != finding.flow_id
             ],
@@ -1355,7 +1364,7 @@ def _finding_context_finding(
     return data
 
 
-def _context_flow_summary(flow: Flow, roles: list[str], model: ProjectModel) -> dict[str, Any]:
+def _context_flow_summary(flow: Flow, roles: list[str], finding_count: int) -> dict[str, Any]:
     return {
         "id": flow.id,
         "name": flow.name,
@@ -1368,7 +1377,7 @@ def _context_flow_summary(flow: Flow, roles: list[str], model: ProjectModel) -> 
         "decisions": sum(node.kind is NodeKind.DECISION for node in flow.nodes),
         "calls": len(flow.calls),
         "callers": len(flow.called_by),
-        "findings": sum(item.flow_id == flow.id for item in model.findings),
+        "findings": finding_count,
     }
 
 

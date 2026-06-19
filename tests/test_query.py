@@ -76,6 +76,7 @@ def test_finding_annotations_are_exposed_in_query_surfaces(tmp_path: Path) -> No
     context = finding_context(model, finding.id, annotations=annotations)
     assert context is not None
     assert context["finding"]["annotation"]["explanation"].startswith("The enum-like")
+    assert context["focus_flow"]["findings"] == 1
 
 
 def test_where_is_state_handled(tmp_path: Path) -> None:
