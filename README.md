@@ -524,6 +524,12 @@ Supported instruction targets:
 - `GEMINI.md` for Gemini CLI
 - `.cursor/rules/logicchart.mdc` for Cursor
 
+The installed block tells agents to start with `logicchart --help` and
+`logicchart <command> --help` when helping users set up or learn the tool, to use
+`logicchart doctor` for install/dependency uncertainty, and to guide optional LLM setup
+through `logicchart llm providers`, `logicchart llm setup --help`, and `logicchart llm
+show` without printing or committing API keys.
+
 Install the optional MCP dependency from this source checkout:
 
 ```bash

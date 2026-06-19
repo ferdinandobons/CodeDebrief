@@ -466,6 +466,9 @@ Current checkpoint:
   relying only on stdio integration.
 - MCP tests now directly pin flow-navigation pack shape and recoverable helper payloads
   for artifact loading, validation, update workflow, and unknown targets.
+- Generated agent instruction blocks now tell Codex, Claude, Gemini, and Cursor to use
+  `logicchart --help`, subcommand help, `doctor`, and safe `llm` setup commands when
+  guiding users through setup or tool usage.
 
 ## Finding 7: Language Support Needs Depth Metrics, Not Only a Count
 

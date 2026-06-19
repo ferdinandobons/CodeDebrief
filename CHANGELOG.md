@@ -138,6 +138,9 @@ The project follows Semantic Versioning.
   include normalized diagnostic details.
 - Updated generated agent instructions to recommend `logicchart explain <finding-id>`
   before treating logical findings as actionable.
+- Updated generated agent instructions across Codex, Claude, Gemini, and Cursor to use
+  `logicchart --help`, subcommand help, `doctor`, and safe `llm` setup guidance when
+  helping users set up or learn LogicChart.
 - Updated Details rail section headers so Project Quality, Source, and Logical Errors can
   be collapsed by click or keyboard with synchronized expanded state.
 - Updated the Logical Errors panel so selected findings expand into a compact diagnostic

@@ -24,6 +24,15 @@ For codebase questions about behavior, decisions, missing cases, or change impac
 5. Use `logicchart navigate <flow-id>` to inspect callers, callees, decisions, and findings.
 6. Use `logicchart snapshot flow <flow-id>` when visual flow context would help.
 
+When helping a user set up or learn LogicChart:
+
+1. Start with `logicchart --help`, then use `logicchart <command> --help` for the specific
+   command you plan to run or recommend.
+2. Use `logicchart doctor` when install, dependency, or parser capability issues are
+   unclear.
+3. For optional LLM setup, use `logicchart llm providers`, `logicchart llm setup --help`,
+   and `logicchart llm show`; prefer `--api-key-stdin`, and never print or commit keys.
+
 After a substantial code change:
 
 1. Run `logicchart impact`.
