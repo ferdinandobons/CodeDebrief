@@ -354,6 +354,9 @@ Current checkpoint:
 - MCP exposes `preview_annotation_targets`, `write_annotations`, `validate_annotations`,
   `annotation_status`, and `clear_annotations` so coding agents can create, validate,
   inspect, and remove local `agent_generated` sidecar content without provider keys.
+- MCP `write_annotations` rejects non-`agent_generated` provenance so the primary write
+  path cannot silently mix provider-managed or manual metadata into agent-authored
+  annotations.
 - MCP `preview_enrichment` exposes selected target ids and next-tool pointers for
   review/snapshots without suggesting removed public LLM/enrich commands; it now acts as a
   compatibility preview behind the clearer annotation-target workflow.
@@ -418,6 +421,8 @@ Current checkpoint:
 - MCP `agent_context` now returns a first-class `workflow_slice` with a stable handle,
   primary/supporting flows, ordered source-grounded steps, decisions, calls, domain logic,
   review signals, source ranges, visual handles, omissions, and next-tool hints.
+- Workflow-slice and `snapshot_slice` MCP payloads now include `viewer_targets` that point
+  humans back to stable `logicchart view` hash fragments for manual inspection.
 - MCP exposes `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`,
   `explain_node`, and `explain_edge` so agents can progressively widen a slice, trace
   between concepts, render deterministic visual context, or inspect a focused entity
@@ -630,6 +635,9 @@ Current checkpoint:
   low-level tools.
 - MCP `domain_map` aggregates decision metadata into domain-level concepts with handled
   values, missing values, related decisions, findings, subgraph ids, and next tools.
+- MCP `domain_map` value filters match handled values and missing values, including
+  enum-style suffixes, and domain rows include structured source ranges for decisions and
+  related findings.
 - MCP `agent_context` accepts `domain` and `value`, passes them through deterministic
   query/context filters, and embeds the matching `domain_map` for ordinary state/role
   questions.

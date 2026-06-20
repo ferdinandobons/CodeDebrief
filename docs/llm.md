@@ -25,6 +25,10 @@ Use it to inspect annotation targets and payload size. Then use:
 - `annotation_status` to inspect sidecar status, counts, and optional contents.
 - `clear_annotations` with `confirm=true` to remove optional generated annotation text.
 
+`write_annotations` rejects non-`agent_generated` provenance. Provider-managed or manual
+annotation metadata can still be validated as sidecar content, but it is intentionally not
+the primary MCP write path.
+
 `preview_enrichment` remains as a compatibility/local-preview helper, but should not be
 treated as a provider-send workflow. The public CLI intentionally does not expose `llm` or
 `enrich` commands.

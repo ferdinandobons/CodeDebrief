@@ -114,6 +114,8 @@ The project follows Semantic Versioning.
 - Added `workflow_slice` to MCP `agent_context`, with stable slice handles, ordered
   workflow steps, primary/supporting flows, decisions, calls, domain logic, review signals,
   source ranges, visual handles, omissions, guardrails, and next-tool hints.
+- Added `viewer_targets` to workflow-slice and `snapshot_slice` MCP payloads so agents can
+  hand humans stable `logicchart view` hash fragments for manual inspection.
 - Added MCP `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`,
   `explain_node`, and `explain_edge` for progressive workflow-slice navigation and focused
   source-grounded inspection.
@@ -133,9 +135,13 @@ The project follows Semantic Versioning.
 - Added MCP `preview_annotation_targets`, `write_annotations`, `validate_annotations`,
   `annotation_status`, and `clear_annotations` for agent-authored annotation sidecars
   without provider-key setup.
+- Added MCP `write_annotations` provenance validation so the primary annotation write path
+  accepts `agent_generated` content only.
 - Added MCP `domain_map` and `agent_context` domain/value filters so agents can inspect
   handled values, missing values, related decisions, findings, and subgraph ids for
   state-like domains such as statuses and roles.
+- Added missing-value matching to MCP `domain_map` value filters, including enum-style
+  suffix matching such as `PAID` for `Status.PAID`.
 - Added internal provider-managed enrichment helpers behind the deterministic annotation
   sidecar, while keeping the public product path agent-authored and provider-key-free.
 - Added directory-level discovery pruning for known VCS, dependency, cache, temporary, and

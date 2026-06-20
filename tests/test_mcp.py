@@ -369,6 +369,11 @@ def authorize(user):
                 assert workflow_slice["primary_flows"][0]["id"] == flow.id
                 assert workflow_slice["ordered_steps"]
                 assert workflow_slice["source_ranges"]
+                assert workflow_slice["viewer_targets"]["command"] == "logicchart view"
+                assert workflow_slice["viewer_targets"]["targets"][0]["flow_id"] == flow.id
+                assert workflow_slice["viewer_targets"]["targets"][0]["hash_fragment"].startswith(
+                    "#flow="
+                )
                 assert workflow_slice["next_tools"]["expand_slice"]["tool"] == "expand_slice"
                 expanded_slice = await session.call_tool(
                     "expand_slice",
@@ -395,6 +400,10 @@ def authorize(user):
                 )
                 assert not slice_snapshot.isError
                 assert slice_snapshot.structuredContent["snapshot"]["format"] == "svg"  # type: ignore[index]
+                assert (  # type: ignore[index]
+                    slice_snapshot.structuredContent["viewer_targets"]["targets"][0]["flow_id"]
+                    == flow.id
+                )
                 path_response = await session.call_tool(
                     "workflow_path",
                     {"source": flow.id, "target": flow.id, "token_budget": 480},
@@ -499,6 +508,21 @@ def authorize(user):
                     invalid_write_payload["error_code"] == "annotation_validation_failed"
                 )
                 assert "missing-flow" in "; ".join(invalid_write_payload["errors"])  # type: ignore[index]
+
+                wrong_provenance_write = await session.call_tool(
+                    "write_annotations",
+                    {
+                        "flows": {flow.id: {"summary": "Provider-sourced summary."}},
+                        "generated_by": {"kind": "llm", "provider": "example"},
+                    },
+                )
+                assert not wrong_provenance_write.isError
+                wrong_provenance_payload = wrong_provenance_write.structuredContent  # type: ignore[assignment]
+                assert wrong_provenance_payload["ok"] is False  # type: ignore[index]
+                assert (  # type: ignore[index]
+                    wrong_provenance_payload["error_code"] == "annotation_provenance_invalid"
+                )
+                assert "agent_generated" in "; ".join(wrong_provenance_payload["errors"])  # type: ignore[index]
 
                 annotation_write = await session.call_tool(
                     "write_annotations",
@@ -1059,7 +1083,23 @@ def route(status):
     concept = payload["concepts"][0]
     assert concept["domain"] == "Status"
     assert concept["missing_values"] == ["Status.PAID"]
+    assert concept["decision_nodes"][0]["source_range"]["path"] == "app.py"
+    assert concept["findings"][0]["source_range"]["path"] == "app.py"
     assert [item["kind"] for item in concept["findings"]] == ["enum_exhaustiveness"]
+
+    missing_value_payload = _domain_logic_map(
+        model,
+        domain="Status",
+        value="paid",
+        scope=None,
+        token_budget=0,
+    )
+
+    assert len(missing_value_payload["concepts"]) == 1
+    missing_value_concept = missing_value_payload["concepts"][0]
+    assert missing_value_concept["domain"] == "Status"
+    assert missing_value_concept["handled_values"] == ["Status.DRAFT", "Status.OPEN"]
+    assert missing_value_concept["missing_values"] == ["Status.PAID"]
 
 
 def test_domain_map_caps_snapshot_targets_with_token_budget(tmp_path: Path) -> None:

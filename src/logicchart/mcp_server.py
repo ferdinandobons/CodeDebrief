@@ -4,11 +4,12 @@ import hashlib
 import json
 import re
 from collections import Counter, deque
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import asdict
 from itertools import pairwise
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import quote
 
 from logicchart.analysis import ProjectAnalyzer
 from logicchart.annotations import (
@@ -1082,6 +1083,11 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             "flow_ids": normalized_flow_ids,
             "finding_ids": normalized_finding_ids,
             "snapshot": snapshot,
+            "viewer_targets": _workflow_viewer_targets(
+                model,
+                normalized_flow_ids,
+                normalized_finding_ids,
+            ),
             "guardrail": (
                 "Snapshots are deterministic visual context for the selected slice. "
                 "Omission counts must be preserved when explaining large slices."
@@ -1417,6 +1423,7 @@ def _workflow_slice_payload(
         "review_signals": _workflow_review_signals(pack, token_budget),
         "source_ranges": _workflow_source_ranges(model, visible_flow_ids, pack, token_budget),
         "visuals": _workflow_visuals(pack),
+        "viewer_targets": _workflow_viewer_targets(model, visible_flow_ids, finding_ids),
         "omissions": _workflow_omissions(pack, selected_flow_ids, visible_flow_ids, token_budget),
         "next_actions": _workflow_next_actions(primary_flow_ids, supporting_flow_ids, finding_ids),
         "next_tools": _workflow_slice_next_tools(
@@ -1752,6 +1759,54 @@ def _workflow_visuals(pack: dict[str, Any]) -> dict[str, Any]:
         "omitted_visual_snapshot_count": visual.get("omitted_visual_snapshot_count", 0),
         "omitted_visual_snapshot_reasons": visual.get("omitted_visual_snapshot_reasons", {}),
     }
+
+
+def _workflow_viewer_targets(
+    model: ProjectModel,
+    flow_ids: list[str],
+    finding_ids: list[str],
+) -> dict[str, Any]:
+    findings = _findings_by_ids(model, finding_ids)
+    target_flow_ids = _unique_preserve_order(
+        [*flow_ids, *(finding.flow_id for finding in findings if finding.flow_id)]
+    )
+    flow_targets = [
+        {
+            "type": "flow",
+            "flow_id": flow.id,
+            "name": flow.name,
+            "hash_fragment": _viewer_flow_hash(flow.id),
+            "source": _source_anchor(flow.location),
+        }
+        for flow in _flows_by_ids(model, target_flow_ids)
+    ]
+    finding_targets = [
+        {
+            "type": "finding",
+            "finding_id": finding.id,
+            "flow_id": finding.flow_id,
+            "node_id": finding.node_id,
+            "hash_fragment": _viewer_flow_hash(finding.flow_id),
+            "source": _source_anchor(finding.location),
+        }
+        for finding in findings
+    ]
+    return {
+        "command": "logicchart view",
+        "route": "flow-hash",
+        "targets": flow_targets,
+        "finding_targets": finding_targets,
+        "target_count": len(flow_targets) + len(finding_targets),
+        "guardrail": (
+            "Use logicchart view for manual inspection, then append a hash_fragment to "
+            "the generated viewer URL or local HTML file. These links open visual context; "
+            "they do not replace the deterministic workflow_slice payload."
+        ),
+    }
+
+
+def _viewer_flow_hash(flow_id: str) -> str:
+    return f"#flow={quote(flow_id, safe='')}"
 
 
 def _workflow_omissions(
@@ -2839,8 +2894,6 @@ def _domain_logic_map(
             if not keys:
                 continue
             values = _metadata_string_values(node.metadata.get("values"))
-            if normalized_value is not None and normalized_value not in values:
-                continue
             for key in keys:
                 concept = concepts.setdefault(key, _empty_domain_concept(key))
                 concept["subjects"].update(_metadata_string_values(node.metadata.get("subject")))
@@ -2859,10 +2912,18 @@ def _domain_logic_map(
                         "value_namespace": node.metadata.get("value_namespace"),
                         "values": values,
                         "source": f"{node.location.path}:{node.location.start_line}",
+                        "source_range": _source_anchor(node.location),
                     }
                 )
 
     _attach_domain_findings(model, concepts, normalized_value, scope)
+    if normalized_value is not None:
+        concepts = {
+            key: concept
+            for key, concept in concepts.items()
+            if _metadata_value_matches(normalized_value, concept["handled_values"])
+            or _metadata_value_matches(normalized_value, concept["missing_values"])
+        }
     concept_rows = [_domain_concept_payload(item, token_budget) for item in concepts.values()]
     concept_rows.sort(
         key=lambda item: (
@@ -2936,7 +2997,7 @@ def _attach_domain_findings(
             continue
         metadata = finding.metadata
         missing_values = _metadata_string_values(metadata.get("missing"))
-        if value is not None and value not in missing_values:
+        if value is not None and not _metadata_value_matches(value, missing_values):
             continue
         finding_keys = set(_domain_keys(metadata))
         subject = metadata.get("subject")
@@ -2958,6 +3019,7 @@ def _attach_domain_findings(
                     "missing_values": missing_values,
                     "flow_id": finding.flow_id,
                     "source": f"{finding.location.path}:{finding.location.start_line}",
+                    "source_range": _source_anchor(finding.location),
                 }
             )
 
@@ -3018,6 +3080,22 @@ def _metadata_string_values(value: Any) -> list[str]:
     if isinstance(value, list | tuple | set):
         return [str(item) for item in value if str(item).strip()]
     return [str(value)]
+
+
+def _metadata_value_matches(target: str, values: Iterable[str]) -> bool:
+    normalized_target = _normalized_domain_value(target)
+    for value in values:
+        normalized_value = _normalized_domain_value(value)
+        if normalized_value == normalized_target:
+            return True
+        suffix = str(value).rsplit(".", maxsplit=1)[-1]
+        if _normalized_domain_value(suffix) == normalized_target:
+            return True
+    return False
+
+
+def _normalized_domain_value(value: str) -> str:
+    return value.strip().strip("\"'").lower()
 
 
 def _context_navigation_pack(
@@ -3246,6 +3324,16 @@ def _write_annotations_payload(
         generated_by=generated_by,
         replace_existing=replace_existing,
     )
+    provenance_errors = _validate_annotation_write_provenance(candidate)
+    if provenance_errors:
+        return _annotation_write_error(
+            root,
+            model,
+            config,
+            "annotation_provenance_invalid",
+            "MCP annotation writes must use agent_generated provenance.",
+            errors=provenance_errors,
+        )
     path = annotations_path(root, config)
     result = AnnotationLoadResult(path=str(path), expected_model_hash=model_hash(model))
     normalized = validate_annotations_payload(candidate, model, result)
@@ -3312,6 +3400,15 @@ def _annotation_candidate_payload(
             "tool": "write_annotations",
         }
     return candidate
+
+
+def _validate_annotation_write_provenance(candidate: dict[str, Any]) -> list[str]:
+    generated_by = candidate.get("generated_by")
+    if not isinstance(generated_by, dict):
+        return ["generated_by must be an object with kind='agent_generated'."]
+    if generated_by.get("kind") != "agent_generated":
+        return ["generated_by.kind must be 'agent_generated' for write_annotations."]
+    return []
 
 
 def _annotation_write_error(
