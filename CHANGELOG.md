@@ -185,6 +185,8 @@ The project follows Semantic Versioning.
 - Changed `setup-agent` to write only the requested target's instruction file, avoiding
   unrelated `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` creation in projects that use a single
   agent surface.
+- Changed Codex MCP setup to approve the project-scoped LogicChart server by default,
+  avoiding repeated approval prompts for the central local workflow tools.
 - Updated quickstart and command help to prioritize the final agent-first/manual-viewer
   surface: `logicchart setup-agent`, `logicchart update`, `logicchart view`,
   `logicchart validate`, `logicchart doctor`, and `logicchart mcp`.

@@ -63,6 +63,9 @@ LogicChart is in a strong alpha state.
 - `logicchart setup-agent <target>` now writes only the requested target's instruction
   file. Codex, Claude, and Cursor still receive MCP config where supported; Gemini is
   instruction-only.
+- Codex MCP setup now uses `default_tools_approval_mode = "approve"` for the generated
+  project-scoped LogicChart server, so the central local MCP workflow does not stop on
+  every `agent_context` or navigation call.
 - `workflow_slice` now includes a presentation contract for coding agents. Natural-language
   slices anchor to one primary flow and keep related matches as supporting flows, so agents
   can show stable ordered steps instead of raw YAML dumps.

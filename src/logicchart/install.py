@@ -194,7 +194,7 @@ def _install_codex_mcp_config(root: Path) -> Path | None:
             'command = "logicchart"',
             f"args = {_toml_array(['mcp', str(root)])}",
             f"cwd = {json.dumps(str(root))}",
-            'default_tools_approval_mode = "prompt"',
+            'default_tools_approval_mode = "approve"',
             CODEX_MCP_END,
             "",
         ]

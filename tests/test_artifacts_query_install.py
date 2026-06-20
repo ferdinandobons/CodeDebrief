@@ -389,7 +389,7 @@ def test_install_mcp_config_writes_project_scoped_files(tmp_path: Path) -> None:
     assert "[mcp_servers.logicchart]" in codex
     assert 'command = "logicchart"' in codex
     assert f'"{tmp_path}"' in codex
-    assert 'default_tools_approval_mode = "prompt"' in codex
+    assert 'default_tools_approval_mode = "approve"' in codex
 
     claude = json.loads((tmp_path / ".mcp.json").read_text(encoding="utf-8"))
     cursor = json.loads((tmp_path / ".cursor" / "mcp.json").read_text(encoding="utf-8"))

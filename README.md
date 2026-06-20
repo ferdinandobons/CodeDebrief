@@ -62,6 +62,10 @@ agent instructions, registers project-scoped MCP for the selected agent, generat
 initial artifacts, runs `doctor`, validates the result, and prints examples of questions
 to ask the agent.
 
+For Codex, the generated project MCP config approves LogicChart tool calls by default.
+LogicChart MCP is local, deterministic, and scoped to the configured project root; use this
+only for repositories you trust.
+
 After setup, ask your coding agent ordinary questions:
 
 ```text
@@ -141,6 +145,11 @@ prerequisites for ordinary questions.
 
 MCP is the primary runtime surface. `setup-agent` configures it for supported agents, and
 `logicchart mcp` is the underlying server command.
+
+Codex project setup writes `default_tools_approval_mode = "approve"` for the LogicChart MCP
+server so routine `agent_context`, slice expansion, snapshot, validate, and update calls do
+not stop on every tool approval prompt. This approval applies only to that project-scoped
+LogicChart server block.
 
 High-value MCP tools include:
 
