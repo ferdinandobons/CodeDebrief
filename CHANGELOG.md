@@ -61,6 +61,9 @@ The project follows Semantic Versioning.
 - Hardened visual workflow guidance for oversized, saved, or truncated MCP results:
   agents must retry with a narrower slice instead of listing flows, reading source files,
   or hand-building a replacement Mermaid diagram.
+- Added local snapshot artifacts to MCP `snapshot_slice`, plus `include_svg=false` for
+  terminal clients that need a lightweight payload and an openable SVG/HTML file instead
+  of an inline Mermaid code block.
 - Added vertical/top-to-bottom layout guarantees for workflow-slice Mermaid and MCP SVG
   snapshots so repeated chat visuals do not alternate between horizontal and vertical
   graphs.

@@ -96,14 +96,17 @@ browser viewer. Agents can also request `snapshot_slice` or a deterministic subg
 snapshot from explicit flow and finding ids, which renders the same focused review slice
 with highlighted signal nodes and unresolved-target metadata.
 Workflow-slice payloads also include a deterministic presentation contract. For repeated
-visual workflow requests, agents should render
-`workflow_slice.presentation.canonical_visual.diagram` exactly as the top-to-bottom Mermaid
-text fallback, or use `snapshot_slice` when inline SVG is available. Agents should not
-synthesize alternate diagrams from prose. Snapshot SVGs and Mermaid fallbacks are
-vertical/top-to-bottom, while `logicchart view` remains the interactive manual canvas. If a
-tool result is too large, saved externally, truncated, or missing the exact canonical
-visual, the agent should retry with a smaller `token_budget` and a narrower handle instead
-of listing flows or reading source files to recreate the diagram. They should inspect the full returned slice,
+visual workflow requests, agents should use `snapshot_slice` first and render
+`snapshot.svg` through an SVG/HTML visualization widget when the client provides one. When
+inline SVG is unavailable, `snapshot_slice include_svg=false` returns local
+`artifact.html_path` and `artifact.svg_path` values that can be opened outside the chat.
+`workflow_slice.presentation.canonical_visual.diagram` is the exact top-to-bottom Mermaid
+text fallback for copyable output. Agents should not synthesize alternate diagrams from
+prose. Snapshot SVGs and Mermaid fallbacks are vertical/top-to-bottom, while
+`logicchart view` remains the interactive manual canvas. If a tool result is too large,
+saved externally, truncated, or missing the exact canonical visual, the agent should retry
+with a smaller `token_budget` and a narrower handle instead of listing flows or reading
+source files to recreate the diagram. They should inspect the full returned slice,
 request expansion or paths when relevant context is missing, then choose the clearest useful
 first-pass subset to show. That choice may omit low-signal implementation nodes, but every
 visible block must be derived from the selected slice or focused explain-tool payloads.

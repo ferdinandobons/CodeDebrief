@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import re
+import shlex
+import sys
 from collections import Counter, deque
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict
@@ -1049,6 +1052,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         flow_ids: list[str] | None = None,
         finding_ids: list[str] | None = None,
         format: str = "svg",
+        include_svg: bool = True,
         token_budget: int = 900,
     ) -> dict[str, Any]:
         """Render a deterministic visual snapshot for a workflow slice."""
@@ -1076,13 +1080,27 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             max_flows=_snapshot_flow_budget(token_budget),
             max_nodes=_snapshot_node_budget(token_budget),
         )
+        artifact = _write_snapshot_artifact(
+            project_root,
+            snapshot,
+            slice_id=slice_id,
+            flow_ids=normalized_flow_ids,
+            finding_ids=normalized_finding_ids,
+        )
+        snapshot_payload = dict(snapshot)
+        if not include_svg and "svg" in snapshot_payload:
+            snapshot_payload["svg_omitted"] = True
+            snapshot_payload["svg_omitted_reason"] = "include_svg=false"
+            snapshot_payload["svg_byte_size"] = _snapshot_svg_byte_size(snapshot)
+            snapshot_payload.pop("svg", None)
         return {
             "tool": "snapshot_slice",
             "slice_id": slice_id,
             "format": format,
             "flow_ids": normalized_flow_ids,
             "finding_ids": normalized_finding_ids,
-            "snapshot": snapshot,
+            "snapshot": snapshot_payload,
+            "artifact": artifact,
             "viewer_targets": _workflow_viewer_targets(
                 model,
                 normalized_flow_ids,
@@ -1090,7 +1108,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             ),
             "guardrail": (
                 "Snapshots are deterministic visual context for the selected slice. "
-                "Omission counts must be preserved when explaining large slices."
+                "Omission counts must be preserved when explaining large slices. "
+                "If the client cannot render inline SVG or Mermaid, open the returned "
+                "artifact html_path/svg_path instead of rebuilding the diagram."
             ),
         }
 
@@ -1584,12 +1604,17 @@ def _workflow_presentation_contract(
         },
         "media_policy": {
             "svg_snapshot": (
-                "Prefer snapshot_slice when the client can render inline SVG or image "
-                "artifacts; it is the closest static visual to the modeled graph."
+                "Prefer snapshot_slice when the client can render inline SVG, SVG/HTML "
+                "visualization widgets, or local image artifacts; it is the closest static "
+                "visual to the modeled graph. In terminal clients with no SVG widget, call "
+                "snapshot_slice with include_svg=false and open the returned artifact "
+                "html_path/svg_path."
             ),
             "mermaid_fallback": (
                 "Use canonical_visual.diagram as the top-to-bottom universal text "
-                "fallback when images are unavailable or the user wants copyable output."
+                "fallback when images are unavailable or the user wants copyable output; "
+                "do not treat a code block as a rendered graph in clients that only show "
+                "plain text."
             ),
             "manual_viewer": (
                 "Keep logicchart view as the interactive manual UI; do not replace it "
@@ -1598,12 +1623,16 @@ def _workflow_presentation_contract(
         },
         "visual_guidance": (
             "If the user asks to visualize the slice, call snapshot_slice with "
-            "handle.flow_ids and handle.finding_ids. If inline SVG is unavailable, render "
+            "handle.flow_ids and handle.finding_ids. If the client has an SVG/HTML "
+            "visualization widget, render snapshot.svg through that widget. If inline SVG "
+            "is unavailable in the client, call snapshot_slice with include_svg=false and "
+            "provide the returned artifact html_path/svg_path or open_command before any "
+            "text fallback. If no local artifact can be opened, render "
             "presentation.canonical_visual.diagram exactly; do not synthesize a new Mermaid "
             "diagram. Explain that the diagram is a bounded summary and can be expanded. "
-            "End with options to simplify labels in the user's language, expand the "
-            "graph with omitted details, or explore a related area. "
-            "Open viewer_targets with logicchart view for manual inspection."
+            "End with options to simplify labels in the user's language, expand the graph "
+            "with omitted details, or explore a related area. Open viewer_targets with "
+            "logicchart view for manual inspection."
         ),
         "canonical_visual": canonical_visual,
         "recommended_next_tools": {
@@ -2188,6 +2217,7 @@ def _workflow_slice_next_tools(
                 "flow_ids": flow_ids,
                 "finding_ids": finding_ids,
                 "format": "svg",
+                "include_svg": True,
                 "token_budget": token_budget,
             },
         },
@@ -2515,7 +2545,12 @@ def _focused_flow_explanation(model: ProjectModel, flow: Any, token_budget: int)
         "next_tools": {
             "snapshot_slice": {
                 "tool": "snapshot_slice",
-                "arguments": {"flow_ids": [flow.id], "format": "svg", "token_budget": token_budget},
+                "arguments": {
+                    "flow_ids": [flow.id],
+                    "format": "svg",
+                    "include_svg": True,
+                    "token_budget": token_budget,
+                },
             },
             "expand_slice": {
                 "tool": "expand_slice",
@@ -2568,7 +2603,12 @@ def _focused_node_explanation(
             },
             "snapshot_slice": {
                 "tool": "snapshot_slice",
-                "arguments": {"flow_ids": [flow.id], "format": "svg", "token_budget": token_budget},
+                "arguments": {
+                    "flow_ids": [flow.id],
+                    "format": "svg",
+                    "include_svg": True,
+                    "token_budget": token_budget,
+                },
             },
         },
     }
@@ -2607,7 +2647,12 @@ def _focused_edge_explanation(
             },
             "snapshot_slice": {
                 "tool": "snapshot_slice",
-                "arguments": {"flow_ids": [flow.id], "format": "svg", "token_budget": token_budget},
+                "arguments": {
+                    "flow_ids": [flow.id],
+                    "format": "svg",
+                    "include_svg": True,
+                    "token_budget": token_budget,
+                },
             },
         },
     }
@@ -3057,6 +3102,106 @@ def _snapshot_svg_byte_size(snapshot: dict[str, Any]) -> int:
     if not isinstance(svg, str):
         return 0
     return len(svg.encode("utf-8"))
+
+
+def _write_snapshot_artifact(
+    project_root: Path,
+    snapshot: dict[str, Any],
+    *,
+    slice_id: str | None,
+    flow_ids: list[str],
+    finding_ids: list[str],
+) -> dict[str, Any]:
+    svg = snapshot.get("svg")
+    if not isinstance(svg, str) or not svg.startswith("<svg"):
+        return {
+            "written": False,
+            "reason": "snapshot_svg_unavailable",
+        }
+    digest = hashlib.sha256(svg.encode("utf-8")).hexdigest()[:16]
+    stem = _snapshot_artifact_stem(slice_id, flow_ids, finding_ids, digest)
+    snapshot_dir = project_root / ".logicchart" / "snapshots"
+    svg_path = snapshot_dir / f"{stem}.svg"
+    html_path = snapshot_dir / f"{stem}.html"
+    try:
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        svg_path.write_text(svg, encoding="utf-8")
+        html_path.write_text(_snapshot_artifact_html(svg, stem), encoding="utf-8")
+    except OSError as exc:
+        return {
+            "written": False,
+            "reason": "write_failed",
+            "error": str(exc),
+        }
+    relative_svg = svg_path.relative_to(project_root).as_posix()
+    relative_html = html_path.relative_to(project_root).as_posix()
+    return {
+        "written": True,
+        "schema_version": "snapshot_artifact.v1",
+        "format": "svg",
+        "digest": digest,
+        "directory": str(snapshot_dir),
+        "svg_path": str(svg_path),
+        "html_path": str(html_path),
+        "relative_svg_path": relative_svg,
+        "relative_html_path": relative_html,
+        "open_command": _open_file_command(html_path),
+        "markdown_image": f"![LogicChart snapshot]({svg_path})",
+        "guardrail": (
+            "Use this local artifact when the chat client cannot render inline SVG or "
+            "Mermaid. The file is generated under .logicchart/ and is local-only."
+        ),
+    }
+
+
+def _snapshot_artifact_stem(
+    slice_id: str | None,
+    flow_ids: list[str],
+    finding_ids: list[str],
+    digest: str,
+) -> str:
+    label = slice_id or "-".join([*flow_ids[:2], *finding_ids[:2]]) or "slice"
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "-", label).strip(".-")
+    if not safe:
+        safe = "slice"
+    return f"snapshot-{safe[:64]}-{digest}"
+
+
+def _snapshot_artifact_html(svg: str, title: str) -> str:
+    escaped_title = html.escape(title)
+    return "\n".join(
+        [
+            "<!doctype html>",
+            '<html lang="en">',
+            "<head>",
+            '  <meta charset="utf-8">',
+            "  <title>LogicChart snapshot</title>",
+            "  <style>",
+            "    body { margin: 0; background: #101216; color: #f5f7fb; font-family: "
+            "Inter, ui-sans-serif, system-ui, sans-serif; }",
+            "    header { padding: 12px 16px; border-bottom: 1px solid #2b3038; }",
+            "    main { padding: 16px; overflow: auto; }",
+            "    svg { max-width: none; height: auto; background: #151820; }",
+            "  </style>",
+            "</head>",
+            "<body>",
+            f"  <header>LogicChart snapshot: {escaped_title}</header>",
+            "  <main>",
+            svg,
+            "  </main>",
+            "</body>",
+            "</html>",
+        ]
+    )
+
+
+def _open_file_command(path: Path) -> str:
+    quoted = shlex.quote(str(path))
+    if sys.platform == "darwin":
+        return f"open {quoted}"
+    if sys.platform.startswith("win"):
+        return f"start {quoted}"
+    return f"xdg-open {quoted}"
 
 
 def _single_item_list(value: str | None) -> list[str] | None:

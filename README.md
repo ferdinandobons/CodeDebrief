@@ -155,12 +155,15 @@ LogicChart server block.
 When supported by the agent, setup also installs a project-scoped LogicChart skill. The
 skill tells the agent to use `agent_context` for implicit code-logic questions and to call
 `snapshot_slice` when the user asks to show, visualize, render, diagram, or open a
-workflow/canvas view. If inline SVG rendering is not available, the agent should show a
-canonical top-to-bottom Mermaid `flowchart TD` from
-`workflow_slice.presentation.canonical_visual.diagram`, keep its `diagram_hash` when useful,
-then provide the returned `viewer_targets` command and hash target. Agents should not
-synthesize alternate Mermaid diagrams or add limits, error codes, or branches that are not
-present in the `workflow_slice` payload. Snapshot SVGs and Mermaid fallbacks are vertical,
+workflow/canvas view. If the client has an SVG or HTML visualization widget, the agent
+should render the `snapshot_slice.snapshot.svg` through that widget first. If inline
+rendering is unavailable, `snapshot_slice` can be called with `include_svg=false` so the
+agent gets a lightweight payload plus local `artifact.html_path`, `artifact.svg_path`, and
+`artifact.open_command` values. The canonical top-to-bottom Mermaid `flowchart TD` from
+`workflow_slice.presentation.canonical_visual.diagram` is the copyable text fallback, not a
+replacement for SVG rendering in clients that can show SVG. Agents should not synthesize
+alternate Mermaid diagrams or add limits, error codes, or branches that are not present in
+the `workflow_slice` payload. Snapshot SVGs and Mermaid fallbacks are vertical,
 top-to-bottom visuals so repeated chat answers do not alternate between horizontal and
 vertical layouts. For a first visual answer, the agent should inspect
 the full returned slice, request `expand_slice` or `workflow_path` if the selected context is
@@ -175,7 +178,8 @@ diagram is a bounded summary that can be expanded, then offer concise follow-ups
 labels in simpler language in the user's language, expand omitted nodes or adjacent flows,
 or explore a related area. A language-friendly rewrite is allowed only as a separate
 translation layer, preserving ids or source anchors and not adding facts. In practice, SVG
-snapshots are the best inline visual when the client supports images, canonical
+snapshots are the best inline visual when the client supports images or visualization
+widgets, local snapshot artifacts are the best fallback for terminal clients, canonical
 top-to-bottom Mermaid is the portable text fallback, and `logicchart view` remains the
 interactive manual viewer.
 
@@ -186,7 +190,7 @@ High-value MCP tools include:
 | `agent_context` | Default one-call path for natural code-logic questions and change impact. |
 | `expand_slice` | Widen or deepen an existing workflow slice by stable flow/finding handles. |
 | `workflow_path` | Trace between two flows, symbols, routes, states, or concepts when statically modeled. |
-| `snapshot_slice` | Render a deterministic SVG snapshot for the selected slice. |
+| `snapshot_slice` | Render a deterministic SVG snapshot for the selected slice and write a local snapshot artifact. |
 | `explain_flow`, `explain_node`, `explain_edge` | Inspect focused entities when the first slice is not enough. |
 | `domain_map` | Aggregate state/domain handling, missing values, related flows, and review signals. |
 | `preview_annotation_targets`, `write_annotations`, `validate_annotations`, `annotation_status`, `clear_annotations` | Manage local agent-authored annotation sidecars. |

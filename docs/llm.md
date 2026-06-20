@@ -19,14 +19,18 @@ but it must not replace source-backed flow data, diagnostic evidence, or review-
 `logicchart setup-agent claude` installs `.claude/skills/logicchart/SKILL.md`. These
 provider-native skills route implicit code-logic questions to MCP `agent_context` and route
 visual workflow requests to `snapshot_slice` first, with `viewer_targets` as the manual UI
-fallback when inline SVG rendering is unavailable. When the agent cannot show the SVG
-inline, it should render `workflow_slice.presentation.canonical_visual.diagram` exactly as
-the top-to-bottom Mermaid fallback instead of synthesizing a new Mermaid diagram or compact
-linear workflow summary. Snapshot SVGs and Mermaid fallbacks are vertical/top-to-bottom; the
-agent should not redraw them as horizontal summaries. If an MCP result is too large, saved
-externally, truncated, or missing the exact canonical visual, the agent should retry with a
-smaller `token_budget` and a narrower `flow_id`, `symbol`, `current_file`, or `scope`
-instead of listing flows or reading source files to hand-build a diagram. The agent should
+fallback when inline SVG rendering is unavailable. In clients such as Claude Code that can
+render SVG through a visualization widget, the agent should pass `snapshot.svg` to that
+widget instead of falling back to Mermaid text. When inline SVG is unavailable,
+`snapshot_slice` can be called with `include_svg=false`; the agent should then provide the
+returned local `artifact.html_path`, `artifact.svg_path`, or `artifact.open_command` before
+any text fallback. `workflow_slice.presentation.canonical_visual.diagram` is the exact
+top-to-bottom Mermaid fallback for copyable text output, not a diagram the agent should
+recreate. Snapshot SVGs and Mermaid fallbacks are vertical/top-to-bottom; the agent should
+not redraw them as horizontal summaries. If an MCP result is too large, saved externally,
+truncated, or missing the exact canonical visual, the agent should retry with a smaller
+`token_budget` and a narrower `flow_id`, `symbol`, `current_file`, or `scope` instead of
+listing flows or reading source files to hand-build a diagram. The agent should
 inspect the full returned slice first, use
 `expand_slice` or `workflow_path` when relevant nodes or paths are missing, then choose the
 clearest useful first-pass subset to show. That depth choice is presentation only: every

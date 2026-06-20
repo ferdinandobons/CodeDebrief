@@ -480,6 +480,8 @@ def authorize(user):
                     "value",
                     "include_visual",
                 } <= set(agent_context_properties)
+                snapshot_slice_properties = schema_by_name["snapshot_slice"].get("properties", {})
+                assert "include_svg" in snapshot_slice_properties
                 context_properties = schema_by_name["context_pack"].get("properties", {})
                 assert {"flow_ids", "symbols", "finding_ids", "dependency_paths"} <= set(
                     context_properties
@@ -585,6 +587,10 @@ def authorize(user):
                     "#flow="
                 )
                 assert workflow_slice["next_tools"]["expand_slice"]["tool"] == "expand_slice"
+                assert (
+                    workflow_slice["next_tools"]["snapshot_slice"]["arguments"]["include_svg"]
+                    is True
+                )
                 expanded_slice = await session.call_tool(
                     "expand_slice",
                     {
@@ -610,10 +616,34 @@ def authorize(user):
                 )
                 assert not slice_snapshot.isError
                 assert slice_snapshot.structuredContent["snapshot"]["format"] == "svg"  # type: ignore[index]
+                artifact = slice_snapshot.structuredContent["artifact"]  # type: ignore[index]
+                assert artifact["written"] is True  # type: ignore[index]
+                assert artifact["html_path"].endswith(".html")  # type: ignore[index]
+                assert artifact["svg_path"].endswith(".svg")  # type: ignore[index]
+                assert Path(artifact["html_path"]).exists()  # type: ignore[index]
+                assert Path(artifact["svg_path"]).exists()  # type: ignore[index]
+                assert "<svg" in Path(artifact["svg_path"]).read_text(encoding="utf-8")  # type: ignore[index]
+                assert "open" in artifact["open_command"] or "xdg-open" in artifact["open_command"]  # type: ignore[index]
                 assert (  # type: ignore[index]
                     slice_snapshot.structuredContent["viewer_targets"]["targets"][0]["flow_id"]
                     == flow.id
                 )
+                light_slice_snapshot = await session.call_tool(
+                    "snapshot_slice",
+                    {
+                        "slice_id": workflow_slice["id"],
+                        "flow_ids": workflow_slice["handle"]["flow_ids"],
+                        "finding_ids": workflow_slice["handle"]["finding_ids"],
+                        "include_svg": False,
+                        "token_budget": 480,
+                    },
+                )
+                assert not light_slice_snapshot.isError
+                light_payload = light_slice_snapshot.structuredContent  # type: ignore[assignment]
+                assert "svg" not in light_payload["snapshot"]  # type: ignore[index]
+                assert light_payload["snapshot"]["svg_omitted"] is True  # type: ignore[index]
+                assert light_payload["snapshot"]["svg_byte_size"] > 0  # type: ignore[index]
+                assert light_payload["artifact"]["written"] is True  # type: ignore[index]
                 path_response = await session.call_tool(
                     "workflow_path",
                     {"source": flow.id, "target": flow.id, "token_budget": 480},

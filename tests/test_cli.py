@@ -21,6 +21,12 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "Prefer the LogicChart MCP `agent_context` tool" in content
     assert "returned `workflow_slice`" in content
     assert "When the user asks to show a workflow, flusso, visual flow, canvas" in content
+    assert "SVG/HTML visualization widget" in content
+    assert "`snapshot.svg`" in content
+    assert "`include_svg=false`" in content
+    assert "`artifact.html_path`" in content
+    assert "`artifact.svg_path`" in content
+    assert "`artifact.open_command`" in content
     assert "`workflow_slice.presentation.canonical_visual.diagram` exactly" in content
     assert "top-to-bottom" in content
     assert "vertical/top-to-bottom" in content
@@ -65,6 +71,9 @@ def _assert_logicchart_skill(content: str) -> None:
     assert "`agent_context`" in content
     assert "include_visual=true" in content
     assert "`snapshot_slice`" in content
+    assert "`include_svg=false`" in content
+    assert "`artifact.html_path`" in content
+    assert "`artifact.open_command`" in content
     assert "`workflow_slice.presentation.canonical_visual.diagram` exactly" in content
     assert "top-to-bottom" in content
     assert "vertical/top-to-bottom" in content

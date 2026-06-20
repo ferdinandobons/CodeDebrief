@@ -77,10 +77,16 @@ flusso, or similar code path:
    needed to understand the logical path.
 5. Call `snapshot_slice` using `workflow_slice.id`, `workflow_slice.handle.flow_ids`, and
    `workflow_slice.handle.finding_ids`.
-6. Show the SVG snapshot or rendered visual first when the client supports it.
+6. Show the SVG snapshot or rendered visual first when the client supports it. If the
+   client has an SVG/HTML visualization widget, render `snapshot.svg` with that widget
+   instead of pasting the SVG or Mermaid as text.
    LogicChart snapshots and Mermaid fallbacks are vertical/top-to-bottom visuals; do not
    rotate them into horizontal summaries.
-7. If inline SVG rendering is not possible, render
+7. If inline SVG rendering is not possible but a local snapshot artifact was returned,
+   provide that artifact path or open command as the visual result before any text
+   fallback. In terminal clients with no SVG widget, call `snapshot_slice` with
+   `include_svg=false` and use the returned `artifact.html_path`, `artifact.svg_path`, or
+   `artifact.open_command`. If no local artifact can be opened, render
    `workflow_slice.presentation.canonical_visual.diagram` exactly as the top-to-bottom
    Mermaid fallback. Keep the returned `diagram_hash` visible when useful. Do not
    synthesize a new Mermaid diagram and do not add limits, error codes, branches, or
@@ -131,10 +137,13 @@ For codebase questions about behavior, decisions, missing cases, or change impac
    current file, flow id, symbol, finding id, or dependency path when available; inspect
    its returned `workflow_slice` before answering.
 3. When the user asks to show a workflow, flusso, visual flow, canvas, or
-   `workflow_slice`, prefer a visual answer: use `snapshot_slice` when available; if the
-   client cannot render the SVG inline, render
-   `workflow_slice.presentation.canonical_visual.diagram` exactly as the top-to-bottom
-   Mermaid fallback.
+   `workflow_slice`, prefer a visual answer: use `snapshot_slice` when available and render
+   `snapshot.svg` through the client's SVG/HTML visualization widget when one exists. If
+   the client cannot render SVG inline, call `snapshot_slice` with `include_svg=false` and
+   provide the returned local `artifact.html_path`, `artifact.svg_path`, or
+   `artifact.open_command` before any text fallback. If no local artifact can be opened,
+   render `workflow_slice.presentation.canonical_visual.diagram` exactly as the
+   top-to-bottom Mermaid fallback.
    Keep LogicChart visuals vertical/top-to-bottom; do not redraw them as horizontal
    summaries.
    Inspect the full returned `workflow_slice` before deciding what to show. Choose the
