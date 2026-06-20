@@ -8,6 +8,8 @@ The project follows Semantic Versioning.
 
 ### Added
 
+- Updated example documentation to use the current minimal public CLI and route query or
+  impact-style exploration through agent/MCP workflow slices.
 - Added structured diagnostic metadata for every finding, including stable detector rule
   ids, confidence basis, expected/actual/missing state, evidence chains, review prompts,
   and suggested next actions.

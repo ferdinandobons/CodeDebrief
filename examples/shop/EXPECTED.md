@@ -4,7 +4,7 @@ A worked corpus: a small shop backend (Python) + frontend (Next.js/TS) with
 **planted defects** and **controls**, used to validate LogicChart end-to-end and
 to be candid about what the current detectors catch and miss. The gated
 detectors are enabled here (`gated_detectors = true`). Regenerate with
-`logicchart analyze examples/shop`.
+`logicchart update examples/shop --full`.
 
 ## True positives
 

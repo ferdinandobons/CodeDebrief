@@ -60,6 +60,10 @@ LogicChart is in a strong alpha state.
   remaining manual product path is `logicchart view`, with `update`, `validate`, `doctor`,
   `mcp`, and `setup-agent` kept for setup, maintenance, CI, diagnostics, and agent
   integration.
+- Example documentation now follows the same public surface: demo/shop docs use
+  `logicchart update`, `logicchart validate`, and `logicchart view`, while query/impact
+  exploration is described as an agent/MCP workflow-slice task rather than a public CLI
+  command.
 - `logicchart setup-agent <target>` now writes only the requested target's instruction
   file. Codex, Claude, and Cursor still receive MCP config where supported; Gemini is
   instruction-only.

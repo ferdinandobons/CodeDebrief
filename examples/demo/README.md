@@ -42,12 +42,16 @@ multiple realistic problems to show.
 ## Explore it
 
 ```bash
-logicchart analyze examples/demo --full      # whole codebase
-logicchart view examples/demo                # interactive viewer (scope + language filters)
-logicchart query "where is suspended user status handled?" --path examples/demo
-logicchart query "order status" --path examples/demo --scope backend
-logicchart impact backend/users.py --path examples/demo
+logicchart update examples/demo --full       # refresh the deterministic model
+logicchart validate examples/demo --check-sync
+logicchart view examples/demo                # interactive manual viewer
 ```
+
+For query or impact questions, configure an agent with `logicchart setup-agent <target>`
+in the project you want to inspect, then ask the agent ordinary questions such as
+"where is suspended user status handled?" or "what is impacted by backend/users.py?".
+Those capabilities now live behind MCP workflow slices rather than public demo CLI
+commands.
 
 The generated model lives in [`logicchart-out/`](logicchart-out/): `logic-flow.json`
 (the IR), `logic-flow.md` (Markdown + Mermaid), and `logic-flow.html` (the viewer).
