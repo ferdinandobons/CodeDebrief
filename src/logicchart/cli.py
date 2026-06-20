@@ -16,7 +16,7 @@ from logicchart.analysis import ProjectAnalyzer
 from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import BUILTIN_PROFILES, LogicChartConfig
 from logicchart.doctor import doctor_report, render_doctor, render_doctor_json
-from logicchart.install import install_agent_instructions, install_mcp_config
+from logicchart.install import MCP_CONFIG_TARGETS, install_agent_instructions, install_mcp_config
 from logicchart.quality import render_quality
 from logicchart.render.html import render_html
 from logicchart.validation import validate_logicchart
@@ -68,6 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
             Examples:
               logicchart setup-agent codex
               logicchart setup-agent claude ../my-app
+              logicchart setup-agent gemini
               logicchart setup-agent cursor --full
 
             After setup, ask your coding agent ordinary questions about code logic. Use
@@ -75,7 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
             """
         ),
     )
-    setup.add_argument("agent", choices=["codex", "claude", "cursor"])
+    setup.add_argument("agent", choices=["codex", "claude", "gemini", "cursor"])
     setup.add_argument(
         "path",
         nargs="?",
@@ -296,7 +297,12 @@ def _setup_agent(
     if not root.exists():
         raise FileNotFoundError(f"path does not exist: {root}")
     root = root.resolve()
-    display = {"codex": "Codex", "claude": "Claude", "cursor": "Cursor"}[agent]
+    display = {
+        "codex": "Codex",
+        "claude": "Claude",
+        "gemini": "Gemini",
+        "cursor": "Cursor",
+    }[agent]
     print(f"LogicChart setup-agent for {display}")
     print(f"Project: {root}")
 
@@ -305,8 +311,9 @@ def _setup_agent(
     print("Setup:")
     print(f"- Config: {'Created' if created_config else 'Already present'} ({config_path})")
 
-    changed = install_agent_instructions(root, "all")
-    changed.extend(install_mcp_config(root, agent))
+    changed = install_agent_instructions(root, agent)
+    if agent in MCP_CONFIG_TARGETS:
+        changed.extend(install_mcp_config(root, agent))
     if changed:
         print(f"- Agent files: updated {len(changed)} file{'s' if len(changed) != 1 else ''}")
         for path in changed:

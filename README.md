@@ -259,19 +259,20 @@ Supported setup targets:
 ```bash
 logicchart setup-agent codex
 logicchart setup-agent claude ../my-app
+logicchart setup-agent gemini
 logicchart setup-agent cursor --full
 ```
 
-The selected target controls MCP registration. Managed instruction blocks are synchronized
-across supported agent files so they do not drift:
+The selected target controls which instruction file is written. `setup-agent` does not
+create unrelated agent files:
 
 - `AGENTS.md` for Codex;
 - `CLAUDE.md` for Claude Code;
 - `GEMINI.md` for Gemini CLI instructions;
 - `.cursor/rules/logicchart.mdc` for Cursor.
 
-Gemini is currently instruction-only. Use an agent with project-scoped MCP support for the
-runtime integration.
+Codex, Claude, and Cursor also receive their project-scoped MCP config. Gemini is currently
+instruction-only; use an agent with project-scoped MCP support for the runtime integration.
 
 `setup-agent` preserves local notes inside managed instruction blocks. Put private fixture
 warnings or project-specific checks in the local-notes section instead of editing the

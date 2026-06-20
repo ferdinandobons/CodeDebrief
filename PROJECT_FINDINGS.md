@@ -60,6 +60,9 @@ LogicChart is in a strong alpha state.
   remaining manual product path is `logicchart view`, with `update`, `validate`, `doctor`,
   `mcp`, and `setup-agent` kept for setup, maintenance, CI, diagnostics, and agent
   integration.
+- `logicchart setup-agent <target>` now writes only the requested target's instruction
+  file. Codex, Claude, and Cursor still receive MCP config where supported; Gemini is
+  instruction-only.
 - `PRODUCT_MIGRATION_PLAN.md` is now the source of truth for product vision and migration
   sequencing. It keeps the vision language needed for README/docs while listing the
   macro-phase execution plan and required repeated code-review passes.

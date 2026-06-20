@@ -24,7 +24,9 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "logicchart view ..." in content
     assert "logicchart <command> --help" in content
     assert "provider keys" in content
-    assert "Keep AI-agent instruction files synchronized" in content
+    assert (
+        "`logicchart setup-agent <target>` updates only that target's instruction file" in content
+    )
     for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
         assert snippet not in content
 
@@ -62,6 +64,7 @@ def test_command_help_documents_simple_examples(capsys: pytest.CaptureFixture[st
     assert "Examples:" in setup_help
     assert "logicchart setup-agent codex" in setup_help
     assert "logicchart setup-agent claude ../my-app" in setup_help
+    assert "logicchart setup-agent gemini" in setup_help
     assert "ask your coding agent ordinary questions" in setup_help
 
 
@@ -203,6 +206,7 @@ def test_cli_validate_reports_absent_annotation_status(
     [
         ("codex", Path("AGENTS.md"), Path(".codex/config.toml"), "Codex"),
         ("claude", Path("CLAUDE.md"), Path(".mcp.json"), "Claude"),
+        ("gemini", Path("GEMINI.md"), None, "Gemini"),
         (
             "cursor",
             Path(".cursor/rules/logicchart.mdc"),
@@ -214,7 +218,7 @@ def test_cli_validate_reports_absent_annotation_status(
 def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
     agent: str,
     instruction_path: Path,
-    mcp_path: Path,
+    mcp_path: Path | None,
     display: str,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -231,9 +235,17 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
     assert (tmp_path / "logicchart.toml").exists()
     assert (tmp_path / instruction_path).exists()
     for path in instruction_paths:
-        assert (tmp_path / path).exists()
-        _assert_current_agent_instructions((tmp_path / path).read_text(encoding="utf-8"))
-    assert (tmp_path / mcp_path).exists()
+        if path == instruction_path:
+            assert (tmp_path / path).exists()
+            _assert_current_agent_instructions((tmp_path / path).read_text(encoding="utf-8"))
+        else:
+            assert not (tmp_path / path).exists()
+    if mcp_path is not None:
+        assert (tmp_path / mcp_path).exists()
+    else:
+        assert not (tmp_path / ".codex" / "config.toml").exists()
+        assert not (tmp_path / ".mcp.json").exists()
+        assert not (tmp_path / ".cursor" / "mcp.json").exists()
     assert (tmp_path / "logicchart-out" / "logic-flow.json").exists()
     assert (tmp_path / "logicchart-out" / "logic-flow.md").exists()
     agents_text = (tmp_path / instruction_path).read_text(encoding="utf-8")

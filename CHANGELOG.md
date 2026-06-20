@@ -175,8 +175,12 @@ The project follows Semantic Versioning.
 - Updated generated agent instructions across Codex, Claude, Gemini, and Cursor to prefer
   MCP `agent_context` for codebase questions and keep `logicchart view` as the manual UI
   path.
-- Added `logicchart setup-agent codex|claude|cursor` as the public one-command setup path
-  for agent instructions, MCP config, artifact generation, doctor, and validation.
+- Added `logicchart setup-agent codex|claude|gemini|cursor` as the public one-command setup
+  path for target-specific agent instructions, MCP config where supported, artifact
+  generation, doctor, and validation.
+- Changed `setup-agent` to write only the requested target's instruction file, avoiding
+  unrelated `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` creation in projects that use a single
+  agent surface.
 - Updated quickstart and command help to prioritize the final agent-first/manual-viewer
   surface: `logicchart setup-agent`, `logicchart update`, `logicchart view`,
   `logicchart validate`, `logicchart doctor`, and `logicchart mcp`.
