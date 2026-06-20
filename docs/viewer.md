@@ -95,9 +95,14 @@ confidence, review prompt, and bounded evidence-chain summaries without opening 
 browser viewer. Agents can also request `snapshot_slice` or a deterministic subgraph
 snapshot from explicit flow and finding ids, which renders the same focused review slice
 with highlighted signal nodes and unresolved-target metadata.
-Workflow-slice payloads also include a deterministic presentation contract. Agents should
-render that contract, ordered steps, decision nodes, review signals, and source ranges before
-falling back to raw JSON or YAML. Workflow-slice and `snapshot_slice` MCP payloads include
+Workflow-slice payloads also include a deterministic presentation contract. For repeated
+visual workflow requests, agents should render
+`workflow_slice.presentation.canonical_visual.diagram` exactly as the Mermaid text fallback,
+or use `snapshot_slice` when inline SVG is available. Agents should not synthesize alternate
+diagrams from prose. They may choose a concise or expanded slice with LogicChart handles,
+but every visible block must be derived from the selected slice. Human-friendly labels
+should be presented as a translation of the canonical payload, not as replacement evidence.
+Workflow-slice and `snapshot_slice` MCP payloads include
 `viewer_targets` with `logicchart view` hash fragments such as `#flow=<flow-id>`. These are
 manual follow-up targets for the generated viewer; the deterministic slice and snapshot
 payloads remain the agent's primary context.

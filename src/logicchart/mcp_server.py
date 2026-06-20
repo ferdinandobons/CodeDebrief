@@ -24,7 +24,7 @@ from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import LogicChartConfig
 from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts
 from logicchart.llm_enrich import EnrichmentOptions, build_enrichment_preview
-from logicchart.model import NodeKind, ProjectModel
+from logicchart.model import Flow, FlowEdge, FlowNode, NodeKind, ProjectModel
 from logicchart.quality import model_quality
 from logicchart.query import (
     explain_finding,
@@ -1401,6 +1401,12 @@ def _workflow_slice_payload(
     decisions = _workflow_decisions(model, visible_flow_ids, token_budget)
     review_signals = _workflow_review_signals(pack, token_budget)
     viewer_targets = _workflow_viewer_targets(model, visible_flow_ids, finding_ids)
+    canonical_visual = _workflow_canonical_visual(
+        model,
+        visible_flow_ids,
+        finding_ids,
+        token_budget,
+    )
     next_tools = _workflow_slice_next_tools(
         primary_flow_ids,
         supporting_flow_ids,
@@ -1433,6 +1439,7 @@ def _workflow_slice_payload(
             decisions=decisions,
             review_signals=review_signals,
             viewer_targets=viewer_targets,
+            canonical_visual=canonical_visual,
             next_tools=next_tools,
         ),
         "primary_flows": primary_flows,
@@ -1480,6 +1487,7 @@ def _workflow_presentation_contract(
     decisions: list[dict[str, Any]],
     review_signals: list[dict[str, Any]],
     viewer_targets: dict[str, Any],
+    canonical_visual: dict[str, Any],
     next_tools: dict[str, Any],
 ) -> dict[str, Any]:
     primary_names = [str(flow.get("name")) for flow in primary_flows if flow.get("name")]
@@ -1496,9 +1504,15 @@ def _workflow_presentation_contract(
             "decisions": len(decisions),
             "review_signals": len(review_signals),
             "viewer_targets": viewer_targets.get("target_count", 0),
+            "canonical_visual_nodes": canonical_visual.get("node_count", 0),
+            "canonical_visual_edges": canonical_visual.get("edge_count", 0),
         },
         "default_sections": [
             {"label": "Slice Identity", "source_fields": ["id", "model_hash", "handle"]},
+            {
+                "label": "Canonical Visual",
+                "source_fields": ["presentation.canonical_visual"],
+            },
             {"label": "Primary Flows", "source_fields": ["primary_flows"]},
             {"label": "Supporting Flows", "source_fields": ["supporting_flows"]},
             {"label": "Ordered Steps", "source_fields": ["ordered_steps"]},
@@ -1507,23 +1521,210 @@ def _workflow_presentation_contract(
             {"label": "Visual Targets", "source_fields": ["viewer_targets", "next_tools"]},
         ],
         "agent_guidance": [
-            "When the user asks to show a workflow_slice, render these sections first.",
+            "When the user asks to show a workflow_slice or workflow, render "
+            "presentation.canonical_visual.diagram as-is before prose.",
+            "The agent may choose the visible depth and branches by asking for a "
+            "narrower or expanded slice, but block contents must stay grounded in "
+            "this payload.",
+            "Tell the user the shown diagram is a bounded summary of the selected "
+            "logic and can be expanded.",
+            "A separate human-friendly translation may rewrite labels only from "
+            "returned node, edge, source, and decision fields.",
             "Use ordered_steps as the canonical walkthrough and keep source anchors visible.",
             "Keep flow_id and finding_id values visible so the slice can be expanded.",
-            "Do not invent steps outside this payload.",
+            "Do not invent steps, constants, limits, error codes, or branches outside "
+            "this payload.",
             "Show raw JSON or YAML only when the user explicitly asks for raw output.",
         ],
+        "depth_policy": {
+            "summary": (
+                "This is a bounded workflow_slice selected for the request. Use the "
+                "slice handle and recommended_next_tools to deepen, widen, or trace "
+                "specific paths instead of manually inventing omitted branches."
+            ),
+            "agent_role": (
+                "Choose the amount of detail to display for the user's question, but "
+                "derive each displayed block from canonical_visual, ordered_steps, "
+                "decisions, source_ranges, or focused explain_* tool results."
+            ),
+        },
+        "label_policy": {
+            "canonical": (
+                "For stable output, render canonical_visual.diagram exactly and keep "
+                "diagram_hash when useful."
+            ),
+            "human_friendly": (
+                "A human-friendly translation may replace technical labels with "
+                "clearer wording only as a separate presentation layer. Preserve ids "
+                "or source anchors and do not add facts absent from the workflow_slice "
+                "payload."
+            ),
+        },
+        "media_policy": {
+            "svg_snapshot": (
+                "Prefer snapshot_slice when the client can render inline SVG or image "
+                "artifacts; it is the closest static visual to the modeled graph."
+            ),
+            "mermaid_fallback": (
+                "Use canonical_visual.diagram as the universal text fallback when "
+                "images are unavailable or the user wants copyable output."
+            ),
+            "manual_viewer": (
+                "Keep logicchart view as the interactive manual UI; do not replace it "
+                "with a static Mermaid or screenshot-only experience."
+            ),
+        },
         "visual_guidance": (
             "If the user asks to visualize the slice, call snapshot_slice with "
-            "handle.flow_ids and handle.finding_ids, or open viewer_targets with "
-            "logicchart view for manual inspection."
+            "handle.flow_ids and handle.finding_ids. If inline SVG is unavailable, render "
+            "presentation.canonical_visual.diagram exactly; do not synthesize a new Mermaid "
+            "diagram. Explain that the diagram is a bounded summary and can be expanded. "
+            "Open viewer_targets with logicchart view for manual inspection."
         ),
+        "canonical_visual": canonical_visual,
         "recommended_next_tools": {
             key: value
             for key, value in next_tools.items()
             if key in {"expand_slice", "snapshot_slice", "workflow_path"}
         },
     }
+
+
+def _workflow_canonical_visual(
+    model: ProjectModel,
+    flow_ids: list[str],
+    finding_ids: list[str],
+    token_budget: int,
+) -> dict[str, Any]:
+    flows = [cast(Flow, flow) for flow in _flows_by_ids(model, flow_ids)]
+    node_budget = max(12, _slice_item_budget(token_budget))
+    lines = ["flowchart TD"]
+    rendered_nodes: set[str] = set()
+    flow_node_ids: dict[str, list[str]] = {}
+    rendered_flow_ids: list[str] = []
+    omitted_nodes = 0
+    omitted_edges = 0
+    edge_count = 0
+
+    if not flows:
+        lines.append('  empty["No modeled flows selected for this workflow_slice"]')
+
+    for flow in flows:
+        flow_node_ids[flow.id] = []
+        if len(rendered_nodes) >= node_budget:
+            omitted_nodes += len(flow.nodes)
+            continue
+        rendered_flow_ids.append(flow.id)
+        lines.append(
+            f"  subgraph {_workflow_mermaid_id(f'flow:{flow.id}')}"
+            f'["{_workflow_mermaid_label(flow.name)}"]'
+        )
+        if not flow.nodes:
+            summary_id = _workflow_mermaid_id(f"{flow.id}:summary")
+            lines.append(f'    {summary_id}["{_workflow_mermaid_label(flow.name)}"]')
+            flow_node_ids[flow.id].append(summary_id)
+        for node in flow.nodes:
+            if len(rendered_nodes) >= node_budget:
+                omitted_nodes += 1
+                continue
+            node_id = _workflow_mermaid_id(node.id)
+            lines.append(f"    {_workflow_mermaid_node(node, node_id)}")
+            rendered_nodes.add(node.id)
+            flow_node_ids[flow.id].append(node_id)
+        for edge in flow.edges:
+            if edge.source in rendered_nodes and edge.target in rendered_nodes:
+                lines.append(f"    {_workflow_mermaid_edge(edge)}")
+                edge_count += 1
+            else:
+                omitted_edges += 1
+        lines.append("  end")
+
+    flows_by_id = {flow.id: flow for flow in flows}
+    for flow in flows:
+        source_nodes = flow_node_ids.get(flow.id, [])
+        if not source_nodes:
+            continue
+        for target_id in flow.calls:
+            target = flows_by_id.get(target_id)
+            target_nodes = flow_node_ids.get(target_id, [])
+            if target is None or not target_nodes:
+                omitted_edges += 1
+                continue
+            lines.append(
+                f"  {source_nodes[-1]} -->"
+                f'|"{_workflow_mermaid_label(f"calls {target.name}", 64)}"| {target_nodes[0]}'
+            )
+            edge_count += 1
+
+    diagram = "\n".join(lines)
+    return {
+        "schema_version": "workflow_slice.canonical_visual.v1",
+        "format": "mermaid",
+        "diagram": diagram,
+        "diagram_hash": hashlib.sha256(diagram.encode("utf-8")).hexdigest()[:16],
+        "source": "logic-flow graph nodes and edges",
+        "source_fields": [
+            "primary_flows",
+            "supporting_flows",
+            "ordered_steps",
+            "decisions",
+            "source_ranges",
+        ],
+        "flow_ids": rendered_flow_ids,
+        "finding_ids": finding_ids,
+        "node_count": len(rendered_nodes),
+        "edge_count": edge_count,
+        "omissions": {
+            "node_budget": node_budget,
+            "omitted_node_count": omitted_nodes,
+            "omitted_edge_count": omitted_edges,
+        },
+        "guardrail": (
+            "Render this diagram as-is when a text Mermaid fallback is needed. It is "
+            "derived from deterministic graph nodes and edges; do not add inferred "
+            "limits, error codes, branches, or service steps that are absent from the "
+            "workflow_slice payload. Use a separate human-friendly view if labels need "
+            "translation."
+        ),
+    }
+
+
+def _workflow_mermaid_node(node: FlowNode, node_id: str) -> str:
+    label = _workflow_mermaid_label(node.label)
+    if node.kind is NodeKind.DECISION:
+        return f'{node_id}{{"{label}"}}'
+    if node.kind is NodeKind.CALL:
+        return f'{node_id}[["{label}"]]'
+    if node.kind is NodeKind.ERROR:
+        return f'{node_id}{{{{"{label}"}}}}'
+    if node.kind in {NodeKind.ENTRY, NodeKind.TERMINAL}:
+        return f'{node_id}(["{label}"])'
+    return f'{node_id}["{label}"]'
+
+
+def _workflow_mermaid_edge(edge: FlowEdge) -> str:
+    source = _workflow_mermaid_id(edge.source)
+    target = _workflow_mermaid_id(edge.target)
+    label = f'|"{_workflow_mermaid_label(edge.label, 64)}"|' if edge.label else ""
+    return f"{source} -->{label} {target}"
+
+
+def _workflow_mermaid_id(value: str) -> str:
+    return "m" + "".join(character if character.isalnum() else "_" for character in value)
+
+
+def _workflow_mermaid_label(value: str, limit: int = 96) -> str:
+    normalized = re.sub(r"\s+", " ", value).strip()
+    if len(normalized) > limit:
+        normalized = normalized[: max(0, limit - 3)].rstrip() + "..."
+    return (
+        normalized.replace("&", "&amp;")
+        .replace("\\", "\\\\")
+        .replace('"', "&quot;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("|", "/")
+    )
 
 
 def _workflow_primary_flow_ids(pack: dict[str, Any]) -> list[str]:

@@ -30,7 +30,7 @@ from logicchart.mcp_server import (
     _workflow_slice_payload,
     flow_in_agent_scope,
 )
-from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel, SourceLocation
+from logicchart.model import Flow, FlowEdge, FlowNode, NodeKind, ProjectModel, SourceLocation
 from logicchart.query import impact_model, query_model
 
 
@@ -150,8 +150,23 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
                 kind=NodeKind.ACTION,
                 label="Create pending OCR upload job",
                 location=SourceLocation(path="backend/ocr/service.py", start_line=84, end_line=84),
+            ),
+            FlowNode(
+                id="upload-decision",
+                kind=NodeKind.DECISION,
+                label="DeadlineType is valid",
+                location=SourceLocation(path="backend/ocr/service.py", start_line=90, end_line=90),
+            ),
+        ],
+        edges=[
+            FlowEdge(
+                id="upload-edge",
+                source="upload-start",
+                target="upload-decision",
+                label="Next",
             )
         ],
+        calls=["start-flow"],
     )
     start_flow = Flow(
         id="start-flow",
@@ -220,6 +235,57 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
     assert workflow_slice["presentation"]["counts"]["supporting_flows"] == 1
     assert "Show raw JSON or YAML only" in " ".join(
         workflow_slice["presentation"]["agent_guidance"]
+    )
+    assert "visible depth and branches" in " ".join(
+        workflow_slice["presentation"]["agent_guidance"]
+    )
+    assert "bounded summary" in " ".join(workflow_slice["presentation"]["agent_guidance"])
+    assert "depth_policy" in workflow_slice["presentation"]
+    assert "label_policy" in workflow_slice["presentation"]
+    assert "media_policy" in workflow_slice["presentation"]
+    assert "human-friendly" in workflow_slice["presentation"]["label_policy"]["human_friendly"]
+    assert "snapshot_slice" in workflow_slice["presentation"]["media_policy"]["svg_snapshot"]
+    assert "logicchart view" in workflow_slice["presentation"]["media_policy"]["manual_viewer"]
+    canonical_visual = workflow_slice["presentation"]["canonical_visual"]
+    assert canonical_visual["schema_version"] == "workflow_slice.canonical_visual.v1"
+    assert canonical_visual["format"] == "mermaid"
+    assert canonical_visual["diagram"].startswith("flowchart TD\n")
+    assert "OCRService.create_upload_urls" in canonical_visual["diagram"]
+    assert "Create pending OCR upload job" in canonical_visual["diagram"]
+    assert "DeadlineType is valid" in canonical_visual["diagram"]
+    assert '-->|"Next"|' in canonical_visual["diagram"]
+    assert "calls OCRService.start_processing" in canonical_visual["diagram"]
+    assert canonical_visual["diagram_hash"]
+    assert "human-friendly view" in canonical_visual["guardrail"]
+    assert (
+        canonical_visual
+        == _workflow_slice_payload(
+            model,
+            pack,
+            question="OCR upload certificati",
+            inputs={
+                "question": "OCR upload certificati",
+                "changed_files": [],
+                "current_file": None,
+                "flow_id": None,
+                "symbol": None,
+                "finding_id": None,
+                "dependency_path": None,
+                "domain": None,
+                "value": None,
+                "scope": None,
+                "include_visual": False,
+                "token_budget": 600,
+            },
+            domain_map_payload=_domain_logic_map(
+                model,
+                domain=None,
+                value=None,
+                scope=None,
+                token_budget=600,
+            ),
+            token_budget=600,
+        )["presentation"]["canonical_visual"]
     )
 
 
@@ -463,6 +529,14 @@ def authorize(user):
                 assert "Show raw JSON or YAML only" in " ".join(  # type: ignore[index]
                     workflow_slice["presentation"]["agent_guidance"]
                 )
+                assert "depth_policy" in workflow_slice["presentation"]
+                assert "label_policy" in workflow_slice["presentation"]
+                assert "media_policy" in workflow_slice["presentation"]
+                canonical_visual = workflow_slice["presentation"]["canonical_visual"]  # type: ignore[index]
+                assert canonical_visual["format"] == "mermaid"
+                assert canonical_visual["diagram"].startswith("flowchart TD\n")
+                assert canonical_visual["diagram_hash"]
+                assert "Render this diagram as-is" in canonical_visual["guardrail"]
                 assert workflow_slice["primary_flows"][0]["id"] == flow.id
                 assert workflow_slice["ordered_steps"]
                 assert workflow_slice["source_ranges"]

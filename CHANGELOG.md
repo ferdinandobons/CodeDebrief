@@ -114,6 +114,14 @@ The project follows Semantic Versioning.
 - Added `workflow_slice` to MCP `agent_context`, with stable slice handles, ordered
   workflow steps, primary/supporting flows, decisions, calls, domain logic, review signals,
   source ranges, visual handles, omissions, guardrails, and next-tool hints.
+- Added `workflow_slice.presentation.canonical_visual`, a deterministic Mermaid fallback
+  with a stable `diagram_hash`, so agents can render repeated visual workflow requests from
+  the graph payload instead of synthesizing divergent diagrams.
+- Added workflow-slice presentation policies for visual depth, deterministic labels, and
+  media choice: agents can request narrower or expanded slices, but displayed blocks must
+  come from the selected payload; SVG snapshots remain the preferred inline visual,
+  canonical Mermaid is the universal fallback, and `logicchart view` stays the interactive
+  manual viewer.
 - Added `viewer_targets` to workflow-slice and `snapshot_slice` MCP payloads so agents can
   hand humans stable `logicchart view` hash fragments for manual inspection.
 - Added MCP `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`,
@@ -122,9 +130,9 @@ The project follows Semantic Versioning.
 - Added provider-native LogicChart skill installation for Codex and Claude setup, guiding
   agents to use MCP `agent_context` by default and `snapshot_slice`/`viewer_targets` for
   visual workflow requests.
-- Updated generated LogicChart agent guidance so visual workflow requests prefer a
-  detailed Mermaid flowchart fallback with decision/error branches instead of a compact
-  linear summary when inline SVG is unavailable.
+- Updated generated LogicChart agent guidance so visual workflow requests render
+  `workflow_slice.presentation.canonical_visual.diagram` exactly when inline SVG is
+  unavailable, instead of synthesizing a new Mermaid diagram.
 - Added direct MCP contract tests for visual `context_pack`, flow-navigation packs, and
   recoverable helper payloads, complementing end-to-end stdio coverage.
 - Added stricter finding-rule contract tests that pin every detector's public purpose,

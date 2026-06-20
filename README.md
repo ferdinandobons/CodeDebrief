@@ -156,9 +156,17 @@ When supported by the agent, setup also installs a project-scoped LogicChart ski
 skill tells the agent to use `agent_context` for implicit code-logic questions and to call
 `snapshot_slice` when the user asks to show, visualize, render, diagram, or open a
 workflow/canvas view. If inline SVG rendering is not available, the agent should show a
-detailed Mermaid `flowchart TD` with decision and error branches, then provide the returned
-`viewer_targets` command and hash target instead of falling back to a short linear summary
-or raw JSON/YAML.
+canonical Mermaid `flowchart TD` from
+`workflow_slice.presentation.canonical_visual.diagram`, keep its `diagram_hash` when useful,
+then provide the returned `viewer_targets` command and hash target. Agents should not
+synthesize alternate Mermaid diagrams or add limits, error codes, or branches that are not
+present in the `workflow_slice` payload. The agent may choose a shallower or deeper view
+by asking LogicChart for a narrower slice, `expand_slice`, or `workflow_path`, but every
+displayed block must come from deterministic slice fields or a focused explain tool. A
+human-friendly rewrite is allowed only as a separate translation layer, preserving ids or
+source anchors and not adding facts. In practice, SVG snapshots are the best inline visual
+when the client supports images, canonical Mermaid is the portable text fallback, and
+`logicchart view` remains the interactive manual viewer.
 
 High-value MCP tools include:
 

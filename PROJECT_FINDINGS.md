@@ -68,15 +68,23 @@ LogicChart is in a strong alpha state.
   call MCP `agent_context` by default, then `snapshot_slice`/`viewer_targets` when the user
   asks for a visual workflow or canvas-like slice.
 - The generated skill and agent guidance now treat generic workflow/flusso requests as
-  visual workflow requests. If inline SVG is unavailable, the expected fallback is a
-  detailed Mermaid flowchart with decision and error branches, not a compressed linear
-  summary.
+  visual workflow requests. If inline SVG is unavailable, the expected fallback is the
+  deterministic `workflow_slice.presentation.canonical_visual.diagram`, not a compressed
+  linear summary or an agent-synthesized diagram.
 - Codex MCP setup now uses `default_tools_approval_mode = "approve"` for the generated
   project-scoped LogicChart server, so the central local MCP workflow does not stop on
   every `agent_context` or navigation call.
 - `workflow_slice` now includes a presentation contract for coding agents. Natural-language
   slices anchor to one primary flow and keep related matches as supporting flows, so agents
   can show stable ordered steps instead of raw YAML dumps.
+- `workflow_slice.presentation` now includes `canonical_visual.diagram`, a deterministic
+  Mermaid fallback built from graph nodes and edges plus a stable `diagram_hash`. Agents
+  should render that field exactly for repeated visual workflow requests instead of
+  synthesizing diagrams from prose.
+- The presentation contract now separates depth selection from factual content. Agents can
+  ask LogicChart for a narrower or expanded slice, but displayed blocks must be derived
+  from returned node, edge, decision, and source fields. Human-friendly wording is allowed
+  only as a separate translation layer.
 - MCP is now a default runtime dependency. `uv tool install .` installs the central MCP
   surface without requiring the legacy `.[mcp]` extra.
 - `PRODUCT_MIGRATION_PLAN.md` is now the source of truth for product vision and migration
@@ -440,6 +448,12 @@ Current checkpoint:
 - MCP `agent_context` now returns a first-class `workflow_slice` with a stable handle,
   primary/supporting flows, ordered source-grounded steps, decisions, calls, domain logic,
   review signals, source ranges, visual handles, omissions, and next-tool hints.
+- MCP workflow-slice presentation now includes a deterministic Mermaid `canonical_visual`
+  with `diagram_hash`, so repeated visual requests can reuse the graph-derived diagram
+  instead of asking the agent to synthesize one.
+- The same presentation contract now documents when to use SVG snapshots, Mermaid, or
+  `logicchart view`: SVG is the preferred inline visual when supported, Mermaid is the
+  portable deterministic fallback, and the viewer remains the interactive manual UI.
 - Workflow-slice and `snapshot_slice` MCP payloads now include `viewer_targets` that point
   humans back to stable `logicchart view` hash fragments for manual inspection.
 - MCP exposes `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`,
