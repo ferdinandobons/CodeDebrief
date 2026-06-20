@@ -6,7 +6,7 @@ agent instructions, and release readiness.
 
 ## North Star
 
-LogicChart is an agent-first, local understanding layer for code logic.
+LogicChart is an agent-first workflow navigator for code logic.
 
 Developers should be able to set it up once, then ask their coding agent simple questions
 such as:
@@ -18,16 +18,23 @@ such as:
 - Why did the AI-generated code create this branch?
 - Which decisions, callers, callees, and missing cases should I review?
 
-LogicChart should give the agent deterministic, visual, and structured context so the
-answer is grounded in the actual codebase instead of plausible narration.
+LogicChart should give the agent a deterministic workflow slice: a focused, navigable piece
+of the codebase flowchart that shows the logic involved in the user's question or change.
+The agent should use that slice to answer with source-grounded explanation instead of
+plausible narration.
 
 ## Product Positioning
 
-LogicChart is not primarily a terminal tool or a graph viewer.
+LogicChart is not primarily a terminal tool, a generic knowledge graph, or a graph viewer.
 
 It is a support system for coding agents. Its job is to make code logic inspectable,
 queryable, and explainable for both humans and AI, especially in projects where modern
 development is mediated by agents such as Codex, Claude, Cursor, or similar tools.
+
+The product should stay focused on decision and workflow understanding. It can learn from
+generic graph tools, but its core output must remain a code-logic flowchart: entrypoints,
+decisions, branches, calls, outcomes, domain states, review signals, evidence, and source
+ranges.
 
 The distribution model should be hybrid, with one clear hierarchy:
 
@@ -48,14 +55,15 @@ that make the agent reach for LogicChart automatically when the user asks about 
 
 The viewer is not the default daily workflow, but it is still a central product capability.
 It should be the one explicit manual experience users can rely on when they want to inspect
-the graph directly: run `logicchart view ...`, open the UI, and explore the flowchart.
+the flowchart directly: run `logicchart view ...`, open the UI, and explore the decision
+flows.
 
 ## Core Promise
 
 After setup, users should not need to remember LogicChart commands.
 
 They should ask their coding agent ordinary questions, and the agent should use
-LogicChart automatically to:
+LogicChart automatically to build a workflow slice that lets it:
 
 - retrieve the relevant flows;
 - inspect decisions, calls, callers, callees, and outcomes;
@@ -64,6 +72,18 @@ LogicChart automatically to:
 - request deterministic visual snapshots;
 - distinguish verified facts from inferred review candidates;
 - generate useful explanations without losing source-grounded traceability.
+
+The user-facing result should be a clear answer, not raw graph data. A good answer should
+include:
+
+- a concise explanation of how the requested behavior works;
+- the ordered workflow steps that matter;
+- the relevant source files, symbols, and line ranges;
+- important decisions, branches, states, outcomes, and cross-flow calls;
+- what is certain, inferred, incomplete, or outside the slice budget;
+- review signals as candidates, not confirmed defects;
+- suggested tests or code areas to inspect next;
+- a visual snapshot or viewer link when the flowchart adds clarity.
 
 ## Design Principles
 
@@ -86,19 +106,41 @@ Because the product is about flowcharts, agents need visual artifacts too. SVG s
 for flows, review signals, impact sets, and explicit subgraphs are first-class context, not a
 secondary export feature.
 
+### Workflow slices are the product unit
+
+The main product unit is the `workflow_slice`: a bounded, source-grounded, visualizable
+piece of the decision flowchart selected for a question, code selection, change, symbol,
+flow, review signal, or dependency path.
+
+A workflow slice is not a generic graph dump. It should preserve the semantics of a
+decision flowchart:
+
+- which entrypoints start the behavior;
+- which flows are primary and which are supporting context;
+- which decisions and handled values control the behavior;
+- which calls connect one flow to another;
+- which outcomes, returns, errors, terminal states, and unresolved calls matter;
+- which domain states, roles, permissions, feature flags, or enum values are involved;
+- which review signals are nearby and what evidence tier they have;
+- which source ranges prove each important step;
+- which nodes, flows, findings, or files were omitted because of budget or uncertainty.
+
+The slice should be stable enough for an agent to cite ids, ask for expansion, request a
+snapshot, or write annotations against it.
+
 ### One orchestration path
 
 Agents should not have to manually stitch together many low-level tools for common tasks.
 LogicChart should provide a unified context workflow that accepts a user question, changed
-files, selected code, target flow, finding, or symbol, then returns a bounded understanding
-pack.
+files, selected code, target flow, finding, or symbol, then returns a bounded workflow
+slice.
 
 The lower-level tools should remain available for expert or fallback use, but the expected
 agent path should be:
 
 ```text
-user question -> agent instruction/skill trigger -> MCP agent_context -> deterministic
-context pack -> agent explanation or code change
+user question -> agent instruction/skill trigger -> MCP agent_context -> workflow_slice
+-> agent explanation or code change
 ```
 
 ### Enrichment belongs to the coding agent
@@ -156,7 +198,7 @@ when to call it, and can retrieve useful flow context without the user naming a 
 
 ## Target Agent Experience
 
-The primary MCP capability should become a unified context tool, conceptually:
+The primary MCP capability should become a unified workflow-slice tool, conceptually:
 
 ```text
 agent_context(
@@ -173,21 +215,27 @@ agent_context(
 )
 ```
 
-The response should include:
+The response should include a `workflow_slice` object with:
 
-- matched flows and why they were selected;
-- impact reasons;
-- direct and transitive flow ids;
-- caller and callee summaries;
-- decision nodes and handled values;
-- unresolved calls;
-- related review signals with evidence tiers;
-- source snippets or source ranges;
-- subgraph flow and review-signal ids;
-- visual snapshot payloads or follow-up snapshot tool calls;
-- omitted counts and budget guardrails;
-- recommended next tools;
-- recommended human review points.
+- `intent`: the normalized user request and the detected task type, such as explain,
+  review impact, trace behavior, inspect state handling, or prepare tests;
+- `selection`: matched flows, symbols, files, findings, and the reasons they were selected;
+- `primary_flows`: the main flows needed to answer the question;
+- `supporting_flows`: callers, callees, tests, sibling flows, and domain-related flows that
+  provide useful context;
+- `ordered_steps`: an agent-readable path through the flowchart, including source anchors;
+- `decisions`: decision nodes, handled values, missing or unresolved values when known, and
+  branch outcomes;
+- `calls`: direct and transitive call edges, with edge confidence and unresolved calls;
+- `domain_logic`: statuses, roles, permissions, feature flags, enums, transitions, and
+  lifecycle states touched by the slice;
+- `review_signals`: related review candidates with evidence tier, confidence, scope, and
+  remediation hints when available;
+- `source_ranges`: compact source anchors for the evidence the agent should cite;
+- `visuals`: deterministic SVG/PNG snapshot payloads or follow-up snapshot tool calls;
+- `omissions`: what was excluded because of token budget, unsupported language capability,
+  stale artifacts, parse errors, or ambiguous matches;
+- `next_actions`: recommended follow-up tools, tests, files, or human review points.
 
 This should be the default path for questions such as:
 
@@ -201,6 +249,34 @@ The context tool should be opinionated enough that an agent can use it from natu
 language, but transparent enough that advanced users can inspect which flows, review signals,
 source files, snapshots, and omissions were included.
 
+## Workflow Slice Lifecycle
+
+The workflow-slice pipeline should be deterministic and explainable:
+
+1. Normalize the request: identify whether the user is asking for explanation, impact,
+   path tracing, review, testing, domain-state handling, or visual inspection.
+2. Select seeds from the question, changed files, current file, selected code, flow id,
+   symbol, finding id, dependency path, route, endpoint, component, or domain value.
+3. Resolve seeds to flows, nodes, findings, files, and source ranges with ranked reasons.
+4. Expand the slice through decision-flow semantics: entrypoint links, caller/callee links,
+   route/API relationships, domain-state relationships, tests, and nearby review signals.
+5. Rank and prune by task relevance, evidence quality, and token budget.
+6. Order the selected material into a decision workflow rather than a generic neighbor list.
+7. Attach evidence tiers, edge confidence, source anchors, analyzer capability notes, stale
+   artifact state, and omissions.
+8. Provide snapshot references and follow-up expansion handles for the agent.
+9. Let the agent answer the user, then optionally write validated annotations back as
+   `agent_generated` enrichment.
+
+The slice should support progressive navigation:
+
+- `expand_slice` should widen or deepen an existing slice without starting from scratch;
+- `workflow_path` should connect two concepts, such as UI component to API endpoint or
+  status value to backend handler;
+- `explain_flow`, `explain_node`, and `explain_edge` should inspect focused entities;
+- `snapshot_slice` should render the current slice as deterministic visual context;
+- every expansion should preserve ids, reasons, trust tiers, and omission metadata.
+
 ## Channel Strategy
 
 ### MCP: primary runtime integration
@@ -208,16 +284,16 @@ source files, snapshots, and omissions were included.
 MCP should expose a small set of high-value tools and resources that map to real agent
 tasks:
 
-- `agent_context` for question-driven understanding;
-- change-impact analysis inside `agent_context`;
-- targeted search across generated flow artifacts inside `agent_context`;
-- focused flow and review-signal inspection inside `agent_context`;
-- snapshot or subgraph rendering for visual context inside the MCP surface;
+- `agent_context` for question-driven workflow-slice generation;
+- `expand_slice` for progressive exploration from an existing slice;
+- `workflow_path` for tracing between components, routes, APIs, states, symbols, or flows;
+- focused flow, node, edge, and review-signal inspection for fallback expert use;
+- snapshot or slice rendering for visual context inside the MCP surface;
 - annotation write/validate tools for agent-authored enrichment.
 
 The MCP surface should avoid forcing agents to call many tiny tools before they can answer
-ordinary user questions. Low-level tools are useful, but the default path should be the
-single context pack.
+ordinary user questions. Low-level tools are useful, but the default path should be one
+workflow slice, then progressive expansion only when the first slice is not enough.
 
 ### CLI: kept public commands
 
@@ -266,6 +342,7 @@ normal workflow. Their job is to encode behavior:
 
 - when the agent should call LogicChart;
 - which user questions imply code-flow analysis;
+- when to request a workflow slice before grep/read/file-by-file exploration;
 - how to respect trust tiers;
 - when to refresh artifacts;
 - how to cite source ranges and flow ids;
@@ -285,7 +362,7 @@ The future enrichment workflow should be:
 3. The agent generates summaries, explanations, and label suggestions using its own model.
 4. The agent writes the annotations back through a LogicChart MCP write tool.
 5. LogicChart validates target ids, schema, model hash, text limits, and annotation source.
-6. The viewer, snapshots, MCP tools, and context packs display those annotations
+6. The viewer, snapshots, MCP tools, and workflow slices display those annotations
    separately from deterministic diagnostics.
 
 Potential tools:
@@ -308,29 +385,34 @@ Annotations should support:
 
 ## Strategic Product Pillars
 
-### 1. Understand how code works
+### 1. Navigate the workflow slice
+
+LogicChart should turn a plain user question or code change into a focused workflow slice
+that both humans and agents can follow.
+
+### 2. Understand how code works
 
 LogicChart should explain entrypoints, decisions, branches, calls, outcomes, and source
-locations in a way that both humans and agents can follow.
+locations in a way that preserves decision-flow semantics.
 
-### 2. Understand what changes affect
+### 3. Understand what changes affect
 
 LogicChart should map edits to impacted flows, callers, review signals, decisions, and test
 suggestions.
 
-### 3. Understand domain logic
+### 4. Understand domain logic
 
 LogicChart should identify important domains such as statuses, roles, permissions,
 lifecycle states, payment states, and feature flags, then show where they are handled or
 missing.
 
-### 4. Understand trust and uncertainty
+### 5. Understand trust and uncertainty
 
 LogicChart should expose analyzer capability, skipped files, parse warnings, unresolved
 calls, evidence tier, confidence, and snapshot omissions so agents do not overstate what
 they know.
 
-### 5. Make visual context available without opening the UI
+### 6. Make visual context available without opening the UI
 
 The viewer remains useful, but agents should be able to request compact deterministic SVG
 snapshots directly through MCP.
@@ -344,6 +426,8 @@ When documentation is updated, keep the vision visible:
 
 - Lead with the idea that LogicChart helps coding agents and humans understand code logic,
   not with a list of terminal commands.
+- Present the workflow slice as the central product output: a focused, navigable piece of
+  the decision flowchart selected for a user's question or change.
 - Describe MCP as the primary runtime path, CLI as setup and maintenance, and the viewer
   as the official manual visual inspection mode.
 - Present `logicchart view ...` as the one manual experience worth remembering.
@@ -418,9 +502,10 @@ Done criteria:
 - The success output is user-oriented and agent-oriented, not just command-oriented.
 - The public setup story does not require users to know `init` or `install`.
 
-### Phase 2: Unified Agent Context
+### Phase 2: Workflow Slice Agent Context
 
-Goal: give agents one primary tool for ordinary code-logic questions.
+Goal: give agents one primary tool that turns ordinary code-logic questions into a
+workflow slice.
 
 Deliverables:
 
@@ -429,15 +514,21 @@ Deliverables:
   file, symbol, flow id, finding id, dependency path, token budget, and visual preference.
 - Internally orchestrate the existing query, impact, navigation, explanation,
   review-signal inspection, and snapshot selection logic.
-- Return one bounded context pack with matched flows, selection reasons, callers,
-  callees, decisions, outcomes, review signals, unresolved calls, source ranges, omissions, and
-  suggested next actions.
+- Return one bounded `workflow_slice` with matched flows, selection reasons, ordered
+  workflow steps, callers, callees, decisions, outcomes, domain logic, review signals,
+  unresolved calls, source ranges, visual references, omissions, and suggested next
+  actions.
+- Add stable slice ids or handles so follow-up MCP calls can expand, render, or inspect the
+  same slice without reselecting from scratch when the underlying artifact has not changed.
+- Make the agent-facing payload structured enough that an agent can produce a user answer
+  with clear sections: what happens, where it happens, important branches, evidence,
+  uncertainty, and next checks.
 - Remove `query`, `impact`, `explain`, `navigate`, and `snapshot` from the public CLI.
 
 Done criteria:
 
 - An agent can answer "how does this component work?" or "what is impacted by this
-  change?" by calling one primary LogicChart tool.
+  change?" by calling one primary LogicChart tool and receiving a workflow slice.
 - Lower-level MCP tools remain available for expert use, but are not required for the
   common path.
 - `INFERRED` and `POTENTIAL_GAP` review signals remain clearly distinguished from
@@ -445,23 +536,27 @@ Done criteria:
 - Manual users are routed to either `logicchart view` or the coding agent, not to
   low-level query/impact commands.
 
-### Phase 3: Agent-visible Snapshots and Subgraphs
+### Phase 3: Slice Navigation, Paths, and Snapshots
 
-Goal: make the visual flowchart useful without requiring a human to open the viewer.
+Goal: make workflow slices progressively navigable and visually useful without requiring a
+human to open the viewer.
 
 Deliverables:
 
-- Add deterministic snapshot/subgraph output through MCP.
-- Support flow snapshots, impact-set snapshots, review-signal context snapshots, and
-  caller/callee neighborhoods.
+- Add `expand_slice`, `workflow_path`, focused entity explanation, and deterministic
+  snapshot/subgraph output through MCP.
+- Support flow snapshots, workflow-slice snapshots, impact-set snapshots, review-signal
+  context snapshots, and caller/callee neighborhoods.
 - Return compact SVG/PNG paths or payload references plus machine-readable metadata.
 - Make all snapshot generation budget-aware, with explicit omitted counts.
 - Keep rendering deterministic and light enough for large repositories.
+- Preserve flowchart ordering and decision semantics in snapshots instead of rendering a
+  generic force graph.
 
 Done criteria:
 
-- An agent can request visual context for a focused flow or change and use it in an
-  explanation.
+- An agent can request visual context for a workflow slice, focused flow, or change and use
+  it in an explanation.
 - Snapshot output is useful even when the full viewer would be too large or too slow.
 - There is no public `logicchart snapshot` command; humans use `logicchart view` for
   manual visual exploration.
@@ -517,7 +612,10 @@ Deliverables:
 - Keep `logicchart view ...` as the official manual command for opening the UI and
   visualizing the decision flowchart.
 - Treat the UI as an intentional manual mode, not the default agent-first workflow.
-- Align the viewer with context packs, review signals, annotations, snapshots, and domain maps.
+- Align the viewer with workflow slices, review signals, annotations, snapshots, and domain
+  maps.
+- Let users open a workflow slice or snapshot target from an agent answer when such a link
+  or artifact reference is available.
 - Preserve progressive expand/collapse, focus, reset, export, zoom, pan, drag, and stable
   selection.
 - Keep large-codebase performance healthy with layout cache, chunked expansion, and
@@ -529,7 +627,7 @@ Done criteria:
 
 - The viewer is useful for deep inspection and debugging but not required for the main
   agent-first workflow.
-- Users can still run one clear manual command to open and inspect the graph.
+- Users can still run one clear manual command to open and inspect the flowchart.
 - Expand-heavy codebases remain responsive enough for practical use.
 
 ### Phase 7: Quality, Compatibility, and Release Readiness
@@ -539,7 +637,8 @@ Goal: make the transformation reliable enough to merge and release later.
 Deliverables:
 
 - Add focused tests for setup-agent, MCP `agent_context`, annotation validation,
-  snapshot/subgraph output, domain maps, and viewer regressions.
+  workflow-slice ranking, slice expansion, workflow paths, snapshot/subgraph output,
+  domain maps, and viewer regressions.
 - Keep generated artifacts synchronized.
 - Preserve ignored/private behavior for local real-world fixtures such as
   `examples/Certifexp`.
@@ -582,6 +681,7 @@ UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest tests/test_certifexp_local.p
 A feature belongs in LogicChart if it helps an agent or human answer at least one of these
 questions better:
 
+- Which workflow slice answers this question?
 - What does this code do?
 - Which logical path am I looking at?
 - What decisions and states control the behavior?
