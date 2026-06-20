@@ -18,9 +18,70 @@ AGENT_INSTRUCTION_TARGETS = {
     "gemini": Path("GEMINI.md"),
     "cursor": Path(".cursor/rules/logicchart.mdc"),
 }
+AGENT_SKILL_TARGETS = {
+    "codex": Path(".agents/skills/logicchart/SKILL.md"),
+    "claude": Path(".claude/skills/logicchart/SKILL.md"),
+}
 MCP_CONFIG_TARGETS = ("codex", "claude", "cursor")
 CODEX_MCP_START = "# logicchart:mcp-config:start"
 CODEX_MCP_END = "# logicchart:mcp-config:end"
+
+SKILL_DESCRIPTION = (
+    "Use when answering codebase logic, behavior, workflow, decision, state/status, "
+    "change impact, testing, review-signal, or visual workflow/canvas questions in a "
+    "project that uses LogicChart. Prefer the LogicChart MCP agent_context tool before "
+    "broad searches, and use snapshot_slice or viewer_targets when the user asks to show, "
+    "visualize, render, diagram, canvas, or workflow_slice."
+)
+
+SKILL_TEMPLATE = f"""---
+name: logicchart
+description: {SKILL_DESCRIPTION}
+---
+
+# LogicChart
+
+Use LogicChart as the first path for code-logic questions in projects with LogicChart
+configured.
+
+## Default Workflow
+
+1. Call MCP `agent_context` before broad file-by-file search. Pass the user question plus
+   changed files, current file, selected code, flow id, symbol, finding id, or dependency
+   path when available.
+2. Inspect `workflow_slice`. Answer from deterministic fields: presentation,
+   primary/supporting flows, ordered steps, decisions, source ranges, and review signals.
+3. Use `expand_slice`, `workflow_path`, `explain_flow`, `explain_node`, or `explain_edge`
+   only when the first slice is too narrow.
+4. After substantial source changes, run `update_logicchart` and `validate_artifacts`;
+   keep `logicchart-out/logic-flow.json` and `logicchart-out/logic-flow.md`
+   synchronized when they change.
+
+## Visual Workflow Requests
+
+When the user asks to show a workflow, workflow_slice, diagram, visual flow, canvas, or
+similar code path:
+
+1. Call `agent_context` with `include_visual=true` when available.
+2. Call `snapshot_slice` using `workflow_slice.id`, `workflow_slice.handle.flow_ids`, and
+   `workflow_slice.handle.finding_ids`.
+3. Show the SVG snapshot or rendered visual first when the client supports it.
+4. If inline rendering is not possible, provide the `viewer_targets` command and hash
+   target so the user can open the same visual in `logicchart view`.
+5. Treat `workflow_slice.presentation` as supporting context for this request, not as the
+   primary output.
+6. Keep the textual summary short and secondary. Do not answer with raw JSON or YAML unless
+   the user explicitly asks for it.
+
+## Guardrails
+
+- MCP is local-first and deterministic; do not ask for provider keys for the primary
+  workflow.
+- Keep agent-authored annotations separate from deterministic facts.
+- Treat `VERIFIED` as syntax-backed, `INFERRED` as heuristic, and `POTENTIAL_GAP` as a
+  review candidate, not a confirmed defect.
+- Use `logicchart view` only for the human manual UI.
+"""
 
 
 def _instruction_block(local_notes: str = "") -> str:
@@ -90,6 +151,7 @@ INSTRUCTION_BLOCK = _instruction_block()
 
 def install_all(root: Path, platform: str = "all", mcp_config: str = "none") -> list[Path]:
     changed = install_agent_instructions(root, platform)
+    changed.extend(install_agent_skill(root, platform))
     if mcp_config != "none":
         changed.extend(install_mcp_config(root, mcp_config))
     return changed
@@ -115,6 +177,27 @@ def install_agent_instructions(root: Path, platform: str = "all") -> list[Path]:
             updated = frontmatter + updated
         if updated != existing:
             target.write_text(updated, encoding="utf-8")
+            changed.append(target)
+    return changed
+
+
+def install_agent_skill(root: Path, platform: str = "all") -> list[Path]:
+    names = tuple(AGENT_SKILL_TARGETS) if platform == "all" else (platform,)
+    unknown = set(names) - set(AGENT_INSTRUCTION_TARGETS)
+    if unknown:
+        known = ", ".join(("all", *AGENT_INSTRUCTION_TARGETS))
+        raise ValueError(f"unknown agent skill target {platform!r}; known targets: {known}")
+
+    changed: list[Path] = []
+    for name in names:
+        target_path = AGENT_SKILL_TARGETS.get(name)
+        if target_path is None:
+            continue
+        target = root / target_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        existing = target.read_text(encoding="utf-8") if target.exists() else ""
+        if existing != SKILL_TEMPLATE:
+            target.write_text(SKILL_TEMPLATE, encoding="utf-8")
             changed.append(target)
     return changed
 

@@ -15,6 +15,7 @@ from logicchart.install import (
     LOCAL_NOTES_START,
     START,
     install_agent_instructions,
+    install_agent_skill,
     install_mcp_config,
 )
 from logicchart.query import impact_model, query_model
@@ -48,6 +49,20 @@ def _assert_current_agent_instructions(content: str) -> None:
     )
     for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
         assert snippet not in content
+
+
+def _assert_logicchart_skill(content: str) -> None:
+    assert content.startswith("---\nname: logicchart\n")
+    assert "description: Use when answering codebase logic" in content
+    assert "`agent_context`" in content
+    assert "`workflow_slice`" in content
+    assert "include_visual=true" in content
+    assert "`snapshot_slice`" in content
+    assert "workflow_slice.handle.flow_ids" in content
+    assert "`viewer_targets` command" in content
+    assert "`workflow_slice.presentation` as supporting context" in content
+    assert "Do not answer with raw JSON or YAML" in content
+    assert "POTENTIAL_GAP" in content
 
 
 def test_artifacts_query_impact_and_agent_install(tmp_path: Path) -> None:
@@ -269,6 +284,52 @@ def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
     for target, content in contents_after_first.items():
         # The on-disk content is byte-identical after the no-op second run.
         assert target.read_text(encoding="utf-8") == content
+
+
+def test_install_agent_skill_writes_provider_native_skill_files(tmp_path: Path) -> None:
+    codex_skill = tmp_path / ".agents" / "skills" / "logicchart" / "SKILL.md"
+    claude_skill = tmp_path / ".claude" / "skills" / "logicchart" / "SKILL.md"
+
+    changed = install_agent_skill(tmp_path, "codex")
+
+    assert changed == [codex_skill]
+    _assert_logicchart_skill(codex_skill.read_text(encoding="utf-8"))
+    assert not claude_skill.exists()
+    assert install_agent_skill(tmp_path, "codex") == []
+
+    changed = install_agent_skill(tmp_path, "claude")
+
+    assert changed == [claude_skill]
+    _assert_logicchart_skill(claude_skill.read_text(encoding="utf-8"))
+    assert install_agent_skill(tmp_path, "claude") == []
+
+
+def test_install_agent_skill_all_writes_supported_skill_files_only(tmp_path: Path) -> None:
+    expected_targets = [
+        tmp_path / ".agents" / "skills" / "logicchart" / "SKILL.md",
+        tmp_path / ".claude" / "skills" / "logicchart" / "SKILL.md",
+    ]
+
+    changed = install_agent_skill(tmp_path, "all")
+
+    assert changed == expected_targets
+    for target in expected_targets:
+        _assert_logicchart_skill(target.read_text(encoding="utf-8"))
+    assert not (tmp_path / ".gemini" / "skills" / "logicchart" / "SKILL.md").exists()
+    assert not (tmp_path / ".cursor" / "skills" / "logicchart" / "SKILL.md").exists()
+    assert install_agent_skill(tmp_path, "all") == []
+
+
+def test_install_agent_skill_noops_for_agents_without_native_skill_path(tmp_path: Path) -> None:
+    assert install_agent_skill(tmp_path, "gemini") == []
+    assert install_agent_skill(tmp_path, "cursor") == []
+    assert not (tmp_path / ".gemini").exists()
+    assert not (tmp_path / ".cursor" / "skills").exists()
+
+
+def test_install_rejects_unknown_agent_skill_target(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unknown agent skill target"):
+        install_agent_skill(tmp_path, "unknown-agent")
 
 
 def test_install_rejects_unknown_agent_instruction_target(tmp_path: Path) -> None:

@@ -16,7 +16,12 @@ from logicchart.analysis import ProjectAnalyzer
 from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import BUILTIN_PROFILES, LogicChartConfig
 from logicchart.doctor import doctor_report, render_doctor, render_doctor_json
-from logicchart.install import MCP_CONFIG_TARGETS, install_agent_instructions, install_mcp_config
+from logicchart.install import (
+    MCP_CONFIG_TARGETS,
+    install_agent_instructions,
+    install_agent_skill,
+    install_mcp_config,
+)
 from logicchart.quality import render_quality
 from logicchart.render.html import render_html
 from logicchart.validation import validate_logicchart
@@ -312,6 +317,7 @@ def _setup_agent(
     print(f"- Config: {'Created' if created_config else 'Already present'} ({config_path})")
 
     changed = install_agent_instructions(root, agent)
+    changed.extend(install_agent_skill(root, agent))
     if agent in MCP_CONFIG_TARGETS:
         changed.extend(install_mcp_config(root, agent))
     if changed:

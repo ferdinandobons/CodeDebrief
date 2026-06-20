@@ -119,6 +119,9 @@ The project follows Semantic Versioning.
 - Added MCP `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`,
   `explain_node`, and `explain_edge` for progressive workflow-slice navigation and focused
   source-grounded inspection.
+- Added provider-native LogicChart skill installation for Codex and Claude setup, guiding
+  agents to use MCP `agent_context` by default and `snapshot_slice`/`viewer_targets` for
+  visual workflow requests.
 - Added direct MCP contract tests for visual `context_pack`, flow-navigation packs, and
   recoverable helper payloads, complementing end-to-end stdio coverage.
 - Added stricter finding-rule contract tests that pin every detector's public purpose,

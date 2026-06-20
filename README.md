@@ -58,9 +58,10 @@ logicchart setup-agent codex
 ```
 
 `setup-agent` creates or refreshes `logicchart.toml` only when needed, installs managed
-agent instructions, registers project-scoped MCP for the selected agent, generates the
-initial artifacts, runs `doctor`, validates the result, and prints examples of questions
-to ask the agent.
+agent instructions, installs a provider-native LogicChart skill where the selected agent
+supports one, registers project-scoped MCP for the selected agent, generates the initial
+artifacts, runs `doctor`, validates the result, and prints examples of questions to ask
+the agent.
 
 For Codex, the generated project MCP config approves LogicChart tool calls by default.
 LogicChart MCP is local, deterministic, and scoped to the configured project root; use this
@@ -150,6 +151,13 @@ Codex project setup writes `default_tools_approval_mode = "approve"` for the Log
 server so routine `agent_context`, slice expansion, snapshot, validate, and update calls do
 not stop on every tool approval prompt. This approval applies only to that project-scoped
 LogicChart server block.
+
+When supported by the agent, setup also installs a project-scoped LogicChart skill. The
+skill tells the agent to use `agent_context` for implicit code-logic questions and to call
+`snapshot_slice` when the user asks to show, visualize, render, diagram, or open a
+workflow/canvas view. If inline rendering is not available, the agent should provide the
+returned `viewer_targets` command and hash target instead of falling back to raw JSON or
+YAML.
 
 High-value MCP tools include:
 
@@ -277,11 +285,11 @@ logicchart setup-agent gemini
 logicchart setup-agent cursor --full
 ```
 
-The selected target controls which instruction file is written. `setup-agent` does not
-create unrelated agent files:
+The selected target controls which instruction file and optional skill are written.
+`setup-agent` does not create unrelated agent files:
 
-- `AGENTS.md` for Codex;
-- `CLAUDE.md` for Claude Code;
+- `AGENTS.md` plus `.agents/skills/logicchart/SKILL.md` for Codex;
+- `CLAUDE.md` plus `.claude/skills/logicchart/SKILL.md` for Claude Code;
 - `GEMINI.md` for Gemini CLI instructions;
 - `.cursor/rules/logicchart.mdc` for Cursor.
 

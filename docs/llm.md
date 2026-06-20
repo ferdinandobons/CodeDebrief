@@ -13,6 +13,14 @@ enrichment workflow is handled by the coding agent that is already working with 
 Generated annotation text must be treated as `agent_generated`. It can improve readability,
 but it must not replace source-backed flow data, diagnostic evidence, or review-signal tiers.
 
+## Agent Skills
+
+`logicchart setup-agent codex` installs `.agents/skills/logicchart/SKILL.md`.
+`logicchart setup-agent claude` installs `.claude/skills/logicchart/SKILL.md`. These
+provider-native skills route implicit code-logic questions to MCP `agent_context` and route
+visual workflow requests to `snapshot_slice` first, with `viewer_targets` as the manual UI
+fallback when inline SVG rendering is unavailable.
+
 ## MCP Annotation Workflow
 
 `preview_annotation_targets` is the preferred local-only MCP helper. It selects bounded

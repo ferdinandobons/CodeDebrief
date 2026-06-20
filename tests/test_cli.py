@@ -33,6 +33,16 @@ def _assert_current_agent_instructions(content: str) -> None:
         assert snippet not in content
 
 
+def _assert_logicchart_skill(content: str) -> None:
+    assert content.startswith("---\nname: logicchart\n")
+    assert "`agent_context`" in content
+    assert "include_visual=true" in content
+    assert "`snapshot_slice`" in content
+    assert "`viewer_targets` command" in content
+    assert "`workflow_slice.presentation` as supporting context" in content
+    assert "Do not answer with raw JSON or YAML" in content
+
+
 def test_top_level_help_prioritizes_flag_light_quickstart() -> None:
     help_text = build_parser().format_help()
 
@@ -204,14 +214,27 @@ def test_cli_validate_reports_absent_annotation_status(
 
 
 @pytest.mark.parametrize(
-    ("agent", "instruction_path", "mcp_path", "display"),
+    ("agent", "instruction_path", "skill_path", "mcp_path", "display"),
     [
-        ("codex", Path("AGENTS.md"), Path(".codex/config.toml"), "Codex"),
-        ("claude", Path("CLAUDE.md"), Path(".mcp.json"), "Claude"),
-        ("gemini", Path("GEMINI.md"), None, "Gemini"),
+        (
+            "codex",
+            Path("AGENTS.md"),
+            Path(".agents/skills/logicchart/SKILL.md"),
+            Path(".codex/config.toml"),
+            "Codex",
+        ),
+        (
+            "claude",
+            Path("CLAUDE.md"),
+            Path(".claude/skills/logicchart/SKILL.md"),
+            Path(".mcp.json"),
+            "Claude",
+        ),
+        ("gemini", Path("GEMINI.md"), None, None, "Gemini"),
         (
             "cursor",
             Path(".cursor/rules/logicchart.mdc"),
+            None,
             Path(".cursor/mcp.json"),
             "Cursor",
         ),
@@ -220,6 +243,7 @@ def test_cli_validate_reports_absent_annotation_status(
 def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
     agent: str,
     instruction_path: Path,
+    skill_path: Path | None,
     mcp_path: Path | None,
     display: str,
     tmp_path: Path,
@@ -232,6 +256,10 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
         Path("GEMINI.md"),
         Path(".cursor/rules/logicchart.mdc"),
     ]
+    skill_paths = [
+        Path(".agents/skills/logicchart/SKILL.md"),
+        Path(".claude/skills/logicchart/SKILL.md"),
+    ]
 
     assert main(["setup-agent", agent, str(tmp_path), "--no-html"]) == 0
     assert (tmp_path / "logicchart.toml").exists()
@@ -240,6 +268,12 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
         if path == instruction_path:
             assert (tmp_path / path).exists()
             _assert_current_agent_instructions((tmp_path / path).read_text(encoding="utf-8"))
+        else:
+            assert not (tmp_path / path).exists()
+    for path in skill_paths:
+        if path == skill_path:
+            assert (tmp_path / path).exists()
+            _assert_logicchart_skill((tmp_path / path).read_text(encoding="utf-8"))
         else:
             assert not (tmp_path / path).exists()
     if mcp_path is not None:
