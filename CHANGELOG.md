@@ -172,6 +172,8 @@ The project follows Semantic Versioning.
 
 - Updated MCP finding responses, review queues, context packs, and review-signal explanations to
   include normalized diagnostic details.
+- Updated `workflow_slice` to include a deterministic presentation contract and to anchor
+  natural-language queries to one primary flow, keeping related matches in supporting flows.
 - Updated generated agent instructions across Codex, Claude, Gemini, and Cursor to prefer
   MCP `agent_context` for codebase questions and keep `logicchart view` as the manual UI
   path.

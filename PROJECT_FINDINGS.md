@@ -63,6 +63,9 @@ LogicChart is in a strong alpha state.
 - `logicchart setup-agent <target>` now writes only the requested target's instruction
   file. Codex, Claude, and Cursor still receive MCP config where supported; Gemini is
   instruction-only.
+- `workflow_slice` now includes a presentation contract for coding agents. Natural-language
+  slices anchor to one primary flow and keep related matches as supporting flows, so agents
+  can show stable ordered steps instead of raw YAML dumps.
 - `PRODUCT_MIGRATION_PLAN.md` is now the source of truth for product vision and migration
   sequencing. It keeps the vision language needed for README/docs while listing the
   macro-phase execution plan and required repeated code-review passes.

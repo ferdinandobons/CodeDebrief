@@ -5,8 +5,10 @@ enrichment workflow is handled by the coding agent that is already working with 
 
 1. The user asks the coding agent for clearer labels, summaries, or explanations.
 2. The agent calls MCP `agent_context` for a deterministic `workflow_slice`.
-3. The agent writes generated text as validated annotations.
-4. LogicChart keeps those annotations separate from deterministic facts.
+3. The agent answers from the slice presentation contract, ordered steps, decisions,
+   review signals, and source ranges instead of dumping raw JSON or YAML unless requested.
+4. The agent writes generated text as validated annotations.
+5. LogicChart keeps those annotations separate from deterministic facts.
 
 Generated annotation text must be treated as `agent_generated`. It can improve readability,
 but it must not replace source-backed flow data, diagnostic evidence, or review-signal tiers.

@@ -27,6 +27,7 @@ from logicchart.mcp_server import (
     _unknown_target_error,
     _update_workflow_payload,
     _validation_payload,
+    _workflow_slice_payload,
     flow_in_agent_scope,
 )
 from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel, SourceLocation
@@ -131,6 +132,95 @@ def test_context_pack_treats_unknown_scope_as_query_hint(tmp_path: Path) -> None
     assert payload["query"][0]["flow_id"] == "upload-flow"
     assert "upload-test" in {row["flow_id"] for row in payload["query"]}
     assert payload["navigation"]["flows"][0]["flow"]["id"] == "upload-flow"
+
+
+def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path) -> None:
+    upload_flow = Flow(
+        id="upload-flow",
+        name="OCRService.create_upload_urls",
+        symbol="backend.ocr:OCRService.create_upload_urls",
+        language="python",
+        framework="fastapi",
+        entry_kind="function",
+        is_entrypoint=False,
+        location=SourceLocation(path="backend/ocr/service.py", start_line=80, end_line=140),
+        nodes=[
+            FlowNode(
+                id="upload-start",
+                kind=NodeKind.ACTION,
+                label="Create pending OCR upload job",
+                location=SourceLocation(path="backend/ocr/service.py", start_line=84, end_line=84),
+            )
+        ],
+    )
+    start_flow = Flow(
+        id="start-flow",
+        name="OCRService.start_processing",
+        symbol="backend.ocr:OCRService.start_processing",
+        language="python",
+        framework="fastapi",
+        entry_kind="function",
+        is_entrypoint=False,
+        location=SourceLocation(path="backend/ocr/service.py", start_line=189, end_line=260),
+        nodes=[
+            FlowNode(
+                id="start-node",
+                kind=NodeKind.ACTION,
+                label="Start OCR processing for uploaded certificates",
+                location=SourceLocation(
+                    path="backend/ocr/service.py",
+                    start_line=192,
+                    end_line=192,
+                ),
+            )
+        ],
+    )
+    model = ProjectModel.empty(tmp_path)
+    model.flows = [upload_flow, start_flow]
+    pack = _context_pack_payload(
+        tmp_path,
+        LogicChartConfig(),
+        model,
+        question="OCR upload certificati",
+        token_budget=600,
+    )
+
+    workflow_slice = _workflow_slice_payload(
+        model,
+        pack,
+        question="OCR upload certificati",
+        inputs={
+            "question": "OCR upload certificati",
+            "changed_files": [],
+            "current_file": None,
+            "flow_id": None,
+            "symbol": None,
+            "finding_id": None,
+            "dependency_path": None,
+            "domain": None,
+            "value": None,
+            "scope": None,
+            "include_visual": False,
+            "token_budget": 600,
+        },
+        domain_map_payload=_domain_logic_map(
+            model,
+            domain=None,
+            value=None,
+            scope=None,
+            token_budget=600,
+        ),
+        token_budget=600,
+    )
+
+    assert [flow["id"] for flow in workflow_slice["primary_flows"]] == ["upload-flow"]
+    assert "start-flow" in {flow["id"] for flow in workflow_slice["supporting_flows"]}
+    assert workflow_slice["presentation"]["schema_version"] == "workflow_slice.presentation.v1"
+    assert workflow_slice["presentation"]["counts"]["primary_flows"] == 1
+    assert workflow_slice["presentation"]["counts"]["supporting_flows"] == 1
+    assert "Show raw JSON or YAML only" in " ".join(
+        workflow_slice["presentation"]["agent_guidance"]
+    )
 
 
 def test_mcp_finding_dict_includes_optional_annotation(tmp_path: Path) -> None:
@@ -366,6 +456,13 @@ def authorize(user):
                 assert workflow_slice["schema_version"] == "workflow_slice.v1"
                 assert workflow_slice["id"].startswith("slice-")
                 assert workflow_slice["handle"]["flow_ids"] == [flow.id]
+                assert (  # type: ignore[index]
+                    workflow_slice["presentation"]["schema_version"]
+                    == "workflow_slice.presentation.v1"
+                )
+                assert "Show raw JSON or YAML only" in " ".join(  # type: ignore[index]
+                    workflow_slice["presentation"]["agent_guidance"]
+                )
                 assert workflow_slice["primary_flows"][0]["id"] == flow.id
                 assert workflow_slice["ordered_steps"]
                 assert workflow_slice["source_ranges"]

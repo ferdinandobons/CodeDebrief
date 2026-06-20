@@ -118,6 +118,7 @@ An agent calls MCP `agent_context` with the context it naturally has:
 The slice includes:
 
 - normalized intent and task type;
+- a deterministic presentation contract for agent answers;
 - selected primary and supporting flows;
 - ordered source-grounded workflow steps;
 - decision nodes, branches, handled values, and outcomes;
@@ -129,8 +130,12 @@ The slice includes:
 - omissions caused by token budget, ambiguity, stale artifacts, or unsupported capability;
 - follow-up tools for expansion, path tracing, focused explanation, snapshots, and review.
 
-Agents should answer from the slice first. Lower-level tools are for progressive follow-up,
-not prerequisites for ordinary questions.
+For natural-language questions, the slice is anchored to one primary flow when LogicChart can
+rank a best match; related routes, callers, callees, tests, and neighboring behavior stay in
+`supporting_flows`. Agents should answer from `workflow_slice.presentation`, primary and
+supporting flows, ordered steps, decision nodes, review signals, and source ranges before
+showing any raw JSON or YAML. Lower-level tools are for progressive follow-up, not
+prerequisites for ordinary questions.
 
 ## MCP Runtime
 

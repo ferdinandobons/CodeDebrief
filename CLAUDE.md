@@ -9,10 +9,13 @@ For codebase questions about behavior, decisions, missing cases, or change impac
 2. Use `agent_context` for substantial changes, passing changed files, selected code,
    current file, flow id, symbol, finding id, or dependency path when available; inspect
    its returned `workflow_slice` before answering.
-3. Use `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`, `explain_node`,
+3. When the user asks to show a `workflow_slice`, render `workflow_slice.presentation`,
+   primary/supporting flows, ordered steps, decisions, review signals, and source ranges
+   first. Show raw JSON or YAML only when explicitly requested.
+4. Use `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`, `explain_node`,
    or `explain_edge` only when the first slice needs more precise context.
-4. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` review signals.
-5. Use `logicchart view ...` only when a human wants the manual UI flowchart.
+5. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` review signals.
+6. Use `logicchart view ...` only when a human wants the manual UI flowchart.
 
 When helping a user set up or learn LogicChart:
 

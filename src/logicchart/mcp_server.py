@@ -1395,6 +1395,18 @@ def _workflow_slice_payload(
     visible_flow_ids = _unique_preserve_order([*primary_flow_ids, *supporting_flow_ids])
     finding_ids = _workflow_finding_ids(pack)
     slice_id = _workflow_slice_id(model, inputs, visible_flow_ids, finding_ids)
+    primary_flows = _workflow_flow_rows(model, primary_flow_ids)
+    supporting_flows = _workflow_flow_rows(model, supporting_flow_ids)
+    ordered_steps = _workflow_ordered_steps(model, primary_flow_ids, token_budget)
+    decisions = _workflow_decisions(model, visible_flow_ids, token_budget)
+    review_signals = _workflow_review_signals(pack, token_budget)
+    viewer_targets = _workflow_viewer_targets(model, visible_flow_ids, finding_ids)
+    next_tools = _workflow_slice_next_tools(
+        primary_flow_ids,
+        supporting_flow_ids,
+        finding_ids,
+        token_budget,
+    )
     return {
         "schema_version": "workflow_slice.v1",
         "id": slice_id,
@@ -1414,24 +1426,28 @@ def _workflow_slice_payload(
             "question": question,
         },
         "selection": _workflow_selection(pack, inputs, primary_flow_ids, supporting_flow_ids),
-        "primary_flows": _workflow_flow_rows(model, primary_flow_ids),
-        "supporting_flows": _workflow_flow_rows(model, supporting_flow_ids),
-        "ordered_steps": _workflow_ordered_steps(model, primary_flow_ids, token_budget),
-        "decisions": _workflow_decisions(model, visible_flow_ids, token_budget),
+        "presentation": _workflow_presentation_contract(
+            primary_flows=primary_flows,
+            supporting_flows=supporting_flows,
+            ordered_steps=ordered_steps,
+            decisions=decisions,
+            review_signals=review_signals,
+            viewer_targets=viewer_targets,
+            next_tools=next_tools,
+        ),
+        "primary_flows": primary_flows,
+        "supporting_flows": supporting_flows,
+        "ordered_steps": ordered_steps,
+        "decisions": decisions,
         "calls": _workflow_calls(model, visible_flow_ids, token_budget),
         "domain_logic": _workflow_domain_logic(domain_map_payload, visible_flow_ids, token_budget),
-        "review_signals": _workflow_review_signals(pack, token_budget),
+        "review_signals": review_signals,
         "source_ranges": _workflow_source_ranges(model, visible_flow_ids, pack, token_budget),
         "visuals": _workflow_visuals(pack),
-        "viewer_targets": _workflow_viewer_targets(model, visible_flow_ids, finding_ids),
+        "viewer_targets": viewer_targets,
         "omissions": _workflow_omissions(pack, selected_flow_ids, visible_flow_ids, token_budget),
         "next_actions": _workflow_next_actions(primary_flow_ids, supporting_flow_ids, finding_ids),
-        "next_tools": _workflow_slice_next_tools(
-            primary_flow_ids,
-            supporting_flow_ids,
-            finding_ids,
-            token_budget,
-        ),
+        "next_tools": next_tools,
         "guardrail": (
             "workflow_slice is deterministic, local, and source-grounded. INFERRED and "
             "POTENTIAL_GAP review signals are candidates, not confirmed defects; "
@@ -1456,13 +1472,67 @@ def _workflow_slice_id(
     return f"slice-{hashlib.sha256(raw.encode('utf-8')).hexdigest()[:16]}"
 
 
+def _workflow_presentation_contract(
+    *,
+    primary_flows: list[dict[str, Any]],
+    supporting_flows: list[dict[str, Any]],
+    ordered_steps: list[dict[str, Any]],
+    decisions: list[dict[str, Any]],
+    review_signals: list[dict[str, Any]],
+    viewer_targets: dict[str, Any],
+    next_tools: dict[str, Any],
+) -> dict[str, Any]:
+    primary_names = [str(flow.get("name")) for flow in primary_flows if flow.get("name")]
+    title = "Workflow slice"
+    if primary_names:
+        title = f"Workflow slice: {', '.join(primary_names[:2])}"
+    return {
+        "schema_version": "workflow_slice.presentation.v1",
+        "title": title,
+        "counts": {
+            "primary_flows": len(primary_flows),
+            "supporting_flows": len(supporting_flows),
+            "ordered_steps": len(ordered_steps),
+            "decisions": len(decisions),
+            "review_signals": len(review_signals),
+            "viewer_targets": viewer_targets.get("target_count", 0),
+        },
+        "default_sections": [
+            {"label": "Slice Identity", "source_fields": ["id", "model_hash", "handle"]},
+            {"label": "Primary Flows", "source_fields": ["primary_flows"]},
+            {"label": "Supporting Flows", "source_fields": ["supporting_flows"]},
+            {"label": "Ordered Steps", "source_fields": ["ordered_steps"]},
+            {"label": "Decision Nodes", "source_fields": ["decisions"]},
+            {"label": "Review Signals", "source_fields": ["review_signals"]},
+            {"label": "Visual Targets", "source_fields": ["viewer_targets", "next_tools"]},
+        ],
+        "agent_guidance": [
+            "When the user asks to show a workflow_slice, render these sections first.",
+            "Use ordered_steps as the canonical walkthrough and keep source anchors visible.",
+            "Keep flow_id and finding_id values visible so the slice can be expanded.",
+            "Do not invent steps outside this payload.",
+            "Show raw JSON or YAML only when the user explicitly asks for raw output.",
+        ],
+        "visual_guidance": (
+            "If the user asks to visualize the slice, call snapshot_slice with "
+            "handle.flow_ids and handle.finding_ids, or open viewer_targets with "
+            "logicchart view for manual inspection."
+        ),
+        "recommended_next_tools": {
+            key: value
+            for key, value in next_tools.items()
+            if key in {"expand_slice", "snapshot_slice", "workflow_path"}
+        },
+    }
+
+
 def _workflow_primary_flow_ids(pack: dict[str, Any]) -> list[str]:
     impact = pack.get("impact")
     direct = _list_dicts(impact.get("direct")) if isinstance(impact, dict) else []
     if direct:
         return _unique_preserve_order(str(item["id"]) for item in direct if item.get("id"))
     query = _list_dicts(pack.get("query"))
-    return _unique_preserve_order(str(item["flow_id"]) for item in query if item.get("flow_id"))[:3]
+    return _unique_preserve_order(str(item["flow_id"]) for item in query if item.get("flow_id"))[:1]
 
 
 def _workflow_selected_flow_ids(pack: dict[str, Any]) -> list[str]:

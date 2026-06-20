@@ -95,10 +95,12 @@ confidence, review prompt, and bounded evidence-chain summaries without opening 
 browser viewer. Agents can also request `snapshot_slice` or a deterministic subgraph
 snapshot from explicit flow and finding ids, which renders the same focused review slice
 with highlighted signal nodes and unresolved-target metadata.
-Workflow-slice and `snapshot_slice` MCP payloads include `viewer_targets` with
-`logicchart view` hash fragments such as `#flow=<flow-id>`. These are manual follow-up
-targets for the generated viewer; the deterministic slice and snapshot payloads remain the
-agent's primary context.
+Workflow-slice payloads also include a deterministic presentation contract. Agents should
+render that contract, ordered steps, decision nodes, review signals, and source ranges before
+falling back to raw JSON or YAML. Workflow-slice and `snapshot_slice` MCP payloads include
+`viewer_targets` with `logicchart view` hash fragments such as `#flow=<flow-id>`. These are
+manual follow-up targets for the generated viewer; the deterministic slice and snapshot
+payloads remain the agent's primary context.
 
 ## Project Quality Panel
 

@@ -39,6 +39,8 @@ REMOVED_AGENT_COMMAND_SNIPPETS = (
 
 def _assert_current_agent_instructions(content: str) -> None:
     assert "Prefer the LogicChart MCP `agent_context` tool" in content
+    assert "render `workflow_slice.presentation`" in content
+    assert "Show raw JSON or YAML only when explicitly requested" in content
     assert "logicchart view ..." in content
     assert "provider keys" in content
     assert (
