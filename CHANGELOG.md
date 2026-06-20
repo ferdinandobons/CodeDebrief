@@ -58,6 +58,9 @@ The project follows Semantic Versioning.
 - Added MCP and agent-skill guidance for deterministic visual workflow answers where
   agents inspect the full slice, choose a clear first-pass subset, and offer
   language-friendly or expanded follow-ups without inventing graph facts.
+- Hardened visual workflow guidance for oversized, saved, or truncated MCP results:
+  agents must retry with a narrower slice instead of listing flows, reading source files,
+  or hand-building a replacement Mermaid diagram.
 - Added vertical/top-to-bottom layout guarantees for workflow-slice Mermaid and MCP SVG
   snapshots so repeated chat visuals do not alternate between horizontal and vertical
   graphs.

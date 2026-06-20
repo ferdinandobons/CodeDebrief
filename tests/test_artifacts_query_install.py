@@ -48,14 +48,21 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "summaries" in content
     assert "full returned `workflow_slice`" in content
     assert "clearest useful subset" in content
+    assert "too large, saved externally, truncated" in content
+    assert "smaller `token_budget`" in content
+    assert "narrower `flow_id`, `symbol`,\n   `current_file`, or `scope`" in content
+    assert "hand-building a\n   diagram" in content
     assert "bounded summary" in content
     assert "can be expanded" in content
     assert "language-friendly" in content
     assert "language of the user's request" in content
     assert "simplify labels" in content
     assert "omitted nodes/branches/adjacent flows" in content
-    assert "explore a related area" in content
+    assert "related area" in content
     assert "synthesize a new Mermaid" in content
+    assert "Do not read source\n   files to rebuild" in content
+    assert "must not change displayed\n   nodes, edges, labels, or branches" in content
+    assert "creating a replacement\n   Mermaid diagram" in content
     assert "absent" in content
     assert "`workflow_slice` payload" in content
     assert "raw JSON" in content
@@ -88,6 +95,9 @@ def _assert_logicchart_skill(content: str) -> None:
     assert "stable token" in content
     assert "full returned `workflow_slice`" in content
     assert "clearest useful subset" in content
+    assert "too large, saved externally, truncated" in content
+    assert "smaller\n   `token_budget`" in content
+    assert "hand-building a diagram" in content
     assert "low-signal implementation node" in content
     assert "bounded summary" in content
     assert "human-friendly" in content
@@ -97,6 +107,9 @@ def _assert_logicchart_skill(content: str) -> None:
     assert "expand omitted" in content
     assert "related area or deeper path" in content
     assert "synthesize a new Mermaid" in content
+    assert "Do not read source files to rebuild" in content
+    assert "must not change the displayed nodes, edges, labels, or branches" in content
+    assert "never create a replacement Mermaid diagram" in content
     assert "absent" in content
     assert "`workflow_slice` payload" in content
     assert "workflow_slice.handle.flow_ids" in content

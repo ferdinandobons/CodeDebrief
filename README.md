@@ -165,8 +165,12 @@ top-to-bottom visuals so repeated chat answers do not alternate between horizont
 vertical layouts. For a first visual answer, the agent should inspect
 the full returned slice, request `expand_slice` or `workflow_path` if the selected context is
 missing relevant nodes or paths, then show the clearest useful subset of that deterministic
-workflow. The subset can omit low-signal implementation nodes, but every visible block must
-come from deterministic slice fields or a focused explain tool. The answer should say the
+workflow. If the MCP result is too large, saved externally, truncated, or missing the exact
+canonical visual field, the agent should retry with a smaller `token_budget` and a narrower
+`flow_id`, `symbol`, `current_file`, or `scope` instead of listing flows or reading source
+files to rebuild a diagram. The subset can omit low-signal implementation nodes, but every
+visible block must come from deterministic slice fields or a focused explain tool. The
+answer should say the
 diagram is a bounded summary that can be expanded, then offer concise follow-ups: rewrite
 labels in simpler language in the user's language, expand omitted nodes or adjacent flows,
 or explore a related area. A language-friendly rewrite is allowed only as a separate

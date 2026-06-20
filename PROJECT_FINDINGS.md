@@ -75,6 +75,10 @@ LogicChart is in a strong alpha state.
   visual workflow requests. If inline SVG is unavailable, the expected fallback is the
   deterministic `workflow_slice.presentation.canonical_visual.diagram`, not a compressed
   linear summary or an agent-synthesized diagram.
+- The generated skill and agent guidance now reject the old oversized-result recovery path:
+  when a slice result is too large, saved externally, truncated, or missing the canonical
+  visual, agents should retry with a narrower `token_budget`/handle instead of listing
+  flows, reading source files, and hand-building Mermaid.
 - Codex MCP setup now uses `default_tools_approval_mode = "approve"` for the generated
   project-scoped LogicChart server, so the central local MCP workflow does not stop on
   every `agent_context` or navigation call.

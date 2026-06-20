@@ -19,14 +19,22 @@ For codebase questions about behavior, decisions, missing cases, or change impac
    Inspect the full returned `workflow_slice` before deciding what to show. Choose the
    first visible depth yourself: show the clearest useful subset, then say that the
    displayed diagram is a bounded summary and can be expanded.
+   If the LogicChart result is too large, saved externally, truncated, or missing the exact
+   canonical visual, retry with a smaller `token_budget` and narrower `flow_id`, `symbol`,
+   `current_file`, or `scope`; do not recover by listing flows and hand-building a
+   diagram.
    Do not synthesize a new Mermaid diagram and do not add limits, error codes, branches,
-   or service steps that are absent from the `workflow_slice` payload. If the user asks
-   for a more language-friendly version, rewrite the technical block labels in simple
-   wording using the language of the user's request. This is allowed only as a separate
-   presentation layer derived from returned node, edge, decision, and source fields. End
-   visual answers with concise options in the user's language: simplify labels, expand
-   omitted nodes/branches/adjacent flows, or explore a related area. Show raw JSON or YAML
-   only when explicitly requested.
+   or service steps that are absent from the `workflow_slice` payload. Do not read source
+   files to rebuild, relabel, or extend the diagram; source reads are only follow-up
+   explanation after the deterministic visual is shown and must not change displayed
+   nodes, edges, labels, or branches. If neither inline SVG nor exact canonical Mermaid can
+   be rendered, say so and provide `viewer_targets` instead of creating a replacement
+   Mermaid diagram. If the user asks for a more language-friendly version, rewrite the
+   technical block labels in simple wording using the language of the user's request. This
+   is allowed only as a separate presentation layer derived from returned node, edge,
+   decision, and source fields. End visual answers with concise options in the user's
+   language: simplify labels, expand omitted nodes/branches/adjacent flows, or explore a
+   related area. Show raw JSON or YAML only when explicitly requested.
 4. Use `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`, `explain_node`,
    or `explain_edge` only when the first slice needs more precise context.
 5. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` review signals.
