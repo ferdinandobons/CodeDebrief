@@ -17,10 +17,15 @@ build/
 .codex/config.toml
 .mcp.json
 .cursor/mcp.json
+.env.logicchart
 
 # Local analysis state and generated browser view
 .logicchart/
 **/logicchart-out/logic-flow.html
+
+# Private local real-world fixture. Keep it available for local smoke tests, but
+# never publish its source, generated artifacts, caches, or nested repository data.
+examples/Certifexp/
 
 # Common project artifacts that LogicChart should not analyze
 node_modules/

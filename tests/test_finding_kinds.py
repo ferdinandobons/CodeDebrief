@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
+from logicchart.diagnostics import finding_rule_contracts_by_kind
 from logicchart.model import FindingKind
 
 _FIXTURE = (
@@ -36,3 +37,10 @@ def test_every_finding_kind_is_an_enum_member_with_a_category(tmp_path: Path) ->
     kinds = {finding.kind for finding in model.findings}
     assert FindingKind.ENUM_EXHAUSTIVENESS.value in kinds  # cross-flow
     assert FindingKind.DEAD_CODE.value in kinds  # single-flow
+
+    rules = finding_rule_contracts_by_kind()
+    assert set(rules) == valid_kinds
+    assert all(
+        rules[finding.kind]["category"] == finding.metadata["category"]
+        for finding in model.findings
+    )

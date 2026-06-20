@@ -14,8 +14,14 @@ from logicchart.analysis.common import (
 )
 from logicchart.analysis.cross_flow import cross_flow_findings
 from logicchart.analysis.discovery import discover_source_files
-from logicchart.analysis.registry import LanguageAnalyzer, language_for, spec_for_language
+from logicchart.analysis.registry import (
+    LanguageAnalyzer,
+    language_capability_matrix,
+    language_for,
+    spec_for_language,
+)
 from logicchart.config import LogicChartConfig
+from logicchart.diagnostics import enrich_model_diagnostics
 from logicchart.model import (
     FileAnalysis,
     FileRecord,
@@ -26,6 +32,7 @@ from logicchart.model import (
     NodeKind,
     ProjectModel,
 )
+from logicchart.quality import model_quality
 from logicchart.util import (
     compact_text,
     file_sha256,
@@ -35,7 +42,7 @@ from logicchart.util import (
     write_json,
 )
 
-CACHE_VERSION = "2"
+CACHE_VERSION = "6"
 
 # One bad file (mid-edit syntax error, non-UTF-8 bytes, a merge-conflict marker,
 # or a missing lazy language grammar in the current Python environment) must never
@@ -88,7 +95,7 @@ class ProjectAnalyzer:
                 write_json(cache_file, analysis.to_dict())
                 changed_files.append(relative)
                 analyses.append(analysis)
-                new_index[relative] = {"sha256": digest, "cache": cache_file.name}
+                new_index[relative] = _index_entry(cache_file.name, digest, reason)
                 continue
             cached = previous_index.get(relative)
             reused = (
@@ -99,6 +106,8 @@ class ProjectAnalyzer:
             )
             if reused:
                 analysis = reused
+                if cached and cached.get("skip_reason"):
+                    skipped_files.append((relative, cached["skip_reason"]))
                 cache_hits += 1
             else:
                 analysis, reason = self._safe_analyze_file(path, relative, digest)
@@ -107,9 +116,13 @@ class ProjectAnalyzer:
                 write_json(cache_file, analysis.to_dict())
                 changed_files.append(relative)
             analyses.append(analysis)
-            new_index[relative] = {"sha256": digest, "cache": cache_file.name}
+            new_index[relative] = _index_entry(
+                cache_file.name,
+                digest,
+                reason if reason is not None else (cached or {}).get("skip_reason"),
+            )
 
-        model = self._combine(analyses)
+        model = self._combine(analyses, skipped_files)
         if not full and not changed_files and not deleted_files and self.previous_generated_at:
             model.generated_at = self.previous_generated_at
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -189,7 +202,13 @@ class ProjectAnalyzer:
             self.previous_generated_at = str(generated_at) if generated_at else None
             file_data = data.get("files", {})
             return {
-                str(path): {"sha256": str(item["sha256"]), "cache": str(item["cache"])}
+                str(path): {
+                    "sha256": str(item["sha256"]),
+                    "cache": str(item["cache"]),
+                    **(
+                        {"skip_reason": str(item["skip_reason"])} if item.get("skip_reason") else {}
+                    ),
+                }
                 for path, item in file_data.items()
             }
         except (ValueError, KeyError, TypeError, OSError):
@@ -198,7 +217,9 @@ class ProjectAnalyzer:
             self.previous_generated_at = None
             return {}
 
-    def _combine(self, analyses: list[FileAnalysis]) -> ProjectModel:
+    def _combine(
+        self, analyses: list[FileAnalysis], skipped_files: list[tuple[str, str]]
+    ) -> ProjectModel:
         flows = [flow for analysis in analyses for flow in analysis.flows]
         findings = [finding for analysis in analyses for finding in analysis.findings]
         self._link_calls(flows)
@@ -230,10 +251,11 @@ class ProjectAnalyzer:
                 language=analysis.language,
                 sha256=analysis.sha256,
                 flow_ids=[flow.id for flow in analysis.flows],
+                dependencies=analysis.dependencies,
             )
             for analysis in analyses
         ]
-        return ProjectModel(
+        model = ProjectModel(
             schema_version="1.1",
             generated_at=datetime.now(timezone.utc).isoformat(),
             root=".",
@@ -246,9 +268,14 @@ class ProjectAnalyzer:
                 "flow_count": len(flows),
                 "finding_count": len(findings),
                 "enums": enums,
+                "language_capabilities": language_capability_matrix(),
                 "scopes": dict(sorted(scope_counts.items())),
+                "skipped_files": _skipped_file_records(skipped_files),
             },
         )
+        enrich_model_diagnostics(model)
+        model.metadata["quality"] = model_quality(model)
+        return model
 
     def _link_calls(self, flows: list[Flow]) -> None:
         # Import-aware first (`qualified_calls` from the analyzers), short name as a
@@ -274,6 +301,8 @@ class ProjectAnalyzer:
             short = flow.symbol.split(":", 1)[-1].split(".")[-1]
             named.setdefault(short, []).append(flow)
 
+        calls_seen = {flow.id: set(flow.calls) for flow in flows}
+        called_by_seen = {flow.id: set(flow.called_by) for flow in flows}
         for flow in flows:
             lang_qualified = by_qualified.get(flow.language, {})
             lang_name = by_name.get(flow.language, {})
@@ -289,10 +318,12 @@ class ProjectAnalyzer:
                     target = next(iter(candidates.values()))
                     node.metadata["target_flow"] = target.id
                     node.metadata["target_symbol"] = target.symbol
-                    if target.id not in flow.calls:
+                    if target.id not in calls_seen[flow.id]:
                         flow.calls.append(target.id)
-                    if flow.id not in target.called_by:
+                        calls_seen[flow.id].add(target.id)
+                    if flow.id not in called_by_seen[target.id]:
                         target.called_by.append(flow.id)
+                        called_by_seen[target.id].add(flow.id)
 
     @staticmethod
     def _resolve_call(
@@ -336,6 +367,24 @@ def _skip_reason(error: Exception) -> str:
     """A one-line, human-readable reason a file was skipped."""
     text = str(error).strip() or error.__class__.__name__
     return compact_text(text, 200)
+
+
+def _index_entry(cache_name: str, digest: str, reason: str | None = None) -> dict[str, str]:
+    entry = {"sha256": digest, "cache": cache_name}
+    if reason:
+        entry["skip_reason"] = reason
+    return entry
+
+
+def _skipped_file_records(skipped_files: list[tuple[str, str]]) -> list[dict[str, str]]:
+    return [
+        {
+            "path": path,
+            "language": language_for(Path(path)),
+            "reason": reason,
+        }
+        for path, reason in sorted(skipped_files)
+    ]
 
 
 def _suppress_redundant_missing_branch(findings: list[Finding]) -> list[Finding]:

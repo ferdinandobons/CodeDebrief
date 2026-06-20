@@ -30,9 +30,12 @@ from logicchart.analysis.common import (
     call_is_boundary,
     decision_identity,
     decision_metadata,
+    dependency_paths_from_import_map,
     domain_from_subject,
     is_functional_condition,
+    require_tree_sitter_parse_ok,
     tag_call_effects,
+    tree_sitter_parse_error,
     value_namespace,
 )
 from logicchart.analysis.detectors import dead_code_finding, single_flow_findings
@@ -88,12 +91,36 @@ class TypeScriptAnalyzer:
         )
         parser = Parser(Language(grammar))
         tree = parser.parse(source_bytes)
+        parse_error = tree_sitter_parse_error(tree.root_node, relative, ir_language)
+        definitions = list(_definitions(tree.root_node, source_bytes, relative))
+        if parse_error is not None and not definitions:
+            require_tree_sitter_parse_ok(tree.root_node, relative, ir_language)
         findings: list[Finding] = []
         flows = [
             self._analyze_definition(item, source_bytes, source, relative, ir_language, findings)
-            for item in _definitions(tree.root_node, source_bytes, relative)
+            for item in definitions
         ]
+        if parse_error is not None:
+            for flow in flows:
+                flow.metadata["parse_error"] = parse_error
         import_map = _import_map(tree.root_node, source_bytes, relative)
+        dependencies = [
+            item
+            for item in dependency_paths_from_import_map(
+                import_map,
+                self.root,
+                module_suffixes=(".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"),
+                package_files=(
+                    "index.ts",
+                    "index.tsx",
+                    "index.js",
+                    "index.jsx",
+                    "index.mjs",
+                    "index.cjs",
+                ),
+            )
+            if item != relative
+        ]
         module_name = _module_name(relative)
         for flow in flows:
             attach_qualified_calls(flow, import_map, module_name)
@@ -102,6 +129,7 @@ class TypeScriptAnalyzer:
             language=ir_language,
             sha256=file_sha256(path),
             enums=_harvest_enums(tree.root_node, source_bytes),
+            dependencies=dependencies,
             flows=flows,
             findings=findings,
         )
@@ -151,15 +179,23 @@ class TypeScriptAnalyzer:
             [],
             metadata={"symbol": symbol},
         )
-        statements = list(_named_children(definition.body))
-        outgoing = self._walk_statements(
-            statements,
-            [PendingEdge(entry.id)],
-            builder,
-            findings,
-            source_bytes,
-            relative,
-        )
+        if definition.body.type == "statement_block":
+            outgoing = self._walk_statements(
+                list(_named_children(definition.body)),
+                [PendingEdge(entry.id)],
+                builder,
+                findings,
+                source_bytes,
+                relative,
+            )
+        else:
+            outgoing = self._walk_expression_body(
+                definition.body,
+                [PendingEdge(entry.id)],
+                builder,
+                source_bytes,
+                relative,
+            )
         if outgoing:
             builder.add_node(
                 NodeKind.TERMINAL,
@@ -185,14 +221,13 @@ class TypeScriptAnalyzer:
         relative: str,
     ) -> list[PendingEdge]:
         endpoints = incoming
-        for index, statement in enumerate(statements):
+        for statement in statements:
             if not endpoints:
-                dead = statements[index]
                 findings.append(
                     dead_code_finding(
                         builder.flow,
-                        _location(relative, dead),
-                        _text(dead, source),
+                        _location(relative, statement),
+                        _text(statement, source),
                     )
                 )
                 break
@@ -208,15 +243,9 @@ class TypeScriptAnalyzer:
                     statement, endpoints, builder, findings, source, relative
                 )
             elif node_type in LOOP_TYPES:
-                node = builder.add_node(
-                    NodeKind.ACTION,
-                    _loop_label(statement, source),
-                    _location(relative, statement),
-                    endpoints,
-                    detail=_text(statement, source),
-                    evidence=Evidence.INFERRED,
+                endpoints = self._walk_loop(
+                    statement, endpoints, builder, findings, source, relative
                 )
-                endpoints = [PendingEdge(node.id)]
             elif node_type == "return_statement":
                 value = _text(statement, source).removeprefix("return").rstrip(";").strip()
                 calls = [
@@ -253,6 +282,26 @@ class TypeScriptAnalyzer:
                     detail=_text(statement, source),
                 )
                 endpoints = []
+            elif node_type == "break_statement":
+                node = builder.add_node(
+                    NodeKind.ACTION,
+                    "Break loop",
+                    _location(relative, statement),
+                    endpoints,
+                    detail=_text(statement, source),
+                    metadata={"loop_control": "break"},
+                )
+                endpoints = [PendingEdge(node.id)]
+            elif node_type == "continue_statement":
+                builder.add_node(
+                    NodeKind.ACTION,
+                    "Continue loop",
+                    _location(relative, statement),
+                    endpoints,
+                    detail=_text(statement, source),
+                    metadata={"loop_control": "continue"},
+                )
+                endpoints = []
             elif node_type in {"function_declaration", "class_declaration"}:
                 continue
             else:
@@ -267,6 +316,117 @@ class TypeScriptAnalyzer:
                 )
                 endpoints = [PendingEdge(node.id)]
         return endpoints
+
+    def _walk_loop(
+        self,
+        statement: Any,
+        incoming: list[PendingEdge],
+        builder: FlowBuilder,
+        findings: list[Finding],
+        source: bytes,
+        relative: str,
+    ) -> list[PendingEdge]:
+        body = _loop_body(statement)
+        node = builder.add_node(
+            NodeKind.ACTION,
+            _loop_label(statement, source),
+            _location(relative, statement),
+            incoming,
+            detail=_text(statement, source),
+            evidence=Evidence.INFERRED,
+            metadata={
+                "loop": True,
+                "body_outcome": _branch_outcome(_statement_children(body)),
+                "has_else": False,
+            },
+        )
+        body_endpoints = self._walk_statements(
+            _statement_children(body),
+            [PendingEdge(node.id, "Iteration")],
+            builder,
+            findings,
+            source,
+            relative,
+        )
+        return [PendingEdge(node.id, "Done"), *body_endpoints]
+
+    def _walk_expression_body(
+        self,
+        expression: Any,
+        incoming: list[PendingEdge],
+        builder: FlowBuilder,
+        source: bytes,
+        relative: str,
+    ) -> list[PendingEdge]:
+        if expression.type == "ternary_expression":
+            condition_node = expression.child_by_field_name("condition")
+            consequence = expression.child_by_field_name("consequence")
+            alternative = expression.child_by_field_name("alternative")
+            condition = _strip_parentheses(_text(condition_node or expression, source))
+            node = builder.add_node(
+                NodeKind.DECISION,
+                condition,
+                _location(relative, condition_node or expression),
+                incoming,
+                detail=_text(expression, source),
+                metadata=decision_metadata(condition),
+            )
+            node.metadata["branches"] = [
+                branch(YES, RETURNS),
+                branch(NO, RETURNS),
+            ]
+            self._walk_expression_return(
+                consequence,
+                [PendingEdge(node.id, YES)],
+                builder,
+                source,
+                relative,
+            )
+            self._walk_expression_return(
+                alternative,
+                [PendingEdge(node.id, NO)],
+                builder,
+                source,
+                relative,
+            )
+            return []
+        return self._walk_expression_return(expression, incoming, builder, source, relative)
+
+    def _walk_expression_return(
+        self,
+        expression: Any | None,
+        incoming: list[PendingEdge],
+        builder: FlowBuilder,
+        source: bytes,
+        relative: str,
+    ) -> list[PendingEdge]:
+        if expression is None:
+            return incoming
+        calls = [
+            _call_name(item, source)
+            for item in _descendants(expression)
+            if item.type == "call_expression"
+        ]
+        calls = [item for item in calls if item]
+        endpoints = incoming
+        if calls:
+            call_node = builder.add_node(
+                NodeKind.CALL,
+                f"Call {calls[0]}()",
+                _location(relative, expression),
+                endpoints,
+                detail=_text(expression, source),
+                metadata={"calls": calls},
+            )
+            endpoints = [PendingEdge(call_node.id)]
+        builder.add_node(
+            NodeKind.TERMINAL,
+            f"Return {_text(expression, source)}".strip(),
+            _location(relative, expression),
+            endpoints,
+            detail=_text(expression, source),
+        )
+        return []
 
     def _walk_if(
         self,
@@ -617,6 +777,17 @@ def _statement_children(node: Any | None) -> list[Any]:
     return [node]
 
 
+def _loop_body(statement: Any) -> Any | None:
+    body = statement.child_by_field_name("body")
+    if body is not None:
+        return body
+    blocks = [child for child in _named_children(statement) if child.type == "statement_block"]
+    if blocks:
+        return blocks[-1]
+    named = list(_named_children(statement))
+    return named[-1] if named else None
+
+
 def _named_children(node: Any | None) -> Iterable[Any]:
     if node is None:
         return []
@@ -698,6 +869,7 @@ def _import_map(root: Any, source: bytes, relative: str) -> dict[str, str]:
             continue
         clause = next((child for child in node.children if child.type == "import_clause"), None)
         if clause is None:
+            mapping[f"__side_effect_import__:{module}"] = f"{module}:"
             continue
         for child in clause.children:
             if child.type == "identifier":  # default import -> resolve via marker
@@ -791,6 +963,10 @@ def _branch_outcome(statements: list[Any]) -> str:
         if stmt.type == "break_statement":
             # break exits the enclosing loop/switch; control resumes after it.
             return FALLS_THROUGH
+        if stmt.type == "try_statement":
+            try_outcome = _try_statement_outcome(stmt)
+            if _terminates(try_outcome):
+                return try_outcome
         if stmt.type == "if_statement":
             alternative = stmt.child_by_field_name("alternative")
             if alternative is not None:
@@ -800,6 +976,21 @@ def _branch_outcome(statements: list[Any]) -> str:
                 else_outcome = _branch_outcome(_statement_children(alternative))
                 if _terminates(then_outcome) and _terminates(else_outcome):
                     return then_outcome if then_outcome == else_outcome else RETURNS
+    return FALLS_THROUGH
+
+
+def _try_statement_outcome(statement: Any) -> str:
+    finalizer = statement.child_by_field_name("finalizer")
+    final_outcome = _branch_outcome(_statement_children(finalizer))
+    if _terminates(final_outcome):
+        return final_outcome
+
+    outcomes = [_branch_outcome(_statement_children(statement.child_by_field_name("body")))]
+    handler = statement.child_by_field_name("handler")
+    if handler is not None:
+        outcomes.append(_branch_outcome(_statement_children(handler)))
+    if outcomes and all(_terminates(outcome) for outcome in outcomes):
+        return outcomes[0] if all(outcome == outcomes[0] for outcome in outcomes) else RETURNS
     return FALLS_THROUGH
 
 
@@ -821,7 +1012,32 @@ def _case_falls_through(statements: list[Any]) -> bool:
             "break_statement",
         ):
             return False
+        if stmt.type == "try_statement" and not _try_case_falls_through(stmt):
+            return False
+        if stmt.type == "if_statement":
+            alternative = stmt.child_by_field_name("alternative")
+            if alternative is not None:
+                then_falls_through = _case_falls_through(
+                    _statement_children(stmt.child_by_field_name("consequence"))
+                )
+                else_falls_through = _case_falls_through(_statement_children(alternative))
+                if not then_falls_through and not else_falls_through:
+                    return False
     return True
+
+
+def _try_case_falls_through(statement: Any) -> bool:
+    finalizer = statement.child_by_field_name("finalizer")
+    if finalizer is not None and not _case_falls_through(_statement_children(finalizer)):
+        return False
+
+    body_falls_through = _case_falls_through(
+        _statement_children(statement.child_by_field_name("body"))
+    )
+    handler = statement.child_by_field_name("handler")
+    if handler is None:
+        return body_falls_through
+    return body_falls_through or _case_falls_through(_statement_children(handler))
 
 
 def _terminates(outcome: str) -> bool:

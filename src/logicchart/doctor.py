@@ -24,6 +24,14 @@ class MissingDependency:
 
 
 @dataclass(frozen=True, slots=True)
+class LanguageCapabilitySummary:
+    supported_languages: list[str]
+    feature_count: int
+    limitation_note_count: int
+    contract: str
+
+
+@dataclass(frozen=True, slots=True)
 class DoctorReport:
     ok: bool
     executable: str
@@ -31,6 +39,7 @@ class DoctorReport:
     package_location: str
     missing_dependencies: list[MissingDependency]
     repair_command: str
+    language_capabilities: LanguageCapabilitySummary
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -66,10 +75,12 @@ def doctor_report(root: Path) -> DoctorReport:
         package_location=_package_location(),
         missing_dependencies=missing,
         repair_command=_repair_command(root),
+        language_capabilities=_language_capability_summary(),
     )
 
 
 def render_doctor(report: DoctorReport) -> str:
+    capabilities = report.language_capabilities
     lines = [
         f"LogicChart doctor {'OK' if report.ok else 'FAILED'}",
         f"Python: {report.executable}",
@@ -77,11 +88,20 @@ def render_doctor(report: DoctorReport) -> str:
     ]
     if report.package_location:
         lines.append(f"Location: {report.package_location}")
+    lines.append(
+        "Language capabilities: "
+        f"{len(capabilities.supported_languages)} language ids, "
+        f"{capabilities.feature_count} feature flags, "
+        f"{capabilities.limitation_note_count} limitation notes"
+    )
+    lines.append(f"Capability contract: {capabilities.contract}")
     if report.missing_dependencies:
         lines.append("")
         lines.append("Missing runtime dependencies:")
-        for item in report.missing_dependencies:
-            lines.append(f"- {item.package} (import {item.import_name}) for {item.purpose}")
+        lines.extend(
+            f"- {item.package} (import {item.import_name}) for {item.purpose}"
+            for item in report.missing_dependencies
+        )
         lines.append("")
         lines.append("Repair this interpreter with:")
         lines.append(f"  {report.repair_command}")
@@ -132,3 +152,24 @@ def _repair_command(root: Path) -> str:
 
 def _looks_like_logicchart_checkout(path: Path) -> bool:
     return (path / "pyproject.toml").exists() and (path / "src" / "logicchart" / "cli.py").exists()
+
+
+def _language_capability_summary() -> LanguageCapabilitySummary:
+    from logicchart.analysis.registry import language_capability_matrix
+
+    matrix = language_capability_matrix()
+    feature_names: set[str] = set()
+    limitation_note_count = 0
+    for payload in matrix.values():
+        features = payload.get("features")
+        if isinstance(features, dict):
+            feature_names.update(str(name) for name in features)
+        limitations = payload.get("limitations")
+        if isinstance(limitations, dict):
+            limitation_note_count += len(limitations)
+    return LanguageCapabilitySummary(
+        supported_languages=sorted(matrix),
+        feature_count=len(feature_names),
+        limitation_note_count=limitation_note_count,
+        contract="metadata.language_capabilities; smoke-tested by tests/test_registry.py",
+    )

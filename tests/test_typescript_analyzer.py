@@ -101,3 +101,112 @@ export function UserPanel({ user }: Props) {
     assert flow.is_entrypoint
     assert flow.framework == "react"
     assert flow.entry_kind == "component"
+
+
+def test_expression_bodied_arrow_component_models_ternary_decision(tmp_path: Path) -> None:
+    source = tmp_path / "UserBadge.tsx"
+    source.write_text(
+        """
+export const UserBadge = ({ user }: Props) =>
+  user.active ? <Active user={user} /> : <Inactive />;
+""",
+        encoding="utf-8",
+    )
+
+    analysis = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = analysis.flows[0]
+
+    assert flow.is_entrypoint
+    assert flow.framework == "react"
+    assert flow.entry_kind == "component"
+    decision = next(node for node in flow.nodes if node.kind is NodeKind.DECISION)
+    assert decision.label == "user.active"
+    assert decision.metadata["branches"] == [
+        {"label": "Yes", "outcome": "returns", "implicit": False},
+        {"label": "No", "outcome": "returns", "implicit": False},
+    ]
+    assert any(node.label.startswith("Return <Active") for node in flow.nodes)
+    assert any(node.label.startswith("Return <Inactive") for node in flow.nodes)
+    assert not any(node.label == "Complete" for node in flow.nodes)
+
+
+def test_loop_body_decision_is_modeled_before_post_loop(tmp_path: Path) -> None:
+    source = tmp_path / "orders.ts"
+    source.write_text(
+        """
+export function processOrders(orders: Order[]) {
+  for (let index = 0; index < orders.length; index++) {
+    const order = orders[index];
+    if (order.status === "open") {
+      approve(order);
+    }
+  }
+  return done();
+}
+""",
+        encoding="utf-8",
+    )
+
+    analysis = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = next(item for item in analysis.flows if item.name == "processOrders")
+    labels = [node.label for node in flow.nodes]
+
+    assert any(label.startswith("Repeat: for ") for label in labels)
+    assert 'order.status === "open"' in labels
+    assert "Call approve()" in labels
+    assert "Call done()" in labels
+    assert "Return done()" in labels
+
+    loop = next(node for node in flow.nodes if node.label.startswith("Repeat: for "))
+    by_label = {node.label: node.id for node in flow.nodes}
+    iteration_target = next(
+        edge.target for edge in flow.edges if edge.source == loop.id and edge.label == "Iteration"
+    )
+    assert by_label['order.status === "open"'] in _reaches(flow, iteration_target)
+    assert any(
+        edge.source == loop.id and edge.target == by_label["Call done()"] and edge.label == "Done"
+        for edge in flow.edges
+    )
+    assert any(
+        edge.source == by_label["Call approve()"] and edge.target == by_label["Call done()"]
+        for edge in flow.edges
+    )
+
+
+def test_loop_continue_does_not_flow_to_post_loop(tmp_path: Path) -> None:
+    source = tmp_path / "orders.ts"
+    source.write_text(
+        """
+export function processOrders(orders: Order[]) {
+  for (const order of orders) {
+    if (order.status === "skip") {
+      continue;
+    }
+    handle(order);
+  }
+  return done();
+}
+""",
+        encoding="utf-8",
+    )
+
+    analysis = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    flow = next(item for item in analysis.flows if item.name == "processOrders")
+    labels = [node.label for node in flow.nodes]
+
+    assert "Continue loop" in labels
+    assert "Call handle()" in labels
+    assert "Call done()" in labels
+
+    by_label = {node.label: node.id for node in flow.nodes}
+    assert (
+        any(
+            edge.source == by_label["Continue loop"] and edge.target == by_label["Call done()"]
+            for edge in flow.edges
+        )
+        is False
+    )
+    assert any(
+        edge.source == by_label["Call handle()"] and edge.target == by_label["Call done()"]
+        for edge in flow.edges
+    )

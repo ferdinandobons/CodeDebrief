@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from logicchart.model import (
@@ -13,7 +14,7 @@ from logicchart.model import (
     NodeKind,
     SourceLocation,
 )
-from logicchart.util import compact_text
+from logicchart.util import compact_text, relpath
 
 FUNCTIONAL_TERMS = {
     "active",
@@ -122,6 +123,46 @@ class FlowBuilder:
         )
         self.flow.edges.append(edge)
         return edge
+
+
+def require_tree_sitter_parse_ok(root_node: Any, relative: str, language: str) -> None:
+    """Raise a clean SyntaxError when a tree-sitter parse contains error nodes.
+
+    Tree-sitter can produce a partial tree for malformed source. That is useful for
+    editors, but LogicChart's canonical model should not present a partial flow as if it
+    were trustworthy. The project analyzer catches SyntaxError and records the file as a
+    skipped-file quality signal instead.
+    """
+    parse_error = tree_sitter_parse_error(root_node, relative, language)
+    if parse_error is None:
+        return
+    raise SyntaxError(parse_error["reason"])
+
+
+def tree_sitter_parse_error(root_node: Any, relative: str, language: str) -> dict[str, Any] | None:
+    if not bool(getattr(root_node, "has_error", False)):
+        return None
+    error_node = _first_tree_sitter_error(root_node) or root_node
+    point = getattr(error_node, "start_point", None)
+    line = int(getattr(point, "row", 0)) + 1
+    kind = str(getattr(error_node, "type", "ERROR"))
+    return {
+        "language": language,
+        "path": relative,
+        "line": line,
+        "kind": kind,
+        "reason": f"{language} parse error in {relative}:{line} near {kind}",
+    }
+
+
+def _first_tree_sitter_error(node: Any) -> Any | None:
+    if str(getattr(node, "type", "")) == "ERROR":
+        return node
+    for child in getattr(node, "children", []) or []:
+        if bool(getattr(child, "has_error", False)):
+            found = _first_tree_sitter_error(child)
+            return found or child
+    return None
 
 
 def is_functional_condition(condition: str, branch_text: str = "") -> bool:
@@ -322,6 +363,71 @@ def attach_qualified_calls(flow: Flow, import_map: dict[str, str], current_modul
         node.metadata["qualified_calls"] = [
             resolve_qualified(raw, import_map, current_module) for raw in raw_calls
         ]
+
+
+def dependency_paths_from_import_map(
+    import_map: dict[str, str],
+    root: Path,
+    *,
+    module_suffixes: tuple[str, ...],
+    package_files: tuple[str, ...] = (),
+    package_directories: bool = False,
+    include_path: Callable[[str], bool] = lambda relative: True,
+) -> list[str]:
+    """Resolve import-map modules to first-party source paths under ``root``.
+
+    Import maps may contain external packages. A dependency is emitted only when a
+    candidate file exists inside the analyzed folder, keeping impact edges local-first and
+    deterministic.
+    """
+    dependencies: list[str] = []
+    seen: set[str] = set()
+    for module in _import_map_modules(import_map):
+        module_path = module.replace(".", "/")
+        candidates = [
+            *(f"{module_path}{suffix}" for suffix in module_suffixes),
+            *(f"{module_path}/{filename}" for filename in package_files),
+        ]
+        for candidate in candidates:
+            path = root / candidate
+            if not path.is_file():
+                continue
+            relative = relpath(path, root)
+            if not include_path(relative):
+                continue
+            if relative not in seen:
+                dependencies.append(relative)
+                seen.add(relative)
+            break
+        else:
+            if not package_directories:
+                continue
+            package_dir = root / module_path
+            if not package_dir.is_dir():
+                continue
+            for suffix in module_suffixes:
+                for path in sorted(package_dir.glob(f"*{suffix}")):
+                    if not path.is_file():
+                        continue
+                    relative = relpath(path, root)
+                    if not include_path(relative):
+                        continue
+                    if relative not in seen:
+                        dependencies.append(relative)
+                        seen.add(relative)
+    return dependencies
+
+
+def _import_map_modules(import_map: dict[str, str]) -> list[str]:
+    modules: list[str] = []
+    seen: set[str] = set()
+    for value in import_map.values():
+        module = str(value).split(":", 1)[0]
+        if not module or module in seen:
+            continue
+        modules.append(module)
+        seen.add(module)
+    return modules
 
 
 def annotate_reachability(flow: Flow) -> None:

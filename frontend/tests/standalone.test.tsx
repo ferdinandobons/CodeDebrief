@@ -732,6 +732,35 @@ describe("standalone viewer bridge", () => {
     container.remove();
   });
 
+  it("publishes source details when opened from a flow deep link", async () => {
+    window.history.replaceState(null, "", "/#flow=orders-route");
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const select = vi.fn();
+    const openDetails = vi.fn();
+    (window as typeof window & { LC?: unknown }).LC = { openDetails, select };
+
+    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    await act(async () => {});
+
+    expect(container.querySelector('[data-flow-id="orders-route"]')?.getAttribute("class")).toContain(
+      "selected",
+    );
+    expect(select).toHaveBeenLastCalledWith({
+      edgeId: null,
+      endLine: 3,
+      findingId: null,
+      flowId: "orders-route",
+      line: 3,
+      nodeId: null,
+      path: "frontend/app/api/orders/route.ts",
+    });
+    expect(openDetails).toHaveBeenCalled();
+
+    mounted.unmount();
+    container.remove();
+  });
+
   it("opens directly selected internal flows as connected caller chains", async () => {
     window.history.replaceState(null, "", "/#scope=frontend");
     const container = document.createElement("div");
@@ -741,7 +770,7 @@ describe("standalone viewer bridge", () => {
 
     await act(async () => {
       mounted.selectFlow("load-order");
-      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      await flushAsyncTimers(3);
     });
 
     expect(window.location.hash).toBe("#flow=load-order");
@@ -972,7 +1001,16 @@ describe("standalone viewer bridge", () => {
 
     await act(async () => {
       mounted.expandAll();
-      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      await flushAsyncTimers(2);
+    });
+
+    const progress = container.querySelector<HTMLElement>(".logicchart-expand-progress");
+    expect(progress).not.toBeNull();
+    expect(progress?.hidden).toBe(false);
+    expect(progress?.textContent).toContain("Expanding canvas");
+
+    await act(async () => {
+      await flushAsyncTimers(1);
     });
 
     expect(window.location.hash).toBe("#scope=backend");
@@ -985,6 +1023,20 @@ describe("standalone viewer bridge", () => {
     expect(container.querySelector('[data-flow-id="backend-auth"]')).not.toBeNull();
     expect(container.querySelector('[data-flow-id="orders-route"]')).not.toBeNull();
     expect(container.querySelector('[data-flow-id="users-route"]')).not.toBeNull();
+    expect(container.querySelector('[data-flow-id="load-order"]')).not.toBeNull();
+    expect(container.querySelector(".flow-detail")).toBeNull();
+
+    await act(async () => {
+      await flushAsyncTimers(3);
+    });
+
+    expect(progress?.hidden).toBe(true);
+
+    await act(async () => {
+      mounted.selectFlow("orders-route");
+      await flushAsyncTimers(3);
+    });
+
     expect(container.querySelector(".flow-detail")).not.toBeNull();
 
     await act(async () => {
@@ -994,6 +1046,37 @@ describe("standalone viewer bridge", () => {
     expect(window.location.hash).toBe("#root");
     expect(container.querySelectorAll(".flow-node")).toHaveLength(0);
     expect(container.querySelector(".flow-detail")).toBeNull();
+
+    mounted.unmount();
+    container.remove();
+  });
+
+  it("chunks expand-all preparation before the heavy canvas update", async () => {
+    window.history.replaceState(null, "", "/#root");
+    const largePayload = largeExpansionPayload(600);
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    const mounted = mountStandaloneLogicChartViewer(container, largePayload);
+
+    await act(async () => {
+      mounted.expandAll();
+      await flushAsyncTimers(2);
+    });
+
+    const progress = container.querySelector<HTMLElement>(".logicchart-expand-progress");
+    expect(progress).not.toBeNull();
+    expect(progress?.hidden).toBe(false);
+    expect(progress?.textContent).toContain("Expanding canvas");
+    const finalProgressText = `${largePayload.flows.length + 4} / ${largePayload.flows.length + 4}`;
+    expect(progress?.textContent).not.toContain(finalProgressText);
+    expect(container.querySelectorAll(".flow-node")).toHaveLength(0);
+
+    await act(async () => {
+      await flushAsyncTimers(6);
+    });
+
+    expect(container.querySelectorAll(".flow-node").length).toBeGreaterThan(500);
 
     mounted.unmount();
     container.remove();
@@ -1014,6 +1097,7 @@ describe("standalone viewer bridge", () => {
 
     await act(async () => {
       mounted.selectScope("backend");
+      await flushAsyncTimers(3);
     });
 
     expect(window.location.hash).toBe("#scope=backend");
@@ -1246,6 +1330,31 @@ function pointerEvent(
     value: options.pointerId ?? 1,
   });
   return event;
+}
+
+function largeExpansionPayload(flowCount: number): LogicChartPayload {
+  return {
+    flows: Array.from({ length: flowCount }, (_, index) => {
+      const scope = index % 2 === 0 ? "backend" : "frontend";
+      return {
+        id: `${scope}-${index}`,
+        name: `${scope} ${index}`,
+        language: "typescript",
+        entry_kind: "function",
+        is_entrypoint: index < 2,
+        location: { path: `${scope}/file-${index}.ts`, start_line: index + 1 },
+        calls: [],
+        called_by: [],
+        metadata: { scope: [scope] },
+      };
+    }),
+  };
+}
+
+async function flushAsyncTimers(count: number): Promise<void> {
+  for (let index = 0; index < count; index += 1) {
+    await new Promise(resolve => window.setTimeout(resolve, 0));
+  }
 }
 
 function memoryStorage(): Storage {

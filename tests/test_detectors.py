@@ -195,6 +195,29 @@ export async function POST(request: Request) {
     assert "asymmetric_return" not in _kinds(findings)
 
 
+def test_switch_case_returning_from_try_finally_is_symmetric(tmp_path: Path) -> None:
+    findings = _ts_route_findings(
+        tmp_path,
+        """
+export async function POST(request: Request) {
+  switch (order.status) {
+    case OrderStatus.PAID:
+      try {
+        return paid();
+      } finally {
+        audit();
+      }
+    case OrderStatus.SHIPPED:
+      return shipped();
+    default:
+      return fallback();
+  }
+}
+""",
+    )
+    assert "asymmetric_return" not in _kinds(findings)
+
+
 # --- false-positive regressions and ceilings --------------------------------
 
 

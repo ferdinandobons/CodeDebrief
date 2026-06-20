@@ -54,6 +54,69 @@ such as:
 #edge=<encoded scope-entry connection>
 ```
 
+Direct `#flow=<flow-id>` and `#path=<source-path>` openings must select the matching
+source context and open the Details rail automatically. This keeps copied viewer links and
+agent-provided URLs useful without requiring a second manual Details click.
+
+## Review Signals Panel
+
+The Review Signals panel is both a bounded review queue and a selected-signal inspector.
+At broad scope it lists or summarizes review signals without rendering unbounded rows. Selecting a
+signal opens the related flow, selects the target node, highlights the source range, and
+expands the row with the normalized diagnostic metadata from the model:
+
+- severity, evidence tier, category, and confidence basis;
+- missing values, expected state, and actual handled values when the detector provides
+  them;
+- the detector purpose, review prompt, and suggested next actions;
+- detector-specific evidence such as implicit fallbacks, constant guards, branch outcomes,
+  and handler outcomes;
+- a compact focused diagnostic subgraph linking the signal's focus block to bounded
+  evidence nodes and related flows;
+- related flows and evidence nodes derived from diagnostic scope, caller/callee context,
+  and shared decision metadata, each linked back into the progressive flowchart.
+
+If `logicchart-out/logic-annotations.json` includes a fresh finding annotation, the row
+shows an enrichment badge and the expanded inspector renders summary, explanation, and
+remediation text in a separate enrichment block. This never replaces the normalized
+diagnostic metadata.
+
+Fresh scope annotations are rendered directly on progressive scope nodes as group labels
+with summary/description text in the node title. Scope annotation text is presentation
+only; the scope membership and progressive expansion remain deterministic.
+
+This panel must preserve the model's evidence language: `VERIFIED` means syntax-backed,
+`INFERRED` means deterministic heuristic, and `POTENTIAL_GAP` remains a review candidate,
+not a confirmed defect.
+
+The deterministic MCP review-signal snapshot uses the same diagnostic metadata in a compact SVG
+side panel, so agents can inspect the highlighted flow node together with evidence tier,
+confidence, review prompt, and bounded evidence-chain summaries without opening the full
+browser viewer. Agents can also request a deterministic subgraph snapshot from explicit
+flow and finding ids, which renders the same focused review slice with highlighted signal
+nodes and unresolved-target metadata.
+
+## Project Quality Panel
+
+The Details rail also renders `metadata.quality` when present. This is a compact analyzer
+snapshot for large-codebase review:
+
+- file, flow, entrypoint, and source-location coverage counts;
+- call-resolution rate with unresolved and ambiguous call counts;
+- skipped-file count, review-signal count, generic-label ratio, graph density, and huge-flow
+  signals;
+- top language distribution and per-language attention signals from the generated model.
+
+The panel is deterministic and local-only. It must not imply that heuristic review signals
+are confirmed defects, and it should stay bounded even when a project has many review signals or
+languages.
+
+The Details rail sections for Project Quality, Source, and Review Signals are independently
+collapsible from their headings. The heading and disclosure control both keep synchronized
+expanded state, support keyboard activation, and stay visible while each collapsed section
+releases body height to the other sections. The viewer remembers the state locally in the
+browser.
+
 ## Layout rules
 
 The viewer layout should preserve these invariants:
@@ -67,13 +130,17 @@ The viewer layout should preserve these invariants:
   expanding an arbitrary fallback scope.
 - Reset clears opened scopes, opened flows, manual positions, and viewport state, then
   returns to `#root`, the collapsed codebase map.
-- Expand all opens every non-test scope and flow from the generated payload; it must be
-  payload-driven rather than tuned to demo scope names or file paths.
+- Expand all opens every non-test scope and flow from the generated payload as a
+  lightweight overview with a visible progress indicator; it must be payload-driven rather
+  than tuned to demo scope names or file paths.
+- Expand-all overview mode defers inline decision-detail charts until a specific flow is
+  selected, and uses simplified overview edge routing so very large canvases remain
+  responsive.
 - Expanded scope sections follow the root-map rows, so large codebases pack into readable
   vertical bands instead of one unbounded horizontal strip.
 - Fit re-centers the current visible flowchart without closing expanded scopes, expanded
   flows, or manual block positions.
-- The codebase rail should stay operational: path/symbol/finding search, review-only
+- The codebase rail should stay operational: path/symbol/review-signal search, review-only
   triage, and optional language filtering when the payload is polyglot.
 - Expanded flow detail charts reserve their visual band before later rows are placed.
 - Every visible flow node is reachable from the codebase root through root-scope,
@@ -83,12 +150,18 @@ The viewer layout should preserve these invariants:
 - Viewport operations must remain finite and recoverable: invalid zoom inputs are ignored,
   free pan is unbounded, and Reset returns to the collapsed baseline view.
 - Wheel and trackpad zoom must stay anchored to the cursor in the active runtime.
-- The minimap is an aggregate navigator, not a second tiny node renderer: it shows the
-  graph bounds and current viewport, scrolls to pan the canvas, double-clicks to fit, and
-  keeps the viewport visible even when free pan moves outside the graph bounds.
+- Layout and detail measurements are cached by deterministic input signatures so repeated
+  navigation, hash sync, and panel refreshes do not recompute identical large-canvas
+  layouts.
 - The left tree may normalize display labels for scanning, such as HTTP-method routes or
   camelCase symbols, but tooltips and source panels must preserve the original symbol and
   source location.
+- Flow nodes expose deterministic accessibility summaries with source, node, decision,
+  call, caller, and review-signal counts so broad canvas scans do not depend on tiny visible
+  labels alone.
+- Optional annotation sidecars may improve flow/node labels and descriptions, but only
+  when their model hash matches the current `logic-flow.json`; stale sidecars must be
+  reported as ignored status, never rendered as current truth.
 - Large entrypoint rows wrap instead of forcing unbounded horizontal overflow.
 
 The frontend tests expose reusable layout checks through `viewerLayoutBoxes`,
@@ -143,8 +216,10 @@ High-value browser checks:
   while unrelated nodes/links dim.
 - Clicking blank canvas clears connection focus.
 - Clicking an entrypoint from the canvas and from the tree opens the same flow detail.
+- Direct `#flow=<flow-id>` and `#path=<source-path>` URLs open Details with the matching
+  source context selected.
 - The source panel shows the selected flow's file and line range.
-- Wheel zoom, canvas pan, minimap drag/scroll pan, fit, reset, PNG export, and JPG export
+- Wheel zoom, canvas pan, fit, reset, fast expand overview, PNG export, and JPG export
   route through the active runtime.
 - PNG/JPG export resolution follows the graph bounds rather than the current viewport, with
   browser-safe caps for very large charts.

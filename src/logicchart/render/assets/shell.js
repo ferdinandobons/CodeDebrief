@@ -18,13 +18,13 @@
     LC.flows = flows;
     LC.byId = byId;
     // The generated HTML now has one official chart renderer: the typed React runtime.
-    // The shell still owns shared selection, rails, tree, source, findings, and toolbar
+    // The shell still owns shared selection, rails, tree, source, review signals, and toolbar
     // buttons, but it no longer routes users into the retired static renderer.
     LC.mode = "react";
 
     // --- Shared selection store (Phase 4) ---------------------------------------
     // ONE selection model, ONE accent color. Every surface -- a canvas decision block,
-    // a source line, a tree file/flow row, a logical-error row -- both PUBLISHES into
+    // a source line, a tree file/flow row, a review-signal row -- both PUBLISHES into
     // this store (via LC.select) and SUBSCRIBES to it (via LC.onSelection) so selecting
     // any one highlights the others. The store holds only ids; each surface maps ids to
     // its own DOM. shell.js drives the canvas highlight (its existing job); panels.js
@@ -40,7 +40,7 @@
       endLine: null,
     };
     const selectionSubscribers = [];
-    // Re-entrancy guard: a subscriber that calls back into select() (e.g. a finding row
+    // Re-entrancy guard: a subscriber that calls back into select() (e.g. a review-signal row
     // resolving its flow) must not recurse the notify loop; coalesce to one pass.
     let notifyingSelection = false;
     LC.selection = selection;
@@ -81,6 +81,8 @@
     const leftRail = document.getElementById("leftRail");
     const detailButton = document.getElementById("detailButton");
     const detailsClose = document.getElementById("detailsClose");
+    const detailsCollapseAll = document.getElementById("detailsCollapseAll");
+    const detailsExpandAll = document.getElementById("detailsExpandAll");
     const menuButton = document.getElementById("menuButton");
     const typedViewerHost = document.getElementById("typedViewerHost");
     const exportPngButton = document.getElementById("exportPng");
@@ -143,7 +145,7 @@
       document.body.toggleAttribute("data-detail-closed", !open);
       if (detailButton) {
         detailButton.setAttribute("aria-pressed", open ? "true" : "false");
-        detailButton.title = open ? "Hide source and findings" : "Show source and findings";
+        detailButton.title = open ? "Hide source and review signals" : "Show source and review signals";
       }
       syncRailControls();
       scheduleCanvasLayoutRefresh();
@@ -168,7 +170,7 @@
       }
       if (detailButton) {
         detailButton.setAttribute("aria-pressed", detailOpen ? "true" : "false");
-        detailButton.title = detailOpen ? "Hide source and findings" : "Show source and findings";
+        detailButton.title = detailOpen ? "Hide source and review signals" : "Show source and review signals";
       }
     }
 
@@ -297,8 +299,94 @@
       });
     }
 
+    function panelTitle(panel) {
+      const title = panel && panel.querySelector ? panel.querySelector(".rail-title") : null;
+      return (title && title.textContent ? title.textContent.trim() : "section") || "section";
+    }
+
+    function setPanelCollapsed(panel, button, body, collapsed, persist) {
+      const title = panelTitle(panel);
+      const heading = panel.querySelector("[data-panel-heading]");
+      panel.toggleAttribute("data-collapsed", collapsed);
+      button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      button.title = (collapsed ? "Expand " : "Collapse ") + title;
+      button.setAttribute("aria-label", (collapsed ? "Expand " : "Collapse ") + title);
+      if (heading) {
+        heading.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        heading.title = (collapsed ? "Expand " : "Collapse ") + title;
+      }
+      if (body) body.hidden = collapsed;
+      if (persist) {
+        const key = panel.getAttribute("data-panel-state") || panel.id || body && body.id;
+        if (key) {
+          try { localStorage.setItem("logicchart-panel-collapsed-" + key, collapsed ? "true" : "false"); } catch (_) {}
+        }
+      }
+    }
+
+    function initCollapsiblePanels() {
+      const panels = Array.from(document.querySelectorAll("[data-collapsible-panel]"));
+      function panelParts(panel) {
+        const button = panel.querySelector("[data-panel-toggle]");
+        if (!button) return null;
+        const bodyId = button.getAttribute("aria-controls");
+        const body = bodyId ? document.getElementById(bodyId) : null;
+        return { body, bodyId, button };
+      }
+      function setAllPanelsCollapsed(collapsed) {
+        panels.forEach(panel => {
+          const parts = panelParts(panel);
+          if (!parts) return;
+          setPanelCollapsed(panel, parts.button, parts.body, collapsed, true);
+        });
+      }
+      panels.forEach(panel => {
+        const parts = panelParts(panel);
+        if (!parts) return;
+        const { body, bodyId, button } = parts;
+        const heading = panel.querySelector("[data-panel-heading]");
+        const key = panel.getAttribute("data-panel-state") || panel.id || bodyId;
+        let stored = null;
+        if (heading) {
+          heading.setAttribute("role", "button");
+          heading.setAttribute("tabindex", "0");
+          if (bodyId) heading.setAttribute("aria-controls", bodyId);
+          heading.setAttribute("aria-label", "Toggle " + panelTitle(panel));
+        }
+        if (key) {
+          try { stored = localStorage.getItem("logicchart-panel-collapsed-" + key); } catch (_) {}
+        }
+        setPanelCollapsed(panel, button, body, stored === "true", false);
+        button.addEventListener("click", event => {
+          event.preventDefault();
+          setPanelCollapsed(panel, button, body, !panel.hasAttribute("data-collapsed"), true);
+        });
+        if (heading) {
+          heading.addEventListener("click", event => {
+            const target = event.target;
+            if (target && target.closest && target.closest("button, a, input, select, textarea")) return;
+            setPanelCollapsed(panel, button, body, !panel.hasAttribute("data-collapsed"), true);
+          });
+          heading.addEventListener("keydown", event => {
+            const target = event.target;
+            if (target && target.closest && target.closest("button, a, input, select, textarea")) return;
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            setPanelCollapsed(panel, button, body, !panel.hasAttribute("data-collapsed"), true);
+          });
+        }
+      });
+      if (detailsCollapseAll) {
+        detailsCollapseAll.addEventListener("click", () => setAllPanelsCollapsed(true));
+      }
+      if (detailsExpandAll) {
+        detailsExpandAll.addEventListener("click", () => setAllPanelsCollapsed(false));
+      }
+    }
+
     loadStoredRailWidths();
     initRailResizers();
+    initCollapsiblePanels();
     setRightRailOpen(false);
     syncRailControls();
 
@@ -1429,7 +1517,7 @@
     // graph exactly as a direct block click would, without rebuilding the inspector.
     LC.highlightNode = highlightNode;
     LC.clearHighlight = clearHighlight;
-    // Findings the panels read: the flat list (filtered by flow at L2, by scope/subtree at
+    // Review signals the panels read: the flat list (filtered by flow at L2, by scope/subtree at
     // L0/L1) and the per-node index (a node's own findings). Exposed so panels.js does not
     // re-derive the same maps and drift from shell.js.
     LC.findings = findings;
@@ -1472,7 +1560,7 @@
     };
 
     // Reconcile the CANVAS block highlight from the shared selection. A node selected on
-    // ANY surface (a source line, a finding row) lights up its block here, on whatever
+    // ANY surface (a source line, a review-signal row) lights up its block here, on whatever
     // decision graph is currently drawn -- the same single highlight path a direct block
     // click uses. Guarded by currentRender: when no decision graph is on screen (L0, or a
     // flow whose decisions are not expanded) there is no block to light, and that is fine
@@ -1507,6 +1595,7 @@
           const flow = byId.get(value);
           setHeaderFlow(flow);
           LC.select(selectionForFlow(flow));
+          if (LC.openDetails) LC.openDetails();
           if (window.LC.onFlowSelected) window.LC.onFlowSelected(flow);
           return;
         }
@@ -1537,6 +1626,7 @@
             path: value,
             scope,
           });
+          if (LC.openDetails) LC.openDetails();
           return;
         }
         if (key === "edge") return;
@@ -1561,6 +1651,7 @@
           const flow = byId.get(decoded);
           setHeaderFlow(flow);
           LC.select(selectionForFlow(flow));
+          if (LC.openDetails) LC.openDetails();
           if (window.LC.onFlowSelected) window.LC.onFlowSelected(flow);
           return;
         }

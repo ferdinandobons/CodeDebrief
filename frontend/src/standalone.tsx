@@ -19,6 +19,8 @@ import type {
 import type { ManualNodePosition } from "./viewer-layout";
 import type { SelectedConnection } from "./viewer-store";
 
+const EXPANSION_BATCH_SIZE = 250;
+
 export interface StandaloneViewerOptions {
   initialScope?: string;
   location?: Pick<Location, "hash">;
@@ -44,17 +46,23 @@ export function mountStandaloneLogicChartViewer(
   const canSubscribe =
     typeof window !== "undefined" && options.location === undefined;
   const flowById = buildFlowIndex(payload);
+  const directConnectionIndex = directConnectionIndexForFlows(flowById);
   const stateStorageKey = viewerStateStorageKey(payload);
+  const progress = createExpansionProgress(container);
   const persistedState = canSubscribe
     ? readViewerState(stateStorageKey, flowById)
     : emptyViewerState();
   const openedFlowIds = new Set<string>(persistedState.openedFlowIds);
+  const openedDetailFlowIds = new Set<string>(persistedState.openedDetailFlowIds);
   const openedScopeIds = new Set<string>(persistedState.openedScopeIds);
+  let expandedOverviewMode = persistedState.expandedOverviewMode;
   let manualNodePositions = new Map(persistedState.manualNodePositions);
   const persistState = () => {
     if (!canSubscribe) return;
     writeViewerState(stateStorageKey, {
+      expandedOverviewMode,
       manualNodePositions,
+      openedDetailFlowIds,
       openedFlowIds,
       openedScopeIds,
     });
@@ -66,7 +74,11 @@ export function mountStandaloneLogicChartViewer(
       openedFlowIds.add(flowId);
       changed = true;
     }
-    directConnectionScopeNames(flowById, flowId).forEach(scope => {
+    if (!openedDetailFlowIds.has(flowId)) {
+      openedDetailFlowIds.add(flowId);
+      changed = true;
+    }
+    directConnectionScopeNames(flowById, directConnectionIndex, flowId).forEach(scope => {
       if (openedScopeIds.has(scope)) return;
       openedScopeIds.add(scope);
       changed = true;
@@ -77,6 +89,31 @@ export function mountStandaloneLogicChartViewer(
     if (!canSubscribe) return;
     if (window.location.hash === hash) return;
     window.location.hash = hash;
+  };
+  let expansionJob: ExpansionJob | null = null;
+  const cancelExpansionJob = () => {
+    expansionJob?.cancel();
+    expansionJob = null;
+    progress.finish();
+  };
+  const renderWithProgress = (label: string, render: () => void) => {
+    cancelExpansionJob();
+    const job = createExpansionJob(() => {
+      progress.start(label, 1);
+      job.schedule(() => {
+        if (expansionJob !== job) return;
+        progress.update(0, 1);
+        render();
+        progress.update(1, 1);
+        job.schedule(() => {
+          if (expansionJob !== job) return;
+          progress.finish();
+          expansionJob = null;
+        });
+      });
+    });
+    expansionJob = job;
+    job.start();
   };
   const buildProps = (): ViewerAppProps => {
     const props = propsFromLocation(payload, options);
@@ -106,8 +143,10 @@ export function mountStandaloneLogicChartViewer(
       expandedScopes: routeRequestsRoot ? [] : [...openedScopeIds],
       contextFlowIds: routeRequestsRoot
         ? []
-        : contextFlowIdsForOpenedFlows(flowById, openedFlowIds),
+        : contextFlowIdsForOpenedFlows(directConnectionIndex, openedFlowIds),
+      detailFlowIds: routeRequestsRoot ? [] : [...openedDetailFlowIds],
       initialManualNodePositions: manualNodePositions,
+      layoutMode: expandedOverviewMode ? "expanded-overview" : "normal",
       routeFlowIds: routeRequestsRoot ? [] : [...openedFlowIds],
       syncHash: canSubscribe,
       onConnectionSelect(connection) {
@@ -162,34 +201,91 @@ export function mountStandaloneLogicChartViewer(
       },
     };
   };
-  let mounted: MountedLogicChartViewer | null = mountLogicChartViewer(container, buildProps());
+  const initialProps = buildProps();
+  let mounted: MountedLogicChartViewer | null = mountLogicChartViewer(container, initialProps);
+  publishShellRouteSelection(flowById, initialProps);
+  const updateMounted = () => {
+    const props = buildProps();
+    mounted?.update(props);
+    publishShellRouteSelection(flowById, props);
+  };
   const update = () => {
-    mounted?.update(buildProps());
+    cancelExpansionJob();
+    updateMounted();
+  };
+  const handleHashChange = () => {
+    if (expansionJob) return;
+    update();
   };
 
   if (canSubscribe) {
-    window.addEventListener("hashchange", update);
+    window.addEventListener("hashchange", handleHashChange);
   }
 
   return {
     expandAll() {
-      scopeSummaries(payload).forEach(scope => openedScopeIds.add(scope.name));
-      payload.flows.forEach(flow => {
-        if (flow.metadata?.test) return;
-        openedFlowIds.add(flow.id);
+      cancelExpansionJob();
+      const scopeNames = scopeSummaries(payload).map(scope => scope.name);
+      const flowIds = payload.flows
+        .filter(flow => !flow.metadata?.test)
+        .map(flow => flow.id);
+      const expansionTargets = [
+        ...scopeNames.map(scope => ({ kind: "scope" as const, id: scope })),
+        ...flowIds.map(flowId => ({ kind: "flow" as const, id: flowId })),
+      ];
+      const total = Math.max(1, scopeNames.length + flowIds.length + 2);
+      const job = createExpansionJob(() => {
+        progress.start("Expanding canvas", total);
+        progress.update(0, total);
+        let targetIndex = 0;
+        const openNextBatch = () => {
+          if (expansionJob !== job) return;
+          const end = Math.min(targetIndex + EXPANSION_BATCH_SIZE, expansionTargets.length);
+          for (; targetIndex < end; targetIndex += 1) {
+            const target = expansionTargets[targetIndex];
+            if (target.kind === "scope") openedScopeIds.add(target.id);
+            else openedFlowIds.add(target.id);
+          }
+          progress.update(targetIndex, total);
+          if (targetIndex < expansionTargets.length) {
+            job.schedule(openNextBatch);
+            return;
+          }
+          persistState();
+          const hash = currentHash();
+          const isCollapsedRoot = !hash || hash === "#root";
+          if (isCollapsedRoot) {
+            const firstScope = scopeNames[0] ?? [...openedScopeIds][0];
+            if (firstScope) {
+              navigateToHash(`#scope=${encodeHashValue(firstScope)}`);
+              publishShellScopeSelection(firstScope);
+            }
+          }
+          job.schedule(() => {
+            if (expansionJob !== job) return;
+            const props = buildProps();
+            mounted?.update(props);
+            publishShellRouteSelection(flowById, props);
+            progress.update(total - 1, total);
+            job.schedule(() => {
+              if (expansionJob !== job) return;
+              mounted?.fitView();
+              progress.update(total, total);
+              job.schedule(() => {
+                if (expansionJob !== job) return;
+                progress.finish();
+                expansionJob = null;
+              });
+            });
+          });
+        };
+        job.schedule(() => {
+          expandedOverviewMode = true;
+          openNextBatch();
+        });
       });
-      persistState();
-      const hash = currentHash();
-      const isCollapsedRoot = !hash || hash === "#root";
-      if (isCollapsedRoot) {
-        const firstScope = [...openedScopeIds][0];
-        if (firstScope) {
-          navigateToHash(`#scope=${encodeHashValue(firstScope)}`);
-          publishShellScopeSelection(firstScope);
-        }
-      }
-      update();
-      mounted?.fitView();
+      expansionJob = job;
+      job.start();
     },
     exportImage(format) {
       mounted?.exportImage(format);
@@ -198,8 +294,11 @@ export function mountStandaloneLogicChartViewer(
       mounted?.fitView();
     },
     resetView() {
+      cancelExpansionJob();
       openedFlowIds.clear();
+      openedDetailFlowIds.clear();
       openedScopeIds.clear();
+      expandedOverviewMode = false;
       manualNodePositions = new Map();
       clearViewerState(stateStorageKey);
       mounted?.resetView();
@@ -208,45 +307,143 @@ export function mountStandaloneLogicChartViewer(
       update();
     },
     selectFlow(flowId) {
-      if (openFlowAndDirectConnectionScopes(flowId)) {
+      const changed = openFlowAndDirectConnectionScopes(flowId);
+      if (changed) {
         persistState();
       }
       publishShellFlowSelection(flowById, flowId);
       navigateToHash(hashForFlow(flowId));
-      update();
+      if (changed) {
+        renderWithProgress("Opening flow", updateMounted);
+      } else {
+        update();
+      }
     },
     selectScope(scope) {
+      const changed = !openedScopeIds.has(scope);
       openedScopeIds.add(scope);
-      persistState();
+      if (changed) persistState();
       publishShellScopeSelection(scope);
       navigateToHash(`#scope=${encodeHashValue(scope)}`);
-      update();
+      if (changed) {
+        renderWithProgress("Opening scope", updateMounted);
+      } else {
+        update();
+      }
     },
     update,
     zoom(factor) {
       mounted?.zoom(factor);
     },
     unmount() {
+      cancelExpansionJob();
       if (canSubscribe) {
-        window.removeEventListener("hashchange", update);
+        window.removeEventListener("hashchange", handleHashChange);
       }
       mounted?.unmount();
       mounted = null;
+      progress.remove();
     },
   };
 }
 
-const VIEWER_STATE_VERSION = 2;
+interface ExpansionJob {
+  cancel: () => void;
+  schedule: (callback: () => void) => void;
+  start: () => void;
+}
+
+function createExpansionJob(work: () => void): ExpansionJob {
+  let cancelled = false;
+  const timers = new Set<number>();
+  const clearTimers = () => {
+    timers.forEach(timer => window.clearTimeout(timer));
+    timers.clear();
+  };
+  const schedule = (callback: () => void) => {
+    const timer = window.setTimeout(() => {
+      timers.delete(timer);
+      if (!cancelled) callback();
+    }, 0);
+    timers.add(timer);
+  };
+  return {
+    cancel() {
+      cancelled = true;
+      clearTimers();
+    },
+    schedule,
+    start() {
+      schedule(work);
+    },
+  };
+}
+
+interface ExpansionProgress {
+  finish: () => void;
+  remove: () => void;
+  start: (label: string, total: number) => void;
+  update: (completed: number, total: number) => void;
+}
+
+function createExpansionProgress(container: Element): ExpansionProgress {
+  const ownerDocument = container.ownerDocument;
+  const overlay = ownerDocument.createElement("div");
+  overlay.className = "logicchart-expand-progress";
+  overlay.setAttribute("role", "status");
+  overlay.setAttribute("aria-live", "polite");
+  overlay.hidden = true;
+
+  const label = ownerDocument.createElement("span");
+  label.className = "logicchart-expand-progress-label";
+  const bar = ownerDocument.createElement("div");
+  bar.className = "logicchart-expand-progress-track";
+  const value = ownerDocument.createElement("div");
+  value.className = "logicchart-expand-progress-value";
+  bar.appendChild(value);
+  const count = ownerDocument.createElement("span");
+  count.className = "logicchart-expand-progress-count";
+  overlay.append(label, bar, count);
+  container.appendChild(overlay);
+
+  return {
+    finish() {
+      overlay.hidden = true;
+      value.style.width = "0%";
+    },
+    remove() {
+      overlay.remove();
+    },
+    start(nextLabel, total) {
+      label.textContent = nextLabel;
+      count.textContent = `0 / ${Math.max(1, total)}`;
+      value.style.width = "0%";
+      overlay.hidden = false;
+    },
+    update(completed, total) {
+      const boundedTotal = Math.max(1, total);
+      const boundedCompleted = Math.max(0, Math.min(completed, boundedTotal));
+      count.textContent = `${boundedCompleted} / ${boundedTotal}`;
+      value.style.width = `${Math.round((boundedCompleted / boundedTotal) * 100)}%`;
+    },
+  };
+}
+
+const VIEWER_STATE_VERSION = 4;
 
 interface ViewerPersistedState {
+  expandedOverviewMode: boolean;
   manualNodePositions: Map<string, ManualNodePosition>;
+  openedDetailFlowIds: string[];
   openedFlowIds: string[];
   openedScopeIds: string[];
 }
 
 function emptyViewerState(): ViewerPersistedState {
   return {
+    expandedOverviewMode: false,
     manualNodePositions: new Map(),
+    openedDetailFlowIds: [],
     openedFlowIds: [],
     openedScopeIds: [],
   };
@@ -254,11 +451,12 @@ function emptyViewerState(): ViewerPersistedState {
 
 function directConnectionScopeNames(
   flowById: ReadonlyMap<string, LogicChartFlow>,
+  directConnectionIndex: ReadonlyMap<string, ReadonlySet<string>>,
   flowId: string,
 ): string[] {
   const relatedFlowIds = new Set<string>([
     flowId,
-    ...directConnectionFlowIds(flowById, flowId),
+    ...directConnectionFlowIds(directConnectionIndex, flowId),
   ]);
   const scopes = new Set<string>();
   relatedFlowIds.forEach(id => {
@@ -270,31 +468,39 @@ function directConnectionScopeNames(
 }
 
 function directConnectionFlowIds(
-  flowById: ReadonlyMap<string, LogicChartFlow>,
+  directConnectionIndex: ReadonlyMap<string, ReadonlySet<string>>,
   flowId: string,
 ): string[] {
-  const flow = flowById.get(flowId);
-  if (!flow) return [];
-  const relatedFlowIds = new Set<string>();
-  flowById.forEach(candidate => {
-    if (candidate.id === flowId) return;
-    const linked =
-      (flow.calls || []).includes(candidate.id) ||
-      (flow.called_by || []).includes(candidate.id) ||
-      (candidate.calls || []).includes(flowId) ||
-      (candidate.called_by || []).includes(flowId);
-    if (linked) relatedFlowIds.add(candidate.id);
+  return [...(directConnectionIndex.get(flowId) || [])].sort();
+}
+
+function directConnectionIndexForFlows(
+  flowById: ReadonlyMap<string, LogicChartFlow>,
+): Map<string, Set<string>> {
+  const index = new Map<string, Set<string>>();
+  const add = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId || !flowById.has(sourceId) || !flowById.has(targetId)) return;
+    const sourceConnections = index.get(sourceId) || new Set<string>();
+    sourceConnections.add(targetId);
+    index.set(sourceId, sourceConnections);
+    const targetConnections = index.get(targetId) || new Set<string>();
+    targetConnections.add(sourceId);
+    index.set(targetId, targetConnections);
+  };
+  flowById.forEach(flow => {
+    (flow.calls || []).forEach(targetId => add(flow.id, targetId));
+    (flow.called_by || []).forEach(sourceId => add(sourceId, flow.id));
   });
-  return [...relatedFlowIds].sort();
+  return index;
 }
 
 function contextFlowIdsForOpenedFlows(
-  flowById: ReadonlyMap<string, LogicChartFlow>,
+  directConnectionIndex: ReadonlyMap<string, ReadonlySet<string>>,
   openedFlowIds: ReadonlySet<string>,
 ): string[] {
   const context = new Set<string>();
   openedFlowIds.forEach(openedFlowId => {
-    directConnectionFlowIds(flowById, openedFlowId).forEach(flowId => {
+    directConnectionFlowIds(directConnectionIndex, openedFlowId).forEach(flowId => {
       if (!openedFlowIds.has(flowId)) context.add(flowId);
     });
   });
@@ -320,6 +526,12 @@ function readViewerState(
             typeof flowId === "string" && flowById.has(flowId),
         )
       : [];
+    const openedDetailFlowIds = Array.isArray(record.openedDetailFlowIds)
+      ? record.openedDetailFlowIds.filter(
+          (flowId): flowId is string =>
+            typeof flowId === "string" && flowById.has(flowId),
+        )
+      : [];
     const openedScopeIds = Array.isArray(record.openedScopeIds)
       ? record.openedScopeIds.filter((scope): scope is string => typeof scope === "string")
       : [];
@@ -339,7 +551,9 @@ function readViewerState(
       });
     }
     return {
+      expandedOverviewMode: record.expandedOverviewMode === true,
       manualNodePositions,
+      openedDetailFlowIds,
       openedFlowIds,
       openedScopeIds,
     };
@@ -351,7 +565,9 @@ function readViewerState(
 function writeViewerState(
   key: string,
   state: {
+    expandedOverviewMode: boolean;
     manualNodePositions: ReadonlyMap<string, ManualNodePosition>;
+    openedDetailFlowIds: ReadonlySet<string>;
     openedFlowIds: ReadonlySet<string>;
     openedScopeIds: ReadonlySet<string>;
   },
@@ -363,6 +579,8 @@ function writeViewerState(
       key,
       JSON.stringify({
         manualNodePositions: [...state.manualNodePositions.entries()],
+        expandedOverviewMode: state.expandedOverviewMode,
+        openedDetailFlowIds: [...state.openedDetailFlowIds],
         openedFlowIds: [...state.openedFlowIds],
         openedScopeIds: [...state.openedScopeIds],
         version: VIEWER_STATE_VERSION,
@@ -521,6 +739,28 @@ function publishShellRootSelection() {
     scope: null,
   });
   shell.openDetails?.();
+}
+
+function publishShellRouteSelection(
+  flowById: ReadonlyMap<string, LogicChartFlow>,
+  props: ViewerAppProps,
+) {
+  if (props.selectedFlowId) {
+    publishShellFlowSelection(flowById, props.selectedFlowId);
+    return;
+  }
+  const connection = props.selectedConnection;
+  if (connection) {
+    if (connection.kind === "root-scope") {
+      publishShellScopeSelection(connection.scope);
+      return;
+    }
+    publishShellFlowSelection(flowById, connection.target);
+    return;
+  }
+  if (props.selectedRoot) {
+    publishShellRootSelection();
+  }
 }
 
 function endLineForLocation(location: LogicChartLocation | undefined): number | null {

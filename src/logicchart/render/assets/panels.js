@@ -1,13 +1,13 @@
 
-    // Right-column panels (Phase 4): Source (top) + Logical errors (bottom), plus the
+    // Right-column panels (Phase 4): Source (top) + review signals (bottom), plus the
     // canvas full-screen toggle. Both panels SUBSCRIBE to the shared selection store
     // (shell.js's LC.select / LC.onSelection) and PUBLISH back into it, so selecting any
-    // one of {a canvas decision block, a source line, a tree file/flow, a finding row}
+    // one of {a canvas decision block, a source line, a tree file/flow, a signal row}
     // highlights the others in the one shared accent. No duplicated highlight/inspect
     // logic: block highlighting stays in shell.js (driven off the store), the tree
     // reflects via tree.js's store subscription, and these panels own only their own DOM.
     //
-    // SECURITY: every character of source text and every finding string is inserted as a
+    // SECURITY: every character of source text and every review-signal string is inserted as a
     // TEXT NODE (textContent / createTextNode), NEVER innerHTML -- the snippet lines are
     // source-derived and must not be interpreted as markup. `<`, `>`, `&`, `"` in code
     // render literally.
@@ -21,6 +21,9 @@
       const findings = LC.findings || model.findings || [];
       const findingsByNode = LC.findingsByNode || new Map();
       const scopeFlows = model.scopes || {};
+      const findingRules = (model.metadata && model.metadata.finding_rules) || {};
+      const findingAnnotations = (model.annotations && model.annotations.findings) || {};
+      const quality = (model.metadata && model.metadata.quality) || null;
       // File-level source store: path -> {start_line, lines}. Each file's lines are
       // embedded ONCE here (payload.attach_source_snippets), and a flow's `source` is a
       // lightweight {path, start_line, end_line, elided?} reference that slices its own
@@ -28,15 +31,18 @@
       // many flows -- we never re-embed or re-slice the whole file per flow.
       const sourceFiles = model.source_files || {};
 
-      // At most this many findings are rendered in the errors panel for a broad (L0 /
+      // At most this many review signals are rendered in the errors panel for a broad (L0 /
       // empty / scope) selection, with an "N more" affordance after; a node selection is
       // exact and always shown in full. Keeps the panel from rendering an unbounded list
-      // (a large codebase has thousands of findings) -- general over finding count.
+      // (a large codebase can have many signals) -- general over signal count.
       const MAX_FINDING_ROWS = 50;
 
       const sourcePanel = document.getElementById("sourcePanel");
       const sourceBody = document.getElementById("source");
       const sourceFileEl = document.getElementById("sourceFile");
+      const qualityPanel = document.getElementById("qualityPanel");
+      const qualityBody = document.getElementById("quality");
+      const qualityCountEl = document.getElementById("qualityCount");
       const errorsBody = document.getElementById("errors");
       const errorsCountEl = document.getElementById("errorsCount");
       const reviewQueueBtn = document.getElementById("reviewQueueToggle");
@@ -45,7 +51,7 @@
 
       // aria-live announcer: screen readers are not notified when the panels rebuild on a
       // selection change. Each panel records its own status ("source: file:line", "<n>
-      // findings"); onSelection then writes ONE combined message into the visually-hidden
+      // review signals"); onSelection then writes ONE combined message into the visually-hidden
       // polite live region -- so the two panels do not overwrite each other's announcement.
       let sourceStatus = "";
       let errorsStatus = "";
@@ -59,6 +65,8 @@
 
       // --- small DOM helpers (text-node only) -------------------------------------
 
+      const SVG_NS = "http://www.w3.org/2000/svg";
+
       function el(tag, className, text) {
         const node = document.createElement(tag);
         if (className) node.className = className;
@@ -66,11 +74,115 @@
         return node;
       }
 
+      function svgEl(tag, attrs, text) {
+        const node = document.createElementNS(SVG_NS, tag);
+        Object.keys(attrs || {}).forEach(key => node.setAttribute(key, String(attrs[key])));
+        if (text != null) node.textContent = text;
+        return node;
+      }
+
       function clear(node) {
         if (node) node.replaceChildren();
       }
 
-      // Focus restoration across a panel re-render. Activating a finding row or a code line
+      function metricValue(value) {
+        if (value == null || value === "") return "0";
+        if (typeof value === "number") return String(value);
+        return String(value);
+      }
+
+      function ratioPercent(value) {
+        return typeof value === "number" ? Math.round(value * 100) + "%" : "0%";
+      }
+
+      function qualityMetric(label, value, tone) {
+        const item = el("div", "quality-metric" + (tone ? " " + tone : ""));
+        item.append(el("span", "quality-label", label), el("strong", "", metricValue(value)));
+        return item;
+      }
+
+      function qualitySignal(label, value, tone) {
+        const row = el("div", "quality-signal" + (tone ? " " + tone : ""));
+        row.append(el("span", "quality-label", label), el("span", "quality-value", metricValue(value)));
+        return row;
+      }
+
+      function countPairs(counts, limit) {
+        if (!counts || typeof counts !== "object") return [];
+        return Object.keys(counts)
+          .map(key => [key, counts[key]])
+          .filter(([, value]) => Number(value) > 0)
+          .sort((a, b) => Number(b[1]) - Number(a[1]) || String(a[0]).localeCompare(String(b[0])))
+          .slice(0, limit);
+      }
+
+      function renderQuality() {
+        if (!qualityPanel || !qualityBody) return;
+        clear(qualityBody);
+        if (!quality || typeof quality !== "object") {
+          qualityPanel.hidden = true;
+          return;
+        }
+        qualityPanel.hidden = false;
+        const files = quality.files || {};
+        const flows = quality.flows || {};
+        const calls = quality.calls || {};
+        const findingsQuality = quality.findings || {};
+        const labels = quality.labels || {};
+        const source = quality.source_locations || {};
+        const graph = quality.graph || {};
+        const languagesQuality = quality.languages || {};
+        const skipped = (files.skipped && typeof files.skipped === "object") ? files.skipped : { total: 0 };
+        const parseErrors = (files.parse_errors && typeof files.parse_errors === "object")
+          ? files.parse_errors
+          : { total: 0 };
+
+        if (qualityCountEl) qualityCountEl.textContent = ratioPercent(source.coverage);
+
+        const metrics = el("div", "quality-metrics");
+        metrics.append(
+          qualityMetric("Files", files.total),
+          qualityMetric("Flows", flows.total),
+          qualityMetric("Entrypoints", flows.entrypoints),
+          qualityMetric("Source", ratioPercent(source.coverage))
+        );
+        qualityBody.appendChild(metrics);
+
+        const signals = el("div", "quality-signals");
+        const unresolved = Number(calls.unresolved || 0);
+        const ambiguous = Number(calls.ambiguous || 0);
+        const generic = Number(labels.generic_nodes || 0);
+        const skippedTotal = Number(skipped.total || 0);
+        const parseWarnings = Number(parseErrors.total || 0);
+        const huge = Array.isArray(flows.huge) ? flows.huge.length : 0;
+        const languageAttention = Array.isArray(languagesQuality.attention)
+          ? languagesQuality.attention.length
+          : 0;
+        signals.append(
+          qualitySignal("Call resolution", ratioPercent(calls.resolution_rate), unresolved || ambiguous ? "attention" : ""),
+          qualitySignal("Skipped files", skippedTotal, skippedTotal ? "attention" : ""),
+          qualitySignal("Parse warnings", parseWarnings, parseWarnings ? "attention" : ""),
+          qualitySignal("Unresolved calls", unresolved, unresolved ? "attention" : ""),
+          qualitySignal("Ambiguous calls", ambiguous, ambiguous ? "attention" : ""),
+          qualitySignal("Generic labels", generic + " · " + ratioPercent(labels.generic_ratio), generic ? "attention" : ""),
+          qualitySignal("Review signals", findingsQuality.total || 0, findingsQuality.total ? "attention" : ""),
+          qualitySignal("Language attention", languageAttention, languageAttention ? "attention" : ""),
+          qualitySignal("Graph density", graph.edge_to_node_ratio, graph.dense_graph_warning ? "attention" : "")
+        );
+        if (huge) signals.append(qualitySignal("Huge flows", huge, "attention"));
+        qualityBody.appendChild(signals);
+
+        const languages = countPairs(flows.by_language || files.by_language, 8);
+        if (languages.length) {
+          const chips = el("div", "quality-chips");
+          languages.forEach(([language, count]) => {
+            chips.appendChild(el("span", "quality-chip", language + " " + count));
+          });
+          qualityBody.appendChild(chips);
+        }
+      }
+
+      // Focus restoration across a panel re-render. Activating a review-signal row or a code line
       // re-renders the panel (replaceChildren destroys the focused element, dropping focus
       // to <body>). When an activation originates INSIDE a panel, we record the stable id of
       // the activated item here, then restore focus to the equivalent row/line AFTER the
@@ -86,6 +198,15 @@
         if (typeof queueMicrotask === "function") queueMicrotask(fn);
         else if (typeof setTimeout === "function") setTimeout(fn, 0);
         else fn();
+      }
+      // Opening a flow updates location.hash and the chart reacts to that hash after the
+      // immediate selection notification. Publish the exact source/finding selection one
+      // timer tick later so it wins over the broader flow-open state.
+      function afterFlowOpen(fn) {
+        afterCascade(() => {
+          if (typeof setTimeout === "function") setTimeout(fn, 0);
+          else fn();
+        });
       }
       // Restore focus to the panel element carrying the pending stable id, if it is still in
       // the DOM. data-line for the source panel, data-finding-id for the errors panel.
@@ -136,8 +257,8 @@
         return null; // null => "all findings" (no scoping).
       }
 
-      // Findings to list for a selection. A selected node narrows to that node's findings;
-      // otherwise the relevant flow set's findings, deduped and stable-ordered.
+      // Review signals to list for a selection. A selected node narrows to that node's
+      // findings; otherwise the relevant flow set's findings, deduped and stable-ordered.
       function findingsForSelection(sel) {
         if (reviewQueueMode) return prioritizedFindings(findings.slice());
         if (sel.nodeId) {
@@ -171,8 +292,468 @@
         return "tier-" + String(evidence || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
       }
 
-      function findingRow(finding) {
-        // A finding row is an activatable listitem. It must NOT be a <button role="listitem">
+      function findingDiagnostic(finding) {
+        const metadata = finding && finding.metadata;
+        const diagnostic = metadata && metadata.diagnostic;
+        return diagnostic && typeof diagnostic === "object" ? diagnostic : null;
+      }
+
+      function findingRule(finding, diagnostic) {
+        const ruleId = diagnostic && diagnostic.rule_id ? diagnostic.rule_id : finding.kind;
+        const rule = findingRules && findingRules[ruleId];
+        return rule && typeof rule === "object" ? rule : null;
+      }
+
+      function findingAnnotation(finding) {
+        const entry = finding && finding.id ? findingAnnotations[finding.id] : null;
+        return entry && typeof entry === "object" ? entry : null;
+      }
+
+      function firstAnnotationText(annotation) {
+        if (!annotation) return "";
+        return annotation.summary || annotation.explanation || annotation.remediation || "";
+      }
+
+      function confidenceLabel(diagnostic) {
+        const confidence = diagnostic && diagnostic.confidence;
+        if (!confidence || typeof confidence !== "object") return "";
+        const parts = [];
+        if (typeof confidence.score === "number") {
+          parts.push(Math.round(confidence.score * 100) + "%");
+        }
+        if (confidence.basis) parts.push(String(confidence.basis));
+        return parts.join(" · ");
+      }
+
+      function compactValue(value) {
+        if (value == null) return "";
+        if (Array.isArray(value)) return value.map(compactValue).filter(Boolean).join(", ");
+        if (typeof value === "object") {
+          try {
+            return JSON.stringify(value);
+          } catch {
+            return String(value);
+          }
+        }
+        return String(value);
+      }
+
+      function compactList(values, maxItems) {
+        if (!Array.isArray(values)) return compactValue(values);
+        const kept = values.slice(0, maxItems).map(compactValue).filter(Boolean);
+        const remaining = values.length - kept.length;
+        return kept.join(", ") + (remaining > 0 ? " +" + remaining + " more" : "");
+      }
+
+      function diagnosticDisplayValue(label, value) {
+        if (!value || typeof value !== "object" || Array.isArray(value)) {
+          return compactValue(value);
+        }
+        if (Array.isArray(value.handle_declared_values)) {
+          return "Declared values: " + compactList(value.handle_declared_values, 6);
+        }
+        if (Array.isArray(value.handle_quorum_values)) {
+          return "Quorum values: " + compactList(value.handle_quorum_values, 6);
+        }
+        if (Array.isArray(value.handled_values)) {
+          const parts = ["Handled values: " + compactList(value.handled_values, 6)];
+          if (value.condition) parts.unshift("Condition: " + compactValue(value.condition));
+          return parts.join(" · ");
+        }
+        if (value.guard_always != null) return "Guard always: " + compactValue(value.guard_always);
+        if (value.reachable_guard != null) return "Reachable guard expected";
+        return compactValue(value);
+      }
+
+      function diagnosticLine(label, value) {
+        const text = diagnosticDisplayValue(label, value);
+        if (!text) return null;
+        const line = el("div", "diagnostic-line");
+        line.append(el("span", "diagnostic-label", label), el("span", "diagnostic-value", text));
+        return line;
+      }
+
+      function asTextList(value) {
+        if (value == null) return [];
+        if (Array.isArray(value)) return value.map(String).filter(Boolean);
+        return [String(value)].filter(Boolean);
+      }
+
+      function findingMetadata(finding) {
+        const metadata = finding && finding.metadata;
+        return metadata && typeof metadata === "object" ? metadata : {};
+      }
+
+      function flowNodeById(flow, nodeId) {
+        if (!flow || !nodeId) return null;
+        return (flow.nodes || []).find(node => node.id === nodeId) || null;
+      }
+
+      function decisionValues(node) {
+        const values = new Set(asTextList(node && node.metadata && node.metadata.values));
+        const branches = node && node.metadata && Array.isArray(node.metadata.branches)
+          ? node.metadata.branches
+          : [];
+        branches.forEach(branch => {
+          if (branch && typeof branch === "object" && branch.label != null) {
+            values.add(String(branch.label));
+          }
+        });
+        return values;
+      }
+
+      function addContextRole(map, id, role) {
+        if (!id || !role) return;
+        const roles = map.get(id) || new Set();
+        roles.add(role);
+        map.set(id, roles);
+      }
+
+      function contextRoleLabel(role) {
+        return String(role || "").replace(/_/g, " ");
+      }
+
+      function contextForFinding(finding, diagnostic) {
+        const metadata = findingMetadata(finding);
+        const scope = diagnostic && diagnostic.scope && typeof diagnostic.scope === "object"
+          ? diagnostic.scope
+          : {};
+        const flowRoles = new Map();
+        const nodeRoles = new Map();
+        const focusFlow = byId.get(finding.flow_id);
+        const focusNode = flowNodeById(focusFlow, finding.node_id);
+        const focusNodeMetadata = focusNode && focusNode.metadata ? focusNode.metadata : {};
+        const subject = metadata.subject || focusNodeMetadata.subject || "";
+        const namespace = metadata.value_namespace || focusNodeMetadata.value_namespace || "";
+        const condition = metadata.condition || focusNodeMetadata.condition || "";
+        const missingValues = new Set(asTextList(metadata.missing));
+
+        asTextList(scope.related_flow_ids).forEach(flowId => addContextRole(flowRoles, flowId, "diagnostic scope"));
+        asTextList(scope.related_node_ids).forEach(nodeId => {
+          if (focusFlow) addContextRole(nodeRoles, focusFlow.id + "\u0000" + nodeId, "diagnostic evidence");
+        });
+        if (focusFlow) {
+          addContextRole(flowRoles, focusFlow.id, "finding flow");
+          (focusFlow.calls || []).forEach(flowId => addContextRole(flowRoles, flowId, "called by finding flow"));
+          (focusFlow.called_by || []).forEach(flowId => addContextRole(flowRoles, flowId, "caller of finding flow"));
+        }
+
+        flows.forEach(flow => {
+          (flow.nodes || []).forEach(node => {
+            if (node.kind !== "decision") return;
+            const nodeMetadata = node.metadata || {};
+            const values = decisionValues(node);
+            const reasons = [];
+            if (subject && nodeMetadata.subject === subject) {
+              if (namespace && nodeMetadata.value_namespace === namespace) reasons.push("same subject namespace");
+              else if (!namespace) reasons.push("same subject");
+            }
+            if (condition && nodeMetadata.condition === condition) reasons.push("same condition");
+            if (missingValues.size && [...missingValues].some(value => values.has(value))) {
+              reasons.push("handles missing value");
+            }
+            reasons.forEach(reason => {
+              addContextRole(flowRoles, flow.id, reason);
+              addContextRole(nodeRoles, flow.id + "\u0000" + node.id, reason);
+            });
+          });
+        });
+
+        const relatedFlows = [...flowRoles.entries()]
+          .map(([flowId, roles]) => ({ flow: byId.get(flowId), roles: [...roles].sort() }))
+          .filter(item => item.flow && item.flow.id !== finding.flow_id)
+          .sort((a, b) => String(a.flow.name || a.flow.id).localeCompare(String(b.flow.name || b.flow.id)))
+          .slice(0, 6);
+        const relatedNodes = [...nodeRoles.entries()]
+          .map(([key, roles]) => {
+            const [flowId, nodeId] = key.split("\u0000");
+            const flow = byId.get(flowId);
+            const node = flowNodeById(flow, nodeId);
+            return { flow, node, roles: [...roles].sort() };
+          })
+          .filter(item => item.flow && item.node)
+          .sort((a, b) =>
+            String(a.flow.name || a.flow.id).localeCompare(String(b.flow.name || b.flow.id)) ||
+            String(a.node.label || a.node.id).localeCompare(String(b.node.label || b.node.id))
+          )
+          .slice(0, 6);
+        return { relatedFlows, relatedNodes };
+      }
+
+      function selectRelatedFlow(flow) {
+        if (!flow) return;
+        if (LC.selectFlow) LC.selectFlow(flow.id);
+        afterFlowOpen(() => {
+          LC.select({
+            edgeId: null,
+            endLine: (flow.location && (flow.location.end_line || flow.location.start_line)) || null,
+            findingId: null,
+            flowId: flow.id,
+            line: (flow.location && flow.location.start_line) || null,
+            nodeId: null,
+            path: (flow.location && flow.location.path) || null,
+          });
+        });
+      }
+
+      function selectRelatedNode(flow, node) {
+        if (!flow || !node) return;
+        if (LC.selectFlow) LC.selectFlow(flow.id);
+        afterFlowOpen(() => {
+          LC.select({
+            edgeId: null,
+            endLine: (node.location && (node.location.end_line || node.location.start_line)) || null,
+            findingId: null,
+            flowId: flow.id,
+            line: (node.location && node.location.start_line) || null,
+            nodeId: node.id,
+            path: (node.location && node.location.path) || (flow.location && flow.location.path) || null,
+          });
+        });
+      }
+
+      function contextButton(label, meta, activate) {
+        const button = el("button", "diagnostic-context-button");
+        button.type = "button";
+        button.appendChild(el("span", "diagnostic-context-label", label));
+        if (meta) button.appendChild(el("span", "diagnostic-context-meta", meta));
+        button.addEventListener("click", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          activate();
+        });
+        return button;
+      }
+
+      function chartLabel(value, limit) {
+        const text = compactValue(value).replace(/\s+/g, " ").trim();
+        if (text.length <= limit) return text;
+        return text.slice(0, Math.max(0, limit - 3)).trim() + "...";
+      }
+
+      function diagnosticChartItems(finding, context) {
+        const focusFlow = byId.get(finding.flow_id);
+        if (!focusFlow) return [];
+        const focusNode = flowNodeById(focusFlow, finding.node_id);
+        const focusId = focusNode ? focusFlow.id + "::" + focusNode.id : focusFlow.id;
+        const items = [
+          {
+            activate: () =>
+              focusNode ? selectRelatedNode(focusFlow, focusNode) : selectRelatedFlow(focusFlow),
+            key: focusId,
+            kind: "focus",
+            label: focusNode ? (focusNode.label || focusNode.id) : (focusFlow.name || focusFlow.id),
+            meta: focusNode ? (focusFlow.name || focusFlow.id) : "finding flow",
+          }
+        ];
+        const seen = new Set([focusId]);
+        context.relatedNodes.slice(0, 4).forEach(item => {
+          const key = item.flow.id + "::" + item.node.id;
+          if (seen.has(key)) return;
+          seen.add(key);
+          items.push({
+            activate: () => selectRelatedNode(item.flow, item.node),
+            key: key,
+            kind: "evidence",
+            label: item.node.label || item.node.id,
+            meta: item.roles.map(contextRoleLabel).join(", ") || (item.flow.name || item.flow.id),
+          });
+        });
+        context.relatedFlows.slice(0, 3).forEach(item => {
+          const key = item.flow.id;
+          if (seen.has(key)) return;
+          seen.add(key);
+          items.push({
+            activate: () => selectRelatedFlow(item.flow),
+            key: key,
+            kind: "flow",
+            label: item.flow.name || item.flow.id,
+            meta: item.roles.map(contextRoleLabel).join(", "),
+          });
+        });
+        return items.slice(0, 6);
+      }
+
+      function appendDiagnosticChart(wrap, finding, context) {
+        const items = diagnosticChartItems(finding, context);
+        if (!items.length) return;
+        const block = el("div", "diagnostic-chart");
+        block.appendChild(el("div", "diagnostic-chart-title", "Diagnostic subgraph"));
+        const targetCount = Math.max(0, items.length - 1);
+        const height = Math.max(112, 36 + Math.max(1, targetCount) * 52);
+        const svg = svgEl("svg", {
+          "aria-label": "Focused diagnostic subgraph",
+          "class": "diagnostic-chart-svg",
+          "role": "img",
+          "viewBox": "0 0 320 " + height,
+        });
+        const focus = items[0];
+        const focusBox = { x: 14, y: Math.max(28, height / 2 - 20), width: 122, height: 42 };
+        const targetBoxes = items.slice(1).map((item, index) => ({
+          item: item,
+          x: 180,
+          y: 20 + index * 52,
+          width: 124,
+          height: 42,
+        }));
+        targetBoxes.forEach(box => {
+          svg.appendChild(svgEl("line", {
+            "class": "diagnostic-chart-edge",
+            "x1": focusBox.x + focusBox.width,
+            "x2": box.x,
+            "y1": focusBox.y + focusBox.height / 2,
+            "y2": box.y + box.height / 2,
+          }));
+        });
+
+        function appendChartNode(item, box) {
+          const group = svgEl("g", {
+            "class": "diagnostic-chart-node " + item.kind,
+            "data-diagnostic-chart-node": item.key,
+            "role": "button",
+            "tabindex": "0",
+            "transform": "translate(" + box.x + " " + box.y + ")",
+          });
+          group.appendChild(svgEl("rect", {
+            "class": "diagnostic-chart-box",
+            "height": box.height,
+            "rx": "7",
+            "width": box.width,
+            "x": "0",
+            "y": "0",
+          }));
+          group.appendChild(svgEl("text", {
+            "class": "diagnostic-chart-label",
+            "x": "10",
+            "y": "18",
+          }, chartLabel(item.label, 20)));
+          group.appendChild(svgEl("text", {
+            "class": "diagnostic-chart-meta",
+            "x": "10",
+            "y": "32",
+          }, chartLabel(item.meta, 24)));
+          group.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            item.activate();
+          });
+          group.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              event.stopPropagation();
+              item.activate();
+            }
+          });
+          svg.appendChild(group);
+        }
+
+        appendChartNode(focus, focusBox);
+        targetBoxes.forEach(box => appendChartNode(box.item, box));
+        block.appendChild(svg);
+        wrap.appendChild(block);
+      }
+
+      function appendFindingContext(wrap, finding, diagnostic, context) {
+        context = context || contextForFinding(finding, diagnostic);
+        if (!context.relatedFlows.length && !context.relatedNodes.length) return;
+        const block = el("div", "diagnostic-related");
+        if (context.relatedFlows.length) {
+          block.appendChild(el("div", "diagnostic-related-title", "Related flows"));
+          const list = el("div", "diagnostic-context-list");
+          context.relatedFlows.forEach(item => {
+            list.appendChild(
+              contextButton(
+                item.flow.name || item.flow.id,
+                item.roles.map(contextRoleLabel).join(", "),
+                () => selectRelatedFlow(item.flow)
+              )
+            );
+          });
+          block.appendChild(list);
+        }
+        if (context.relatedNodes.length) {
+          block.appendChild(el("div", "diagnostic-related-title", "Evidence nodes"));
+          const list = el("div", "diagnostic-context-list");
+          context.relatedNodes.forEach(item => {
+            list.appendChild(
+              contextButton(
+                (item.node.label || item.node.id) + " - " + (item.flow.name || item.flow.id),
+                item.roles.map(contextRoleLabel).join(", "),
+                () => selectRelatedNode(item.flow, item.node)
+              )
+            );
+          });
+          block.appendChild(list);
+        }
+        wrap.appendChild(block);
+      }
+
+      function appendFindingDiagnostic(row, finding) {
+        const diagnostic = findingDiagnostic(finding);
+        const annotation = findingAnnotation(finding);
+        if (!diagnostic && !annotation) return;
+        const rule = diagnostic ? findingRule(finding, diagnostic) : null;
+        const wrap = el("div", "finding-diagnostic");
+        if (annotation) {
+          const annotationBlock = el("div", "finding-annotation");
+          annotationBlock.appendChild(el("div", "finding-annotation-title", "Enrichment"));
+          if (annotation.summary) {
+            annotationBlock.appendChild(el("p", "diagnostic-copy", annotation.summary));
+          }
+          if (annotation.explanation) {
+            annotationBlock.appendChild(
+              el("p", "diagnostic-copy diagnostic-muted", annotation.explanation)
+            );
+          }
+          if (annotation.remediation) {
+            annotationBlock.appendChild(
+              el("p", "diagnostic-copy diagnostic-remediation", annotation.remediation)
+            );
+          }
+          wrap.appendChild(annotationBlock);
+        }
+        if (diagnostic) {
+          const grid = el("div", "diagnostic-grid");
+          [
+            diagnosticLine("Severity", diagnostic.severity || finding.severity),
+            diagnosticLine("Confidence", confidenceLabel(diagnostic)),
+            diagnosticLine("Category", diagnostic.category),
+            diagnosticLine("Missing", diagnostic.missing),
+            diagnosticLine("Expected", diagnostic.expected),
+            diagnosticLine("Actual", diagnostic.actual),
+          ].forEach(line => {
+            if (line) grid.appendChild(line);
+          });
+          if (grid.childNodes.length) wrap.appendChild(grid);
+        }
+        if (rule && rule.purpose) {
+          const ruleText = el("p", "diagnostic-copy", rule.purpose);
+          wrap.appendChild(ruleText);
+        }
+        if (diagnostic && diagnostic.review_prompt) {
+          const prompt = el("p", "diagnostic-copy diagnostic-review", diagnostic.review_prompt);
+          wrap.appendChild(prompt);
+        }
+        const actions = diagnostic && Array.isArray(diagnostic.suggested_next_actions)
+          ? diagnostic.suggested_next_actions.slice(0, 3)
+          : [];
+        if (actions.length) {
+          const actionList = el("ul", "diagnostic-actions");
+          actions.forEach(action => {
+            actionList.appendChild(el("li", "", action));
+          });
+          wrap.appendChild(actionList);
+        }
+        if (diagnostic) {
+          const context = contextForFinding(finding, diagnostic);
+          appendDiagnosticChart(wrap, finding, context);
+          appendFindingContext(wrap, finding, diagnostic, context);
+        }
+        row.appendChild(wrap);
+      }
+
+      function findingRow(finding, expanded) {
+        // A review-signal row is an activatable listitem. It must NOT be a <button role="listitem">
         // (a button is not a valid listitem child of role="list"); use a div with
         // role="listitem", made keyboard-activatable via tabindex + an Enter/Space handler.
         const row = el("div", "finding-row finding " + (finding.severity || ""));
@@ -186,6 +767,8 @@
         const tier = el("span", "tier-badge " + tierClass(finding.evidence), finding.evidence || "");
         const kind = el("span", "finding-kind", finding.kind || "");
         head.append(tier, kind);
+        const annotation = findingAnnotation(finding);
+        if (annotation) head.appendChild(el("span", "finding-annotation-badge", "enriched"));
         row.appendChild(head);
 
         row.appendChild(el("div", "finding-message", finding.message || ""));
@@ -199,9 +782,15 @@
             )
           );
         }
-        row.title = finding.detail || `Open finding ${finding.kind || "review item"} in the flowchart`;
+        const diagnostic = findingDiagnostic(finding);
+        row.title =
+          firstAnnotationText(annotation) ||
+          (diagnostic && diagnostic.review_prompt) ||
+          finding.detail ||
+          `Open review signal ${finding.kind || "review item"} in the flowchart`;
+        if (expanded) appendFindingDiagnostic(row, finding);
 
-        // Activating a finding selects its flow + node (bidirectional: lights the block,
+        // Activating a review signal selects its flow + node (bidirectional: lights the block,
         // the source line, and the tree file). selectFlow opens the flow inline so its
         // decision block exists to highlight; then publish the node + finding so the block
         // highlight + source line land. selectFlow's notify completes first (not
@@ -209,18 +798,23 @@
         // from THIS panel, so record the finding id to restore focus after the re-render.
         function activate() {
           pendingFocus = { panel: "errors", id: finding.id };
+          const publishFindingSelection = () => {
+            LC.select({
+              flowId: finding.flow_id || null,
+              nodeId: finding.node_id || null,
+              path: (finding.location && finding.location.path) || null,
+              findingId: finding.id,
+              line: (finding.location && finding.location.start_line) || null,
+              endLine:
+                (finding.location && (finding.location.end_line || finding.location.start_line)) || null,
+            });
+          };
           if (finding.flow_id && LC.selectFlow) {
             LC.selectFlow(finding.flow_id);
+            afterFlowOpen(publishFindingSelection);
+          } else {
+            publishFindingSelection();
           }
-          LC.select({
-            flowId: finding.flow_id || null,
-            nodeId: finding.node_id || null,
-            path: (finding.location && finding.location.path) || null,
-            findingId: finding.id,
-            line: (finding.location && finding.location.start_line) || null,
-            endLine:
-              (finding.location && (finding.location.end_line || finding.location.start_line)) || null,
-          });
         }
         row.addEventListener("click", activate);
         row.addEventListener("keydown", event => {
@@ -233,7 +827,7 @@
       }
 
       // Compact counts-by-tier/kind summary for a broad (empty / L0 / scope) selection, so
-      // the panel never renders an unbounded finding list at the top level. Returns a
+      // the panel never renders an unbounded review-signal list at the top level. Returns a
       // <div> with one count line per evidence tier plus the total.
       function findingSummary(list) {
         const byTier = new Map();
@@ -243,7 +837,7 @@
         });
         const wrap = el("div", "errors-summary");
         wrap.appendChild(
-          el("p", "panel-empty", list.length + " finding" + (list.length === 1 ? "" : "s") + " across the current view.")
+          el("p", "panel-empty", list.length + " review signal" + (list.length === 1 ? "" : "s") + " across the current view.")
         );
         [...byTier.keys()].sort().forEach(tier => {
           const line = el("div", "summary-line");
@@ -252,7 +846,7 @@
           wrap.appendChild(line);
         });
         wrap.appendChild(
-          el("p", "panel-empty", "Select a flow or node to list its findings.")
+          el("p", "panel-empty", "Select a flow or node to list its review signals.")
         );
         return wrap;
       }
@@ -263,23 +857,23 @@
         clear(errorsBody);
         if (errorsCountEl) errorsCountEl.textContent = list.length ? String(list.length) : "";
         errorsStatus = list.length
-          ? list.length + " finding" + (list.length === 1 ? "" : "s")
-          : "no findings";
+          ? list.length + " review signal" + (list.length === 1 ? "" : "s")
+          : "no review signals";
         if (!list.length) {
           errorsBody.appendChild(
-            el("p", "panel-empty", "No findings for the current selection.")
+            el("p", "panel-empty", "No review signals for the current selection.")
           );
           return;
         }
-        // A node selection is exact -- show all of its (few) findings. A broad selection
+        // A node selection is exact -- show all of its (few) review signals. A broad selection
         // (nothing / L0 / a scope / a path) can match thousands; show a compact summary
         // instead of an unbounded list, so the panel stays bounded at the top level.
         if (reviewQueueMode && list.length > MAX_FINDING_ROWS) {
           list.slice(0, MAX_FINDING_ROWS).forEach(finding => {
-            errorsBody.appendChild(findingRow(finding));
+            errorsBody.appendChild(findingRow(finding, sel.findingId === finding.id));
           });
           errorsBody.appendChild(
-            el("p", "panel-empty", String(list.length - MAX_FINDING_ROWS) + " more findings not shown.")
+            el("p", "panel-empty", String(list.length - MAX_FINDING_ROWS) + " more review signals not shown.")
           );
           return;
         }
@@ -289,7 +883,10 @@
           return;
         }
         list.forEach(finding => {
-          const row = findingRow(finding);
+          const expanded =
+            (sel.findingId && finding.id === sel.findingId) ||
+            (sel.nodeId && finding.node_id === sel.nodeId && list.length <= 3);
+          const row = findingRow(finding, expanded);
           if (
             (sel.findingId && finding.id === sel.findingId) ||
             (sel.nodeId && finding.node_id === sel.nodeId)
@@ -504,8 +1101,7 @@
               // line -- all from the one store. Record the line so focus returns to the
               // equivalent line after the re-render this triggers (else it drops to <body>).
               pendingFocus = { panel: "source", id: lineNo };
-              if (LC.selectFlow) LC.selectFlow(flow.id);
-              LC.select({
+              const publishLineSelection = () => LC.select({
                 flowId: flow.id,
                 nodeId: nodeId,
                 path: flow.location.path,
@@ -513,6 +1109,12 @@
                 line: lineNo,
                 endLine: lineNo,
               });
+              if (LC.selectFlow) {
+                LC.selectFlow(flow.id);
+                afterFlowOpen(publishLineSelection);
+              } else {
+                publishLineSelection();
+              }
             };
             lineEl.addEventListener("click", activateLine);
             lineEl.addEventListener("keydown", event => {
@@ -544,6 +1146,8 @@
       }
 
       // --- Subscribe both panels to the shared store -------------------------------
+
+      renderQuality();
 
       function onSelection(sel) {
         renderSource(sel);

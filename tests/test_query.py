@@ -5,12 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.model import ProjectModel
+from logicchart.model import Flow, ProjectModel, SourceLocation
 from logicchart.query import (
     explain_finding,
     find_decisions,
+    finding_context,
+    flow_navigation,
     model_summary,
     query_model,
+    render_finding_explanation,
     where_is_state_handled,
 )
 
@@ -26,10 +29,27 @@ def _model(tmp_path: Path, body: str) -> ProjectModel:
     return ProjectAnalyzer(tmp_path).analyze(full=True).model
 
 
+def _flow(flow_id: str, name: str, symbol: str) -> Flow:
+    return Flow(
+        id=flow_id,
+        name=name,
+        symbol=symbol,
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=False,
+        location=SourceLocation(path="app.py", start_line=1, end_line=1),
+    )
+
+
 def test_model_summary_counts_by_kind(tmp_path: Path) -> None:
-    summary = model_summary(_model(tmp_path, _CHAIN))
+    model = _model(tmp_path, _CHAIN)
+    summary = model_summary(model)
     assert summary["flows"] >= 1
+    assert summary["findings"]["total"] == len(model.findings)
     assert "missing_branch" in summary["findings"]["by_kind"]
+    assert summary["findings"]["by_severity"]
+    assert summary["findings"]["by_evidence"]
 
 
 def test_explain_finding_returns_chain(tmp_path: Path) -> None:
@@ -40,6 +60,60 @@ def test_explain_finding_returns_chain(tmp_path: Path) -> None:
     assert chain["kind"] == "missing_branch"
     assert chain["decision"] is not None
     assert explain_finding(model, "does-not-exist") is None
+
+
+def test_finding_annotations_are_exposed_in_query_surfaces(tmp_path: Path) -> None:
+    model = _model(tmp_path, _CHAIN)
+    finding = next(f for f in model.findings if f.kind == "missing_branch")
+    flow = next(item for item in model.flows if item.id == finding.flow_id)
+    flow.metadata["scope"] = ["core"]
+    annotations = {
+        "findings": {
+            finding.id: {
+                "summary": "Status C is not handled.",
+                "explanation": "The enum-like branch set only covers A and B.",
+                "remediation": "Add an explicit Status.C branch or fallback.",
+            }
+        },
+        "scopes": {"core": {"label": "Core flows", "summary": "Decision-heavy core paths."}},
+    }
+
+    chain = explain_finding(model, finding.id, annotations)
+    assert chain is not None
+    assert chain["annotation"]["summary"] == "Status C is not handled."
+    assert "Annotation:" in render_finding_explanation(chain)
+
+    navigation = flow_navigation(model, finding.flow_id, annotations=annotations)
+    assert navigation["findings"][0]["annotation"]["remediation"].startswith("Add an explicit")
+    assert navigation["annotations"]["findings"][finding.id]["summary"] == (
+        "Status C is not handled."
+    )
+    assert navigation["annotations"]["scopes"]["core"]["label"] == "Core flows"
+
+    context = finding_context(model, finding.id, annotations=annotations)
+    assert context is not None
+    assert context["finding"]["annotation"]["explanation"].startswith("The enum-like")
+    assert context["focus_flow"]["findings"] == 1
+
+
+def test_flow_navigation_resolves_target_without_name_ambiguity_regression(
+    tmp_path: Path,
+) -> None:
+    model = ProjectModel.empty(tmp_path)
+    model.flows = [
+        _flow("target-id", "shared name", "pkg:target"),
+        _flow("symbol-flow", "shared name", "pkg:symbol"),
+        _flow("name-flow", "unique name", "pkg:name"),
+    ]
+
+    assert flow_navigation(model, "target-id")["flow"]["id"] == "target-id"
+    assert flow_navigation(model, "pkg:symbol")["flow"]["id"] == "symbol-flow"
+    assert flow_navigation(model, "unique name")["flow"]["id"] == "name-flow"
+
+    ambiguous = flow_navigation(model, "shared name")
+
+    assert ambiguous["error_code"] == "flow_target_ambiguous"
+    assert [item["id"] for item in ambiguous["matches"]] == ["target-id", "symbol-flow"]
 
 
 def test_where_is_state_handled(tmp_path: Path) -> None:

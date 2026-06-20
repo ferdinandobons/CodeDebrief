@@ -284,7 +284,7 @@
       align-items: center;
       gap: 8px;
       text-align: left;
-      border: 0;
+      border: 1px solid transparent;
       border-radius: var(--radius-sm);
       background: transparent;
       color: var(--ink);
@@ -311,23 +311,19 @@
     }
     .tree-dir .tree-label { font-weight: 680; }
     .tree-dir.active-folder, .tree-file.active-file {
-      background: color-mix(in srgb, var(--blue) 10%, transparent);
+      background: var(--active);
+      border-color: var(--blue);
     }
-    .tree-dir.active-folder .tree-label, .tree-file.active-file .tree-label { color: var(--blue); }
+    .tree-dir.active-folder .tree-label, .tree-file.active-file .tree-label { color: var(--ink); }
     .tree-file.active-parent {
       color: var(--ink);
-      background:
-        linear-gradient(90deg, color-mix(in srgb, var(--blue) 18%, transparent), transparent 78%),
-        color-mix(in srgb, var(--panel) 82%, transparent);
-      border: 1px solid color-mix(in srgb, var(--blue) 34%, var(--line));
-      box-shadow:
-        inset 4px 0 0 var(--blue),
-        0 6px 16px color-mix(in srgb, var(--paper) 80%, transparent);
+      background: var(--active);
+      border-color: var(--blue);
     }
     .tree-file.active-parent .tree-label { color: var(--ink); font-weight: 750; }
     .tree-file.active-parent .tree-count {
-      background: color-mix(in srgb, var(--blue) 18%, var(--chip));
-      color: var(--ink);
+      background: var(--blue);
+      color: var(--on-accent);
     }
     .tree-caret {
       flex: none;
@@ -377,17 +373,11 @@
       min-height: 39px;
     }
     .tree-flow.active::before {
-      background: linear-gradient(180deg, var(--blue), var(--violet));
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--blue) 38%, transparent);
+      background: var(--blue);
     }
     .tree-flow.active {
-      background:
-        linear-gradient(90deg, color-mix(in srgb, var(--blue) 16%, transparent), transparent 92%),
-        color-mix(in srgb, var(--panel) 88%, transparent);
-      border-color: color-mix(in srgb, var(--blue) 48%, var(--line));
-      box-shadow:
-        inset 0 0 0 1px color-mix(in srgb, var(--blue) 18%, transparent),
-        0 10px 24px color-mix(in srgb, var(--paper) 82%, transparent);
+      background: var(--active);
+      border-color: var(--blue);
     }
     .tree-flow-title {
       grid-column: 2;
@@ -527,57 +517,53 @@
       position: absolute;
       inset: 0;
     }
+    .typed-viewer-host .logicchart-expand-progress {
+      position: absolute;
+      left: 16px;
+      bottom: 16px;
+      z-index: 6;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px 12px;
+      width: min(360px, calc(100% - 32px));
+      padding: 11px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      background: var(--panel);
+      color: var(--ink);
+      box-shadow: 0 14px 28px rgba(0, 0, 0, .22);
+    }
+    .typed-viewer-host .logicchart-expand-progress-label,
+    .typed-viewer-host .logicchart-expand-progress-count {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .typed-viewer-host .logicchart-expand-progress-count {
+      color: var(--muted);
+    }
+    .typed-viewer-host .logicchart-expand-progress-track {
+      grid-column: 1 / -1;
+      height: 6px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--chip);
+    }
+    .typed-viewer-host .logicchart-expand-progress-value {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--blue);
+      transition: width .12s linear;
+    }
     .typed-viewer-host .logicchart-viewer {
       width: 100%;
       height: 100%;
       display: block;
       cursor: grab;
-    }
-    .typed-viewer-host .logicchart-overview {
-      position: absolute;
-      left: 12px;
-      bottom: 12px;
-      z-index: 6;
-      width: 190px;
-      height: 122px;
-      padding: 0;
-      border: 1px solid color-mix(in srgb, var(--line-strong) 54%, transparent);
-      border-radius: 8px;
-      background:
-        linear-gradient(180deg, rgba(17, 20, 28, .82), rgba(8, 10, 15, .78)),
-        var(--panel);
-      box-shadow: 0 14px 28px rgba(0, 0, 0, .22);
-      cursor: all-scroll;
-      opacity: .86;
-      overflow: hidden;
-    }
-    .typed-viewer-host .logicchart-overview:hover,
-    .typed-viewer-host .logicchart-overview:focus-visible {
-      border-color: color-mix(in srgb, var(--blue) 72%, var(--line-strong));
-      outline: none;
-      opacity: 1;
-    }
-    .typed-viewer-host .logicchart-overview.dragging {
-      cursor: grabbing;
-      opacity: 1;
-    }
-    .typed-viewer-host .logicchart-overview-map {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-    .typed-viewer-host .logicchart-overview-content {
-      fill: color-mix(in srgb, var(--panel-2) 74%, transparent);
-      stroke: color-mix(in srgb, var(--line) 70%, transparent);
-      stroke-width: 1.2;
-      vector-effect: non-scaling-stroke;
-    }
-    .typed-viewer-host .logicchart-overview-viewport {
-      fill: color-mix(in srgb, var(--blue) 10%, transparent);
-      stroke: color-mix(in srgb, var(--blue) 68%, var(--cyan));
-      stroke-width: 1.8;
-      opacity: .86;
-      vector-effect: non-scaling-stroke;
     }
     .typed-viewer-host .logicchart-viewer.dragging {
       cursor: grabbing;
@@ -1226,10 +1212,10 @@
       stroke-dasharray: 4 5;
       opacity: .7;
     }
-    /* --- Right column: Source panel (top) + Logical-errors panel (bottom) ----- */
-    /* The rail splits vertically into two panels that each scroll independently, so a
-       long snippet or a long findings list scrolls inside its panel and never pushes
-       the other off-screen. */
+    /* --- Right column: quality, source, and review-signal panels ------------- */
+    /* The rail splits vertically into panels that each scroll independently, so a long
+       snippet or findings list scrolls inside its panel and never pushes the others
+       off-screen. */
     .right-rail .rail-inner { display: flex; flex-direction: column; min-height: 0; }
     .detail-drawer-head {
       display: flex;
@@ -1245,6 +1231,38 @@
       letter-spacing: .08em;
       text-transform: uppercase;
       flex: none;
+    }
+    .panel-stack-tools {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      padding: 2px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--panel-2);
+    }
+    .panel-stack-control {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 15px;
+      font-weight: 850;
+      line-height: 1;
+    }
+    .panel-stack-control:hover,
+    .panel-stack-control:focus-visible {
+      background: var(--active);
+      border-color: var(--blue);
+      color: var(--ink);
+      outline: none;
     }
     .panel-close {
       width: 32px;
@@ -1271,18 +1289,74 @@
       min-height: 0;
       overflow: hidden;
     }
-    /* Source on top, errors below, each taking half by default; both can grow/shrink. */
-    .panel-source { flex: 1 1 55%; border-bottom: 1px solid var(--line); }
-    .panel-errors { flex: 1 1 45%; }
+    .panel-quality { flex: 0 0 auto; max-height: 260px; border-bottom: 1px solid var(--line); }
+    .panel-source { flex: 1 1 48%; border-bottom: 1px solid var(--line); }
+    .panel-errors { flex: 1 1 42%; }
+    .panel[data-collapsed] {
+      flex: 0 0 auto;
+      max-height: none;
+    }
     .panel-head {
       display: flex;
-      align-items: baseline;
-      gap: 8px;
-      padding: 16px 20px 10px;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px 10px;
       border-bottom: 1px solid var(--line);
       flex: none;
+      transition: background .14s ease;
+    }
+    .panel-head[data-panel-heading] {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+    }
+    .panel-head[data-panel-heading]:hover {
+      background: var(--hover);
+    }
+    .panel-head[data-panel-heading]:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: -2px;
+    }
+    .panel[data-collapsed] .panel-head { border-bottom: 0; }
+    .panel[data-collapsed] .panel-head[data-panel-heading] {
+      background: var(--panel);
     }
     .panel-head .rail-title { margin: 0; }
+    .panel-collapse-toggle {
+      flex: none;
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--blue);
+      border-radius: 8px;
+      background: var(--active);
+      color: var(--blue);
+      cursor: pointer;
+    }
+    .panel-head[data-panel-heading]:hover .panel-collapse-toggle {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: var(--on-accent);
+    }
+    .panel-collapse-toggle:hover,
+    .panel-collapse-toggle:focus-visible {
+      border-color: var(--blue);
+      color: var(--blue);
+      outline: none;
+    }
+    .panel-chevron {
+      display: block;
+      width: 9px;
+      height: 9px;
+      border: solid currentColor;
+      border-width: 0 2.5px 2.5px 0;
+      transform: translateY(-1px) rotate(45deg);
+      transition: transform .14s ease;
+    }
+    .panel[data-collapsed] .panel-chevron {
+      transform: translateX(-1px) rotate(-45deg);
+    }
     .panel-file {
       margin-left: auto;
       color: var(--muted);
@@ -1331,6 +1405,97 @@
     .panel-head .panel-action + .panel-count { margin-left: 0; }
     .panel-body { overflow: auto; min-height: 0; flex: 1 1 auto; padding: 14px 16px; }
     .panel-empty { color: var(--muted); font-size: 12px; line-height: 1.55; margin: 6px 0; }
+    .quality-scroll {
+      display: grid;
+      gap: 10px;
+      padding: 12px 16px 14px;
+    }
+    .quality-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .quality-metric,
+    .quality-signal {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--panel-2);
+    }
+    .quality-metric {
+      display: grid;
+      gap: 3px;
+      padding: 8px 10px;
+    }
+    .quality-metric strong {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    .quality-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .quality-signals {
+      display: grid;
+      gap: 6px;
+    }
+    .quality-signal {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 9px;
+    }
+    .quality-signal.attention,
+    .quality-metric.attention {
+      border-color: color-mix(in srgb, var(--amber) 55%, var(--line));
+      background: color-mix(in srgb, var(--amber) 10%, var(--panel-2));
+    }
+    .quality-value {
+      flex: none;
+      max-width: 45%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .quality-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .quality-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 20px;
+      max-width: 100%;
+      padding: 2px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--chip);
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
 
     /* Source code: monospace lines with a gutter. Source text lives ONLY in text nodes
        (panels.js never uses innerHTML for it). pre-wrap keeps long lines readable without
@@ -1424,12 +1589,203 @@
       font-weight: 700;
       letter-spacing: .04em;
     }
+    .finding-annotation-badge {
+      flex: none;
+      margin-left: auto;
+      padding: 2px 7px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
     .finding-message { font-size: 12px; line-height: 1.45; }
     .finding-loc {
       margin-top: 5px;
       color: var(--muted);
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 10px;
+      overflow-wrap: anywhere;
+    }
+    .finding-diagnostic {
+      margin-top: 9px;
+      padding-top: 9px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 8px;
+    }
+    .diagnostic-grid { display: grid; gap: 5px; }
+    .diagnostic-line {
+      display: grid;
+      grid-template-columns: minmax(74px, max-content) 1fr;
+      gap: 8px;
+      align-items: start;
+      min-width: 0;
+    }
+    .diagnostic-label {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .diagnostic-value {
+      color: var(--ink);
+      font-size: 11px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .diagnostic-copy {
+      margin: 0;
+      color: var(--ink);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .finding-annotation {
+      display: grid;
+      gap: 5px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: color-mix(in srgb, var(--blue) 7%, transparent);
+    }
+    .finding-annotation-title {
+      color: var(--blue);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .diagnostic-muted { color: var(--muted); }
+    .diagnostic-remediation { color: var(--ink); font-weight: 650; }
+    .diagnostic-review { color: var(--blue); }
+    .diagnostic-actions {
+      margin: 0;
+      padding-left: 17px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .diagnostic-chart {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--panel) 84%, transparent);
+    }
+    .diagnostic-chart-title {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .diagnostic-chart-svg {
+      display: block;
+      width: 100%;
+      min-height: 112px;
+    }
+    .diagnostic-chart-edge {
+      stroke: color-mix(in srgb, var(--edge) 72%, var(--blue));
+      stroke-width: 1.5;
+      vector-effect: non-scaling-stroke;
+    }
+    .diagnostic-chart-node {
+      cursor: pointer;
+      outline: none;
+    }
+    .diagnostic-chart-box {
+      fill: var(--panel-2);
+      stroke: var(--line-strong);
+      stroke-width: 1.2;
+      vector-effect: non-scaling-stroke;
+    }
+    .diagnostic-chart-node.focus .diagnostic-chart-box {
+      stroke: var(--coral);
+      stroke-width: 2.2;
+    }
+    .diagnostic-chart-node.evidence .diagnostic-chart-box {
+      stroke: var(--amber);
+    }
+    .diagnostic-chart-node.flow .diagnostic-chart-box {
+      stroke: var(--cyan);
+    }
+    .diagnostic-chart-node:hover .diagnostic-chart-box,
+    .diagnostic-chart-node:focus-visible .diagnostic-chart-box {
+      stroke: var(--blue);
+      stroke-width: 2.4;
+    }
+    .diagnostic-chart-label {
+      fill: var(--ink);
+      font-size: 10px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    .diagnostic-chart-meta {
+      fill: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 8px;
+      font-weight: 700;
+      pointer-events: none;
+      text-transform: uppercase;
+    }
+    .diagnostic-related {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .diagnostic-related-title {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .diagnostic-context-list {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .diagnostic-context-button {
+      display: grid;
+      gap: 2px;
+      width: 100%;
+      min-width: 0;
+      padding: 6px 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+    }
+    .diagnostic-context-button:hover {
+      border-color: var(--line-strong);
+      background: var(--panel-strong);
+    }
+    .diagnostic-context-button:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+    .diagnostic-context-label {
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .diagnostic-context-meta {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      line-height: 1.35;
       overflow-wrap: anywhere;
     }
 
@@ -1558,6 +1914,16 @@
       .metrics { display: none; }
       .detail-tool { display: grid; place-items: center; }
     }
+    @media (min-width: 701px) and (max-width: 1050px) {
+      body[data-detail-open] .canvas-toolbar {
+        left: 14px;
+        right: calc(min(var(--right-rail-width), calc(100vw - 72px)) + 14px);
+        z-index: 4;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: flex-end;
+      }
+    }
     @media (max-width: 700px) {
       .shell { grid-template-columns: 1fr; }
       header { padding: 0 14px; }
@@ -1567,9 +1933,6 @@
         top: 14px;
         right: 10px;
         gap: 5px;
-      }
-      .typed-viewer-host .logicchart-overview {
-        display: none;
       }
       .tool-group { gap: 1px; padding: 2px; }
       .tool {

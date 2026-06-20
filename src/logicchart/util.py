@@ -45,5 +45,25 @@ def compact_text(value: str, limit: int = 100) -> str:
     return value[: limit - 1].rstrip() + "..."
 
 
+def without_diagnostic_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in metadata.items() if key != "diagnostic"}
+
+
+def metadata_scope_names(metadata: dict[str, Any]) -> list[str]:
+    scopes = metadata.get("scope", [])
+    if isinstance(scopes, str):
+        return [scopes] if scopes else []
+    if not isinstance(scopes, (list, tuple, set)):
+        return []
+    names: list[str] = []
+    for scope in scopes:
+        if scope is None:
+            continue
+        name = scope if isinstance(scope, str) else str(scope)
+        if name:
+            names.append(name)
+    return names
+
+
 def relpath(path: Path, root: Path) -> str:
     return path.resolve().relative_to(root.resolve()).as_posix()

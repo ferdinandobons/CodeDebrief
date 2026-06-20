@@ -37,9 +37,12 @@ from logicchart.analysis.common import (
     call_is_boundary,
     decision_identity,
     decision_metadata,
+    dependency_paths_from_import_map,
     domain_from_subject,
     is_functional_condition,
+    require_tree_sitter_parse_ok,
     tag_call_effects,
+    tree_sitter_parse_error,
     value_namespace,
 )
 from logicchart.analysis.common import DEFAULT as DEFAULT_LABEL
@@ -77,6 +80,10 @@ class LanguageProfile:
     is_test: Callable[[str, str], bool]
     module_name: Callable[[str], str]
     import_map: Callable[[Any, bytes, str], dict[str, str]] = lambda root, src, rel: {}
+    dependency_module_suffixes: tuple[str, ...] = ()
+    dependency_package_files: tuple[str, ...] = ()
+    dependency_package_directories: bool = False
+    dependency_path_filter: Callable[[str], bool] = lambda relative: True
     entry_label: Callable[[Flow], str] | None = None
     harvest_enums: Callable[[Any, bytes], dict[str, list[str]]] | None = None
     # Node-type vocabulary (C-family defaults).
@@ -155,13 +162,29 @@ class TreeSitterAnalyzer:
         source = path.read_bytes().removeprefix(b"\xef\xbb\xbf")
         relative = relpath(path, self.root)
         tree = self.parser.parse(source)
+        parse_error = tree_sitter_parse_error(tree.root_node, relative, self.profile.language)
+        definitions = list(self.profile.definitions(tree.root_node, source, relative, self.profile))
+        if parse_error is not None and not definitions:
+            require_tree_sitter_parse_ok(tree.root_node, relative, self.profile.language)
         findings: list[Finding] = []
-        flows = [
-            self._analyze_definition(item, source, relative, findings)
-            for item in self.profile.definitions(tree.root_node, source, relative, self.profile)
-        ]
+        flows = [self._analyze_definition(item, source, relative, findings) for item in definitions]
+        if parse_error is not None:
+            for flow in flows:
+                flow.metadata["parse_error"] = parse_error
         import_map = self.profile.import_map(tree.root_node, source, relative)
         module_name = self.profile.module_name(relative)
+        dependencies = [
+            item
+            for item in dependency_paths_from_import_map(
+                import_map,
+                self.root,
+                module_suffixes=self.profile.dependency_module_suffixes,
+                package_files=self.profile.dependency_package_files,
+                package_directories=self.profile.dependency_package_directories,
+                include_path=self.profile.dependency_path_filter,
+            )
+            if item != relative
+        ]
         for flow in flows:
             attach_qualified_calls(flow, import_map, module_name)
             tag_call_effects(flow)
@@ -172,6 +195,7 @@ class TreeSitterAnalyzer:
             language=self.profile.language,
             sha256=file_sha256(path),
             enums=enums,
+            dependencies=dependencies,
             flows=flows,
             findings=findings,
         )
@@ -262,15 +286,9 @@ class TreeSitterAnalyzer:
                     statement, endpoints, builder, findings, source, relative
                 )
             elif node_type in profile.loop_types:
-                node = builder.add_node(
-                    NodeKind.ACTION,
-                    _loop_label(statement, source),
-                    _location(relative, statement),
-                    endpoints,
-                    detail=_text(statement, source),
-                    evidence=Evidence.INFERRED,
+                endpoints = self._walk_loop(
+                    statement, endpoints, builder, findings, source, relative
                 )
-                endpoints = [PendingEdge(node.id)]
             elif node_type == profile.return_type:
                 endpoints = self._walk_return(statement, endpoints, builder, source, relative)
             elif node_type in profile.throw_types:
@@ -281,6 +299,26 @@ class TreeSitterAnalyzer:
                     _location(relative, statement),
                     endpoints,
                     detail=_text(statement, source),
+                )
+                endpoints = []
+            elif node_type in profile.break_types:
+                node = builder.add_node(
+                    NodeKind.ACTION,
+                    "Break loop",
+                    _location(relative, statement),
+                    endpoints,
+                    detail=_text(statement, source),
+                    metadata={"loop_control": "break"},
+                )
+                endpoints = [PendingEdge(node.id)]
+            elif node_type in profile.continue_types:
+                builder.add_node(
+                    NodeKind.ACTION,
+                    "Continue loop",
+                    _location(relative, statement),
+                    endpoints,
+                    detail=_text(statement, source),
+                    metadata={"loop_control": "continue"},
                 )
                 endpoints = []
             elif node_type in profile.function_types or node_type in profile.nested_def_types:
@@ -327,6 +365,40 @@ class TreeSitterAnalyzer:
             detail=_text(statement, source),
         )
         return []
+
+    def _walk_loop(
+        self,
+        statement: Any,
+        incoming: list[PendingEdge],
+        builder: FlowBuilder,
+        findings: list[Finding],
+        source: bytes,
+        relative: str,
+    ) -> list[PendingEdge]:
+        body = self._loop_body(statement)
+        body_statements = self._statement_children(body)
+        node = builder.add_node(
+            NodeKind.ACTION,
+            _loop_label(statement, source),
+            _location(relative, statement),
+            incoming,
+            detail=_text(statement, source),
+            evidence=Evidence.INFERRED,
+            metadata={
+                "loop": True,
+                "body_outcome": self._branch_outcome(body_statements),
+                "has_else": False,
+            },
+        )
+        body_endpoints = self._walk_statements(
+            body_statements,
+            [PendingEdge(node.id, "Iteration")],
+            builder,
+            findings,
+            source,
+            relative,
+        )
+        return [PendingEdge(node.id, "Done"), *body_endpoints]
 
     def _walk_if(
         self,
@@ -601,7 +673,44 @@ class TreeSitterAnalyzer:
                 or statement.type in profile.break_types
             ):
                 return False
+            if (
+                profile.try_type is not None
+                and statement.type == profile.try_type
+                and not self._try_case_falls_through(statement)
+            ):
+                return False
+            if statement.type == profile.if_type:
+                alternative = statement.child_by_field_name(profile.alternative_field)
+                if alternative is not None:
+                    then_falls_through = self._case_falls_through(
+                        self._statement_children(
+                            statement.child_by_field_name(profile.consequence_field)
+                        )
+                    )
+                    else_falls_through = self._case_falls_through(
+                        self._statement_children(alternative)
+                    )
+                    if not then_falls_through and not else_falls_through:
+                        return False
         return True
+
+    def _try_case_falls_through(self, statement: Any) -> bool:
+        profile = self.profile
+        finals = [c for c in _named_children(statement) if c.type in profile.finally_types]
+        if finals and not self._case_falls_through(
+            self._statement_children(self._block_of(finals[0]))
+        ):
+            return False
+
+        body = statement.child_by_field_name(profile.try_body_field)
+        body_falls_through = self._case_falls_through(self._statement_children(body))
+        catches = [c for c in _named_children(statement) if c.type in profile.catch_types]
+        if not catches:
+            return body_falls_through
+        return body_falls_through or any(
+            self._case_falls_through(self._statement_children(self._block_of(catch)))
+            for catch in catches
+        )
 
     def _branch_outcome(self, statements: list[Any]) -> str:
         profile = self.profile
@@ -617,6 +726,10 @@ class TreeSitterAnalyzer:
                 return CONTINUES
             if statement.type in profile.break_types:
                 return FALLS_THROUGH
+            if profile.try_type is not None and statement.type == profile.try_type:
+                try_outcome = self._try_statement_outcome(statement)
+                if _terminates(try_outcome):
+                    return try_outcome
             if statement.type == profile.if_type:
                 alternative = statement.child_by_field_name(profile.alternative_field)
                 if alternative is not None:
@@ -628,6 +741,27 @@ class TreeSitterAnalyzer:
                     else_outcome = self._branch_outcome(self._statement_children(alternative))
                     if _terminates(then_outcome) and _terminates(else_outcome):
                         return then_outcome if then_outcome == else_outcome else RETURNS
+        return FALLS_THROUGH
+
+    def _try_statement_outcome(self, statement: Any) -> str:
+        profile = self.profile
+        finals = [c for c in _named_children(statement) if c.type in profile.finally_types]
+        if finals:
+            final_outcome = self._branch_outcome(
+                self._statement_children(self._block_of(finals[0]))
+            )
+            if _terminates(final_outcome):
+                return final_outcome
+
+        body = statement.child_by_field_name(profile.try_body_field)
+        outcomes = [self._branch_outcome(self._statement_children(body))]
+        outcomes.extend(
+            self._branch_outcome(self._statement_children(self._block_of(catch)))
+            for catch in _named_children(statement)
+            if catch.type in profile.catch_types
+        )
+        if outcomes and all(_terminates(outcome) for outcome in outcomes):
+            return outcomes[0] if all(outcome == outcomes[0] for outcome in outcomes) else RETURNS
         return FALLS_THROUGH
 
     def _statement_summary(self, statement: Any, source: bytes) -> tuple[NodeKind, str, list[str]]:
@@ -689,6 +823,18 @@ class TreeSitterAnalyzer:
         if blocks:
             return list(_named_children(blocks[-1]))
         return [node]
+
+    def _loop_body(self, statement: Any) -> Any | None:
+        body = statement.child_by_field_name("body")
+        if body is not None:
+            return body
+        blocks = [
+            child for child in _named_children(statement) if child.type in self.profile.block_types
+        ]
+        if blocks:
+            return blocks[-1]
+        named = list(_named_children(statement))
+        return named[-1] if named else None
 
 
 def _named_children(node: Any | None) -> Iterable[Any]:

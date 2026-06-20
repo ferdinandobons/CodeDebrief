@@ -12,6 +12,7 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
     entrypoints = [flow for flow in model.flows if flow.is_entrypoint]
     confirmed = [f for f in model.findings if f.evidence is not Evidence.POTENTIAL_GAP]
     gaps = [f for f in model.findings if f.evidence is Evidence.POTENTIAL_GAP]
+    findings_by_flow_node = _findings_by_flow_node(model.findings)
     lines = [
         "# LogicChart Decision Flows",
         "",
@@ -21,7 +22,7 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
         f"- **Source root:** {_code_span(model.root)}",
         f"- **Flows:** {len(model.flows)}",
         f"- **Entry points:** {len(entrypoints)}",
-        f"- **Findings:** {len(confirmed)} verified/inferred · {len(gaps)} review-only",
+        f"- **Review signals:** {len(confirmed)} verified/inferred · {len(gaps)} review-only",
     ]
     scopes = model.metadata.get("scopes", {})
     if scopes:
@@ -31,13 +32,13 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
         )
     lines.extend(["", "## Project Map", ""])
     lines.extend(_project_map(model, entrypoints))
-    lines.extend(["", "## Findings", ""])
+    lines.extend(["", "## Review Signals", ""])
     # Signal/noise split (§5.2/§7): verified/inferred facts in the main section,
     # POTENTIAL_GAP candidates in a collapsible block, so found vs guessed stays clear.
     if confirmed:
         lines.extend(_finding_line(finding) for finding in confirmed)
     else:
-        lines.append("No verified or inferred findings were detected.")
+        lines.append("No verified or inferred review signals were detected.")
     if gaps:
         open_attr = " open" if include_gaps else ""
         lines.extend(
@@ -54,7 +55,7 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
 
     lines.extend(["", "## Entry Point Flows", ""])
     for flow in entrypoints:
-        lines.extend(_flow_section(flow, model))
+        lines.extend(_flow_section(flow, findings_by_flow_node.get(flow.id, {})))
 
     subflows = [
         flow for flow in model.flows if not flow.is_entrypoint and not flow.metadata.get("test")
@@ -63,7 +64,7 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
         lines.extend(["", "## Referenced Subflows", ""])
         for flow in subflows:
             if flow.called_by:
-                lines.extend(_flow_section(flow, model))
+                lines.extend(_flow_section(flow, findings_by_flow_node.get(flow.id, {})))
 
     return "\n".join(lines).rstrip() + "\n"
 
@@ -95,12 +96,17 @@ def _project_map(model: ProjectModel, entrypoints: list[Flow]) -> list[str]:
     return lines
 
 
-def _flow_section(flow: Flow, model: ProjectModel) -> list[str]:
-    findings_by_node: dict[str, list[str]] = defaultdict(list)
-    for finding in model.findings:
-        if finding.flow_id == flow.id and finding.node_id:
-            findings_by_node[finding.node_id].append(finding.message)
+def _findings_by_flow_node(findings: list[Finding]) -> dict[str, dict[str, list[str]]]:
+    by_flow_node: dict[str, dict[str, list[str]]] = {}
+    for finding in findings:
+        if not finding.node_id:
+            continue
+        findings_by_node = by_flow_node.setdefault(finding.flow_id, defaultdict(list))
+        findings_by_node[finding.node_id].append(finding.message)
+    return by_flow_node
 
+
+def _flow_section(flow: Flow, findings_by_node: dict[str, list[str]]) -> list[str]:
     source = _source_reference(flow.location.path, flow.location.start_line)
     lines = [
         f"### {_md_inline(flow.name)}",
@@ -118,9 +124,10 @@ def _flow_section(flow: Flow, model: ProjectModel) -> list[str]:
         lines.append(f"  {_mermaid_id(edge.source)} -->{label} {_mermaid_id(edge.target)}")
     lines.append("```")
     if findings_by_node:
+        nodes_by_id = {node.id: node for node in flow.nodes}
         lines.extend(["", "**Review points:**"])
         for node_id, messages in findings_by_node.items():
-            node = next(item for item in flow.nodes if item.id == node_id)
+            node = nodes_by_id[node_id]
             for message in messages:
                 lines.append(f"- {_code_span(node.label)}: {_md_inline(message)}")
     lines.append("")
@@ -129,10 +136,15 @@ def _flow_section(flow: Flow, model: ProjectModel) -> list[str]:
 
 def _finding_line(finding: Finding) -> str:
     source = _source_reference(finding.location.path, finding.location.start_line)
-    return (
+    line = (
         f"- **{finding.severity.value.upper()} · {finding.evidence.value} · "
-        f"{_enum_value(finding.kind)}** {_md_inline(finding.message)} ({source})"
+        f"{_enum_value(finding.kind)}** {_md_inline(finding.message)} ({source}) · "
+        f"finding id {_code_span(finding.id)}"
     )
+    diagnostic = finding.metadata.get("diagnostic")
+    if isinstance(diagnostic, dict) and diagnostic.get("review_prompt"):
+        line += f" Review: {_md_inline(str(diagnostic['review_prompt']))}"
+    return line
 
 
 def _enum_value(value: object) -> str:

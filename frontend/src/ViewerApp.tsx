@@ -28,6 +28,7 @@ import {
   flowLabel,
   flowPath,
   scopeNamesForFlow,
+  type LogicChartAnnotationText,
   type LogicChartFlow,
   type LogicChartPayload,
 } from "./logicchart-model";
@@ -52,6 +53,7 @@ const DETAIL_EDGE_OBSTACLE_GAP = 18;
 const DETAIL_EDGE_LANE_STEP = 20;
 const DETAIL_EDGE_MAX_LANE_STEPS = 12;
 const DRAG_FRAME_FALLBACK_MS = 16;
+const VIEWER_LAYOUT_CACHE_LIMIT = 8;
 
 export interface DetailNodeSelection {
   flowId: string;
@@ -81,9 +83,11 @@ export interface ViewerAppProps {
   payload?: LogicChartPayload;
   layers?: ProgressiveFlowNode[][];
   routeFlowIds?: string[];
+  detailFlowIds?: string[];
   contextFlowIds?: string[];
   expandedScopes?: readonly string[];
   selectedConnection?: SelectedConnection;
+  layoutMode?: "normal" | "expanded-overview";
   selectedRoot?: boolean;
   onConnectionSelect?: (connection: ActiveConnection) => void;
   onDetailEdgeSelect?: (selection: DetailEdgeSelection) => void;
@@ -106,9 +110,11 @@ export function ViewerApp({
   payload,
   layers,
   routeFlowIds = [],
+  detailFlowIds,
   contextFlowIds = [],
   expandedScopes,
   selectedConnection: selectedConnectionProp,
+  layoutMode = "normal",
   selectedRoot: selectedRootProp = false,
   onConnectionSelect,
   onDetailEdgeSelect,
@@ -151,6 +157,16 @@ export function ViewerApp({
   const [selectedRoot, setSelectedRoot] = useState(false);
   const [selectedScopeId, setSelectedScopeId] = useState<string | null>(null);
   const selectedConnectionPropKey = selectionKey(selectedConnectionProp);
+  const detailLayoutCache = useRef(new Map<string, Map<string, FlowDetailLayout>>());
+  const layoutCache = useRef(new Map<string, ReturnType<typeof createViewerLayout>>());
+  const findingCountsByFlowId = useMemo(() => {
+    const counts = new Map<string, number>();
+    (payload?.findings || []).forEach(finding => {
+      if (!finding.flow_id) return;
+      counts.set(finding.flow_id, (counts.get(finding.flow_id) || 0) + 1);
+    });
+    return counts;
+  }, [payload]);
   useEffect(() => {
     manualPositionsChangeRef.current = onManualNodePositionsChange;
   }, [onManualNodePositionsChange]);
@@ -200,10 +216,27 @@ export function ViewerApp({
       : selectedConnectionProp ??
         selectedConnection ??
         useViewerStore.getState().selectedConnection;
-  const detailLayouts = useMemo(
-    () => flowDetailLayouts(payload, routeFlowIds),
-    [payload, routeFlowIds],
+  const detailLayoutSignature = useMemo(
+    () =>
+      [payloadSignature(payload), (detailFlowIds ?? routeFlowIds).join("\u0000")].join("\u0001"),
+    [detailFlowIds, payload, routeFlowIds],
   );
+  const detailLayouts = useMemo(() => {
+    const cached = detailLayoutCache.current.get(detailLayoutSignature);
+    if (cached) {
+      detailLayoutCache.current.delete(detailLayoutSignature);
+      detailLayoutCache.current.set(detailLayoutSignature, cached);
+      return cached;
+    }
+    const nextLayouts = flowDetailLayouts(payload, detailFlowIds ?? routeFlowIds);
+    detailLayoutCache.current.set(detailLayoutSignature, nextLayouts);
+    while (detailLayoutCache.current.size > VIEWER_LAYOUT_CACHE_LIMIT) {
+      const oldestKey = detailLayoutCache.current.keys().next().value;
+      if (oldestKey === undefined) break;
+      detailLayoutCache.current.delete(oldestKey);
+    }
+    return nextLayouts;
+  }, [detailLayoutSignature, payload, routeFlowIds]);
   const effectiveExpandedMeasures = useMemo(() => {
     if (!detailLayouts.size) return expandedMeasuresProp;
     const measures = new Map(expandedMeasuresProp ? [...expandedMeasuresProp] : []);
@@ -212,32 +245,7 @@ export function ViewerApp({
     });
     return measures;
   }, [detailLayouts, expandedMeasuresProp]);
-  const layout = useMemo(
-    () =>
-      createViewerLayout({
-        expandedMeasures: effectiveExpandedMeasures,
-        expandedScopes,
-        layers,
-        manualNodePositions,
-        payload,
-        contextFlowIds,
-        routeFlowIds,
-        scope,
-        scopeNode,
-      }),
-    [
-      effectiveExpandedMeasures,
-      expandedScopes,
-      layers,
-      manualNodePositions,
-      payload,
-      contextFlowIds,
-      routeFlowIds,
-      scope,
-      scopeNode,
-    ],
-  );
-  const viewportSignature = useMemo(
+  const layoutSignature = useMemo(
     () =>
       [
         scope,
@@ -245,6 +253,36 @@ export function ViewerApp({
           ? `${scopeNode.scope}:${scopeNode.x}:${scopeNode.y}:${scopeNode.width}:${scopeNode.height}`
           : "",
         expandedScopes === undefined ? "__auto__" : [...expandedScopes].join("\u0000"),
+        layoutMode,
+        routeFlowIds.join("\u0000"),
+        contextFlowIds.join("\u0000"),
+        layersSignature(layers),
+        payloadSignature(payload),
+        expandedMeasuresSignature(effectiveExpandedMeasures),
+        manualNodePositionsSignature(manualNodePositions),
+      ].join("\u0001"),
+    [
+      contextFlowIds,
+      effectiveExpandedMeasures,
+      expandedScopes,
+      layoutMode,
+      layers,
+      manualNodePositions,
+      payload,
+      routeFlowIds,
+      scope,
+      scopeNode,
+    ],
+  );
+  const viewportLayoutSignature = useMemo(
+    () =>
+      [
+        scope,
+        scopeNode
+          ? `${scopeNode.scope}:${scopeNode.x}:${scopeNode.y}:${scopeNode.width}:${scopeNode.height}`
+          : "",
+        expandedScopes === undefined ? "__auto__" : [...expandedScopes].join("\u0000"),
+        layoutMode,
         routeFlowIds.join("\u0000"),
         contextFlowIds.join("\u0000"),
         layersSignature(layers),
@@ -252,14 +290,61 @@ export function ViewerApp({
         expandedMeasuresSignature(effectiveExpandedMeasures),
       ].join("\u0001"),
     [
+      contextFlowIds,
       effectiveExpandedMeasures,
       expandedScopes,
+      layoutMode,
       layers,
       payload,
       routeFlowIds,
       scope,
       scopeNode,
     ],
+  );
+  const layout = useMemo(() => {
+    const cached = layoutCache.current.get(layoutSignature);
+    if (cached) {
+      layoutCache.current.delete(layoutSignature);
+      layoutCache.current.set(layoutSignature, cached);
+      return cached;
+    }
+    const nextLayout = createViewerLayout({
+        expandedMeasures: effectiveExpandedMeasures,
+        expandedScopes,
+        layers,
+        manualNodePositions,
+        payload,
+        contextFlowIds,
+        performanceMode: layoutMode,
+        routeFlowIds,
+        scope,
+        scopeNode,
+      });
+    layoutCache.current.set(layoutSignature, nextLayout);
+    while (layoutCache.current.size > VIEWER_LAYOUT_CACHE_LIMIT) {
+      const oldestKey = layoutCache.current.keys().next().value;
+      if (oldestKey === undefined) break;
+      layoutCache.current.delete(oldestKey);
+    }
+    return nextLayout;
+  }, [
+    contextFlowIds,
+    effectiveExpandedMeasures,
+    expandedScopes,
+    layers,
+    layoutSignature,
+    manualNodePositions,
+    payload,
+    routeFlowIds,
+    scope,
+    scopeNode,
+  ]);
+  const viewportSignature = useMemo(
+    () =>
+      [
+        viewportLayoutSignature,
+      ].join("\u0001"),
+    [viewportLayoutSignature],
   );
   const {
     entryEdges,
@@ -909,6 +994,7 @@ export function ViewerApp({
       <g className="scope-nodes">
         {scopeNodes.map(item => (
           <ScopeNode
+            annotation={payload?.annotations?.scopes?.[item.scope]}
             currentSelection={currentSelection}
             draggingNodeKey={draggingNodeKey}
             hasRootSelection={hasRootSelection}
@@ -1132,6 +1218,7 @@ export function ViewerApp({
           if (!detail) return null;
           return (
             <FlowDetail
+              annotations={payload?.annotations?.nodes}
               detail={detail}
               draggingNodeKey={draggingNodeKey}
               manualNodePositions={manualNodePositions}
@@ -1156,6 +1243,18 @@ export function ViewerApp({
       <g className="flow-nodes">
         {[...flowPositions.values()].map(position => {
           const flow = flowById.get(position.id);
+          const flowAnnotation = payload?.annotations?.flows?.[position.id];
+          const flowFindingCount =
+            flow && isLogicChartFlow(flow) ? findingCountsByFlowId.get(flow.id) || 0 : 0;
+          const flowSummary =
+            flow && isLogicChartFlow(flow)
+              ? flowAccessibilitySummary(
+                  asLogicChartFlow(flow),
+                  flowFindingCount,
+                  flowAnnotation,
+                )
+              : position.id;
+          const flowTitle = annotationTitle(flowSummary, flowAnnotation);
           const flowOpen = routeFlowIds.includes(position.id);
           const targetSelected =
             currentSelection?.kind === "scope-entry" &&
@@ -1201,8 +1300,11 @@ export function ViewerApp({
             .join(" ");
           return (
             <g
+              aria-label={flowSummary}
               className={flowClassName}
+              data-annotation-label={flowAnnotation?.label}
               data-flow-id={position.id}
+              data-flow-summary={flowSummary}
               key={position.id}
               role="button"
               tabIndex={0}
@@ -1234,14 +1336,16 @@ export function ViewerApp({
                 x={-position.width / 2}
                 y={-position.height / 2}
               />
-              <text textAnchor="middle">{flow ? flowLabel(flow) : position.id}</text>
+              <text textAnchor="middle">
+                {flow ? displayFlowLabel(asLogicChartFlow(flow), flowAnnotation) : position.id}
+              </text>
               {flow ? (
                 <text className="meta" textAnchor="middle" y="22">
                   {flowMeta(flow).join(" · ")}
                 </text>
               ) : null}
               {flow && flowPath(flow) ? (
-                <title>{flowPath(flow)}</title>
+                <title>{flowTitle}</title>
               ) : null}
             </g>
           );
@@ -1338,6 +1442,7 @@ function RootNode({
 }
 
 function ScopeNode({
+  annotation,
   currentSelection,
   draggingNodeKey,
   hasRootSelection,
@@ -1350,6 +1455,7 @@ function ScopeNode({
   suppressNodeClick,
   toneStyle,
 }: {
+  annotation?: LogicChartAnnotationText;
   currentSelection: SelectedConnection;
   draggingNodeKey: string | null;
   hasRootSelection: boolean;
@@ -1387,10 +1493,15 @@ function ScopeNode({
   ]
     .filter(Boolean)
     .join(" ");
+  const label = displayScopeLabel(item.scope, annotation);
+  const baseTitle = `${label} · ${plural(item.flowCount, "flow")}`;
+  const title = annotationTitle(baseTitle, annotation);
 
   return (
     <g
+      aria-label={title}
       className={className}
+      data-annotation-label={annotation?.label}
       data-scope={item.scope}
       role="button"
       style={toneStyle}
@@ -1423,9 +1534,10 @@ function ScopeNode({
         x={-item.width / 2}
         y={-item.height / 2}
       />
-      <text textAnchor="middle">{item.scope}</text>
+      <title>{title}</title>
+      <text textAnchor="middle">{label}</text>
       <text className="meta" textAnchor="middle" y="24">
-        {item.flowCount} flow{item.flowCount === 1 ? "" : "s"}
+        {plural(item.flowCount, "flow")}
       </text>
     </g>
   );
@@ -1434,6 +1546,7 @@ function ScopeNode({
 function FlowDetail({
   anchorX,
   anchorY,
+  annotations,
   detail,
   draggingNodeKey,
   flowId,
@@ -1447,6 +1560,7 @@ function FlowDetail({
 }: {
   anchorX: number;
   anchorY: number;
+  annotations?: Record<string, LogicChartAnnotationText>;
   detail: FlowDetailLayout;
   draggingNodeKey: string | null;
   flowId: string;
@@ -1673,6 +1787,7 @@ function FlowDetail({
             topLevelDimmed={topLevelDimmed}
             anchorX={anchorX}
             anchorY={anchorY}
+            annotation={annotations?.[position.id]}
           />
         ))}
       </g>
@@ -1683,6 +1798,7 @@ function FlowDetail({
 function FlowDetailNode({
   anchorX,
   anchorY,
+  annotation,
   connectedNodeIds,
   draggingNodeKey,
   flowId,
@@ -1696,6 +1812,7 @@ function FlowDetailNode({
 }: {
   anchorX: number;
   anchorY: number;
+  annotation?: LogicChartAnnotationText;
   connectedNodeIds: ReadonlySet<string>;
   draggingNodeKey: string | null;
   flowId: string;
@@ -1729,10 +1846,13 @@ function FlowDetailNode({
   ]
     .filter(Boolean)
     .join(" ");
-  const label = position.node.label || position.id;
+  const label = displayNodeLabel(position.node.label || position.id, annotation);
+  const title = annotationTitle(label, annotation);
   return (
     <g
+      aria-label={title}
       className={className}
+      data-annotation-label={annotation?.label}
       data-detail-node-id={position.id}
       data-detail-flow-id={flowId}
       role="button"
@@ -1756,6 +1876,7 @@ function FlowDetailNode({
         })
       }
     >
+      <title>{title}</title>
       {kind === "decision" ? (
         <polygon
           className="detail-shape"
@@ -2123,6 +2244,16 @@ function expandedMeasuresSignature(
     .join("|");
 }
 
+function manualNodePositionsSignature(
+  positions: ReadonlyMap<string, ManualNodePosition>,
+): string {
+  if (!positions.size) return "";
+  return [...positions.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, position]) => `${key}:${position.x}:${position.y}`)
+    .join("|");
+}
+
 function viewBoxForFocusedFlow(
   flowId: string,
   flowPositions: ReadonlyMap<string, LayoutNodePosition>,
@@ -2254,6 +2385,64 @@ function flowMeta(flow: ProgressiveFlowNode): string[] {
   if (!isLogicChartFlow(flow)) return [];
   const item = asLogicChartFlow(flow);
   return [item.entry_kind, item.language].filter((value): value is string => Boolean(value));
+}
+
+function flowAccessibilitySummary(
+  flow: LogicChartFlow,
+  findingCount: number,
+  annotation?: LogicChartAnnotationText,
+): string {
+  const nodes = flow.nodes || [];
+  const decisionCount = nodes.filter(node => node.kind === "decision").length;
+  const pieces = [
+    displayFlowLabel(flow, annotation),
+    flowMeta(flow).join(" in ") || "flow",
+    plural(nodes.length, "node"),
+    plural(decisionCount, "decision"),
+    plural((flow.calls || []).length, "call"),
+    plural((flow.called_by || []).length, "caller"),
+    plural(findingCount, "review signal"),
+  ];
+  const source = flowPath(flow);
+  if (source) pieces.push(source);
+  return pieces.join(" · ");
+}
+
+function displayFlowLabel(
+  flow: LogicChartFlow,
+  annotation?: LogicChartAnnotationText,
+): string {
+  return displayAnnotationLabel(flowLabel(flow), annotation);
+}
+
+function displayNodeLabel(label: string, annotation?: LogicChartAnnotationText): string {
+  return displayAnnotationLabel(label, annotation);
+}
+
+function displayScopeLabel(scope: string, annotation?: LogicChartAnnotationText): string {
+  return displayAnnotationLabel(scope, annotation);
+}
+
+function displayAnnotationLabel(
+  fallback: string,
+  annotation?: LogicChartAnnotationText,
+): string {
+  const label = annotation?.label?.trim();
+  return label ? compactSvgText(label, 64) : fallback;
+}
+
+function annotationTitle(base: string, annotation?: LogicChartAnnotationText): string {
+  const detail = annotation?.description || annotation?.summary || annotation?.explanation;
+  return detail ? `${base}\n${detail}` : base;
+}
+
+function compactSvgText(value: string, limit: number): string {
+  const compacted = value.replace(/\s+/g, " ").trim();
+  return compacted.length <= limit ? compacted : `${compacted.slice(0, limit - 3).trim()}...`;
+}
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 function flowKindClass(flow: ProgressiveFlowNode | undefined): string {

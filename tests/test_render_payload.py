@@ -12,6 +12,7 @@ from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.model import (
+    FileRecord,
     Flow,
     ProjectModel,
     SourceLocation,
@@ -21,6 +22,7 @@ from logicchart.render.payload import (
     build_payload,
     build_scope_edges,
     build_scope_index,
+    build_tree,
 )
 
 
@@ -139,6 +141,24 @@ def test_payload_has_directory_tree_and_scopes(tmp_path: Path) -> None:
     # Present in the payload (the canvas L0 draws aggregated cross-scope calls).
     assert "scope_edges" in payload
     assert isinstance(payload["scope_edges"], list)
+
+
+def test_build_tree_dedupes_duplicate_file_flow_ids() -> None:
+    flow = _flow("handler", scope=["backend"], path="backend/svc.py", calls=[])
+    files = [
+        FileRecord(
+            path="backend/svc.py",
+            language="python",
+            sha256="sha",
+            flow_ids=["handler", "handler"],
+        )
+    ]
+
+    tree = build_tree(files, [flow])
+    leaf = _find(tree, "backend/svc.py")
+
+    assert leaf is not None
+    assert leaf["flow_ids"] == ["handler"]
 
 
 def _flow(flow_id: str, *, scope: list[str], path: str, calls: list[str]) -> Flow:
@@ -315,3 +335,10 @@ def test_build_scope_index_excludes_test_flows() -> None:
     assert "t" not in {fid for ids in index.values() for fid in ids}
     # The surviving non-test flow is still indexed under its scope.
     assert index == {"backend": ["a"]}
+
+
+def test_build_scope_index_normalizes_legacy_string_scope() -> None:
+    flow = _flow("a", scope=["frontend"], path="frontend/a.py", calls=[])
+    flow.metadata["scope"] = "frontend"
+
+    assert build_scope_index([flow]) == {"frontend": ["a"]}

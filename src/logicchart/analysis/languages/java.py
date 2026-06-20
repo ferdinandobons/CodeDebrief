@@ -61,6 +61,40 @@ def _is_test(relative: str, name: str) -> bool:
     )
 
 
+def _import_map(root: Any, source: bytes, relative: str) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    for declaration in root.children:
+        if declaration.type != "import_declaration":
+            continue
+        specifier = _import_specifier(declaration, source)
+        if not specifier:
+            continue
+        is_static = any(child.type == "static" for child in declaration.children)
+        is_wildcard = any(child.type == "asterisk" for child in declaration.children)
+        if is_wildcard:
+            mapping[f"__wildcard_import__:{specifier}"] = f"{specifier}:"
+            continue
+        if is_static:
+            owner, _, member = specifier.rpartition(".")
+            package, _, class_name = owner.rpartition(".")
+            if package and class_name and member:
+                mapping[member] = f"{package}:{class_name}.{member}"
+                mapping[f"__dependency_import__:{owner}"] = f"{owner}:"
+            continue
+        package, _, class_name = specifier.rpartition(".")
+        if package and class_name:
+            mapping[class_name] = f"{package}:{class_name}"
+            mapping[f"__dependency_import__:{specifier}"] = f"{specifier}:"
+    return mapping
+
+
+def _import_specifier(declaration: Any, source: bytes) -> str:
+    for child in declaration.children:
+        if child.type in {"scoped_identifier", "identifier"}:
+            return text(child, source)
+    return ""
+
+
 def _switch_cases(switch_node: Any, source: bytes, profile: LanguageProfile) -> list[CaseInfo]:
     body = switch_node.child_by_field_name("body")
     cases: list[CaseInfo] = []
@@ -100,6 +134,9 @@ JAVA_PROFILE = LanguageProfile(
     classify=_classify,
     is_test=_is_test,
     module_name=module_name,
+    import_map=_import_map,
+    dependency_module_suffixes=(".java",),
+    dependency_package_directories=True,
     switch_types=frozenset({"switch_expression"}),
     switch_value_field="condition",
     switch_cases=_switch_cases,

@@ -8,9 +8,12 @@ from typing import Any, cast
 
 from logicchart.analysis import ProjectAnalyzer
 from logicchart.analysis.registry import supported_language_ids
+from logicchart.annotations import load_annotations
 from logicchart.artifacts import output_paths
 from logicchart.config import LogicChartConfig
+from logicchart.diagnostics import finding_rule_contracts_by_kind
 from logicchart.model import ProjectModel
+from logicchart.quality import model_quality
 from logicchart.util import read_json
 
 
@@ -20,18 +23,25 @@ class ValidationReport:
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     artifact: str = ""
+    annotations: dict[str, Any] | None = None
+    quality: dict[str, Any] | None = None
 
     def add_error(self, message: str) -> None:
         self.ok = False
         self.errors.append(message)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "ok": self.ok,
             "artifact": self.artifact,
             "errors": self.errors,
             "warnings": self.warnings,
         }
+        if self.quality is not None:
+            payload["quality"] = self.quality
+        if self.annotations is not None:
+            payload["annotations"] = self.annotations
+        return payload
 
 
 def validate_logicchart(
@@ -39,6 +49,9 @@ def validate_logicchart(
     *,
     config: LogicChartConfig | None = None,
     check_sync: bool = False,
+    include_annotations: bool = False,
+    include_quality: bool = False,
+    quality_thresholds: dict[str, float | int] | None = None,
 ) -> ValidationReport:
     """Validate the persisted LogicChart artifact and optional source sync.
 
@@ -67,7 +80,19 @@ def validate_logicchart(
         return report
 
     _validate_languages(model, report)
+    _validate_finding_rule_contracts(model, report)
     _validate_json_schema(artifact, report)
+    annotations = load_annotations(root, model, active_config)
+    if include_annotations or annotations.status != "absent":
+        report.annotations = annotations.to_dict()
+    if annotations.status != "absent" and not annotations.ok:
+        for annotation_error in annotations.errors:
+            report.add_error(f"annotations: {annotation_error}")
+    active_thresholds = quality_thresholds or {}
+    if include_quality or active_thresholds:
+        report.quality = model.metadata.get("quality") or model_quality(model)
+    if active_thresholds and report.quality is not None:
+        _validate_quality_thresholds(report, report.quality, active_thresholds)
 
     if check_sync:
         try:
@@ -110,6 +135,65 @@ def _validate_languages(model: ProjectModel, report: ValidationReport) -> None:
         report.add_error("Artifact uses unregistered language ids: " + ", ".join(unknown))
 
 
+def _validate_finding_rule_contracts(model: ProjectModel, report: ValidationReport) -> None:
+    rules = model.metadata.get("finding_rules")
+    if rules is None:
+        return
+    if not isinstance(rules, dict):
+        report.add_error("metadata.finding_rules must be an object when present.")
+        return
+    current_rules = finding_rule_contracts_by_kind()
+    _validate_current_finding_rules(rules, current_rules, report)
+    for finding in model.findings:
+        rule = rules.get(finding.kind)
+        if not isinstance(rule, dict):
+            report.add_error(f"{finding.id}: missing finding rule contract for {finding.kind!r}.")
+            continue
+        if rule.get("rule_id") != finding.kind:
+            report.add_error(
+                f"{finding.id}: finding rule contract id {rule.get('rule_id')!r} "
+                f"does not match finding kind {finding.kind!r}."
+            )
+        metadata_fields = rule.get("metadata_fields", [])
+        if not isinstance(metadata_fields, list):
+            report.add_error(f"{finding.id}: rule metadata_fields must be a list.")
+            continue
+        invalid_fields = [field for field in metadata_fields if not isinstance(field, str)]
+        if invalid_fields:
+            report.add_error(f"{finding.id}: rule metadata_fields entries must be strings.")
+            continue
+        missing = [field for field in metadata_fields if field not in finding.metadata]
+        if missing:
+            report.add_error(
+                f"{finding.id}: finding metadata is missing rule-declared fields: "
+                + ", ".join(missing)
+            )
+        diagnostic = finding.metadata.get("diagnostic")
+        if isinstance(diagnostic, dict) and diagnostic.get("rule_id") != finding.kind:
+            report.add_error(
+                f"{finding.id}: diagnostic rule_id {diagnostic.get('rule_id')!r} "
+                f"does not match finding kind {finding.kind!r}."
+            )
+
+
+def _validate_current_finding_rules(
+    artifact_rules: dict[str, Any],
+    current_rules: dict[str, dict[str, Any]],
+    report: ValidationReport,
+) -> None:
+    missing = sorted(kind for kind in current_rules if kind not in artifact_rules)
+    if missing:
+        report.add_error(
+            "metadata.finding_rules is missing current detector contracts: " + ", ".join(missing)
+        )
+    for kind, expected in current_rules.items():
+        observed = artifact_rules.get(kind)
+        if observed is None:
+            continue
+        if observed != expected:
+            report.add_error(f"metadata.finding_rules[{kind!r}] is stale; run `logicchart update`.")
+
+
 def _validate_json_schema(artifact: dict[str, Any], report: ValidationReport) -> None:
     try:
         schema = _read_bundled_schema()
@@ -138,6 +222,51 @@ def _validate_json_schema(artifact: dict[str, Any], report: ValidationReport) ->
     for validation_error in errors:
         location = "/".join(str(part) for part in validation_error.path) or "<root>"
         report.add_error(f"{location}: {validation_error.message}")
+
+
+def _validate_quality_thresholds(
+    report: ValidationReport, quality: dict[str, Any], thresholds: dict[str, float | int]
+) -> None:
+    files = quality.get("files", {})
+    calls = quality.get("calls", {})
+    labels = quality.get("labels", {})
+    skipped = files.get("skipped", {}) if isinstance(files, dict) else {}
+    parse_errors = files.get("parse_errors", {}) if isinstance(files, dict) else {}
+    if "max_skipped_files" in thresholds:
+        actual_skipped = int(_number(skipped.get("total"), 0))
+        skipped_limit = int(thresholds["max_skipped_files"])
+        if actual_skipped > skipped_limit:
+            report.add_error(
+                f"quality threshold failed: skipped files {actual_skipped} > max {skipped_limit}"
+            )
+    if "max_parse_warnings" in thresholds:
+        actual_parse_warnings = int(_number(parse_errors.get("total"), 0))
+        parse_warning_limit = int(thresholds["max_parse_warnings"])
+        if actual_parse_warnings > parse_warning_limit:
+            report.add_error(
+                "quality threshold failed: parse warnings "
+                f"{actual_parse_warnings} > max {parse_warning_limit}"
+            )
+    if "min_call_resolution" in thresholds:
+        actual_resolution = _number(calls.get("resolution_rate"), 0.0)
+        resolution_limit = float(thresholds["min_call_resolution"])
+        if actual_resolution < resolution_limit:
+            report.add_error(
+                "quality threshold failed: call resolution "
+                f"{actual_resolution:.0%} < min {resolution_limit:.0%}"
+            )
+    if "max_generic_label_ratio" in thresholds:
+        actual_generic = _number(labels.get("generic_ratio"), 0.0)
+        generic_limit = float(thresholds["max_generic_label_ratio"])
+        if actual_generic > generic_limit:
+            report.add_error(
+                "quality threshold failed: generic label ratio "
+                f"{actual_generic:.0%} > max {generic_limit:.0%}"
+            )
+
+
+def _number(value: Any, default: float) -> float:
+    return float(value) if isinstance(value, (int, float)) else default
 
 
 def _without_generated_at(payload: dict[str, Any]) -> dict[str, Any]:

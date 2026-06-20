@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -8,14 +9,41 @@ from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.analysis.registry import supported_language_ids
 from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import LogicChartConfig
-from logicchart.install import END, START, install_agent_instructions, install_mcp_config
+from logicchart.install import (
+    END,
+    LOCAL_NOTES_END,
+    LOCAL_NOTES_START,
+    START,
+    install_agent_instructions,
+    install_mcp_config,
+)
 from logicchart.query import impact_model, query_model
-from logicchart.util import read_json
+from logicchart.util import read_json, write_json
 from logicchart.validation import (
     schema_file_language_ids,
     schema_language_ids,
     validate_logicchart,
 )
+
+REMOVED_AGENT_COMMAND_SNIPPETS = (
+    "logicchart query",
+    "logicchart impact",
+    "logicchart explain",
+    "logicchart navigate",
+    "logicchart snapshot",
+    "logicchart llm",
+    "logicchart enrich",
+    "--api-key-stdin",
+)
+
+
+def _assert_current_agent_instructions(content: str) -> None:
+    assert "Prefer the LogicChart MCP `agent_context` tool" in content
+    assert "logicchart view ..." in content
+    assert "provider keys" in content
+    assert "Keep AI-agent instruction files synchronized" in content
+    for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
+        assert snippet not in content
 
 
 def test_artifacts_query_impact_and_agent_install(tmp_path: Path) -> None:
@@ -63,6 +91,7 @@ def get_user(user_id: str):
     contents = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     assert contents.count(START) == 1
     assert contents.count(END) == 1
+    _assert_current_agent_instructions(contents)
 
 
 def test_validate_logicchart_reports_ok_for_current_artifact(tmp_path: Path) -> None:
@@ -87,15 +116,147 @@ def test_validate_logicchart_reports_ok_for_current_artifact(tmp_path: Path) -> 
     assert report.artifact == str(json_path)
 
 
+def test_schema_pins_optional_diagnostic_metadata_contract(tmp_path: Path) -> None:
+    (tmp_path / "orders.py").write_text(
+        "def route(order):\n"
+        "    if order.status == 'draft':\n"
+        "        return draft(order)\n"
+        "    elif order.status == 'paid':\n"
+        "        return paid(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    artifact = result.model.to_dict()
+    finding = artifact["findings"][0]
+    schema = read_json(Path(__file__).parents[1] / "schema" / "logic-flow.schema.json")
+    validator = Draft202012Validator(schema)
+
+    validator.validate(artifact)
+    assert "finding_rules" in schema["$defs"]["project_metadata"]["properties"]
+    assert "diagnostic" in schema["$defs"]["finding_metadata"]["properties"]
+    assert "quality" in schema["$defs"]["project_metadata"]["properties"]
+
+    legacy_compatible = deepcopy(artifact)
+    legacy_compatible["findings"][0]["metadata"].pop("diagnostic")
+    validator.validate(legacy_compatible)
+
+    malformed = deepcopy(artifact)
+    malformed["findings"][0]["metadata"]["diagnostic"]["confidence"]["score"] = "high"
+    errors = list(validator.iter_errors(malformed))
+    assert any("is not of type" in error.message for error in errors)
+    assert finding["metadata"]["diagnostic"]["rule_id"] == finding["kind"]
+
+
+def test_validate_checks_finding_rule_metadata_contract(tmp_path: Path) -> None:
+    (tmp_path / "orders.py").write_text(
+        "def route(order):\n"
+        "    if order.status == 'draft':\n"
+        "        return draft(order)\n"
+        "    elif order.status == 'paid':\n"
+        "        return paid(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
+    artifact = read_json(json_path)
+    finding = artifact["findings"][0]
+    rules = artifact["metadata"]["finding_rules"]
+
+    rules[finding["kind"]]["metadata_fields"].append("missing_contract_field")
+    write_json(json_path, artifact)
+
+    report = validate_logicchart(tmp_path)
+
+    assert not report.ok
+    assert any("missing_contract_field" in error for error in report.errors)
+
+
+def test_validate_checks_finding_rule_registry_is_current(tmp_path: Path) -> None:
+    (tmp_path / "orders.py").write_text(
+        "def route(order):\n"
+        "    if order.status == 'draft':\n"
+        "        return draft(order)\n"
+        "    elif order.status == 'paid':\n"
+        "        return paid(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
+    artifact = read_json(json_path)
+    finding = artifact["findings"][0]
+
+    artifact["metadata"]["finding_rules"][finding["kind"]]["review_prompt"] = "stale"
+    write_json(json_path, artifact)
+
+    report = validate_logicchart(tmp_path)
+
+    assert not report.ok
+    assert any("metadata.finding_rules" in error and "stale" in error for error in report.errors)
+
+
+def test_validate_checks_diagnostic_rule_id_matches_finding_kind(tmp_path: Path) -> None:
+    (tmp_path / "orders.py").write_text(
+        "def route(order):\n"
+        "    if order.status == 'draft':\n"
+        "        return draft(order)\n"
+        "    elif order.status == 'paid':\n"
+        "        return paid(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
+    artifact = read_json(json_path)
+    artifact["findings"][0]["metadata"]["diagnostic"]["rule_id"] = "dead_code"
+    write_json(json_path, artifact)
+
+    report = validate_logicchart(tmp_path)
+
+    assert not report.ok
+    assert any("does not match finding kind" in error for error in report.errors)
+
+
+def test_validate_allows_legacy_artifact_without_finding_rule_registry(tmp_path: Path) -> None:
+    (tmp_path / "orders.py").write_text(
+        "def route(order):\n"
+        "    if order.status == 'draft':\n"
+        "        return draft(order)\n"
+        "    elif order.status == 'paid':\n"
+        "        return paid(order)\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
+    artifact = read_json(json_path)
+    artifact["metadata"].pop("finding_rules")
+    write_json(json_path, artifact)
+
+    report = validate_logicchart(tmp_path)
+
+    assert report.ok
+    assert report.errors == []
+
+
 def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
     # A fresh plain-markdown agent file (no existing block) must reach a fixed point on
     # the first install: the second run changes nothing and reports nothing.
     first = install_agent_instructions(tmp_path, "all")
-    assert first  # all four targets were created
+    expected_targets = [
+        tmp_path / "AGENTS.md",
+        tmp_path / "CLAUDE.md",
+        tmp_path / "GEMINI.md",
+        tmp_path / ".cursor" / "rules" / "logicchart.mdc",
+    ]
+    assert first == expected_targets
     for target in first:
         content = target.read_text(encoding="utf-8")
         assert content.count(START) == 1
         assert content.count(END) == 1
+        _assert_current_agent_instructions(content)
+    assert (
+        first[-1]
+        .read_text(encoding="utf-8")
+        .startswith("---\ndescription: Keep LogicChart synchronized\nalwaysApply: true\n---\n\n")
+    )
 
     contents_after_first = {target: target.read_text(encoding="utf-8") for target in first}
 
@@ -104,6 +265,112 @@ def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
     for target, content in contents_after_first.items():
         # The on-disk content is byte-identical after the no-op second run.
         assert target.read_text(encoding="utf-8") == content
+
+
+def test_install_rejects_unknown_agent_instruction_target(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unknown agent instruction target"):
+        install_agent_instructions(tmp_path, "unknown-agent")
+
+
+def test_install_preserves_project_local_notes(tmp_path: Path) -> None:
+    changed = install_agent_instructions(tmp_path, "codex")
+    assert changed == [tmp_path / "AGENTS.md"]
+    target = tmp_path / "AGENTS.md"
+    content = target.read_text(encoding="utf-8")
+    local_note = (
+        "For local real-world regression checks:\n\n"
+        "1. Keep `examples/Certifexp/` private and untracked.\n"
+    )
+    target.write_text(
+        content.replace(
+            f"{LOCAL_NOTES_START}\n"
+            "<!-- Add project-specific local notes here. This section is preserved by "
+            "`logicchart setup-agent`. -->\n"
+            f"{LOCAL_NOTES_END}",
+            f"{LOCAL_NOTES_START}\n{local_note}{LOCAL_NOTES_END}",
+        ),
+        encoding="utf-8",
+    )
+
+    changed = install_agent_instructions(tmp_path, "codex")
+
+    assert changed == []
+    updated = target.read_text(encoding="utf-8")
+    assert local_note.strip() in updated
+    assert updated.count(LOCAL_NOTES_START) == 1
+    assert updated.count(LOCAL_NOTES_END) == 1
+
+
+def test_install_all_refreshes_every_agent_target_and_preserves_local_notes(
+    tmp_path: Path,
+) -> None:
+    install_agent_instructions(tmp_path, "all")
+    targets = {
+        "codex": tmp_path / "AGENTS.md",
+        "claude": tmp_path / "CLAUDE.md",
+        "gemini": tmp_path / "GEMINI.md",
+        "cursor": tmp_path / ".cursor" / "rules" / "logicchart.mdc",
+    }
+    local_notes = {
+        "codex": "Codex local note: keep private fixtures untracked.",
+        "claude": "Claude local note: preserve project-specific workflow notes.",
+        "gemini": "Gemini local note: keep generated examples out of commits.",
+        "cursor": "Cursor local note: keep this rule project-scoped.",
+    }
+
+    for name, target in targets.items():
+        content = target.read_text(encoding="utf-8")
+        target.write_text(
+            content.replace(
+                f"{LOCAL_NOTES_START}\n"
+                "<!-- Add project-specific local notes here. This section is preserved by "
+                "`logicchart setup-agent`. -->\n"
+                f"{LOCAL_NOTES_END}",
+                f"{LOCAL_NOTES_START}\n{local_notes[name]}\n{LOCAL_NOTES_END}",
+            ),
+            encoding="utf-8",
+        )
+
+    changed = install_agent_instructions(tmp_path, "all")
+
+    assert changed == []
+    for name, target in targets.items():
+        content = target.read_text(encoding="utf-8")
+        _assert_current_agent_instructions(content)
+        assert local_notes[name] in content
+        assert content.count(LOCAL_NOTES_START) == 1
+        assert content.count(LOCAL_NOTES_END) == 1
+
+
+def test_install_migrates_legacy_local_notes(tmp_path: Path) -> None:
+    target = tmp_path / "AGENTS.md"
+    target.write_text(
+        f"""{START}
+## LogicChart
+
+For viewer/UI changes:
+
+1. Check the generated demo viewer with a cache-buster URL.
+
+For local real-world regression checks:
+
+1. Keep `examples/Certifexp/` private and untracked.
+2. Do not commit Certifexp source or generated artifacts.
+
+Do not present inferred review signals as confirmed defects.
+{END}
+""",
+        encoding="utf-8",
+    )
+
+    changed = install_agent_instructions(tmp_path, "codex")
+
+    assert changed == [target]
+    updated = target.read_text(encoding="utf-8")
+    assert "For local real-world regression checks:" in updated
+    assert "Do not commit Certifexp source or generated artifacts." in updated
+    assert updated.index(LOCAL_NOTES_START) < updated.index("For local real-world")
+    assert updated.index("generated artifacts.") < updated.index(LOCAL_NOTES_END)
 
 
 def test_install_mcp_config_writes_project_scoped_files(tmp_path: Path) -> None:

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "generated_at": "2026-06-17T10:57:38.441814+00:00",
+  "generated_at": "2026-06-19T20:28:05.962747+00:00",
   "root": ".",
   "flows": [
     {
@@ -14399,7 +14399,327 @@
           "OrderState.RETURNED",
           "OrderState.CHARGEBACK",
           "OrderState.BACKORDERED"
-        ]
+        ],
+        "diagnostic": {
+          "rule_id": "enum_exhaustiveness",
+          "category": "cross_flow",
+          "severity": "warning",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "cross_flow",
+            "flow_id": "flow-e59a7853839b21f0",
+            "flow_name": "GET",
+            "node_id": "flow-e59a7853839b21f0:n4",
+            "node_label": "Switch on order.state",
+            "source": "frontend/app/api/orders/route.ts:9",
+            "path": "frontend/app/api/orders/route.ts",
+            "line": 9,
+            "end_line": 22,
+            "language": "typescript",
+            "entry_kind": "route",
+            "scopes": [
+              "frontend"
+            ],
+            "related_flow_ids": [
+              "flow-e59a7853839b21f0",
+              "flow-db00988a6eb2e1dc",
+              "flow-b3f628a1fcd2ec98"
+            ],
+            "related_node_ids": [
+              "flow-e59a7853839b21f0:n4",
+              "flow-db00988a6eb2e1dc:n5",
+              "flow-b3f628a1fcd2ec98:n4"
+            ]
+          },
+          "inputs": {
+            "subject": "order.state",
+            "value_namespace": "OrderState",
+            "missing": [
+              "OrderState.BACKORDERED",
+              "OrderState.CHARGEBACK",
+              "OrderState.RETURNED"
+            ],
+            "declared": [
+              "OrderState.DRAFT",
+              "OrderState.OPEN",
+              "OrderState.PAID",
+              "OrderState.FRAUD_REVIEW",
+              "OrderState.CLOSED",
+              "OrderState.CANCELLED",
+              "OrderState.RETURNED",
+              "OrderState.CHARGEBACK",
+              "OrderState.BACKORDERED"
+            ],
+            "decision": {
+              "condition": "order.state",
+              "subject": "order.state",
+              "operator": "switch",
+              "values": [
+                "OrderState.CANCELLED",
+                "OrderState.CLOSED",
+                "OrderState.DRAFT",
+                "OrderState.FRAUD_REVIEW",
+                "OrderState.OPEN",
+                "OrderState.PAID"
+              ],
+              "branches": [
+                {
+                  "label": "OrderState.DRAFT",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.OPEN",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.PAID",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.FRAUD_REVIEW",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.CLOSED",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.CANCELLED",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "default",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Declared OrderState members not handled for order.state: OrderState.BACKORDERED, OrderState.CHARGEBACK, OrderState.RETURNED",
+              "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
+              "source": "frontend/app/api/orders/route.ts:9",
+              "location": {
+                "path": "frontend/app/api/orders/route.ts",
+                "start_line": 9,
+                "end_line": 22
+              }
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-e59a7853839b21f0",
+              "name": "GET",
+              "language": "typescript",
+              "entry_kind": "route",
+              "source": "frontend/app/api/orders/route.ts:5",
+              "location": {
+                "path": "frontend/app/api/orders/route.ts",
+                "start_line": 5,
+                "end_line": 23
+              }
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-e59a7853839b21f0:n4",
+              "label": "Switch on order.state",
+              "condition": "order.state",
+              "subject": "order.state",
+              "values": [
+                "OrderState.CANCELLED",
+                "OrderState.CLOSED",
+                "OrderState.DRAFT",
+                "OrderState.FRAUD_REVIEW",
+                "OrderState.OPEN",
+                "OrderState.PAID"
+              ],
+              "branches": [
+                {
+                  "label": "OrderState.DRAFT",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.OPEN",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.PAID",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.FRAUD_REVIEW",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.CLOSED",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "OrderState.CANCELLED",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "default",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ],
+              "source": "frontend/app/api/orders/route.ts:9",
+              "location": {
+                "path": "frontend/app/api/orders/route.ts",
+                "start_line": 9,
+                "end_line": 22
+              }
+            },
+            {
+              "type": "declared_values",
+              "value_namespace": "OrderState",
+              "values": [
+                "OrderState.DRAFT",
+                "OrderState.OPEN",
+                "OrderState.PAID",
+                "OrderState.FRAUD_REVIEW",
+                "OrderState.CLOSED",
+                "OrderState.CANCELLED",
+                "OrderState.RETURNED",
+                "OrderState.CHARGEBACK",
+                "OrderState.BACKORDERED"
+              ]
+            },
+            {
+              "type": "missing_values",
+              "values": [
+                "OrderState.BACKORDERED",
+                "OrderState.CHARGEBACK",
+                "OrderState.RETURNED"
+              ]
+            },
+            {
+              "type": "related_decisions",
+              "nodes": [
+                {
+                  "flow_id": "flow-db00988a6eb2e1dc",
+                  "flow_name": "applyOrderAction",
+                  "node_id": "flow-db00988a6eb2e1dc:n5",
+                  "label": "order.state === OrderState.DRAFT",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "frontend/app/api/orders/route.ts:103",
+                  "location": {
+                    "path": "frontend/app/api/orders/route.ts",
+                    "start_line": 103,
+                    "end_line": 103
+                  }
+                },
+                {
+                  "flow_id": "flow-b3f628a1fcd2ec98",
+                  "flow_name": "decideOrderAction",
+                  "node_id": "flow-b3f628a1fcd2ec98:n4",
+                  "label": "order.state === OrderState.FRAUD_REVIEW",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "frontend/app/api/orders/route.ts:90",
+                  "location": {
+                    "path": "frontend/app/api/orders/route.ts",
+                    "start_line": 90,
+                    "end_line": 90
+                  }
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "handle_declared_values": [
+              "OrderState.DRAFT",
+              "OrderState.OPEN",
+              "OrderState.PAID",
+              "OrderState.FRAUD_REVIEW",
+              "OrderState.CLOSED",
+              "OrderState.CANCELLED",
+              "OrderState.RETURNED",
+              "OrderState.CHARGEBACK",
+              "OrderState.BACKORDERED"
+            ]
+          },
+          "actual": {
+            "condition": "order.state",
+            "handled_values": [
+              "OrderState.CANCELLED",
+              "OrderState.CLOSED",
+              "OrderState.DRAFT",
+              "OrderState.FRAUD_REVIEW",
+              "OrderState.OPEN",
+              "OrderState.PAID"
+            ],
+            "branches": [
+              {
+                "label": "OrderState.DRAFT",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "OrderState.OPEN",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "OrderState.PAID",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "OrderState.FRAUD_REVIEW",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "OrderState.CLOSED",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "OrderState.CANCELLED",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ]
+          },
+          "missing": [
+            "OrderState.BACKORDERED",
+            "OrderState.CHARGEBACK",
+            "OrderState.RETURNED"
+          ],
+          "review_prompt": "Should this dispatch handle every declared member or add an explicit default?",
+          "suggested_next_actions": [
+            "Inspect the selected dispatch and declared value set.",
+            "Add missing cases for real states.",
+            "Add an explicit default or suppression when upstream validation proves the subset."
+          ]
+        }
       }
     },
     {
@@ -14431,7 +14751,315 @@
           "UserStatus.DELETED",
           "UserStatus.ARCHIVED",
           "UserStatus.LOCKED"
-        ]
+        ],
+        "diagnostic": {
+          "rule_id": "enum_exhaustiveness",
+          "category": "cross_flow",
+          "severity": "warning",
+          "evidence": "INFERRED",
+          "confidence": {
+            "score": 0.7,
+            "basis": "deterministic heuristic"
+          },
+          "scope": {
+            "category": "cross_flow",
+            "flow_id": "flow-3de3eacd67f96e64",
+            "flow_name": "POST",
+            "node_id": "flow-3de3eacd67f96e64:n5",
+            "node_label": "Switch on user.status",
+            "source": "frontend/app/api/users/route.ts:25",
+            "path": "frontend/app/api/users/route.ts",
+            "line": 25,
+            "end_line": 31,
+            "language": "typescript",
+            "entry_kind": "route",
+            "scopes": [
+              "frontend"
+            ],
+            "related_flow_ids": [
+              "flow-3de3eacd67f96e64",
+              "flow-b3f628a1fcd2ec98",
+              "flow-9006888be936bd6a",
+              "flow-c6931fa66b81eaf1",
+              "flow-eea90097ad037564",
+              "flow-f9477f568b1277b5"
+            ],
+            "related_node_ids": [
+              "flow-3de3eacd67f96e64:n5",
+              "flow-b3f628a1fcd2ec98:n2",
+              "flow-9006888be936bd6a:n5",
+              "flow-c6931fa66b81eaf1:n2",
+              "flow-c6931fa66b81eaf1:n4",
+              "flow-eea90097ad037564:n2",
+              "flow-f9477f568b1277b5:n2"
+            ]
+          },
+          "inputs": {
+            "subject": "user.status",
+            "value_namespace": "UserStatus",
+            "missing": [
+              "UserStatus.ARCHIVED",
+              "UserStatus.DELETED",
+              "UserStatus.LOCKED"
+            ],
+            "declared": [
+              "UserStatus.ACTIVE",
+              "UserStatus.SUSPENDED",
+              "UserStatus.DELETED",
+              "UserStatus.ARCHIVED",
+              "UserStatus.LOCKED"
+            ],
+            "decision": {
+              "condition": "user.status",
+              "subject": "user.status",
+              "operator": "switch",
+              "values": [
+                "UserStatus.ACTIVE",
+                "UserStatus.SUSPENDED"
+              ],
+              "branches": [
+                {
+                  "label": "UserStatus.ACTIVE",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "UserStatus.SUSPENDED",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "default",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ]
+            }
+          },
+          "evidence_chain": [
+            {
+              "type": "finding",
+              "message": "Declared UserStatus members not handled for user.status: UserStatus.ARCHIVED, UserStatus.DELETED, UserStatus.LOCKED",
+              "detail": "The flow dispatches on this enum (handling several members) but omits declared members of it, with no explicit default.",
+              "source": "frontend/app/api/users/route.ts:25",
+              "location": {
+                "path": "frontend/app/api/users/route.ts",
+                "start_line": 25,
+                "end_line": 31
+              }
+            },
+            {
+              "type": "flow",
+              "flow_id": "flow-3de3eacd67f96e64",
+              "name": "POST",
+              "language": "typescript",
+              "entry_kind": "route",
+              "source": "frontend/app/api/users/route.ts:17",
+              "location": {
+                "path": "frontend/app/api/users/route.ts",
+                "start_line": 17,
+                "end_line": 32
+              }
+            },
+            {
+              "type": "decision",
+              "node_id": "flow-3de3eacd67f96e64:n5",
+              "label": "Switch on user.status",
+              "condition": "user.status",
+              "subject": "user.status",
+              "values": [
+                "UserStatus.ACTIVE",
+                "UserStatus.SUSPENDED"
+              ],
+              "branches": [
+                {
+                  "label": "UserStatus.ACTIVE",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "UserStatus.SUSPENDED",
+                  "outcome": "returns",
+                  "implicit": false
+                },
+                {
+                  "label": "default",
+                  "outcome": "falls_through",
+                  "implicit": true
+                }
+              ],
+              "source": "frontend/app/api/users/route.ts:25",
+              "location": {
+                "path": "frontend/app/api/users/route.ts",
+                "start_line": 25,
+                "end_line": 31
+              }
+            },
+            {
+              "type": "declared_values",
+              "value_namespace": "UserStatus",
+              "values": [
+                "UserStatus.ACTIVE",
+                "UserStatus.SUSPENDED",
+                "UserStatus.DELETED",
+                "UserStatus.ARCHIVED",
+                "UserStatus.LOCKED"
+              ]
+            },
+            {
+              "type": "missing_values",
+              "values": [
+                "UserStatus.ARCHIVED",
+                "UserStatus.DELETED",
+                "UserStatus.LOCKED"
+              ]
+            },
+            {
+              "type": "related_decisions",
+              "nodes": [
+                {
+                  "flow_id": "flow-b3f628a1fcd2ec98",
+                  "flow_name": "decideOrderAction",
+                  "node_id": "flow-b3f628a1fcd2ec98:n2",
+                  "label": "user.status === UserStatus.SUSPENDED",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "frontend/app/api/orders/route.ts:87",
+                  "location": {
+                    "path": "frontend/app/api/orders/route.ts",
+                    "start_line": 87,
+                    "end_line": 87
+                  }
+                },
+                {
+                  "flow_id": "flow-9006888be936bd6a",
+                  "flow_name": "get_user",
+                  "node_id": "flow-9006888be936bd6a:n5",
+                  "label": "user.status == UserStatus.SUSPENDED",
+                  "reasons": [
+                    "same_subject_namespace"
+                  ],
+                  "source": "backend/users.py:27",
+                  "location": {
+                    "path": "backend/users.py",
+                    "start_line": 27,
+                    "end_line": 27
+                  }
+                },
+                {
+                  "flow_id": "flow-c6931fa66b81eaf1",
+                  "flow_name": "moderationAction",
+                  "node_id": "flow-c6931fa66b81eaf1:n2",
+                  "label": "user.status === UserStatus.SUSPENDED || user.status === UserStatus.LOCKED",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "frontend/app/api/users/route.ts:56",
+                  "location": {
+                    "path": "frontend/app/api/users/route.ts",
+                    "start_line": 56,
+                    "end_line": 56
+                  }
+                },
+                {
+                  "flow_id": "flow-c6931fa66b81eaf1",
+                  "flow_name": "moderationAction",
+                  "node_id": "flow-c6931fa66b81eaf1:n4",
+                  "label": "user.status === UserStatus.ARCHIVED",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "frontend/app/api/users/route.ts:59",
+                  "location": {
+                    "path": "frontend/app/api/users/route.ts",
+                    "start_line": 59,
+                    "end_line": 59
+                  }
+                },
+                {
+                  "flow_id": "flow-eea90097ad037564",
+                  "flow_name": "resolveUserAccess",
+                  "node_id": "flow-eea90097ad037564:n2",
+                  "label": "Switch on user.status",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "same_condition",
+                    "handles_missing_value"
+                  ],
+                  "source": "frontend/app/api/users/route.ts:39",
+                  "location": {
+                    "path": "frontend/app/api/users/route.ts",
+                    "start_line": 39,
+                    "end_line": 52
+                  }
+                },
+                {
+                  "flow_id": "flow-f9477f568b1277b5",
+                  "flow_name": "user_action",
+                  "node_id": "flow-f9477f568b1277b5:n2",
+                  "label": "user.status == UserStatus.DELETED",
+                  "reasons": [
+                    "same_subject_namespace",
+                    "handles_missing_value"
+                  ],
+                  "source": "backend/users.py:52",
+                  "location": {
+                    "path": "backend/users.py",
+                    "start_line": 52,
+                    "end_line": 52
+                  }
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "handle_declared_values": [
+              "UserStatus.ACTIVE",
+              "UserStatus.SUSPENDED",
+              "UserStatus.DELETED",
+              "UserStatus.ARCHIVED",
+              "UserStatus.LOCKED"
+            ]
+          },
+          "actual": {
+            "condition": "user.status",
+            "handled_values": [
+              "UserStatus.ACTIVE",
+              "UserStatus.SUSPENDED"
+            ],
+            "branches": [
+              {
+                "label": "UserStatus.ACTIVE",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "UserStatus.SUSPENDED",
+                "outcome": "returns",
+                "implicit": false
+              },
+              {
+                "label": "default",
+                "outcome": "falls_through",
+                "implicit": true
+              }
+            ]
+          },
+          "missing": [
+            "UserStatus.ARCHIVED",
+            "UserStatus.DELETED",
+            "UserStatus.LOCKED"
+          ],
+          "review_prompt": "Should this dispatch handle every declared member or add an explicit default?",
+          "suggested_next_actions": [
+            "Inspect the selected dispatch and declared value set.",
+            "Add missing cases for real states.",
+            "Add an explicit default or suppression when upstream validation proves the subset."
+          ]
+        }
       }
     }
   ],
@@ -14445,7 +15073,8 @@
         "flow-a63dd99ec7f8f223",
         "flow-11f1f62f87562179",
         "flow-b30051ca80d291b3"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "backend/billing/BillingService.java",
@@ -14455,7 +15084,8 @@
         "flow-a089159bd40801b9",
         "flow-8bc4c3b8659a6e1e",
         "flow-a4e4a0d7d38cc4fa"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "backend/cache/cache.c",
@@ -14463,7 +15093,8 @@
       "sha256": "ba3b1a836649d2dea5980d35aa63ae123e5f097a31f8b9242f7bd0bf9a1c1fe4",
       "flow_ids": [
         "flow-6c2c59ca02d31e9c"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "backend/catalog/Catalog.php",
@@ -14473,7 +15104,8 @@
         "flow-b702de640dfbab12",
         "flow-4a87e1b69f29be73",
         "flow-f98e4c798beecd3f"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "backend/native/admission.cpp",
@@ -14483,7 +15115,8 @@
         "flow-6f7cced97788e7a5",
         "flow-a19fdd9d98bf31e5",
         "flow-c5958f735188579d"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "backend/native/policy.cpp",
@@ -14491,7 +15124,8 @@
       "sha256": "3f6075ec020d022db621d59fab91ea512c780d7fc389691031d6b64829236225",
       "flow_ids": [
         "flow-7ad2306282b5a91d"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "backend/notifications/notifier.rb",
@@ -14506,7 +15140,8 @@
         "flow-8ace40cb5c8e36da",
         "flow-132416d127f7fc0d",
         "flow-1aa86da72d405c4b"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "backend/orders/service.go",
@@ -14519,7 +15154,8 @@
         "flow-38ef9d2c42d7f7ea",
         "flow-093a06d5a7e3d64c",
         "flow-8b7c74dc5a35af6c"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "backend/router/src/lib.rs",
@@ -14529,7 +15165,8 @@
         "flow-b765a541f7f8eb87",
         "flow-751c332d5d49eb25",
         "flow-9708c1b5edc0d9aa"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "backend/users.py",
@@ -14543,7 +15180,8 @@
         "flow-f9477f568b1277b5",
         "flow-3dab2ee0c15a4113",
         "flow-34321c5626326f32"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "frontend/app/api/orders/route.ts",
@@ -14561,6 +15199,11 @@
         "flow-b3f628a1fcd2ec98",
         "flow-db00988a6eb2e1dc",
         "flow-77cb6c9a44bf9c32"
+      ],
+      "dependencies": [
+        "frontend/lib/db.ts",
+        "frontend/lib/orderState.ts",
+        "frontend/lib/userStatus.ts"
       ]
     },
     {
@@ -14575,6 +15218,10 @@
         "flow-c6931fa66b81eaf1",
         "flow-a045b483f552e702",
         "flow-1c052b25bf121350"
+      ],
+      "dependencies": [
+        "frontend/lib/db.ts",
+        "frontend/lib/userStatus.ts"
       ]
     },
     {
@@ -14585,19 +15232,25 @@
         "flow-3d6bdb52c57fafa8",
         "flow-3931dd0489271ef6",
         "flow-b19e6d6e8cca35c5"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "frontend/lib/db.ts",
       "language": "typescript",
       "sha256": "3c1145ff7667995afa971e1eba79f13569dc38b2b35ec5d4b0af213386ac510e",
-      "flow_ids": []
+      "flow_ids": [],
+      "dependencies": [
+        "frontend/lib/orderState.ts",
+        "frontend/lib/userStatus.ts"
+      ]
     },
     {
       "path": "frontend/lib/orderState.ts",
       "language": "typescript",
       "sha256": "23c828ce6def99907026a0118e1fdbcc916d3c7839bf2a278e157fc2408ca97c",
-      "flow_ids": []
+      "flow_ids": [],
+      "dependencies": []
     },
     {
       "path": "frontend/lib/status.js",
@@ -14606,13 +15259,15 @@
       "flow_ids": [
         "flow-8a4924a1be17b42e",
         "flow-817688253510da0d"
-      ]
+      ],
+      "dependencies": []
     },
     {
       "path": "frontend/lib/userStatus.ts",
       "language": "typescript",
       "sha256": "7990f2bef2c5e84e90bdb339773159e1531f96b773cc5099c7bc10e95cb0cd65",
-      "flow_ids": []
+      "flow_ids": [],
+      "dependencies": []
     }
   ],
   "metadata": {
@@ -14675,9 +15330,1418 @@
       },
       "javascript": {}
     },
+    "language_capabilities": {
+      "python": {
+        "status": "supported",
+        "frontend": "python_ast",
+        "suffixes": [
+          ".py"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "supported",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "supported",
+          "qualified_call_links": "supported",
+          "import_dependencies": "supported"
+        },
+        "limitations": {
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches."
+        }
+      },
+      "typescript": {
+        "status": "supported",
+        "frontend": "typescript_tree_sitter",
+        "suffixes": [
+          ".ts",
+          ".tsx"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "supported",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "expression_bodied_functions": "supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "supported",
+          "qualified_call_links": "partial",
+          "import_dependencies": "supported"
+        },
+        "limitations": {
+          "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
+        }
+      },
+      "javascript": {
+        "status": "supported",
+        "frontend": "typescript_tree_sitter",
+        "suffixes": [
+          ".js",
+          ".jsx",
+          ".mjs",
+          ".cjs"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "supported",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "expression_bodied_functions": "supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "partial",
+          "import_dependencies": "supported"
+        },
+        "limitations": {
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
+        }
+      },
+      "go": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".go"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
+          "try_catch": "not_supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "supported",
+          "import_dependencies": "supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "try_catch": "Error-boundary control flow is not modeled for this language.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available."
+        }
+      },
+      "java": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".java"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "partial",
+          "import_dependencies": "supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
+        }
+      },
+      "csharp": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".cs"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported",
+          "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
+        }
+      },
+      "php": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".php"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported",
+          "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
+        }
+      },
+      "c": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".c",
+          ".h"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
+          "try_catch": "not_supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported",
+          "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "try_catch": "Error-boundary control flow is not modeled for this language.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
+        }
+      },
+      "cpp": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".cc",
+          ".cpp",
+          ".cxx",
+          ".hh",
+          ".hpp",
+          ".hxx",
+          ".ipp",
+          ".tpp"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
+          "try_catch": "supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported",
+          "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
+        }
+      },
+      "rust": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".rs"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "partial",
+          "expression_bodied_functions": "not_supported",
+          "try_catch": "not_supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported",
+          "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "returns_throws": "Return flow is modeled, but throw/raise semantics are incomplete.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "try_catch": "Error-boundary control flow is not modeled for this language.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
+        }
+      },
+      "ruby": {
+        "status": "supported",
+        "frontend": "tree_sitter_profile",
+        "suffixes": [
+          ".rb"
+        ],
+        "features": {
+          "functions_methods": "supported",
+          "entrypoint_heuristics": "partial",
+          "decisions": "supported",
+          "switch_match": "supported",
+          "loops": "supported",
+          "calls": "supported",
+          "returns_throws": "supported",
+          "expression_bodied_functions": "not_supported",
+          "try_catch": "not_supported",
+          "test_detection": "supported",
+          "enum_harvest": "not_supported",
+          "qualified_call_links": "not_supported",
+          "import_dependencies": "not_supported"
+        },
+        "limitations": {
+          "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+          "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+          "try_catch": "Error-boundary control flow is not modeled for this language.",
+          "enum_harvest": "Declared enum or closed-set extraction is not available.",
+          "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+          "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
+        }
+      }
+    },
     "scopes": {
       "backend": 39,
       "frontend": 23
+    },
+    "skipped_files": [],
+    "finding_rules": {
+      "asymmetric_return": {
+        "rule_id": "asymmetric_return",
+        "category": "single_flow",
+        "title": "Asymmetric dispatch return",
+        "purpose": "Find dispatch cases where most branches exit but at least one falls through.",
+        "preconditions": [
+          "The decision is a switch/match-style dispatch.",
+          "Most explicit cases return or raise.",
+          "At least one explicit case falls through after doing work."
+        ],
+        "evidence_rationale": "Inferred from deterministic branch outcome comparison.",
+        "caveats": [
+          "A fall-through branch may intentionally continue shared tail logic."
+        ],
+        "metadata_fields": [
+          "category"
+        ],
+        "review_prompt": "Should the fall-through case return/raise like its sibling cases?",
+        "suggested_next_actions": [
+          "Inspect the fall-through case and shared tail.",
+          "Add an explicit return or raise when the fall-through is accidental.",
+          "Document intentional fall-through when shared tail logic is required."
+        ],
+        "true_positive_example": "One switch case computes a response but falls through while siblings return.",
+        "intentional_suppression_example": "A case intentionally falls through to shared audit or cleanup logic."
+      },
+      "auth_divergence": {
+        "rule_id": "auth_divergence",
+        "category": "cross_flow",
+        "title": "Authorization divergence",
+        "purpose": "Find sibling entrypoints where one skips an authorization check others perform.",
+        "preconditions": [
+          "The gated detector is enabled.",
+          "Sibling entrypoints live in the same file.",
+          "At least one sibling performs an authorization check.",
+          "The flagged entrypoint has no visible authorization check."
+        ],
+        "evidence_rationale": "Review-only because middleware, dependency injection, or route configuration can authorize invisibly.",
+        "caveats": [
+          "Middleware or decorators may enforce authorization outside the function body."
+        ],
+        "metadata_fields": [
+          "category",
+          "rule"
+        ],
+        "review_prompt": "Is authorization enforced for this entrypoint outside the visible flow?",
+        "suggested_next_actions": [
+          "Inspect route middleware, dependencies, and decorators.",
+          "Add an explicit authorization check if none exists.",
+          "Suppress or document the finding when external enforcement is confirmed."
+        ],
+        "true_positive_example": "A sibling admin route checks authorization, but this entrypoint does not.",
+        "intentional_suppression_example": "Middleware or route configuration enforces authorization before the handler."
+      },
+      "broad_except_swallow": {
+        "rule_id": "broad_except_swallow",
+        "category": "single_flow",
+        "title": "Swallowed exception",
+        "purpose": "Find exception handlers that hide failures by doing nothing or only logging.",
+        "preconditions": [
+          "The decision is an error/exception branch.",
+          "The handler neither re-raises nor returns an explicit error path."
+        ],
+        "evidence_rationale": "Inferred from deterministic branch outcome and call-effect metadata.",
+        "caveats": [
+          "A custom logging helper may persist or escalate outside LogicChart's current effect model."
+        ],
+        "metadata_fields": [
+          "category"
+        ],
+        "review_prompt": "Should this handler re-raise, return an error result, or explicitly document suppression?",
+        "suggested_next_actions": [
+          "Inspect the handler body.",
+          "Return or raise an explicit failure path when callers need to know.",
+          "Document intentional suppression when the failure is safely absorbed."
+        ],
+        "true_positive_example": "A broad except logs and continues after a failed write that callers must know about.",
+        "intentional_suppression_example": "A best-effort telemetry call may fail silently by design."
+      },
+      "dead_code": {
+        "rule_id": "dead_code",
+        "category": "single_flow",
+        "title": "Unreachable code",
+        "purpose": "Find statements after all currently modeled paths return or raise.",
+        "preconditions": [
+          "The analyzer observed a point where all predecessor paths already exit.",
+          "A later statement remains in the same flow after that exit point."
+        ],
+        "evidence_rationale": "Inferred from deterministic control-flow reachability.",
+        "caveats": [
+          "Dynamic exceptions, decorators, or language-specific control effects may be invisible."
+        ],
+        "metadata_fields": [
+          "category"
+        ],
+        "review_prompt": "Can the unreachable statement be removed, or should an earlier branch stop exiting?",
+        "suggested_next_actions": [
+          "Inspect the previous return/raise paths.",
+          "Remove dead code when it is accidental.",
+          "Refactor the branch when the later code should still run."
+        ],
+        "true_positive_example": "A statement after unconditional return is never executed.",
+        "intentional_suppression_example": "A decorator or runtime hook changes control flow outside the modeled body."
+      },
+      "dead_guard": {
+        "rule_id": "dead_guard",
+        "category": "single_flow",
+        "title": "Constant guard",
+        "purpose": "Find guards on module-level boolean constants that are always true or false.",
+        "preconditions": [
+          "The guard subject resolves to a module-level boolean constant.",
+          "The subject is not shadowed inside the flow."
+        ],
+        "evidence_rationale": "Inferred because the constant could still be reassigned dynamically elsewhere.",
+        "caveats": [
+          "Runtime mutation or configuration injection can change the value."
+        ],
+        "metadata_fields": [
+          "category",
+          "constant",
+          "always"
+        ],
+        "review_prompt": "Is this constant guard still needed, or should the dead branch be removed?",
+        "suggested_next_actions": [
+          "Inspect the constant definition and selected guard.",
+          "Remove unreachable branch logic when the constant is fixed.",
+          "Avoid flagging by making runtime configuration explicit when it is mutable."
+        ],
+        "true_positive_example": "A module constant disables a feature branch that can never run.",
+        "intentional_suppression_example": "The constant is monkeypatched or injected in the runtime environment."
+      },
+      "enum_exhaustiveness": {
+        "rule_id": "enum_exhaustiveness",
+        "category": "cross_flow",
+        "title": "Non-exhaustive declared enum dispatch",
+        "purpose": "Find dispatches that omit declared enum or union members without a default.",
+        "preconditions": [
+          "The analyzer extracted a declared closed set for the value namespace.",
+          "One dispatch handles multiple declared members.",
+          "The dispatch omits at least one declared member and has no explicit default."
+        ],
+        "evidence_rationale": "Inferred from deterministic declared-set extraction and branch coverage.",
+        "caveats": [
+          "The declared set can include values that are impossible in this narrower flow.",
+          "A framework or validator may reject omitted values before this function runs."
+        ],
+        "metadata_fields": [
+          "category",
+          "subject",
+          "value_namespace",
+          "missing",
+          "declared"
+        ],
+        "review_prompt": "Should this dispatch handle every declared member or add an explicit default?",
+        "suggested_next_actions": [
+          "Inspect the selected dispatch and declared value set.",
+          "Add missing cases for real states.",
+          "Add an explicit default or suppression when upstream validation proves the subset."
+        ],
+        "true_positive_example": "A dispatch over a declared enum omits DELETED and has no default branch.",
+        "intentional_suppression_example": "Upstream validation proves the omitted enum member cannot reach this flow."
+      },
+      "inconsistent_case_handling": {
+        "rule_id": "inconsistent_case_handling",
+        "category": "cross_flow",
+        "title": "Inconsistent sibling case handling",
+        "purpose": "Find sibling flows that omit values handled by a strict majority.",
+        "preconditions": [
+          "At least three sibling flows branch on the same language, subject, and value namespace.",
+          "A strict majority handles the missing value.",
+          "The flagged flow has no explicit default for that subject and namespace."
+        ],
+        "evidence_rationale": "Review-only because quorum detects an inconsistency pattern, not a declared contract.",
+        "caveats": [
+          "The flagged flow may intentionally support a narrower state set.",
+          "Sibling grouping is deterministic but still heuristic."
+        ],
+        "metadata_fields": [
+          "category",
+          "subject",
+          "value_namespace",
+          "missing",
+          "confidence",
+          "quorum"
+        ],
+        "review_prompt": "Should this flow handle the values that its sibling flows usually cover?",
+        "suggested_next_actions": [
+          "Compare the selected flow with the sibling flows in the same value namespace.",
+          "Add missing cases or an explicit default when the omission is accidental.",
+          "Document the narrower contract when the omission is intentional."
+        ],
+        "true_positive_example": "Most sibling handlers cover CANCELLED, but one route omits it without default.",
+        "intentional_suppression_example": "The flagged route accepts only a narrower documented subset of states."
+      },
+      "logging_asymmetry": {
+        "rule_id": "logging_asymmetry",
+        "category": "cross_flow",
+        "title": "Logging asymmetry",
+        "purpose": "Find shared error-path guards logged by one sibling flow but silent in another.",
+        "preconditions": [
+          "Sibling flows share the same guard condition.",
+          "At least one sibling logs or alerts and then raises.",
+          "The flagged flow handles the same guard silently."
+        ],
+        "evidence_rationale": "Inferred from deterministic guard, call-effect, and outcome metadata.",
+        "caveats": [
+          "Logging may happen in middleware or a callee not resolved in the graph."
+        ],
+        "metadata_fields": [
+          "category",
+          "condition"
+        ],
+        "review_prompt": "Should this guard log or alert like its sibling error path?",
+        "suggested_next_actions": [
+          "Inspect the selected guard and sibling error path.",
+          "Add logging or alerting when observability is required.",
+          "Document intentional silence when noise reduction is deliberate."
+        ],
+        "true_positive_example": "One payment failure path raises without logging while siblings alert operators.",
+        "intentional_suppression_example": "Noise-sensitive paths are intentionally silent and monitored elsewhere."
+      },
+      "missing_branch": {
+        "rule_id": "missing_branch",
+        "category": "single_flow",
+        "title": "Missing explicit fallback",
+        "purpose": "Find state-like decisions that omit an explicit else/default path.",
+        "preconditions": [
+          "The node is a decision over a state-like subject, domain, or value namespace.",
+          "The decision has at least one implicit fallback branch."
+        ],
+        "evidence_rationale": "Review-only because an omitted fallback can be intentional for closed or externally constrained states.",
+        "caveats": [
+          "A framework, validator, or earlier guard can make the implicit path unreachable.",
+          "A data-driven dispatch may be exhaustive outside the visible source snippet."
+        ],
+        "metadata_fields": [
+          "category"
+        ],
+        "review_prompt": "Should this decision define an explicit else/default for unhandled states?",
+        "suggested_next_actions": [
+          "Inspect the selected decision node and source range.",
+          "Add an explicit else/default when the omitted path is real.",
+          "Suppress or document the finding when an upstream invariant proves exhaustiveness."
+        ],
+        "true_positive_example": "A public route switches on account.status but has no default for new statuses.",
+        "intentional_suppression_example": "A validator rejects all unlisted statuses before this function runs."
+      },
+      "no_op_branch": {
+        "rule_id": "no_op_branch",
+        "category": "single_flow",
+        "title": "Empty branch",
+        "purpose": "Find explicit branches whose body performs no modeled work.",
+        "preconditions": [
+          "The branch is explicit rather than an implicit fallback.",
+          "The branch outcome is empty and is not an error handler or dispatch case."
+        ],
+        "evidence_rationale": "Inferred from deterministic branch body analysis.",
+        "caveats": [
+          "A placeholder branch may be intentional during development."
+        ],
+        "metadata_fields": [
+          "category"
+        ],
+        "review_prompt": "Is this branch intentionally empty, or is it missing behavior?",
+        "suggested_next_actions": [
+          "Inspect the selected branch.",
+          "Add the missing behavior or remove the dead branch.",
+          "Leave an explicit comment when the no-op is intentional."
+        ],
+        "true_positive_example": "A paid-order case is empty while sibling states update inventory.",
+        "intentional_suppression_example": "An explicit pass marks a state that intentionally requires no action."
+      },
+      "outcome_inconsistency": {
+        "rule_id": "outcome_inconsistency",
+        "category": "cross_flow",
+        "title": "Inconsistent sibling outcome",
+        "purpose": "Find equivalent conditions that resolve to different material outcomes.",
+        "preconditions": [
+          "At least three sibling flows contain the same positive subject/value condition.",
+          "A strict majority resolves that condition to one outcome.",
+          "The flagged flow resolves the same condition differently."
+        ],
+        "evidence_rationale": "Inferred from deterministic condition and terminal outcome comparison.",
+        "caveats": [
+          "Different routes may intentionally return different errors for the same state.",
+          "Outcome signatures are compact and may not capture every domain-specific distinction."
+        ],
+        "metadata_fields": [
+          "category",
+          "subject",
+          "value",
+          "outcome",
+          "expected"
+        ],
+        "review_prompt": "Is this different outcome intentional for the same condition?",
+        "suggested_next_actions": [
+          "Compare the selected flow with sibling outcomes for the same condition.",
+          "Align the outcome when consistency is required.",
+          "Document the intentional divergence when the route contract differs."
+        ],
+        "true_positive_example": "Sibling flows return forbidden for the same guard, but one returns success.",
+        "intentional_suppression_example": "The route intentionally maps the same state to a different public contract."
+      }
+    },
+    "quality": {
+      "files": {
+        "total": 17,
+        "by_language": {
+          "csharp": 1,
+          "java": 1,
+          "c": 1,
+          "php": 1,
+          "cpp": 2,
+          "ruby": 1,
+          "go": 1,
+          "rust": 1,
+          "python": 1,
+          "typescript": 6,
+          "javascript": 1
+        },
+        "empty": 3,
+        "skipped": {
+          "total": 0,
+          "by_reason": {},
+          "sample": []
+        },
+        "parse_errors": {
+          "total": 0,
+          "by_language": {},
+          "sample": []
+        }
+      },
+      "flows": {
+        "total": 62,
+        "non_test": 62,
+        "entrypoints": 37,
+        "by_language": {
+          "csharp": 4,
+          "java": 3,
+          "c": 1,
+          "php": 3,
+          "cpp": 4,
+          "ruby": 8,
+          "go": 6,
+          "rust": 3,
+          "python": 7,
+          "typescript": 21,
+          "javascript": 2
+        },
+        "by_entry_kind": {
+          "method": 29,
+          "function": 25,
+          "route": 6,
+          "component": 2
+        },
+        "per_file": {
+          "min": 1,
+          "max": 11,
+          "avg": 4.43
+        },
+        "huge": []
+      },
+      "calls": {
+        "total": 74,
+        "resolved": 45,
+        "unresolved": 27,
+        "ambiguous": 2,
+        "low_confidence": 2,
+        "resolution_rate": 0.6081
+      },
+      "findings": {
+        "total": 2,
+        "by_kind": {
+          "enum_exhaustiveness": 2
+        },
+        "by_severity": {
+          "warning": 2
+        },
+        "by_evidence": {
+          "INFERRED": 2
+        }
+      },
+      "languages": {
+        "depth": {
+          "c": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 1,
+            "entrypoints": 1,
+            "decisions": 3,
+            "calls": 0,
+            "resolved_calls": 0,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 0.0,
+            "findings": 0,
+            "generic_nodes": 0,
+            "generic_ratio": 0.0,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".c",
+                ".h"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "expression_bodied_functions": "not_supported",
+                "try_catch": "not_supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported",
+                "import_dependencies": "not_supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "try_catch": "Error-boundary control flow is not modeled for this language.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+                "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
+              }
+            }
+          },
+          "cpp": {
+            "files": 2,
+            "files_with_flows": 2,
+            "flow_file_coverage": 1.0,
+            "flows": 4,
+            "entrypoints": 4,
+            "decisions": 9,
+            "calls": 1,
+            "resolved_calls": 1,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 1.0,
+            "findings": 0,
+            "generic_nodes": 1,
+            "generic_ratio": 0.0323,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".cc",
+                ".cpp",
+                ".cxx",
+                ".hh",
+                ".hpp",
+                ".hxx",
+                ".ipp",
+                ".tpp"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "expression_bodied_functions": "not_supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported",
+                "import_dependencies": "not_supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+                "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
+              }
+            }
+          },
+          "csharp": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 4,
+            "entrypoints": 2,
+            "decisions": 4,
+            "calls": 3,
+            "resolved_calls": 0,
+            "unresolved_calls": 2,
+            "call_resolution_rate": 0.0,
+            "findings": 0,
+            "generic_nodes": 3,
+            "generic_ratio": 0.1429,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".cs"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "expression_bodied_functions": "not_supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported",
+                "import_dependencies": "not_supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+                "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
+              }
+            }
+          },
+          "go": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 6,
+            "entrypoints": 4,
+            "decisions": 12,
+            "calls": 2,
+            "resolved_calls": 2,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 1.0,
+            "findings": 0,
+            "generic_nodes": 2,
+            "generic_ratio": 0.0476,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".go"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "expression_bodied_functions": "not_supported",
+                "try_catch": "not_supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "supported",
+                "import_dependencies": "supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "try_catch": "Error-boundary control flow is not modeled for this language.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available."
+              }
+            }
+          },
+          "java": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 3,
+            "entrypoints": 2,
+            "decisions": 5,
+            "calls": 1,
+            "resolved_calls": 1,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 1.0,
+            "findings": 0,
+            "generic_nodes": 1,
+            "generic_ratio": 0.0435,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".java"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "expression_bodied_functions": "not_supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "partial",
+                "import_dependencies": "supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
+              }
+            }
+          },
+          "javascript": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 2,
+            "entrypoints": 2,
+            "decisions": 2,
+            "calls": 0,
+            "resolved_calls": 0,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 0.0,
+            "findings": 0,
+            "generic_nodes": 0,
+            "generic_ratio": 0.0,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "typescript_tree_sitter",
+              "suffixes": [
+                ".js",
+                ".jsx",
+                ".mjs",
+                ".cjs"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "supported",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "expression_bodied_functions": "supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "partial",
+                "import_dependencies": "supported"
+              },
+              "limitations": {
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
+              }
+            }
+          },
+          "php": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 3,
+            "entrypoints": 2,
+            "decisions": 5,
+            "calls": 2,
+            "resolved_calls": 2,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 1.0,
+            "findings": 0,
+            "generic_nodes": 2,
+            "generic_ratio": 0.0952,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".php"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "expression_bodied_functions": "not_supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported",
+                "import_dependencies": "not_supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+                "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
+              }
+            }
+          },
+          "python": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 7,
+            "entrypoints": 6,
+            "decisions": 10,
+            "calls": 6,
+            "resolved_calls": 6,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 1.0,
+            "findings": 0,
+            "generic_nodes": 6,
+            "generic_ratio": 0.1429,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "python_ast",
+              "suffixes": [
+                ".py"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "supported",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "expression_bodied_functions": "not_supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "supported",
+                "qualified_call_links": "supported",
+                "import_dependencies": "supported"
+              },
+              "limitations": {
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches."
+              }
+            }
+          },
+          "ruby": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 8,
+            "entrypoints": 8,
+            "decisions": 3,
+            "calls": 16,
+            "resolved_calls": 8,
+            "unresolved_calls": 7,
+            "call_resolution_rate": 0.5,
+            "findings": 0,
+            "generic_nodes": 16,
+            "generic_ratio": 0.4444,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".rb"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "expression_bodied_functions": "not_supported",
+                "try_catch": "not_supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported",
+                "import_dependencies": "not_supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "try_catch": "Error-boundary control flow is not modeled for this language.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+                "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
+              }
+            }
+          },
+          "rust": {
+            "files": 1,
+            "files_with_flows": 1,
+            "flow_file_coverage": 1.0,
+            "flows": 3,
+            "entrypoints": 1,
+            "decisions": 3,
+            "calls": 4,
+            "resolved_calls": 4,
+            "unresolved_calls": 0,
+            "call_resolution_rate": 1.0,
+            "findings": 0,
+            "generic_nodes": 4,
+            "generic_ratio": 0.1818,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "tree_sitter_profile",
+              "suffixes": [
+                ".rs"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "partial",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "partial",
+                "expression_bodied_functions": "not_supported",
+                "try_catch": "not_supported",
+                "test_detection": "supported",
+                "enum_harvest": "not_supported",
+                "qualified_call_links": "not_supported",
+                "import_dependencies": "not_supported"
+              },
+              "limitations": {
+                "entrypoint_heuristics": "Entrypoints use visibility/export heuristics rather than framework adapters.",
+                "returns_throws": "Return flow is modeled, but throw/raise semantics are incomplete.",
+                "expression_bodied_functions": "Expression-bodied definitions are not modeled as return branches.",
+                "try_catch": "Error-boundary control flow is not modeled for this language.",
+                "enum_harvest": "Declared enum or closed-set extraction is not available.",
+                "qualified_call_links": "Receiver or module calls are recorded but not statically linked.",
+                "import_dependencies": "Dependency-aware impact does not follow imports for this language yet."
+              }
+            }
+          },
+          "typescript": {
+            "files": 6,
+            "files_with_flows": 3,
+            "flow_file_coverage": 0.5,
+            "flows": 21,
+            "entrypoints": 5,
+            "decisions": 34,
+            "calls": 39,
+            "resolved_calls": 21,
+            "unresolved_calls": 18,
+            "call_resolution_rate": 0.5385,
+            "findings": 2,
+            "generic_nodes": 39,
+            "generic_ratio": 0.2437,
+            "source_coverage": 1.0,
+            "skipped_files": 0,
+            "parse_error_files": 0,
+            "capability": {
+              "status": "supported",
+              "frontend": "typescript_tree_sitter",
+              "suffixes": [
+                ".ts",
+                ".tsx"
+              ],
+              "features": {
+                "functions_methods": "supported",
+                "entrypoint_heuristics": "supported",
+                "decisions": "supported",
+                "switch_match": "supported",
+                "loops": "supported",
+                "calls": "supported",
+                "returns_throws": "supported",
+                "expression_bodied_functions": "supported",
+                "try_catch": "supported",
+                "test_detection": "supported",
+                "enum_harvest": "supported",
+                "qualified_call_links": "partial",
+                "import_dependencies": "supported"
+              },
+              "limitations": {
+                "qualified_call_links": "Common qualified calls are linked, but dynamic dispatch may remain unresolved."
+              }
+            }
+          }
+        },
+        "attention": [
+          {
+            "language": "csharp",
+            "signals": [
+              "low_call_resolution"
+            ]
+          },
+          {
+            "language": "ruby",
+            "signals": [
+              "generic_labels"
+            ]
+          },
+          {
+            "language": "typescript",
+            "signals": [
+              "generic_labels"
+            ]
+          }
+        ]
+      },
+      "labels": {
+        "generic_nodes": 74,
+        "generic_ratio": 0.1741,
+        "sample": [
+          {
+            "flow_id": "flow-b226bde59bf18f8f",
+            "node_id": "flow-b226bde59bf18f8f:n4",
+            "label": "Call IsPublic()",
+            "language": "csharp",
+            "source": "backend/auth/AuthService.cs:19"
+          },
+          {
+            "flow_id": "flow-a089159bd40801b9",
+            "node_id": "flow-a089159bd40801b9:n3",
+            "label": "Call capture()",
+            "language": "java",
+            "source": "backend/billing/BillingService.java:16"
+          },
+          {
+            "flow_id": "flow-b702de640dfbab12",
+            "node_id": "flow-b702de640dfbab12:n4",
+            "label": "Call restockTarget()",
+            "language": "php",
+            "source": "backend/catalog/Catalog.php:13"
+          },
+          {
+            "flow_id": "flow-b702de640dfbab12",
+            "node_id": "flow-b702de640dfbab12:n6",
+            "label": "Call restockTarget()",
+            "language": "php",
+            "source": "backend/catalog/Catalog.php:15"
+          },
+          {
+            "flow_id": "flow-6f7cced97788e7a5",
+            "node_id": "flow-6f7cced97788e7a5:n8",
+            "label": "Call route()",
+            "language": "cpp",
+            "source": "backend/native/admission.cpp:24"
+          },
+          {
+            "flow_id": "flow-361a56fe0ff06af0",
+            "node_id": "flow-361a56fe0ff06af0:n3",
+            "label": "Call send_email()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:7"
+          },
+          {
+            "flow_id": "flow-361a56fe0ff06af0",
+            "node_id": "flow-361a56fe0ff06af0:n4",
+            "label": "Call send_sms()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:9"
+          },
+          {
+            "flow_id": "flow-361a56fe0ff06af0",
+            "node_id": "flow-361a56fe0ff06af0:n5",
+            "label": "Call send_push()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:11"
+          },
+          {
+            "flow_id": "flow-361a56fe0ff06af0",
+            "node_id": "flow-361a56fe0ff06af0:n6",
+            "label": "Call write_inbox()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:13"
+          },
+          {
+            "flow_id": "flow-361a56fe0ff06af0",
+            "node_id": "flow-361a56fe0ff06af0:n7",
+            "label": "Call queue_for_review()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:15"
+          },
+          {
+            "flow_id": "flow-a99dc0857019377b",
+            "node_id": "flow-a99dc0857019377b:n3",
+            "label": "Call queue_for_review()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:21"
+          },
+          {
+            "flow_id": "flow-a99dc0857019377b",
+            "node_id": "flow-a99dc0857019377b:n6",
+            "label": "Call send_email()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:25"
+          },
+          {
+            "flow_id": "flow-a99dc0857019377b",
+            "node_id": "flow-a99dc0857019377b:n7",
+            "label": "Call send_push()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:27"
+          },
+          {
+            "flow_id": "flow-a99dc0857019377b",
+            "node_id": "flow-a99dc0857019377b:n8",
+            "label": "Call queue_for_review()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:29"
+          },
+          {
+            "flow_id": "flow-132416d127f7fc0d",
+            "node_id": "flow-132416d127f7fc0d:n2",
+            "label": "Call length()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:54"
+          },
+          {
+            "flow_id": "flow-a6f2cf6897eab6f4",
+            "node_id": "flow-a6f2cf6897eab6f4:n2",
+            "label": "Call length()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:36"
+          },
+          {
+            "flow_id": "flow-a6f2cf6897eab6f4",
+            "node_id": "flow-a6f2cf6897eab6f4:n3",
+            "label": "Call length()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:38"
+          },
+          {
+            "flow_id": "flow-c093a998648019e9",
+            "node_id": "flow-c093a998648019e9:n2",
+            "label": "Call length()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:46"
+          },
+          {
+            "flow_id": "flow-15929a604b30aadf",
+            "node_id": "flow-15929a604b30aadf:n2",
+            "label": "Call length()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:42"
+          },
+          {
+            "flow_id": "flow-1aa86da72d405c4b",
+            "node_id": "flow-1aa86da72d405c4b:n2",
+            "label": "Call include?()",
+            "language": "ruby",
+            "source": "backend/notifications/notifier.rb:58"
+          }
+        ]
+      },
+      "source_locations": {
+        "nodes_with_source": 425,
+        "coverage": 1.0
+      },
+      "graph": {
+        "nodes": 425,
+        "edges": 377,
+        "edge_to_node_ratio": 0.89,
+        "dense_graph_warning": false
+      }
     }
   }
 }

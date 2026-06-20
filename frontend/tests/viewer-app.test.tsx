@@ -72,6 +72,16 @@ const payload: LogicChartPayload = {
       metadata: { scope: ["backend"] },
     },
   ],
+  findings: [
+    {
+      evidence: "POTENTIAL_GAP",
+      flow_id: "orders-route",
+      id: "missing-order-state",
+      kind: "missing_branch",
+      node_id: "orders-route:n2",
+      severity: "warning",
+    },
+  ],
 };
 
 describe("ViewerApp", () => {
@@ -97,6 +107,12 @@ describe("ViewerApp", () => {
     expect(html).toContain('data-called-flow-id="load-order"');
     expect(html).toContain('class="flow-call-hit"');
     expect(html).toContain('class="edge flow-call-link"');
+    expect(html).toContain(
+      'aria-label="GET · route in typescript · 3 nodes · 1 decision · 1 call · 0 callers · 1 review signal · frontend/app/api/orders/route.ts:3"',
+    );
+    expect(html).toContain(
+      'data-flow-summary="GET · route in typescript · 3 nodes · 1 decision · 1 call · 0 callers · 1 review signal · frontend/app/api/orders/route.ts:3"',
+    );
     expect(html).toContain('class="node flow-node movable flow-kind-route flow-open"');
     expect(html).toContain('class="node flow-node movable flow-kind-function"');
     expect(html).toContain('href="#edge=');
@@ -117,6 +133,47 @@ describe("ViewerApp", () => {
     expect(html).toContain("route · typescript");
     expect(html).toContain('class="node entry scope-node movable expanded"');
     expect(html).not.toContain('scope-node dimmed');
+  });
+
+  it("overlays matching annotation labels on flow and detail nodes", () => {
+    const annotatedPayload: LogicChartPayload = {
+      ...payload,
+      annotations: {
+        flows: {
+          "orders-route": {
+            description: "Human-reviewed endpoint summary.",
+            label: "Orders endpoint",
+          },
+        },
+        nodes: {
+          "orders-route:n2": {
+            description: "Checks the order state before rendering.",
+            label: "Order state gate",
+          },
+        },
+        scopes: {
+          frontend: {
+            label: "Frontend surface",
+            summary: "Browser and route handlers.",
+          },
+        },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <ViewerApp scope="frontend" payload={annotatedPayload} routeFlowIds={["orders-route"]} />,
+    );
+
+    expect(html).toContain("Orders endpoint");
+    expect(html).toContain("Human-reviewed endpoint summary.");
+    expect(html).toContain('data-annotation-label="Orders endpoint"');
+    expect(html).toContain("Order state gate");
+    expect(html).toContain("Checks the order state before rendering.");
+    expect(html).toContain('data-annotation-label="Order state gate"');
+    expect(html).toContain("Frontend surface");
+    expect(html).toContain("Browser and route handlers.");
+    expect(html).toContain('data-scope="frontend"');
+    expect(html).toContain('data-annotation-label="Frontend surface"');
   });
 
   it("dims unrelated flow nodes when a scope-entry connection is selected", () => {
@@ -185,7 +242,7 @@ describe("ViewerApp", () => {
     const html = renderToStaticMarkup(<ViewerApp scope="frontend" payload={payload} />);
     const transforms = new Map<string, string>();
     const tones = new Map<string, string>();
-    const scopePattern = /<g class="[^"]*scope-node[^"]*"[^>]*>/g;
+    const scopePattern = /<g(?=[^>]*class="[^"]*scope-node[^"]*")[^>]*>/g;
 
     for (const match of html.matchAll(scopePattern)) {
       const tag = match[0];

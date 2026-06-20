@@ -8,10 +8,6 @@ right flows) is covered by the demo golden test; here we isolate the scoring mec
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
-from logicchart.cli import main
 from logicchart.model import (
     Evidence,
     Finding,
@@ -28,6 +24,9 @@ from logicchart.query import (
     IDENTITY_WEIGHT,
     NODE_WEIGHT,
     QueryMatch,
+    finding_context,
+    flow_in_scope,
+    impact_model,
     query_model,
 )
 
@@ -68,13 +67,20 @@ def _flow(
     )
 
 
-def _finding(flow_id: str, message: str) -> Finding:
+def _finding(
+    flow_id: str,
+    message: str,
+    *,
+    kind: str = "missing_branch",
+    severity: Severity = Severity.WARNING,
+    evidence: Evidence = Evidence.POTENTIAL_GAP,
+) -> Finding:
     return Finding(
         id=f"{flow_id}-find",
-        kind="missing_branch",
-        severity=Severity.WARNING,
+        kind=kind,
+        severity=severity,
         message=message,
-        evidence=Evidence.POTENTIAL_GAP,
+        evidence=evidence,
         flow_id=flow_id,
         location=_loc(),
     )
@@ -171,6 +177,118 @@ def test_empty_and_punctuation_only_query_returns_empty() -> None:
     assert query_model(model, "what is the") == []
 
 
+def test_query_scope_filter_normalizes_legacy_string_scope() -> None:
+    flow = _flow("frontend", "frontend widget")
+    flow.metadata["scope"] = "frontend"
+    model = _model([flow])
+
+    assert flow_in_scope(flow, "frontend")
+    assert not flow_in_scope(flow, "front")
+    assert query_model(model, "widget", scope="front") == []
+
+    [match] = query_model(model, "widget", scope="frontend")
+    assert match.to_dict(include_source=False)["scope"] == ["frontend"]
+
+
+def test_structured_query_filters_can_match_without_terms() -> None:
+    decision = FlowNode(
+        id="orders:n1",
+        kind=NodeKind.DECISION,
+        label="if order.status == OPEN",
+        location=_loc("src/orders.py", 4),
+        metadata={
+            "domain": "status",
+            "value_namespace": "OrderStatus",
+            "values": ["OPEN"],
+            "branches": [{"label": "OPEN", "outcome": "return open"}],
+        },
+    )
+    flow = Flow(
+        id="orders-flow",
+        name="handle_order",
+        symbol="api.orders:handle_order",
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=True,
+        location=_loc("src/orders.py", 1),
+        nodes=[decision],
+    )
+    model = _model([flow, _flow("other", "other", symbol="api.other:handle")])
+
+    matches = query_model(
+        model,
+        "",
+        source_path="orders.py",
+        symbol="api.orders:handle_order",
+        domain="status",
+        value="OPEN",
+    )
+
+    assert [match.flow.id for match in matches] == ["orders-flow"]
+    assert matches[0].score == 4 * 5 + ENTRYPOINT_BONUS
+    assert matches[0].reasons == [
+        "source path matches `orders.py`",
+        "symbol/name matches `api.orders:handle_order`",
+        "decision domain matches `status`",
+        "decision value matches `OPEN`",
+    ]
+
+
+def test_query_can_filter_findings_by_kind_severity_and_evidence_without_terms() -> None:
+    model = _model(
+        flows=[
+            _flow("review", "review_order"),
+            _flow("audit", "audit_order"),
+        ],
+        findings=[
+            _finding("review", "Missing fallback for review state"),
+            _finding(
+                "audit",
+                "Audit handler has inferred enum gap",
+                kind="enum_exhaustiveness",
+                evidence=Evidence.INFERRED,
+            ),
+        ],
+    )
+
+    matches = query_model(
+        model,
+        "",
+        finding_kind="missing_branch",
+        finding_severity="warning",
+        finding_evidence="POTENTIAL_GAP",
+    )
+
+    assert [match.flow.id for match in matches] == ["review"]
+    assert matches[0].score == 3 * 5
+    assert matches[0].reasons == [
+        "flow has `missing_branch` findings",
+        "finding severity matches `warning`",
+        "finding evidence matches `POTENTIAL_GAP`",
+    ]
+    payload = matches[0].to_dict()
+    assert payload["finding_count"] == 1
+    assert payload["finding_ids"] == ["review-find"]
+    assert payload["finding_kinds"] == ["missing_branch"]
+    assert payload["finding_severities"] == ["warning"]
+    assert payload["finding_evidence"] == ["POTENTIAL_GAP"]
+    assert payload["subgraph_flow_ids"] == ["review"]
+    assert payload["subgraph_finding_ids"] == ["review-find"]
+    assert payload["next_tools"]["subgraph_snapshot"] == {
+        "tool": "get_subgraph_snapshot",
+        "arguments": {
+            "flow_ids": ["review"],
+            "finding_ids": ["review-find"],
+            "format": "svg",
+        },
+    }
+    assert query_model(model, "", finding_severity="error") == []
+    assert [match.flow.id for match in query_model(model, "", finding_evidence="INFERRED")] == [
+        "audit"
+    ]
+
+
 def test_substring_no_longer_matches() -> None:
     """'order' must NOT match inside 'reordering_queue' (token, not substring); it must
     still match a flow whose identity contains 'order' as a whole token."""
@@ -182,6 +300,25 @@ def test_substring_no_longer_matches() -> None:
     )
     matches = query_model(model, "order")
     assert [m.flow.id for m in matches] == ["ok"]
+
+
+def test_query_splits_code_identifiers_and_light_language_variants() -> None:
+    model = _model(
+        flows=[
+            _flow(
+                "upload",
+                "UnifiedUploadBox",
+                symbol="frontend.components:UnifiedUploadBox",
+                node_labels=("PUT file to presigned S3 URL",),
+            ),
+            _flow("other", "ProfilePanel", symbol="frontend.components:ProfilePanel"),
+        ]
+    )
+    model.flows[0].location = _loc("frontend/certificati/UnifiedUploadBox.tsx")
+
+    matches = query_model(model, "certificate upload")
+
+    assert [m.flow.id for m in matches] == ["upload"]
 
 
 def test_entry_kind_and_framework_are_not_matchable() -> None:
@@ -242,71 +379,278 @@ def test_query_match_to_dict_shape() -> None:
         "scope": [],
         "score": 6,
         "reasons": ["`widget` matches the flow identity"],
+        "finding_count": 0,
+        "finding_ids": [],
+        "finding_kinds": [],
+        "finding_severities": [],
+        "finding_evidence": [],
+        "omitted_finding_count": 0,
+        "subgraph_flow_ids": ["f1"],
+        "subgraph_finding_ids": [],
+        "next_tools": {
+            "flow_navigation": {
+                "tool": "get_flow_navigation",
+                "arguments": {"flow_id": "f1"},
+            },
+            "visual_snapshot": {
+                "tool": "get_flow_snapshot",
+                "arguments": {"flow_id": "f1", "format": "svg"},
+            },
+            "context_pack": {
+                "tool": "context_pack",
+                "arguments": {"flow_ids": ["f1"]},
+            },
+            "subgraph_snapshot": {
+                "tool": "get_subgraph_snapshot",
+                "arguments": {"flow_ids": ["f1"], "finding_ids": [], "format": "svg"},
+            },
+        },
         "source": "app.py:1",
     }
     assert "source" not in match.to_dict(include_source=False)
 
 
-def _demo_source(tmp_path: Path) -> Path:
-    source = tmp_path / "app.py"
-    source.write_text(
-        "def authorize(user):\n"
-        "    if user.role == 'admin':\n"
-        "        return True\n"
-        "    return False\n",
-        encoding="utf-8",
+def test_query_match_bounds_finding_ids_for_large_results() -> None:
+    findings = []
+    for index in range(10):
+        finding = _finding("f1", f"missing fallback {index}")
+        finding.id = f"find-{index}"
+        findings.append(finding)
+    match = QueryMatch(
+        flow=_flow("f1", "widget", symbol="widget"),
+        score=6,
+        reasons=["`widget` matches the flow identity"],
+        findings=findings,
     )
-    return tmp_path
+
+    payload = match.to_dict()
+
+    assert payload["finding_count"] == 10
+    assert payload["finding_ids"] == [f"find-{index}" for index in range(8)]
+    assert payload["subgraph_finding_ids"] == [f"find-{index}" for index in range(8)]
+    assert payload["omitted_finding_count"] == 2
+    assert payload["next_tools"]["subgraph_snapshot"]["arguments"]["finding_ids"] == [
+        f"find-{index}" for index in range(8)
+    ]
 
 
-def test_cli_no_match_prints_message(tmp_path: Path, capsys: object) -> None:
-    root = _demo_source(tmp_path)
-    assert main(["analyze", str(root), "--full"]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-    assert main(["query", "zzqqxx_nonsense", "--path", str(root)]) == 0
-    out = capsys.readouterr()  # type: ignore[attr-defined]
-    assert out.out.strip() == "No matching logic flows found."
+def test_finding_context_collects_related_subject_subgraph() -> None:
+    focus_node = FlowNode(
+        id="dispatch:status",
+        kind=NodeKind.DECISION,
+        label="if order.status == OPEN",
+        location=_loc("orders.py", 10),
+        metadata={
+            "subject": "order.status",
+            "value_namespace": "OrderStatus",
+            "values": ["OPEN"],
+            "branches": [{"label": "OPEN", "outcome": "return open"}],
+        },
+    )
+    sibling_node = FlowNode(
+        id="cancel:status",
+        kind=NodeKind.DECISION,
+        label="if order.status == CANCELLED",
+        location=_loc("orders.py", 30),
+        metadata={
+            "subject": "order.status",
+            "value_namespace": "OrderStatus",
+            "values": ["CANCELLED"],
+            "branches": [{"label": "CANCELLED", "outcome": "return cancel"}],
+        },
+    )
+    focus_flow = Flow(
+        id="dispatch",
+        name="dispatch",
+        symbol="dispatch",
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=True,
+        location=_loc("orders.py", 1),
+        nodes=[focus_node],
+        calls=["audit"],
+    )
+    sibling_flow = Flow(
+        id="cancel",
+        name="cancel",
+        symbol="cancel",
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=True,
+        location=_loc("orders.py", 24),
+        nodes=[sibling_node],
+    )
+    audit_flow = _flow("audit", "audit")
+    finding = Finding(
+        id="dispatch-find",
+        kind="enum_exhaustiveness",
+        severity=Severity.WARNING,
+        message="Declared OrderStatus members not handled for order.status: CANCELLED",
+        evidence=Evidence.INFERRED,
+        flow_id="dispatch",
+        node_id="dispatch:status",
+        location=_loc("orders.py", 10),
+        metadata={
+            "category": "cross_flow",
+            "subject": "order.status",
+            "value_namespace": "OrderStatus",
+            "missing": ["CANCELLED"],
+            "declared": ["OPEN", "CANCELLED"],
+        },
+    )
+    related_finding = Finding(
+        id="cancel-find",
+        kind="missing_branch",
+        severity=Severity.WARNING,
+        message="Decision has no explicit fallback: order.status",
+        evidence=Evidence.POTENTIAL_GAP,
+        flow_id="cancel",
+        node_id="cancel:status",
+        location=_loc("orders.py", 30),
+        metadata={
+            "category": "single_flow",
+            "subject": "order.status",
+            "value_namespace": "OrderStatus",
+        },
+    )
+    model = _model([focus_flow, sibling_flow, audit_flow], [finding, related_finding])
+
+    context = finding_context(model, "dispatch-find", token_budget=160)
+
+    assert context is not None
+    assert context["evidence_guardrail"]["tier"] == "INFERRED"
+    assert context["diagnostic_summary"]["missing"] == ["CANCELLED"]
+    assert context["focus_flow"]["id"] == "dispatch"
+    assert context["focus_node"]["node_id"] == "dispatch:status"
+    by_flow = {item["id"]: item for item in context["related_flows"]}
+    assert "called_by_finding_flow" in by_flow["audit"]["roles"]
+    assert "handles_missing_value" in by_flow["cancel"]["roles"]
+    by_node = {item["node_id"]: item for item in context["related_nodes"]}
+    assert "finding_evidence" in by_node["dispatch:status"]["reasons"]
+    assert "handles_missing_value" in by_node["cancel:status"]["reasons"]
+    assert context["related_findings"][0]["id"] == "cancel-find"
+    assert context["next_tools"]["visual_snapshot"]["tool"] == "get_finding_snapshot"
 
 
-def test_cli_negative_limit_warns_and_keeps_results(tmp_path: Path, capsys: object) -> None:
-    root = _demo_source(tmp_path)
-    assert main(["analyze", str(root), "--full"]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-    assert main(["query", "admin authorize", "--path", str(root), "--limit", "-1"]) == 0
-    out = capsys.readouterr()  # type: ignore[attr-defined]
-    assert "authorize" in out.out
-    assert "negative --limit" in out.err
+def test_impact_model_accepts_flow_symbol_and_finding_targets() -> None:
+    target = _flow("target", "target", symbol="pkg:target")
+    caller = _flow("caller", "caller", symbol="pkg:caller")
+    caller.calls = ["target"]
+    target.called_by = ["caller"]
+    unrelated = _flow("other", "other", symbol="pkg:other")
+    finding = Finding(
+        id="target-find",
+        kind="missing_branch",
+        severity=Severity.WARNING,
+        message="Decision has no explicit fallback",
+        evidence=Evidence.POTENTIAL_GAP,
+        flow_id="target",
+        location=_loc("target.py", 3),
+    )
+    model = _model([target, caller, unrelated], [finding])
+
+    result = impact_model(
+        model,
+        [],
+        flow_ids=["target", "missing-flow"],
+        symbols=["caller", "missing-symbol"],
+        finding_ids=["target-find", "missing-finding"],
+    )
+
+    assert result.changed_files == []
+    assert result.target_flow_ids == ["target", "missing-flow"]
+    assert result.target_symbols == ["caller", "missing-symbol"]
+    assert result.target_finding_ids == ["target-find", "missing-finding"]
+    assert {flow.id for flow in result.directly_impacted} == {"target", "caller"}
+    assert result.impact_reasons == {
+        "caller": ["explicit symbol/name target `caller`"],
+        "target": ["explicit flow target `target`", "explicit finding target `target-find`"],
+    }
+    assert result.subgraph_flow_ids == ["caller", "target"]
+    assert result.subgraph_finding_ids == ["target-find"]
+    assert {item["value"]: item["reason"] for item in result.unresolved_targets} == {
+        "missing-flow": "not_found",
+        "missing-symbol": "not_found",
+        "missing-finding": "not_found",
+    }
 
 
-def test_cli_unknown_scope_warns_but_runs(tmp_path: Path, capsys: object) -> None:
-    root = _demo_source(tmp_path)
-    assert main(["analyze", str(root), "--full"]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-    assert main(["query", "admin authorize", "--path", str(root), "--scope", "nope"]) == 0
-    out = capsys.readouterr()  # type: ignore[attr-defined]
-    assert "unknown scope" in out.err
+def test_impact_model_accepts_dependency_path_targets() -> None:
+    charge = _flow("charge", "chargeOrder", symbol="svc:charge")
+    charge.location = _loc("services/payments/charge.py", 10)
+    refund = _flow("refund", "refundOrder", symbol="svc:refund")
+    refund.location = _loc("services/payments/refund.py", 20)
+    caller = _flow("caller", "loadCheckout", symbol="web:checkout")
+    caller.location = _loc("frontend/checkout.py", 30)
+    caller.calls = ["charge"]
+    charge.called_by = ["caller"]
+    similar = _flow("similar", "paymentsLegacy", symbol="svc:legacy")
+    similar.location = _loc("services/payments-legacy/refund.py", 40)
+    model = _model([charge, refund, caller, similar])
+
+    result = impact_model(
+        model,
+        [],
+        dependency_paths=["./services/payments", "missing/path"],
+    )
+
+    assert result.changed_files == []
+    assert result.target_dependency_paths == ["services/payments", "missing/path"]
+    assert {flow.id for flow in result.directly_impacted} == {"charge", "refund"}
+    assert {flow.id for flow in result.transitively_impacted} == {"caller"}
+    assert result.impact_reasons["charge"] == ["dependency path target `services/payments`"]
+    assert result.impact_reasons["refund"] == ["dependency path target `services/payments`"]
+    assert result.impact_reasons["caller"] == ["calls impacted flow `chargeOrder`"]
+    assert "similar" not in result.subgraph_flow_ids
+    assert result.unresolved_targets == [
+        {"type": "dependency_path", "value": "missing/path", "reason": "not_found"}
+    ]
 
 
-def test_cli_json_matches_query_match_to_dict(tmp_path: Path, capsys: object) -> None:
-    """The CLI --json shape is exactly QueryMatch.to_dict() (the same serializer the MCP
-    query_logic tool now uses), including the path:line `source` field."""
-    root = _demo_source(tmp_path)
-    assert main(["analyze", str(root), "--full"]) == 0
-    capsys.readouterr()  # type: ignore[attr-defined]
-    assert main(["query", "admin authorize", "--path", str(root), "--json"]) == 0
-    out = capsys.readouterr()  # type: ignore[attr-defined]
-    payload = json.loads(out.out)
-    assert payload
-    for row in payload:
-        assert set(row) == {
-            "flow_id",
-            "name",
-            "language",
-            "entry_kind",
-            "framework",
-            "scope",
-            "score",
-            "reasons",
-            "source",
-        }
-        assert ":" in row["source"]
+def test_impact_model_follows_multi_level_callers() -> None:
+    leaf = _flow("leaf", "leaf")
+    middle = _flow("middle", "middle")
+    root = _flow("root", "root")
+    root.calls = ["middle"]
+    middle.called_by = ["root"]
+    middle.calls = ["leaf"]
+    leaf.called_by = ["middle"]
+    model = _model([root, middle, leaf])
+
+    result = impact_model(model, [], flow_ids=["leaf"])
+
+    assert [flow.id for flow in result.directly_impacted] == ["leaf"]
+    assert {flow.id for flow in result.transitively_impacted} == {"middle", "root"}
+    assert result.impact_reasons["middle"] == ["calls impacted flow `leaf`"]
+    assert result.impact_reasons["root"] == ["calls impacted flow `middle`"]
+
+
+def test_impact_model_marks_scope_filtered_targets() -> None:
+    backend = _flow("backend", "backend", symbol="svc:backend")
+    backend.metadata["scope"] = ["backend"]
+    frontend = _flow("frontend", "frontend", symbol="web:frontend")
+    frontend.metadata["scope"] = ["frontend"]
+    model = _model([backend, frontend])
+
+    result = impact_model(model, [], scope="frontend", flow_ids=["backend"])
+
+    assert result.directly_impacted == []
+    assert result.unresolved_targets == [
+        {"type": "flow", "value": "backend", "reason": "scope_filtered"}
+    ]
+
+
+def test_impact_model_marks_scope_filtered_dependency_paths() -> None:
+    backend = _flow("backend", "backend", symbol="svc:backend")
+    backend.location = _loc("backend/svc.py")
+    backend.metadata["scope"] = ["backend"]
+    model = _model([backend])
+
+    result = impact_model(model, [], scope="frontend", dependency_paths=["backend"])
+
+    assert result.directly_impacted == []
+    assert result.unresolved_targets == [
+        {"type": "dependency_path", "value": "backend", "reason": "scope_filtered"}
+    ]

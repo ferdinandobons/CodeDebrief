@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from logicchart.model import FileRecord, Flow, ProjectModel
+from logicchart.util import metadata_scope_names
 
 
 def build_payload(model: ProjectModel, source_root: Path | None = None) -> dict[str, Any]:
@@ -63,6 +64,7 @@ def attach_source_snippets(
         return {}
 
     root = source_root
+    root_resolved = root.resolve()
     # path -> list[str] of the file's lines (newline-stripped), or None when unreadable.
     file_cache: dict[str, list[str] | None] = {}
 
@@ -74,7 +76,6 @@ def attach_source_snippets(
             # Resolve under the source root and guard against path escapes (a flow whose
             # location.path is absolute or climbs out of the tree gets no snippet).
             target = (root / path).resolve()
-            root_resolved = root.resolve()
             if root_resolved != target and root_resolved not in target.parents:
                 result = None
             else:
@@ -155,20 +156,29 @@ def build_tree(files: list[FileRecord], flows: list[Flow]) -> dict[str, Any]:
     by_id = {flow.id: flow for flow in non_test}
 
     flows_for_path: dict[str, list[str]] = {}
+    seen_for_path: dict[str, set[str]] = {}
     for record in files:
         # Keep the file's flow ids, but only the non-test ones.
-        kept = [fid for fid in record.flow_ids if fid in by_id]
+        seen = seen_for_path.setdefault(record.path, set())
+        kept: list[str] = []
+        for flow_id in record.flow_ids:
+            if flow_id in by_id and flow_id not in seen:
+                kept.append(flow_id)
+                seen.add(flow_id)
         if kept:
-            flows_for_path[record.path] = kept
+            flows_for_path.setdefault(record.path, []).extend(kept)
     for flow in non_test:
         path = flow.location.path
         ids = flows_for_path.setdefault(path, [])
-        if flow.id not in ids:
+        seen = seen_for_path.setdefault(path, set())
+        if flow.id not in seen:
             ids.append(flow.id)
+            seen.add(flow.id)
 
     root = _new_node("", "", "dir")
+    children_index: dict[str, dict[str, dict[str, Any]]] = {"": {}}
     for path in flows_for_path:
-        _insert_path(root, path, flows_for_path[path])
+        _insert_path(root, path, flows_for_path[path], children_index)
     _prune_empty(root)
     _sort_children(root)
     return root
@@ -201,7 +211,7 @@ def build_scope_index(flows: list[Flow]) -> dict[str, list[str]]:
     for flow in flows:
         if _is_test_flow(flow):
             continue
-        scopes = flow.metadata.get("scope")
+        scopes = metadata_scope_names(flow.metadata)
         if not scopes:
             scopes = [_top_level_segment(flow.location.path)]
         for scope in scopes:
@@ -263,20 +273,30 @@ def _new_node(name: str, path: str, node_type: str) -> dict[str, Any]:
     return {"name": name, "path": path, "type": node_type, "children": [], "flow_ids": []}
 
 
-def _insert_path(root: dict[str, Any], path: str, flow_ids: list[str]) -> None:
+def _insert_path(
+    root: dict[str, Any],
+    path: str,
+    flow_ids: list[str],
+    children_index: dict[str, dict[str, dict[str, Any]]],
+) -> None:
     segments = [part for part in path.split("/") if part]
     if not segments:
         return
     node = root
     prefix = ""
+    parent_path = ""
     for index, segment in enumerate(segments):
         prefix = f"{prefix}/{segment}" if prefix else segment
         is_leaf = index == len(segments) - 1
-        child = next((c for c in node["children"] if c["name"] == segment), None)
+        siblings = children_index.setdefault(parent_path, {})
+        child = siblings.get(segment)
         if child is None:
             child = _new_node(segment, prefix, "file" if is_leaf else "dir")
             node["children"].append(child)
+            siblings[segment] = child
+            children_index.setdefault(prefix, {})
         node = child
+        parent_path = prefix
     # `node` is now the leaf; attach flow ids without duplicating.
     for flow_id in flow_ids:
         if flow_id not in node["flow_ids"]:

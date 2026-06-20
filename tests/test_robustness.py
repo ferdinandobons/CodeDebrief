@@ -47,6 +47,35 @@ def test_incremental_run_skips_a_newly_broken_file(tmp_path: Path) -> None:
     assert [relative for relative, _ in result.skipped_files] == ["broken.py"]
 
 
+def test_tree_sitter_parse_errors_are_skipped_with_quality_reasons(tmp_path: Path) -> None:
+    _write(tmp_path / "good.py", "def handler(x):\n    return x\n")
+    _write(tmp_path / "partial.ts", "export function ok() {\n  return 1;\n}\n@")
+    _write(tmp_path / "broken.ts", "export function broken( {\n  return 1;\n")
+    _write(tmp_path / "broken.go", "package main\n\n@\n")
+
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+
+    assert any(flow.name == "handler" for flow in result.model.flows)
+    assert any(flow.name == "ok" for flow in result.model.flows)
+    skipped = dict(result.skipped_files)
+    assert set(skipped) == {"broken.go", "broken.ts"}
+    assert "typescript parse error in broken.ts" in skipped["broken.ts"]
+    assert "go parse error in broken.go" in skipped["broken.go"]
+    quality = result.model.metadata["quality"]
+    assert quality["files"]["skipped"]["total"] == 2
+    assert quality["files"]["skipped"]["by_reason"] == {
+        skipped["broken.go"]: 1,
+        skipped["broken.ts"]: 1,
+    }
+    assert quality["files"]["parse_errors"]["total"] == 1
+    assert quality["files"]["parse_errors"]["sample"][0]["path"] == "partial.ts"
+    assert quality["languages"]["depth"]["typescript"]["parse_error_files"] == 1
+    ts_attention = next(
+        item for item in quality["languages"]["attention"] if item["language"] == "typescript"
+    )
+    assert "parse_errors" in ts_attention["signals"]
+
+
 def test_utf8_bom_python_file_parses(tmp_path: Path) -> None:
     # A valid Python file saved as UTF-8-with-BOM must parse, not be skipped/garbled.
     (tmp_path / "bom.py").write_bytes(b"\xef\xbb\xbf" + b"def handler(x):\n    return x\n")

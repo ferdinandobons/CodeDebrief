@@ -7,6 +7,8 @@ from logicchart.model import (
     Finding,
     FindingKind,
     Flow,
+    FlowNode,
+    NodeKind,
     ProjectModel,
     Severity,
     SourceLocation,
@@ -17,8 +19,9 @@ from logicchart.render.markdown import render_markdown
 def _finding(
     kind: str | FindingKind, evidence: Evidence, message: str, path: str = "app.py"
 ) -> Finding:
+    public_kind = kind.value if isinstance(kind, FindingKind) else kind
     return Finding(
-        id=f"id-{kind}-{evidence.value}",
+        id=f"id-{public_kind}-{evidence.value}",
         kind=kind,
         severity=Severity.WARNING,
         message=message,
@@ -31,6 +34,27 @@ def _finding(
 def _model(findings: list[Finding]) -> ProjectModel:
     return ProjectModel(
         schema_version="1.1", generated_at="x", root=".", flows=[], findings=findings
+    )
+
+
+def _flow(flow_id: str, name: str, node_id: str, node_label: str) -> Flow:
+    return Flow(
+        id=flow_id,
+        name=name,
+        symbol=f"m:{name}",
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=True,
+        location=SourceLocation("app.py", 1, 1),
+        nodes=[
+            FlowNode(
+                id=node_id,
+                kind=NodeKind.ACTION,
+                label=node_label,
+                location=SourceLocation("app.py", 2, 2),
+            )
+        ],
     )
 
 
@@ -68,6 +92,20 @@ def test_include_gaps_expands_the_review_section() -> None:
 def test_evidence_level_is_rendered_inline() -> None:
     out = render_markdown(_model([_finding("dead_code", Evidence.INFERRED, "x")]))
     assert "INFERRED" in out
+
+
+def test_finding_id_is_rendered_inline_without_cli_command() -> None:
+    finding = _finding("dead_code", Evidence.INFERRED, "x")
+    out = render_markdown(_model([finding]))
+    assert f"finding id `{finding.id}`" in out
+    assert "logicchart explain" not in out
+
+
+def test_diagnostic_review_prompt_is_rendered_when_present() -> None:
+    finding = _finding("dead_code", Evidence.INFERRED, "x")
+    finding.metadata["diagnostic"] = {"review_prompt": "Can this code be removed?"}
+    out = render_markdown(_model([finding]))
+    assert "Review: Can this code be removed?" in out
 
 
 def test_finding_kind_enum_is_rendered_as_public_wire_value() -> None:
@@ -130,3 +168,29 @@ def test_generated_at_and_root_cannot_break_the_header() -> None:
     out = render_markdown(flow_model)
     # The backtick in generated_at/root is neutralized inside its code span.
     assert "`x`echo pwned`" not in out
+
+
+def test_flow_review_points_are_grouped_by_flow_and_node_without_ordering_assumption() -> None:
+    first = _flow("first", "first", "first-node", "first branch")
+    second = _flow("second", "second", "second-node", "second branch")
+    second_finding = _finding("missing_branch", Evidence.INFERRED, "second issue")
+    second_finding.flow_id = "second"
+    second_finding.node_id = "second-node"
+    first_finding = _finding("dead_code", Evidence.INFERRED, "first issue")
+    first_finding.flow_id = "first"
+    first_finding.node_id = "first-node"
+    model = ProjectModel(
+        schema_version="1.1",
+        generated_at="x",
+        root=".",
+        flows=[first, second],
+        findings=[second_finding, first_finding],
+    )
+
+    out = render_markdown(model)
+
+    first_section = out.split("### first", 1)[1].split("### second", 1)[0]
+    second_section = out.split("### second", 1)[1]
+    assert "- `first branch`: first issue" in first_section
+    assert "second issue" not in first_section
+    assert "- `second branch`: second issue" in second_section
