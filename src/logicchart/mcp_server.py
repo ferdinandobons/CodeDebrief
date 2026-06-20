@@ -113,8 +113,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         from mcp.server.fastmcp import FastMCP
     except ImportError as error:
         raise RuntimeError(
-            "MCP support is not installed. Run `uv tool install '.[mcp]'` "
-            "(or `uv sync --extra mcp` for development)."
+            "MCP support is not importable. Reinstall LogicChart with `uv tool install .` "
+            "or run `uv sync --extra dev` for development."
         ) from error
 
     project_root = root.resolve()

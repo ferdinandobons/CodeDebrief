@@ -38,6 +38,7 @@ classifiers = [
 dependencies = [
   "tomli>=2.0; python_version < '3.11'",
   "jsonschema>=4.23",
+  "mcp>=1.27,<2",
   "tree-sitter>=0.25.2,<0.26",
   "tree-sitter-c>=0.23,<0.24",
   "tree-sitter-cpp>=0.23,<0.24",
@@ -57,9 +58,9 @@ Issues = "https://github.com/ferdinandobons/LogicChart/issues"
 Source = "https://github.com/ferdinandobons/LogicChart"
 
 [project.optional-dependencies]
-mcp = [
-  "mcp>=1.27,<2",
-]
+# Compatibility alias for older install snippets such as `logicchart[mcp]`.
+# MCP is part of the default runtime because it is the primary agent surface.
+mcp = []
 dev = [
   "mypy>=1.15",
   "pytest>=8.3",

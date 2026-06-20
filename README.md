@@ -43,12 +43,12 @@ and LogicChart never needs to run the analyzed application.
 
 ## Quick Start
 
-Install from this source checkout with MCP support:
+Install from this source checkout. MCP support is included by default:
 
 ```bash
 git clone https://github.com/ferdinandobons/LogicChart.git logicchart
 cd logicchart
-uv tool install '.[mcp]'
+uv tool install .
 ```
 
 From the codebase you want to analyze:
@@ -446,7 +446,7 @@ Important practical limits:
 For local development in this repository:
 
 ```bash
-uv sync --extra dev --extra mcp
+uv sync --extra dev
 uv run logicchart --help
 ```
 

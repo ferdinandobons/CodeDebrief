@@ -174,6 +174,8 @@ The project follows Semantic Versioning.
   include normalized diagnostic details.
 - Updated `workflow_slice` to include a deterministic presentation contract and to anchor
   natural-language queries to one primary flow, keeping related matches in supporting flows.
+- Moved the MCP runtime dependency into the default install so `uv tool install` includes
+  the primary MCP surface without requiring `.[mcp]`.
 - Updated generated agent instructions across Codex, Claude, Gemini, and Cursor to prefer
   MCP `agent_context` for codebase questions and keep `logicchart view` as the manual UI
   path.

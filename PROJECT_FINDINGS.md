@@ -66,6 +66,8 @@ LogicChart is in a strong alpha state.
 - `workflow_slice` now includes a presentation contract for coding agents. Natural-language
   slices anchor to one primary flow and keep related matches as supporting flows, so agents
   can show stable ordered steps instead of raw YAML dumps.
+- MCP is now a default runtime dependency. `uv tool install .` installs the central MCP
+  surface without requiring the legacy `.[mcp]` extra.
 - `PRODUCT_MIGRATION_PLAN.md` is now the source of truth for product vision and migration
   sequencing. It keeps the vision language needed for README/docs while listing the
   macro-phase execution plan and required repeated code-review passes.
