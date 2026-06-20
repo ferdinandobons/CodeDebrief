@@ -35,8 +35,7 @@ def test_plain_js_is_analyzed_and_labelled(tmp_path: Path) -> None:
     assert {f.language for f in model.flows} == {"javascript"}
     handle = next(f for f in model.flows if f.name == "handle")
     persist = next(f for f in model.flows if f.name == "persist")
-    # switch without default -> missing_branch
-    assert "missing_branch" in {f.kind for f in model.findings if f.flow_id == handle.id}
+    assert model.findings == []
     # the intra-file call to persist resolves to its flow
     assert persist.id in handle.calls
 

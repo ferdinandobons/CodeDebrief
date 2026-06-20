@@ -1,25 +1,24 @@
-# LogicChart viewer
+# LogicChart Viewer
 
-The LogicChart viewer is an offline, generated UI for studying large codebases as one
-progressive decision flowchart.
+The LogicChart viewer is the manual exploration surface for a codebase logic graph. It is
+offline, generated, and opened with `logicchart view`.
 
-The default artifact is still `logic-flow.html`: a single local HTML file with embedded
-CSS, JavaScript, payload data, and the framework runtime. It can be opened through
-`logicchart view`, committed as a generated artifact when useful, or regenerated with
-`logicchart view --render-only`.
+The default artifact is `logic-flow.html`: a single local HTML file with embedded CSS,
+JavaScript, payload data, and the viewer runtime. It can be opened through
+`logicchart view`, regenerated with `logicchart view --render-only`, or committed only when
+that is useful for a project.
 
-## Product shape
+## Product Shape
 
 The canvas should read as one navigable flowchart:
 
-1. The first row is the codebase scope map (`backend`, `frontend`, `edge`, or any configured
-   macro-part).
-2. Selecting a scope reveals the entrypoints in that scope without closing previously
-   opened scopes, so multiple codebase areas can stay visible in the same canvas.
-3. Selecting an entrypoint expands that flow in place, including its decisions, outcomes,
-   and direct call targets.
-4. Selecting an internal flow reconstructs the visible caller chain from the scope entrypoint
-   instead of placing that flow as a detached island.
+1. The first row is the codebase scope map.
+2. Selecting a scope reveals entrypoints in that scope without closing previously opened
+   scopes.
+3. Selecting an entrypoint expands that flow in place, including decisions, outcomes, and
+   direct call targets.
+4. Selecting an internal flow reconstructs the visible caller chain from the scope
+   entrypoint instead of placing that flow as a detached island.
 5. Selecting a connection highlights the source node, target node, and connection while
    dimming unrelated blocks.
 6. Selecting empty canvas space clears connection focus and returns the scope view to its
@@ -28,23 +27,20 @@ The canvas should read as one navigable flowchart:
 The renderer must remain shape-agnostic. It should never special-case names such as
 `backend`, `frontend`, or `edge`; those are ordinary scope values from the generated model.
 
-## Runtime path
+## Runtime Path
 
 There is one official viewer path:
 
 | Runtime | How to open it | Responsibility |
 | --- | --- | --- |
-| React runtime | `logic-flow.html` | Default progressive canvas, scope nodes, scope-entry links, flow detail charts, viewport zoom/pan/reset, graph-bounds-aware raster export |
+| React runtime | `logic-flow.html` | Progressive canvas, scope nodes, scope-entry links, flow detail charts, viewport zoom/pan/reset, graph-bounds-aware raster export |
 
 The React runtime is built from `frontend/` into
 `src/logicchart/render/assets/generated/logicchart-viewer-runtime.iife.js` and then embedded
-by `src/logicchart/render/html.py`. Generated HTML should always mount the React runtime;
-the retired static canvas is no longer shipped as a selectable runtime because it split
-behavior between two chart implementations.
+by `src/logicchart/render/html.py`.
 
-The shell and React runtime deliberately share the same generated payload. The shell still
-drives the side panels and tree selection; the React runtime synchronizes through hashes
-such as:
+The shell and React runtime share the same generated payload. The shell drives side panels
+and tree selection; the React runtime synchronizes through hashes such as:
 
 ```text
 #scope=frontend
@@ -54,202 +50,74 @@ such as:
 #edge=<encoded scope-entry connection>
 ```
 
-Direct `#flow=<flow-id>` and `#path=<source-path>` openings must select the matching
-source context and open the Details rail automatically. This keeps copied viewer links and
-agent-provided URLs useful without requiring a second manual Details click.
+Direct `#flow=<flow-id>` and `#path=<source-path>` openings should select the matching
+source context and open the Details rail automatically.
 
-## Review Signals Panel
+## Manual And Agentic Modes
 
-The Review Signals panel is both a bounded review queue and a selected-signal inspector.
-At broad scope it lists or summarizes review signals without rendering unbounded rows. Selecting a
-signal opens the related flow, selects the target node, highlights the source range, and
-expands the row with the normalized diagnostic metadata from the model:
+LogicChart has one purpose and two modes:
 
-- severity, evidence tier, category, and confidence basis;
-- missing values, expected state, and actual handled values when the detector provides
-  them;
-- the detector purpose, review prompt, and suggested next actions;
-- detector-specific evidence such as implicit fallbacks, constant guards, branch outcomes,
-  and handler outcomes;
-- a compact focused diagnostic subgraph linking the signal's focus block to bounded
-  evidence nodes and related flows;
-- related flows and evidence nodes derived from diagnostic scope, caller/callee context,
-  and shared decision metadata, each linked back into the progressive flowchart.
+- Manual mode: `logicchart view` opens the full interactive graph for exploration.
+- Agentic mode: MCP returns a bounded `workflow_slice` for a specific question or change.
 
-If `logicchart-out/logic-annotations.json` includes a fresh finding annotation, the row
-shows an enrichment badge and the expanded inspector renders summary, explanation, and
-remediation text in a separate enrichment block. This never replaces the normalized
-diagnostic metadata.
+The manual viewer should stay rich and interactive. It is not replaced by Mermaid or a
+static screenshot. MCP snapshots and canonical Mermaid diagrams are for agent answers,
+chat clients, and compact slice sharing.
 
-Fresh scope annotations are rendered directly on progressive scope nodes as group labels
-with summary/description text in the node title. Scope annotation text is presentation
-only; the scope membership and progressive expansion remain deterministic.
-
-This panel must preserve the model's evidence language: `VERIFIED` means syntax-backed,
-`INFERRED` means deterministic heuristic, and `POTENTIAL_GAP` remains a review candidate,
-not a confirmed defect.
-
-The deterministic MCP review-signal snapshot uses the same diagnostic metadata in a compact SVG
-side panel, so agents can inspect the highlighted flow node together with evidence tier,
-confidence, review prompt, and bounded evidence-chain summaries without opening the full
-browser viewer. Agents can also request `snapshot_slice` or a deterministic subgraph
-snapshot from explicit flow and finding ids, which renders the same focused review slice
-with highlighted signal nodes and unresolved-target metadata.
-Workflow-slice payloads also include a deterministic presentation contract. For repeated
-visual workflow requests, agents should use `snapshot_slice` first and render
+For repeated visual workflow requests, agents should use `snapshot_slice` first and render
 `snapshot.svg` through an SVG/HTML visualization widget when the client provides one. When
 inline SVG is unavailable, `snapshot_slice include_svg=false` returns local
 `artifact.html_path` and `artifact.svg_path` values that can be opened outside the chat.
 `workflow_slice.presentation.canonical_visual.diagram` is the exact top-to-bottom Mermaid
-text fallback for copyable output. Agents should not synthesize alternate diagrams from
-prose. Snapshot SVGs and Mermaid fallbacks are vertical/top-to-bottom, while
-`logicchart view` remains the interactive manual canvas. If a tool result is too large,
-saved externally, truncated, or missing the exact canonical visual, the agent should retry
-with a smaller `token_budget` and a narrower handle instead of listing flows or reading
-source files to recreate the diagram. They should inspect the full returned slice,
-request expansion or paths when relevant context is missing, then choose the clearest useful
-first-pass subset to show. That choice may omit low-signal implementation nodes, but every
-visible block must be derived from the selected slice or focused explain-tool payloads.
-The answer should say the diagram is a bounded summary that can be expanded, then offer to
-simplify labels in the user's language, expand omitted nodes or adjacent flows, or explore
-a related area. Human-friendly labels should be presented in the language used by the user
-as a translation of the canonical payload, not as replacement evidence.
-Workflow-slice and `snapshot_slice` MCP payloads include
-`viewer_targets` with `logicchart view` hash fragments such as `#flow=<flow-id>`. These are
-manual follow-up targets for the generated viewer; the deterministic slice and snapshot
-payloads remain the agent's primary context.
+text fallback for copyable output.
 
-## Project Quality Panel
+Agents should inspect the full returned slice, request expansion or paths when relevant
+context is missing, then choose the clearest useful first-pass subset to show. That choice
+may omit low-signal implementation nodes, but every visible block must be derived from the
+selected slice or focused explain-tool payloads. The answer should say the diagram is a
+bounded summary that can be expanded, then offer to simplify labels in the user's
+language, expand omitted nodes or adjacent flows, or explore a related area.
 
-The Details rail also renders `metadata.quality` when present. This is a compact analyzer
-snapshot for large-codebase review:
+## Details Rail
 
-- file, flow, entrypoint, and source-location coverage counts;
-- call-resolution rate with unresolved and ambiguous call counts;
-- skipped-file count, review-signal count, generic-label ratio, graph density, and huge-flow
-  signals;
-- top language distribution and per-language attention signals from the generated model.
+The Details rail provides bounded context for the current selection:
 
-The panel is deterministic and local-only. It must not imply that heuristic review signals
-are confirmed defects, and it should stay bounded even when a project has many review signals or
-languages.
+- project quality and analyzer coverage;
+- selected source range;
+- selected flow, node, edge, caller, or callee context;
+- optional agent-authored annotations for flow, node, or scope labels and summaries.
 
-The Details rail sections for Project Quality, Source, and Review Signals are independently
-collapsible from their headings. The heading and disclosure control both keep synchronized
-expanded state, support keyboard activation, and stay visible while each collapsed section
-releases body height to the other sections. The viewer remembers the state locally in the
-browser.
+Project quality is a compact analyzer snapshot. It may show skipped files, parse warnings,
+call-resolution rate, generic-label ratio, graph density, huge-flow signals, language
+distribution, and per-language capability notes. These are model-coverage signals, not
+application defect reports.
 
-## Layout rules
+The Details rail sections are independently collapsible from their headings. The viewer
+remembers the state locally in the browser.
+
+## Layout Rules
 
 The viewer layout should preserve these invariants:
 
 - Top-level scope nodes use the same node styling family as entrypoints and flows.
-- Scope colors come from deterministic per-payload hues, not hard-coded names, and the CSS
-  adapts their fill/stroke for light and dark themes.
+- Scope colors come from deterministic per-payload hues, not hard-coded names.
 - A scope connects to every visible entrypoint below it.
 - Previously opened scopes remain expanded when another scope is selected.
-- Selecting the codebase root uses `#node=codebase` and highlights connected scopes without
-  expanding an arbitrary fallback scope.
+- Selecting the codebase root uses `#node=codebase` and highlights connected scopes
+  without expanding an arbitrary fallback scope.
 - Reset clears opened scopes, opened flows, manual positions, and viewport state, then
-  returns to `#root`, the collapsed codebase map.
+  returns to `#root`.
 - Expand all opens every non-test scope and flow from the generated payload as a
-  lightweight overview with a visible progress indicator; it must be payload-driven rather
-  than tuned to demo scope names or file paths.
-- Expand-all overview mode defers inline decision-detail charts until a specific flow is
-  selected, and uses simplified overview edge routing so very large canvases remain
-  responsive.
+  lightweight overview with a visible progress indicator.
 - Expanded scope sections follow the root-map rows, so large codebases pack into readable
   vertical bands instead of one unbounded horizontal strip.
 - Fit re-centers the current visible flowchart without closing expanded scopes, expanded
   flows, or manual block positions.
-- The codebase rail should stay operational: path/symbol/review-signal search, review-only
-  triage, and optional language filtering when the payload is polyglot.
 - Expanded flow detail charts reserve their visual band before later rows are placed.
 - Every visible flow node is reachable from the codebase root through root-scope,
   scope-entry, or flow-call edges.
 - Hidden hit paths exist for pointer targeting but must never render visible boxes.
 - Pan and zoom are viewport operations; they must not mutate model layout.
-- Viewport operations must remain finite and recoverable: invalid zoom inputs are ignored,
-  free pan is unbounded, and Reset returns to the collapsed baseline view.
 - Wheel and trackpad zoom must stay anchored to the cursor in the active runtime.
-- Layout and detail measurements are cached by deterministic input signatures so repeated
-  navigation, hash sync, and panel refreshes do not recompute identical large-canvas
-  layouts.
-- The left tree may normalize display labels for scanning, such as HTTP-method routes or
-  camelCase symbols, but tooltips and source panels must preserve the original symbol and
-  source location.
-- Flow nodes expose deterministic accessibility summaries with source, node, decision,
-  call, caller, and review-signal counts so broad canvas scans do not depend on tiny visible
-  labels alone.
-- Optional annotation sidecars may improve flow/node labels and descriptions, but only
-  when their model hash matches the current `logic-flow.json`; stale sidecars must be
-  reported as ignored status, never rendered as current truth.
-- Large entrypoint rows wrap instead of forcing unbounded horizontal overflow.
-
-The frontend tests expose reusable layout checks through `viewerLayoutBoxes`,
-`overlappingLayoutBoxes`, `viewerLayoutEdgeObstacleHits`, and
-`viewerLayoutQualityReport`. Use the quality report when a change needs one machine-readable
-answer for whether the layout is clear: no block overlaps, no routed edge/box collisions,
-no detached visible flow nodes, finite canvas bounds, and coherent node/edge counts. Add
-new overlap, reachability, or routing cases when changing spacing, node sizes, row
-wrapping, manual positioning, call-chain expansion, or inline detail measurements.
-
-## Development workflow
-
-Install the frontend workspace once:
-
-```bash
-npm install
-```
-
-For viewer changes, run:
-
-```bash
-npm run viewer:typecheck
-npm run viewer:test
-npm run viewer:build
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run logicchart update
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run logicchart view examples/demo --render-only --no-open
-```
-
-Before declaring a viewer change done, also run:
-
-```bash
-node --check src/logicchart/render/assets/generated/logicchart-viewer-runtime.iife.js
-node --check src/logicchart/render/assets/shell.js
-node --check src/logicchart/render/assets/tree.js
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest tests/test_render_html.py
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest
-```
-
-Browser checks should use a regenerated demo artifact and a cache-buster URL:
-
-```text
-http://localhost:<port>/examples/demo/logicchart-out/logic-flow.html?v=<stamp>#scope=frontend
-```
-
-High-value browser checks:
-
-- Scope view stays on `#scope=frontend` and does not open a flow by default.
-- Scope node count, entrypoint node count, and scope-entry edge count match the payload.
-- Opening a second scope keeps the first scope's entrypoints visible and connected.
-- Reset returns to `#root` with only the codebase and top-level scope nodes visible.
-- Clicking a scope-entry connection selects exactly one link, one source, and one target,
-  while unrelated nodes/links dim.
-- Clicking blank canvas clears connection focus.
-- Clicking an entrypoint from the canvas and from the tree opens the same flow detail.
-- Direct `#flow=<flow-id>` and `#path=<source-path>` URLs open Details with the matching
-  source context selected.
-- The source panel shows the selected flow's file and line range.
-- Wheel zoom, canvas pan, fit, reset, fast expand overview, PNG export, and JPG export
-  route through the active runtime.
-- PNG/JPG export resolution follows the graph bounds rather than the current viewport, with
-  browser-safe caps for very large charts.
-- SVG hit paths remain invisible in screenshots and exports.
-
-## Documentation discipline
-
-Keep `README.md`, `CONTRIBUTING.md`, this file, and the generated agent instructions in
-sync whenever the viewer workflow changes. When runtime ownership changes, update the
-default URL examples and make sure no retired runtime path remains documented.
+- The left tree may normalize display labels for scanning, but tooltips and source panels
+  must preserve the original symbol and source path.

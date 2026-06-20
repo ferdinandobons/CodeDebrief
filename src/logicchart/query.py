@@ -1,30 +1,26 @@
 from __future__ import annotations
 
 import re
-from collections import Counter, deque
+from collections import deque
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts_by_kind
-from logicchart.model import Finding, FindingKind, Flow, FlowNode, NodeKind, ProjectModel
-from logicchart.quality import finding_counts, model_quality
-from logicchart.util import metadata_scope_names, without_diagnostic_metadata
+from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel
+from logicchart.quality import model_quality
+from logicchart.util import metadata_scope_names
 
 # Per-bucket relevance weights. Named constants instead of inline magic numbers so the
 # ranking model is auditable and the tests can assert exact scores.
 IDENTITY_WEIGHT = 6
 NODE_WEIGHT = 3
-FINDING_WEIGHT = 4
 STRUCTURE_WEIGHT = 5
 METADATA_WEIGHT = 2
 # Tie-breaker only: nudges an entrypoint above an otherwise-equal non-entrypoint. Added
 # only when the term-overlap score is already > 0, so it never manufactures a match.
 ENTRYPOINT_BONUS = 1
-FINDING_CONTEXT_TOKENS_PER_ITEM = 80
 NAVIGATION_TOKENS_PER_ITEM = 60
-QUERY_FINDING_ID_LIMIT = 8
 
 
 @dataclass(slots=True)
@@ -32,20 +28,9 @@ class QueryMatch:
     flow: Flow
     score: int
     reasons: list[str]
-    findings: list[Finding] = field(default_factory=list)
 
     def to_dict(self, include_source: bool = True) -> dict[str, Any]:
         """The single serialization used by MCP query/context tools."""
-        findings = sorted(
-            self.findings,
-            key=lambda finding: (
-                finding_priority(finding),
-                finding.location.path,
-                finding.message,
-            ),
-        )
-        finding_ids = [finding.id for finding in findings]
-        visible_finding_ids = finding_ids[:QUERY_FINDING_ID_LIMIT]
         payload: dict[str, Any] = {
             "flow_id": self.flow.id,
             "name": self.flow.name,
@@ -55,14 +40,7 @@ class QueryMatch:
             "scope": metadata_scope_names(self.flow.metadata),
             "score": self.score,
             "reasons": self.reasons,
-            "finding_count": len(finding_ids),
-            "finding_ids": visible_finding_ids,
-            "finding_kinds": sorted({_enum_text(finding.kind) for finding in findings}),
-            "finding_severities": sorted({_enum_text(finding.severity) for finding in findings}),
-            "finding_evidence": sorted({_enum_text(finding.evidence) for finding in findings}),
-            "omitted_finding_count": max(0, len(finding_ids) - len(visible_finding_ids)),
             "subgraph_flow_ids": [self.flow.id],
-            "subgraph_finding_ids": visible_finding_ids,
             "next_tools": {
                 "flow_navigation": {
                     "tool": "get_flow_navigation",
@@ -80,7 +58,6 @@ class QueryMatch:
                     "tool": "get_subgraph_snapshot",
                     "arguments": {
                         "flow_ids": [self.flow.id],
-                        "finding_ids": visible_finding_ids,
                         "format": "svg",
                     },
                 },
@@ -96,11 +73,9 @@ class ImpactResult:
     changed_files: list[str]
     directly_impacted: list[Flow]
     transitively_impacted: list[Flow]
-    findings: list[Finding]
     impact_reasons: dict[str, list[str]] = field(default_factory=dict)
     target_flow_ids: list[str] = field(default_factory=list)
     target_symbols: list[str] = field(default_factory=list)
-    target_finding_ids: list[str] = field(default_factory=list)
     target_dependency_paths: list[str] = field(default_factory=list)
     unresolved_targets: list[dict[str, str]] = field(default_factory=list)
 
@@ -115,10 +90,6 @@ class ImpactResult:
     def subgraph_flow_ids(self) -> list[str]:
         return [flow.id for flow in self.all_flows]
 
-    @property
-    def subgraph_finding_ids(self) -> list[str]:
-        return [finding.id for finding in self.findings]
-
 
 def query_model(
     model: ProjectModel,
@@ -126,9 +97,6 @@ def query_model(
     limit: int = 10,
     scope: str | None = None,
     language: str | None = None,
-    finding_kind: str | None = None,
-    finding_severity: str | None = None,
-    finding_evidence: str | None = None,
     source_path: str | None = None,
     symbol: str | None = None,
     domain: str | None = None,
@@ -140,9 +108,6 @@ def query_model(
         for item in (
             scope,
             language,
-            finding_kind,
-            finding_severity,
-            finding_evidence,
             source_path,
             symbol,
             domain,
@@ -159,10 +124,6 @@ def query_model(
     unique_terms = list(dict.fromkeys(terms))
 
     matches: list[QueryMatch] = []
-    findings_by_flow: dict[str, list[Finding]] = {}
-    for finding in model.findings:
-        findings_by_flow.setdefault(finding.flow_id, []).append(finding)
-
     for flow in model.flows:
         if not flow_in_scope(flow, scope):
             continue
@@ -190,34 +151,6 @@ def query_model(
             )
         )
         metadata_tokens = _flow_metadata_tokens(flow)
-        flow_findings = [
-            finding
-            for finding in findings_by_flow.get(flow.id, [])
-            if finding_matches_filters(
-                finding,
-                kind=finding_kind,
-                severity=finding_severity,
-                evidence=finding_evidence,
-            )
-        ]
-        has_finding_filter = any(
-            item is not None for item in (finding_kind, finding_severity, finding_evidence)
-        )
-        if has_finding_filter and not flow_findings:
-            continue
-        if finding_kind is not None and flow_findings:
-            filter_reasons.append(f"flow has `{finding_kind}` findings")
-        if finding_severity is not None and flow_findings:
-            filter_reasons.append(f"finding severity matches `{finding_severity}`")
-        if finding_evidence is not None and flow_findings:
-            filter_reasons.append(f"finding evidence matches `{finding_evidence}`")
-        finding_tokens = _tokenize(
-            " ".join(
-                f"{finding.kind} {finding.evidence.value} {finding.severity.value} "
-                f"{finding.message} {_metadata_text(without_diagnostic_metadata(finding.metadata))}"
-                for finding in flow_findings
-            )
-        )
         score = 0
         reasons: list[str] = []
         for term in unique_terms:
@@ -233,9 +166,6 @@ def query_model(
             if _term_matches(term, metadata_tokens):
                 score += METADATA_WEIGHT
                 reasons.append(f"`{term}` appears in decision metadata")
-            if _term_matches(term, finding_tokens):
-                score += FINDING_WEIGHT
-                reasons.append(f"`{term}` appears in a review finding")
         if filter_reasons:
             score += STRUCTURE_WEIGHT * len(filter_reasons)
             reasons.extend(filter_reasons)
@@ -244,7 +174,7 @@ def query_model(
         if score:
             if flow.is_entrypoint:
                 score += ENTRYPOINT_BONUS
-            matches.append(QueryMatch(flow, score, list(dict.fromkeys(reasons)), flow_findings))
+            matches.append(QueryMatch(flow, score, list(dict.fromkeys(reasons))))
     # Deterministic order: score desc, then name, then unique id, so equal score+name is
     # stable regardless of flow insertion order.
     matches.sort(key=lambda item: (-item.score, item.flow.name, item.flow.id))
@@ -260,7 +190,6 @@ def impact_model(
     *,
     flow_ids: list[str] | None = None,
     symbols: list[str] | None = None,
-    finding_ids: list[str] | None = None,
     dependency_paths: list[str] | None = None,
 ) -> ImpactResult:
     normalized = {_normalize_path(item) for item in changed_files}
@@ -270,7 +199,6 @@ def impact_model(
     scoped_ids = {flow.id for flow in flows}
     target_flow_ids = _unique(flow_ids or [])
     target_symbols = _unique(symbols or [])
-    target_finding_ids = _unique(finding_ids or [])
     target_dependency_paths = _unique(_normalize_path(item) for item in dependency_paths or [])
     unresolved_targets: list[dict[str, str]] = []
     direct_by_id: dict[str, Flow] = {}
@@ -325,22 +253,6 @@ def impact_model(
         for flow in matches:
             add_flow(flow, "symbol", symbol, f"explicit symbol/name target `{symbol}`")
 
-    findings_by_id = {finding.id: finding for finding in model.findings}
-    for finding_id in target_finding_ids:
-        finding = findings_by_id.get(finding_id)
-        if finding is None:
-            unresolved_targets.append(
-                {"type": "finding", "value": finding_id, "reason": "not_found"}
-            )
-            continue
-        finding_flow = by_id.get(finding.flow_id)
-        if finding_flow is None:
-            unresolved_targets.append(
-                {"type": "finding", "value": finding_id, "reason": "flow_not_found"}
-            )
-            continue
-        add_flow(finding_flow, "finding", finding_id, f"explicit finding target `{finding_id}`")
-
     for dependency_path in target_dependency_paths:
         matches = [
             flow
@@ -386,7 +298,6 @@ def impact_model(
 
     transitive = [flow for flow in transitive if flow_in_scope(flow, scope)]
     impacted_ids = {flow.id for flow in direct} | {flow.id for flow in transitive}
-    findings = [item for item in model.findings if item.flow_id in impacted_ids]
     scoped_impact_reasons = {
         flow_id: reasons
         for flow_id, reasons in sorted(impact_reasons.items())
@@ -396,11 +307,9 @@ def impact_model(
         changed_files=sorted(normalized),
         directly_impacted=sorted(direct, key=lambda item: item.name),
         transitively_impacted=sorted(transitive, key=lambda item: item.name),
-        findings=findings,
         impact_reasons=scoped_impact_reasons,
         target_flow_ids=target_flow_ids,
         target_symbols=target_symbols,
-        target_finding_ids=target_finding_ids,
         target_dependency_paths=target_dependency_paths,
         unresolved_targets=unresolved_targets,
     )
@@ -424,7 +333,6 @@ def render_impact(result: ImpactResult) -> str:
     target_count = (
         len(result.target_flow_ids)
         + len(result.target_symbols)
-        + len(result.target_finding_ids)
         + len(result.target_dependency_paths)
     )
     lines = [
@@ -432,21 +340,13 @@ def render_impact(result: ImpactResult) -> str:
         f"Explicit targets: {target_count}",
         f"Directly impacted flows: {len(result.directly_impacted)}",
         f"Transitively impacted flows: {len(result.transitively_impacted)}",
-        f"Related review signals: {len(result.findings)}",
     ]
-    if (
-        result.target_flow_ids
-        or result.target_symbols
-        or result.target_finding_ids
-        or result.target_dependency_paths
-    ):
+    if result.target_flow_ids or result.target_symbols or result.target_dependency_paths:
         lines.append("\nTargets:")
         if result.target_flow_ids:
             lines.append(f"- flows: {', '.join(result.target_flow_ids)}")
         if result.target_symbols:
             lines.append(f"- symbols: {', '.join(result.target_symbols)}")
-        if result.target_finding_ids:
-            lines.append(f"- findings: {', '.join(result.target_finding_ids)}")
         if result.target_dependency_paths:
             lines.append(f"- dependency paths: {', '.join(result.target_dependency_paths)}")
     if result.directly_impacted:
@@ -463,88 +363,12 @@ def render_impact(result: ImpactResult) -> str:
             f" - {_compact_list(result.impact_reasons.get(flow.id, []), limit=3)}"
             for flow in result.transitively_impacted
         )
-    if result.findings:
-        lines.append("\nReview before changing:")
-        lines.extend(f"- {finding.message}" for finding in result.findings)
     if result.unresolved_targets:
         lines.append("\nUnresolved targets:")
         lines.extend(
             f"- {item['type']} {item['value']}: {item['reason']}"
             for item in result.unresolved_targets
         )
-    return "\n".join(lines)
-
-
-def render_finding_explanation(explanation: dict[str, Any]) -> str:
-    diagnostic = explanation.get("diagnostic") or {}
-    confidence = diagnostic.get("confidence") or {}
-    scope = diagnostic.get("scope") or {}
-    decision = explanation.get("decision") or {}
-    annotation = explanation.get("annotation") or {}
-    lines = [
-        f"Finding: {explanation['id']}",
-        f"Kind: {explanation['kind']}",
-        f"Evidence: {explanation['evidence']} ({confidence.get('basis', 'unknown basis')})",
-        f"Severity: {explanation['severity']}",
-        f"Location: {explanation['location']}",
-        f"Flow: {explanation.get('flow') or '(unknown)'}",
-        f"Message: {explanation['message']}",
-    ]
-    if explanation.get("detail"):
-        lines.append(f"Detail: {explanation['detail']}")
-    if annotation:
-        lines.append("\nAnnotation:")
-        if annotation.get("summary"):
-            lines.append(f"- summary: {annotation['summary']}")
-        if annotation.get("explanation"):
-            lines.append(f"- explanation: {annotation['explanation']}")
-        if annotation.get("remediation"):
-            lines.append(f"- remediation: {annotation['remediation']}")
-    if decision:
-        lines.append("\nDecision:")
-        lines.append(f"- label: {decision.get('label') or '(unknown)'}")
-        if decision.get("subject"):
-            lines.append(f"- subject: {decision['subject']}")
-        if decision.get("condition"):
-            lines.append(f"- condition: {decision['condition']}")
-        branches = decision.get("branches") or []
-        if branches:
-            lines.append(f"- branches: {_compact_list(branches)}")
-    if diagnostic:
-        lines.append("\nDiagnostic:")
-        lines.append(f"- rule: {diagnostic.get('rule_id', explanation['kind'])}")
-        lines.append(f"- category: {diagnostic.get('category', 'unknown')}")
-        lines.append(f"- source: {scope.get('source', explanation['location'])}")
-        if diagnostic.get("missing"):
-            lines.append(f"- missing: {_compact_list(diagnostic['missing'])}")
-        if diagnostic.get("expected"):
-            lines.append(f"- expected: {_metadata_text(diagnostic['expected'])}")
-        if diagnostic.get("actual"):
-            lines.append(f"- actual: {_metadata_text(diagnostic['actual'])}")
-        if diagnostic.get("review_prompt"):
-            lines.append(f"- review: {diagnostic['review_prompt']}")
-    actions = diagnostic.get("suggested_next_actions") or []
-    if actions:
-        lines.append("\nSuggested next actions:")
-        lines.extend(f"- {action}" for action in actions[:4])
-    chain = diagnostic.get("evidence_chain") or []
-    if chain:
-        lines.append("\nEvidence chain:")
-        for item in chain[:6]:
-            item_type = str(item.get("type", "evidence"))
-            location = (
-                item.get("source")
-                or _location_text(item.get("location"))
-                or scope.get("source")
-                or explanation["location"]
-            )
-            summary = _evidence_summary(item)
-            lines.append(f"- {item_type} @ {location}: {summary}")
-        omitted = len(chain) - 6
-        if omitted > 0:
-            lines.append(f"- {omitted} additional evidence item(s) omitted")
-    lines.append("\nGuardrail:")
-    lines.append(f"- {evidence_guardrail(explanation['evidence'])}")
     return "\n".join(lines)
 
 
@@ -560,11 +384,6 @@ def flow_navigation(
         return error
     assert flow is not None
     by_id = {item.id: item for item in model.flows}
-    findings = sorted(
-        [item for item in model.findings if item.flow_id == flow.id],
-        key=lambda item: (finding_priority(item), item.location.path, item.message),
-    )
-    finding_node_ids = {item.node_id for item in findings if item.node_id}
     scope = metadata_scope_names(flow.metadata)
     primary_scope = scope[0] if scope else None
     return {
@@ -585,17 +404,10 @@ def flow_navigation(
         ),
         "unresolved_call_ids": [target_id for target_id in flow.calls if target_id not in by_id],
         "decision_nodes": _navigation_cap(
-            [
-                _decision_navigation(node, node.id in finding_node_ids)
-                for node in flow.nodes
-                if node.kind is NodeKind.DECISION
-            ],
+            [_decision_navigation(node) for node in flow.nodes if node.kind is NodeKind.DECISION],
             token_budget,
         ),
-        "findings": _navigation_cap(
-            [_finding_dict(item, model, annotations) for item in findings], token_budget
-        ),
-        "annotations": _flow_annotations(flow, findings, annotations),
+        "annotations": _flow_annotations(flow, annotations),
         "next_tools": {
             "complete_flow": {"tool": "get_flow", "arguments": {"flow_id": flow.id}},
             "visual_snapshot": {
@@ -638,16 +450,7 @@ def render_flow_navigation(navigation: dict[str, Any]) -> str:
     if decision_nodes:
         lines.append("\nDecision nodes:")
         for item in decision_nodes:
-            marker = " [review signal]" if item.get("has_findings") else ""
-            lines.append(f"- {item['label']} @ {item['source']}{marker}")
-    findings = navigation.get("findings") or []
-    if findings:
-        lines.append("\nReview signals:")
-        lines.extend(
-            f"- {_enum_text(item['severity']).upper()} · {_enum_text(item['evidence'])} · "
-            f"{item['kind']}: {item['message']} (id {item['id']})"
-            for item in findings
-        )
+            lines.append(f"- {item['label']} @ {item['source']}")
     called = navigation.get("called_flows") or []
     if called:
         lines.append("\nCalled flows:")
@@ -669,20 +472,12 @@ def render_flow_navigation(navigation: dict[str, Any]) -> str:
 
 
 def model_summary(model: ProjectModel) -> dict[str, Any]:
-    """An orientation snapshot: counts of flows, findings by kind/severity/evidence."""
-    rules = model.metadata.get("finding_rules") or finding_rule_contracts_by_kind()
+    """An orientation snapshot for the generated code-logic model."""
     quality = model.metadata.get("quality") or model_quality(model)
     return {
         "flows": len(model.flows),
         "entrypoints": sum(flow.is_entrypoint for flow in model.flows),
         "languages": model.metadata.get("languages", []),
-        "findings": finding_counts(model.findings),
-        "finding_rules": {
-            "total": len(rules),
-            "by_category": dict(
-                Counter(str(item.get("category", "project")) for item in rules.values())
-            ),
-        },
         "language_capabilities": model.metadata.get("language_capabilities", {}),
         "enums": {
             language: sorted(members)
@@ -693,45 +488,12 @@ def model_summary(model: ProjectModel) -> dict[str, Any]:
     }
 
 
-def evidence_guardrail(evidence: str) -> str:
-    if evidence == "VERIFIED":
-        return "syntax-backed fact"
-    if evidence == "INFERRED":
-        return "deterministic heuristic; inspect before treating as a confirmed defect"
-    return "review candidate; never treat as a confirmed defect without inspection"
-
-
 def _compact_list(value: Any, limit: int = 6) -> str:
     items = _list_value(value)
     shown = items[:limit]
     text = ", ".join(_metadata_text(item) for item in shown)
     omitted = len(items) - len(shown)
     return f"{text} (+{omitted} more)" if omitted > 0 else text
-
-
-def _evidence_summary(item: dict[str, Any]) -> str:
-    if "nodes" in item and isinstance(item["nodes"], list):
-        return f"{len(item['nodes'])} related node(s)"
-    if "values" in item:
-        return f"values: {_compact_list(item['values'])}"
-    if "branches" in item:
-        return f"branches: {_compact_list(item['branches'])}"
-    payload = {
-        key: value
-        for key, value in item.items()
-        if key not in {"type", "location", "source"} and value not in (None, "", [], {})
-    }
-    return _metadata_text(payload) if payload else "see source range"
-
-
-def _location_text(value: Any) -> str | None:
-    if not isinstance(value, dict):
-        return None
-    path = value.get("path")
-    line = value.get("start_line")
-    if not path or line is None:
-        return None
-    return f"{path}:{line}"
 
 
 def _resolve_flow_target(
@@ -773,8 +535,8 @@ def _flow_target_error(
         "target": target,
         "recoverable": True,
         "guardrail": (
-            "This reports an invalid flow-navigation target from the generated model; it "
-            "is not a source-code review signal."
+            "This reports an invalid flow-navigation target from the generated model; "
+            "re-run query_logic or list_flows to locate a modeled flow."
         ),
         "next_tools": {
             "list_flows": {
@@ -816,7 +578,7 @@ def _related_flow_summaries(flow_ids: list[str], by_id: dict[str, Flow]) -> list
     )
 
 
-def _decision_navigation(node: FlowNode, has_findings: bool) -> dict[str, Any]:
+def _decision_navigation(node: FlowNode) -> dict[str, Any]:
     return {
         "node_id": node.id,
         "label": node.label,
@@ -827,87 +589,17 @@ def _decision_navigation(node: FlowNode, has_findings: bool) -> dict[str, Any]:
         "operator": node.metadata.get("operator"),
         "values": node.metadata.get("values", []),
         "branches": node.metadata.get("branches", []),
-        "has_findings": has_findings,
-    }
-
-
-def _finding_dict(
-    finding: Finding,
-    model: ProjectModel | None = None,
-    annotations: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    data = asdict(finding)
-    data["kind"] = _enum_text(finding.kind)
-    data["severity"] = _enum_text(finding.severity)
-    data["evidence"] = _enum_text(finding.evidence)
-    metadata = data.setdefault("metadata", {})
-    if not isinstance(metadata.get("diagnostic"), dict):
-        flow = None
-        node = None
-        if model is not None:
-            flow = next((item for item in model.flows if item.id == finding.flow_id), None)
-            if flow is not None and finding.node_id:
-                node = next((item for item in flow.nodes if item.id == finding.node_id), None)
-        metadata["diagnostic"] = diagnostic_for_finding(
-            finding,
-            flow=flow,
-            node=node,
-            model=model,
-        )
-    annotation = finding_annotation(finding.id, annotations)
-    if annotation:
-        data["annotation"] = annotation
-    data["next_tools"] = finding_next_tools(finding.id, finding.flow_id)
-    return data
-
-
-def finding_annotation(
-    finding_id: str, annotations: dict[str, Any] | None
-) -> dict[str, str] | None:
-    if not annotations:
-        return None
-    finding_annotations = annotations.get("findings", {})
-    if not isinstance(finding_annotations, dict):
-        return None
-    annotation = finding_annotations.get(finding_id)
-    return annotation if isinstance(annotation, dict) and annotation else None
-
-
-def finding_next_tools(finding_id: str, flow_id: str) -> dict[str, dict[str, Any]]:
-    return {
-        "finding_context": {
-            "tool": "get_finding_context",
-            "arguments": {"finding_id": finding_id},
-        },
-        "visual_snapshot": {
-            "tool": "get_finding_snapshot",
-            "arguments": {"finding_id": finding_id, "format": "svg"},
-        },
-        "subgraph_snapshot": {
-            "tool": "get_subgraph_snapshot",
-            "arguments": {
-                "flow_ids": [flow_id],
-                "finding_ids": [finding_id],
-                "format": "svg",
-            },
-        },
-        "flow_navigation": {
-            "tool": "get_flow_navigation",
-            "arguments": {"flow_id": flow_id},
-        },
     }
 
 
 def _flow_annotations(
     flow: Flow,
-    findings: list[Finding],
     annotations: dict[str, Any] | None,
 ) -> dict[str, Any]:
     if not annotations:
         return {"status": "absent"}
     flow_annotations = annotations.get("flows", {})
     node_annotations = annotations.get("nodes", {})
-    finding_annotations = annotations.get("findings", {})
     scope_annotations = annotations.get("scopes", {})
     return {
         "status": "loaded",
@@ -915,40 +607,12 @@ def _flow_annotations(
         "nodes": {
             node.id: node_annotations[node.id] for node in flow.nodes if node.id in node_annotations
         },
-        "findings": {
-            finding.id: finding_annotations[finding.id]
-            for finding in findings
-            if finding.id in finding_annotations
-        },
         "scopes": {
             scope: scope_annotations[scope]
             for scope in metadata_scope_names(flow.metadata)
             if scope in scope_annotations
         },
     }
-
-
-def finding_priority(finding: Finding) -> int:
-    severity_rank = {"error": 0, "warning": 1, "info": 2}
-    evidence_rank = {"VERIFIED": 0, "INFERRED": 1, "POTENTIAL_GAP": 2}
-    return severity_rank.get(finding.severity.value, 3) * 10 + evidence_rank.get(
-        finding.evidence.value,
-        3,
-    )
-
-
-def finding_matches_filters(
-    finding: Finding,
-    *,
-    kind: str | None,
-    severity: str | None,
-    evidence: str | None,
-) -> bool:
-    if kind is not None and finding.kind != kind:
-        return False
-    if severity is not None and finding.severity.value != severity:
-        return False
-    return evidence is None or finding.evidence.value == evidence
 
 
 def flow_in_scope(flow: Flow, scope: str | None) -> bool:
@@ -1012,134 +676,6 @@ def _decision_values(node: FlowNode) -> set[str]:
     return values
 
 
-def explain_finding(
-    model: ProjectModel,
-    finding_id: str,
-    annotations: dict[str, Any] | None = None,
-) -> dict[str, Any] | None:
-    """The full deterministic evidence chain behind one finding."""
-    finding = next((item for item in model.findings if item.id == finding_id), None)
-    if finding is None:
-        return None
-    flow = next((item for item in model.flows if item.id == finding.flow_id), None)
-    node = None
-    if flow is not None and finding.node_id:
-        node = next((item for item in flow.nodes if item.id == finding.node_id), None)
-    decision = None
-    if node is not None:
-        decision = {
-            "label": node.label,
-            "condition": node.metadata.get("condition"),
-            "subject": node.metadata.get("subject"),
-            "branches": node.metadata.get("branches"),
-        }
-    diagnostic = finding.metadata.get("diagnostic")
-    if not isinstance(diagnostic, dict):
-        diagnostic = diagnostic_for_finding(finding, flow=flow, node=node, model=model)
-    return {
-        "id": finding.id,
-        "kind": finding.kind,
-        "severity": finding.severity.value,
-        "evidence": finding.evidence.value,
-        "message": finding.message,
-        "detail": finding.detail,
-        "location": f"{finding.location.path}:{finding.location.start_line}",
-        "flow": flow.name if flow else None,
-        "decision": decision,
-        "metadata": finding.metadata,
-        "diagnostic": diagnostic,
-        "annotation": finding_annotation(finding.id, annotations),
-    }
-
-
-def finding_context(
-    model: ProjectModel,
-    finding_id: str,
-    token_budget: int = 0,
-    annotations: dict[str, Any] | None = None,
-) -> dict[str, Any] | None:
-    """A bounded deterministic subgraph around one finding for agents and MCP clients."""
-    finding = next((item for item in model.findings if item.id == finding_id), None)
-    if finding is None:
-        return None
-    flow = next((item for item in model.flows if item.id == finding.flow_id), None)
-    node = None
-    if flow is not None and finding.node_id:
-        node = next((item for item in flow.nodes if item.id == finding.node_id), None)
-    diagnostic = finding.metadata.get("diagnostic")
-    if not isinstance(diagnostic, dict):
-        diagnostic = diagnostic_for_finding(finding, flow=flow, node=node, model=model)
-    related_flows = _finding_related_flows(model, finding, flow)
-    related_nodes = _finding_related_nodes(related_flows, finding, diagnostic)
-    related_flow_ids = {item.id for item, _roles in related_flows}
-    related_findings = [
-        _finding_context_finding(candidate)
-        for candidate in model.findings
-        if candidate.id != finding.id
-        and candidate.flow_id in related_flow_ids
-        and _finding_matches_context(candidate, finding)
-    ]
-    findings_by_flow = Counter(candidate.flow_id for candidate in model.findings)
-    return {
-        "finding": _finding_context_finding(finding, annotations),
-        "evidence_guardrail": _evidence_guardrail(finding),
-        "diagnostic_summary": {
-            "rule_id": diagnostic.get("rule_id"),
-            "category": diagnostic.get("category"),
-            "confidence": diagnostic.get("confidence"),
-            "missing": diagnostic.get("missing"),
-            "expected": diagnostic.get("expected"),
-            "actual": diagnostic.get("actual"),
-            "review_prompt": diagnostic.get("review_prompt"),
-        },
-        "focus_flow": (
-            _context_flow_summary(flow, ["finding_flow"], findings_by_flow[flow.id])
-            if flow
-            else None
-        ),
-        "focus_node": _context_node_summary(flow, node, ["finding_node"]) if node else None,
-        "related_flows": _context_cap(
-            [
-                _context_flow_summary(
-                    related_flow,
-                    roles,
-                    findings_by_flow[related_flow.id],
-                )
-                for related_flow, roles in related_flows
-                if related_flow.id != finding.flow_id
-            ],
-            token_budget,
-        ),
-        "related_nodes": _context_cap(related_nodes, token_budget),
-        "related_findings": _context_cap(related_findings, token_budget),
-        "evidence_chain": diagnostic.get("evidence_chain", []),
-        "suggested_next_actions": diagnostic.get("suggested_next_actions", []),
-        "next_tools": {
-            "visual_snapshot": {
-                "tool": "get_finding_snapshot",
-                "arguments": {"finding_id": finding.id, "format": "svg"},
-            },
-            "subgraph_snapshot": {
-                "tool": "get_subgraph_snapshot",
-                "arguments": {
-                    "flow_ids": [finding.flow_id],
-                    "finding_ids": [finding.id],
-                    "format": "svg",
-                },
-            },
-            "impact": {
-                "tool": "analyze_impact",
-                "arguments": {"finding_ids": [finding.id]},
-            },
-            "flow_navigation": {
-                "tool": "get_flow_navigation",
-                "arguments": {"flow_id": finding.flow_id},
-            },
-            "complete_flow": {"tool": "get_flow", "arguments": {"flow_id": finding.flow_id}},
-        },
-    }
-
-
 def where_is_state_handled(
     model: ProjectModel, domain: str, value: str | None = None
 ) -> list[dict[str, Any]]:
@@ -1180,17 +716,7 @@ def find_decisions(
     subject: str | None = None,
     missing_fallback: bool = False,
 ) -> list[dict[str, Any]]:
-    """Structured search over decision nodes (by domain/subject/missing-fallback)."""
-    gap_nodes = {
-        item.node_id
-        for item in model.findings
-        if item.kind
-        in {
-            FindingKind.MISSING_BRANCH,
-            FindingKind.ENUM_EXHAUSTIVENESS,
-            FindingKind.INCONSISTENT_CASE_HANDLING,
-        }
-    }
+    """Structured search over decision nodes (by domain/subject/implicit fallback)."""
     results: list[dict[str, Any]] = []
     for flow in model.flows:
         for node in flow.nodes:
@@ -1203,8 +729,8 @@ def find_decisions(
             # "order_status").
             if subject is not None and str(node.metadata.get("subject", "")) != subject:
                 continue
-            has_gap = node.id in gap_nodes
-            if missing_fallback and not has_gap:
+            has_implicit_fallback = _has_implicit_fallback(node)
+            if missing_fallback and not has_implicit_fallback:
                 continue
             results.append(
                 {
@@ -1212,217 +738,18 @@ def find_decisions(
                     "subject": node.metadata.get("subject"),
                     "operator": node.metadata.get("operator"),
                     "values": node.metadata.get("values"),
-                    "has_gap": has_gap,
+                    "has_implicit_fallback": has_implicit_fallback,
                     "source": f"{node.location.path}:{node.location.start_line}",
                 }
             )
     return results
 
 
-def _finding_related_flows(
-    model: ProjectModel, finding: Finding, focus_flow: Flow | None
-) -> list[tuple[Flow, list[str]]]:
-    metadata = without_diagnostic_metadata(finding.metadata)
-    roles_by_flow: dict[str, set[str]] = {}
-    flows_by_id = {flow.id: flow for flow in model.flows}
-
-    def add(flow_id: str | None, role: str) -> None:
-        if flow_id is None or flow_id not in flows_by_id:
-            return
-        roles_by_flow.setdefault(flow_id, set()).add(role)
-
-    add(finding.flow_id, "finding_flow")
-    if focus_flow is not None:
-        for flow_id in focus_flow.calls:
-            add(flow_id, "called_by_finding_flow")
-        for flow_id in focus_flow.called_by:
-            add(flow_id, "caller_of_finding_flow")
-
-    subject = _metadata_string(metadata.get("subject"))
-    namespace = _metadata_string(metadata.get("value_namespace"))
-    condition = _metadata_string(metadata.get("condition"))
-    missing_values = {str(item) for item in _list_value(metadata.get("missing"))}
-    expected_value = _metadata_string(metadata.get("expected"))
-    outcome_value = _metadata_string(metadata.get("outcome"))
-
-    for flow in model.flows:
-        for node in flow.nodes:
-            if node.kind is not NodeKind.DECISION:
-                continue
-            if subject and node.metadata.get("subject") == subject:
-                if namespace and node.metadata.get("value_namespace") == namespace:
-                    add(flow.id, "same_subject_namespace")
-                elif not namespace:
-                    add(flow.id, "same_subject")
-            if condition and node.metadata.get("condition") == condition:
-                add(flow.id, "same_condition")
-            handled_values = {str(item) for item in node.metadata.get("values", [])}
-            if missing_values and missing_values & handled_values:
-                add(flow.id, "handles_missing_value")
-            branches = node.metadata.get("branches", [])
-            if isinstance(branches, list) and (expected_value or outcome_value):
-                branch_text = _metadata_text(branches)
-                if expected_value and expected_value in branch_text:
-                    add(flow.id, "matches_expected_outcome")
-                if outcome_value and outcome_value in branch_text:
-                    add(flow.id, "matches_actual_outcome")
-
-    return [
-        (flows_by_id[flow_id], sorted(roles))
-        for flow_id, roles in sorted(
-            roles_by_flow.items(),
-            key=lambda item: (
-                0 if item[0] == finding.flow_id else 1,
-                flows_by_id[item[0]].name,
-                item[0],
-            ),
-        )
-    ]
-
-
-def _finding_related_nodes(
-    related_flows: list[tuple[Flow, list[str]]],
-    finding: Finding,
-    diagnostic: dict[str, Any],
-) -> list[dict[str, Any]]:
-    metadata = without_diagnostic_metadata(finding.metadata)
-    subject = _metadata_string(metadata.get("subject"))
-    namespace = _metadata_string(metadata.get("value_namespace"))
-    condition = _metadata_string(metadata.get("condition"))
-    missing_values = {str(item) for item in _list_value(metadata.get("missing"))}
-    evidence_node_ids = set(_list_value(diagnostic.get("scope", {}).get("related_node_ids")))
-    if finding.node_id:
-        evidence_node_ids.add(finding.node_id)
-    rows: list[dict[str, Any]] = []
-    for flow, flow_roles in related_flows:
-        for node in flow.nodes:
-            reasons: list[str] = []
-            if node.id in evidence_node_ids:
-                reasons.append("finding_evidence")
-            if (
-                node.kind is NodeKind.DECISION
-                and subject
-                and node.metadata.get("subject") == subject
-            ):
-                if namespace and node.metadata.get("value_namespace") == namespace:
-                    reasons.append("same_subject_namespace")
-                elif not namespace:
-                    reasons.append("same_subject")
-            if (
-                node.kind is NodeKind.DECISION
-                and condition
-                and node.metadata.get("condition") == condition
-            ):
-                reasons.append("same_condition")
-            handled_values = {str(item) for item in node.metadata.get("values", [])}
-            if missing_values and missing_values & handled_values:
-                reasons.append("handles_missing_value")
-            if not reasons:
-                continue
-            rows.append(_context_node_summary(flow, node, sorted(set(reasons)), flow_roles))
-    return sorted(
-        rows,
-        key=lambda item: (
-            0 if item["flow_id"] == finding.flow_id else 1,
-            item["flow_name"],
-            item["node_id"],
-        ),
-    )
-
-
-def _finding_matches_context(candidate: Finding, finding: Finding) -> bool:
-    candidate_metadata = without_diagnostic_metadata(candidate.metadata)
-    metadata = without_diagnostic_metadata(finding.metadata)
-    if candidate.kind == finding.kind:
-        return True
-    for key in ("subject", "value_namespace", "condition", "rule"):
-        if metadata.get(key) is not None and candidate_metadata.get(key) == metadata.get(key):
-            return True
-    missing = {str(item) for item in _list_value(metadata.get("missing"))}
-    candidate_missing = {str(item) for item in _list_value(candidate_metadata.get("missing"))}
-    return bool(missing and missing & candidate_missing)
-
-
-def _finding_context_finding(
-    finding: Finding,
-    annotations: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    data: dict[str, Any] = {
-        "id": finding.id,
-        "kind": _enum_text(finding.kind),
-        "severity": _enum_text(finding.severity),
-        "evidence": _enum_text(finding.evidence),
-        "message": finding.message,
-        "flow_id": finding.flow_id,
-        "node_id": finding.node_id,
-        "source": f"{finding.location.path}:{finding.location.start_line}",
-    }
-    annotation = finding_annotation(finding.id, annotations)
-    if annotation:
-        data["annotation"] = annotation
-    return data
-
-
-def _context_flow_summary(flow: Flow, roles: list[str], finding_count: int) -> dict[str, Any]:
-    return {
-        "id": flow.id,
-        "name": flow.name,
-        "roles": roles,
-        "language": flow.language,
-        "entry_kind": flow.entry_kind,
-        "source": f"{flow.location.path}:{flow.location.start_line}",
-        "scope": metadata_scope_names(flow.metadata),
-        "nodes": len(flow.nodes),
-        "decisions": sum(node.kind is NodeKind.DECISION for node in flow.nodes),
-        "calls": len(flow.calls),
-        "callers": len(flow.called_by),
-        "findings": finding_count,
-    }
-
-
-def _context_node_summary(
-    flow: Flow | None,
-    node: Any,
-    reasons: list[str],
-    flow_roles: list[str] | None = None,
-) -> dict[str, Any]:
-    return {
-        "flow_id": flow.id if flow is not None else None,
-        "flow_name": flow.name if flow is not None else None,
-        "flow_roles": flow_roles or [],
-        "node_id": node.id,
-        "label": node.label,
-        "kind": _enum_text(node.kind),
-        "reasons": reasons,
-        "source": f"{node.location.path}:{node.location.start_line}",
-        "condition": node.metadata.get("condition"),
-        "subject": node.metadata.get("subject"),
-        "value_namespace": node.metadata.get("value_namespace"),
-        "values": node.metadata.get("values", []),
-        "branches": node.metadata.get("branches", []),
-    }
-
-
-def _evidence_guardrail(finding: Finding) -> dict[str, str]:
-    if finding.evidence.value == "VERIFIED":
-        meaning = "syntax-backed fact"
-    elif finding.evidence.value == "INFERRED":
-        meaning = "deterministic heuristic; inspect before treating as a confirmed defect"
-    else:
-        meaning = "review candidate; never treat as a confirmed defect without inspection"
-    return {"tier": finding.evidence.value, "meaning": meaning}
-
-
-def _context_cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]:
-    if token_budget <= 0:
-        return items
-    return items[: max(1, token_budget // FINDING_CONTEXT_TOKENS_PER_ITEM)]
-
-
-def _metadata_string(value: Any) -> str:
-    if value is None:
-        return ""
-    return value if isinstance(value, str) else _metadata_text(value)
+def _has_implicit_fallback(node: FlowNode) -> bool:
+    branches = node.metadata.get("branches")
+    if not isinstance(branches, list):
+        return False
+    return any(isinstance(branch, dict) and branch.get("implicit") is True for branch in branches)
 
 
 def _list_value(value: Any) -> list[Any]:

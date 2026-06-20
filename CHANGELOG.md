@@ -6,6 +6,16 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+### Changed
+
+- Reoriented the public product surface around code-logic comprehension instead of review
+  findings: MCP workflow slices, agent instructions, README/docs, Markdown artifacts, and
+  the generated viewer now emphasize deterministic flows, decisions, calls, source anchors,
+  visual snapshots, and manual exploration through `logicchart view`.
+- Removed findings/review queues from the public MCP workflow path. `agent_context`,
+  `workflow_slice`, `domain_map`, impact tools, annotation previews, and snapshot tools now
+  guide agents through flow/node/scope context rather than review-signal inspection.
+
 ### Added
 
 - Updated example documentation to use the current minimal public CLI and route query or

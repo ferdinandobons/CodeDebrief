@@ -5,8 +5,7 @@ from dataclasses import dataclass
 from html import escape
 from typing import Any
 
-from logicchart.diagnostics import diagnostic_for_finding
-from logicchart.model import Finding, Flow, FlowNode, NodeKind, ProjectModel
+from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel
 
 SNAPSHOT_FORMATS = ("svg",)
 MAX_FLOW_NODES = 44
@@ -16,7 +15,6 @@ MAX_SUBGRAPH_FLOWS = 8
 @dataclass(slots=True)
 class _RenderedSubgraphFlow:
     flow: Flow
-    findings: list[Finding]
     highlighted: set[str]
     nodes: list[FlowNode]
 
@@ -49,7 +47,6 @@ class _LayoutEdge:
 SNAPSHOT_WIDTH = 720
 SNAPSHOT_MARGIN_X = 52
 FLOW_NODE_WIDTH = 340
-DIAGNOSTIC_PANEL_WIDTH = SNAPSHOT_WIDTH - SNAPSHOT_MARGIN_X * 2
 
 
 def unsupported_snapshot_format(requested: str) -> dict[str, Any]:
@@ -59,10 +56,7 @@ def unsupported_snapshot_format(requested: str) -> dict[str, Any]:
         "requested_format": requested,
         "supported_formats": list(SNAPSHOT_FORMATS),
         "recoverable": True,
-        "guardrail": (
-            "This reports an unsupported visual export format; it is not a source-code "
-            "review signal."
-        ),
+        "guardrail": ("This reports an unsupported visual export format for LogicChart snapshots."),
     }
 
 
@@ -77,18 +71,15 @@ def render_flow_snapshot(
     flow = next((item for item in model.flows if item.id == flow_id), None)
     if flow is None:
         return _snapshot_request_error("flow", flow_id)
-    findings = [item for item in model.findings if item.flow_id == flow.id]
     highlighted = highlight_node_ids or set()
     rendered_nodes = _select_flow_nodes(flow, highlighted, max_nodes)
     layout = _flow_layout(
         flow,
-        findings,
         highlighted,
         rendered_nodes=rendered_nodes,
     )
     svg = _flow_svg(
         flow,
-        findings,
         highlighted,
         rendered_nodes=rendered_nodes,
         title=title,
@@ -108,61 +99,9 @@ def render_flow_snapshot(
     }
 
 
-def render_finding_snapshot(
-    model: ProjectModel, finding_id: str, *, max_nodes: int | None = None
-) -> dict[str, Any]:
-    finding = next((item for item in model.findings if item.id == finding_id), None)
-    if finding is None:
-        return _snapshot_request_error("finding", finding_id)
-    flow = next((item for item in model.flows if item.id == finding.flow_id), None)
-    if flow is None:
-        return _snapshot_request_error("flow", finding.flow_id, finding_id=finding_id)
-    node = next((item for item in flow.nodes if item.id == finding.node_id), None)
-    highlighted = {finding.node_id} if finding.node_id else set()
-    rendered_nodes = _select_flow_nodes(flow, highlighted, max_nodes)
-    diagnostic = _diagnostic_for_snapshot(model, finding, flow, node)
-    title = f"{finding.kind}: {finding.message}"
-    flow_findings = [item for item in model.findings if item.flow_id == flow.id]
-    layout = _flow_layout(
-        flow,
-        flow_findings,
-        highlighted,
-        rendered_nodes=rendered_nodes,
-        finding=finding,
-        diagnostic=diagnostic,
-    )
-    svg = _flow_svg(
-        flow,
-        flow_findings,
-        highlighted,
-        rendered_nodes=rendered_nodes,
-        title=title,
-        finding=finding,
-        diagnostic=diagnostic,
-        layout=layout,
-    )
-    return {
-        "format": "svg",
-        "flow_id": flow.id,
-        "title": title,
-        "svg": svg,
-        "highlighted_node_ids": sorted(highlighted),
-        "node_count": len(flow.nodes),
-        "rendered_node_count": len(rendered_nodes),
-        "omitted_node_count": max(0, len(flow.nodes) - len(rendered_nodes)),
-        "finding_id": finding.id,
-        "diagnostic_category": diagnostic.get("category"),
-        "evidence_item_count": len(diagnostic.get("evidence_chain", [])),
-        "layout": _flow_layout_payload(flow, rendered_nodes, layout),
-        "layout_quality": _flow_layout_quality(flow, rendered_nodes, layout),
-    }
-
-
 def _snapshot_request_error(
     target_type: str,
     target_id: str,
-    *,
-    finding_id: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "error": f"Unknown {target_type}: {target_id}",
@@ -171,24 +110,19 @@ def _snapshot_request_error(
         "target_id": target_id,
         "recoverable": True,
         "guardrail": (
-            "This reports an invalid snapshot target from the generated model; it is not "
-            "a source-code review signal."
+            "This reports an invalid snapshot target from the generated LogicChart model."
         ),
     }
-    if finding_id is not None:
-        payload["finding_id"] = finding_id
     return payload
 
 
 def _subgraph_empty_error() -> dict[str, Any]:
     return {
-        "error": "Subgraph snapshot requires at least one flow_id or finding_id.",
+        "error": "Subgraph snapshot requires at least one flow_id.",
         "error_code": "snapshot_subgraph_empty",
         "target_type": "subgraph",
         "recoverable": True,
-        "guardrail": (
-            "This reports an empty visual snapshot request; it is not a source-code review signal."
-        ),
+        "guardrail": "This reports an empty visual snapshot request.",
     }
 
 
@@ -203,43 +137,30 @@ def _unique(items: list[str]) -> list[str]:
     return result
 
 
-def _node_finding_counts(findings: list[Finding]) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for finding in findings:
-        if finding.node_id:
-            counts[finding.node_id] = counts.get(finding.node_id, 0) + 1
-    return counts
-
-
 def render_impact_snapshot(
     *,
     changed_files: list[str],
     direct: list[Flow],
     transitive: list[Flow],
-    findings: list[Finding],
     max_flows: int | None = None,
     target_flow_ids: list[str] | None = None,
     target_symbols: list[str] | None = None,
-    target_finding_ids: list[str] | None = None,
     target_dependency_paths: list[str] | None = None,
     unresolved_targets: list[Any] | None = None,
     impact_reasons: dict[str, list[str]] | None = None,
     subgraph_flow_ids: list[str] | None = None,
-    subgraph_finding_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     rendered_direct = _select_impact_flows(direct, max_flows)
     rendered_transitive = _select_impact_flows(transitive, max_flows)
     target_labels = _impact_target_labels(
         target_flow_ids=target_flow_ids or [],
         target_symbols=target_symbols or [],
-        target_finding_ids=target_finding_ids or [],
         target_dependency_paths=target_dependency_paths or [],
     )
     layout = _impact_layout(
         changed_files,
         direct,
         transitive,
-        findings,
         rendered_direct=rendered_direct,
         rendered_transitive=rendered_transitive,
         target_labels=target_labels,
@@ -249,7 +170,6 @@ def render_impact_snapshot(
         changed_files,
         direct,
         transitive,
-        findings,
         rendered_direct=rendered_direct,
         rendered_transitive=rendered_transitive,
         target_labels=target_labels,
@@ -261,19 +181,16 @@ def render_impact_snapshot(
         "changed_files": changed_files,
         "target_flow_ids": target_flow_ids or [],
         "target_symbols": target_symbols or [],
-        "target_finding_ids": target_finding_ids or [],
         "target_dependency_paths": target_dependency_paths or [],
         "unresolved_targets": unresolved_targets or [],
         "impact_reasons": impact_reasons or {},
         "subgraph_flow_ids": subgraph_flow_ids or [],
-        "subgraph_finding_ids": subgraph_finding_ids or [],
         "direct_flow_ids": [flow.id for flow in direct],
         "transitive_flow_ids": [flow.id for flow in transitive],
         "rendered_direct_flow_ids": [flow.id for flow in rendered_direct],
         "rendered_transitive_flow_ids": [flow.id for flow in rendered_transitive],
         "omitted_direct_flow_count": max(0, len(direct) - len(rendered_direct)),
         "omitted_transitive_flow_count": max(0, len(transitive) - len(rendered_transitive)),
-        "finding_ids": [finding.id for finding in findings],
         "layout": _impact_layout_payload(
             direct,
             transitive,
@@ -296,21 +213,17 @@ def render_subgraph_snapshot(
     model: ProjectModel,
     *,
     flow_ids: list[str] | None = None,
-    finding_ids: list[str] | None = None,
     max_flows: int | None = None,
     max_nodes: int | None = None,
 ) -> dict[str, Any]:
-    """Render a deterministic SVG for an explicit flow/finding subgraph."""
+    """Render a deterministic SVG for an explicit flow subgraph."""
     requested_flow_ids = _unique(flow_ids or [])
-    requested_finding_ids = _unique(finding_ids or [])
-    if not requested_flow_ids and not requested_finding_ids:
+    if not requested_flow_ids:
         return _subgraph_empty_error()
 
     flows_by_id = {flow.id: flow for flow in model.flows}
-    findings_by_id = {finding.id: finding for finding in model.findings}
     unresolved_targets: list[dict[str, str]] = []
     selected_flow_ids: list[str] = []
-    selected_finding_ids: list[str] = []
     highlighted_node_ids: set[str] = set()
 
     for flow_id in requested_flow_ids:
@@ -319,41 +232,18 @@ def render_subgraph_snapshot(
         else:
             unresolved_targets.append({"type": "flow", "value": flow_id, "reason": "not_found"})
 
-    for finding_id in requested_finding_ids:
-        finding = findings_by_id.get(finding_id)
-        if finding is None:
-            unresolved_targets.append(
-                {"type": "finding", "value": finding_id, "reason": "not_found"}
-            )
-            continue
-        selected_finding_ids.append(finding.id)
-        if finding.node_id:
-            highlighted_node_ids.add(finding.node_id)
-        if finding.flow_id not in selected_flow_ids:
-            selected_flow_ids.append(finding.flow_id)
-
     selected_flows = [
         flows_by_id[flow_id] for flow_id in selected_flow_ids if flow_id in flows_by_id
     ]
     flow_limit = _effective_limit(max_flows, MAX_SUBGRAPH_FLOWS)
     rendered_flows = selected_flows[:flow_limit]
-    findings_by_flow: dict[str, list[Finding]] = {}
-    highlighted_by_flow: dict[str, set[str]] = {}
-    selected_finding_id_set = set(selected_finding_ids)
-    for finding in model.findings:
-        findings_by_flow.setdefault(finding.flow_id, []).append(finding)
-        if finding.id in selected_finding_id_set and finding.node_id:
-            highlighted_by_flow.setdefault(finding.flow_id, set()).add(finding.node_id)
-
     rendered: list[_RenderedSubgraphFlow] = []
     for flow in rendered_flows:
-        highlighted = highlighted_by_flow.get(flow.id, set())
         rendered.append(
             _RenderedSubgraphFlow(
                 flow=flow,
-                findings=findings_by_flow.get(flow.id, []),
-                highlighted=highlighted,
-                nodes=_select_flow_nodes(flow, highlighted, max_nodes),
+                highlighted=set(),
+                nodes=_select_flow_nodes(flow, set(), max_nodes),
             )
         )
     layout = _subgraph_layout(rendered, unresolved_targets)
@@ -369,10 +259,8 @@ def render_subgraph_snapshot(
         "format": "svg",
         "title": "Subgraph snapshot",
         "requested_flow_ids": requested_flow_ids,
-        "requested_finding_ids": requested_finding_ids,
         "unresolved_targets": unresolved_targets,
         "flow_ids": [flow.id for flow in selected_flows],
-        "finding_ids": selected_finding_ids,
         "rendered_flow_ids": [flow.id for flow in rendered_flows],
         "omitted_flow_count": max(0, len(selected_flows) - len(rendered_flows)),
         "highlighted_node_ids": sorted(highlighted_node_ids),
@@ -392,34 +280,20 @@ def render_subgraph_snapshot(
 
 def _flow_svg(
     flow: Flow,
-    findings: list[Finding],
     highlight_node_ids: set[str],
     *,
     rendered_nodes: list[FlowNode],
     title: str | None,
-    finding: Finding | None = None,
-    diagnostic: dict[str, Any] | None = None,
     layout: dict[str, Any] | None = None,
 ) -> str:
     nodes = rendered_nodes
     omitted = max(0, len(flow.nodes) - len(nodes))
-    layout = layout or _flow_layout(flow, findings, highlight_node_ids, rendered_nodes=nodes)
+    layout = layout or _flow_layout(flow, highlight_node_ids, rendered_nodes=nodes)
     width = int(layout["width"])
     height = int(layout["height"])
     node_width = int(layout["node_width"])
     node_height = int(layout["node_height"])
     positions = layout["positions"]
-    panel = (
-        _finding_panel(
-            finding,
-            diagnostic,
-            x=int(layout["panel_x"]),
-            y=int(layout["panel_y"]),
-            width=int(layout["panel_width"]),
-        )
-        if finding and diagnostic
-        else None
-    )
     parts = [
         _svg_open(width, height, title or flow.name),
         _style(),
@@ -435,11 +309,10 @@ def _flow_svg(
         _text(
             28,
             82,
-            f"{len(flow.nodes)} nodes - {len(flow.edges)} edges - {len(findings)} findings",
+            f"{len(flow.nodes)} nodes - {len(flow.edges)} edges",
             "meta",
         ),
     ]
-    node_finding_counts = _node_finding_counts(findings)
     for edge in flow.edges:
         if edge.source not in positions or edge.target not in positions:
             continue
@@ -454,7 +327,6 @@ def _flow_svg(
                 node_width,
                 node_height,
                 highlighted=node.id in highlight_node_ids,
-                finding_count=node_finding_counts.get(node.id, 0),
             )
         )
     if omitted:
@@ -466,8 +338,6 @@ def _flow_svg(
                 "meta",
             )
         )
-    if panel:
-        parts.append(str(panel["svg"]))
     parts.append("</svg>")
     return "\n".join(parts)
 
@@ -509,7 +379,6 @@ def _subgraph_svg(
 
     for section, item in zip(layout["sections"], rendered, strict=True):
         flow = item.flow
-        findings = item.findings
         nodes = item.nodes
         highlighted = item.highlighted
         section_y = int(section["y"])
@@ -531,7 +400,6 @@ def _subgraph_svg(
             ]
         )
         flow_positions = {node.id: positions[node.id] for node in nodes if node.id in positions}
-        node_finding_counts = _node_finding_counts(findings)
         for edge in flow.edges:
             if edge.source not in flow_positions or edge.target not in flow_positions:
                 continue
@@ -546,7 +414,6 @@ def _subgraph_svg(
                     node_width,
                     node_height,
                     highlighted=node.id in highlighted,
-                    finding_count=node_finding_counts.get(node.id, 0),
                 )
             )
         omitted = max(0, len(flow.nodes) - len(nodes))
@@ -570,7 +437,6 @@ def _impact_svg(
     changed_files: list[str],
     direct: list[Flow],
     transitive: list[Flow],
-    findings: list[Finding],
     *,
     rendered_direct: list[Flow],
     rendered_transitive: list[Flow],
@@ -582,7 +448,6 @@ def _impact_svg(
         changed_files,
         direct,
         transitive,
-        findings,
         rendered_direct=rendered_direct,
         rendered_transitive=rendered_transitive,
         target_labels=target_labels,
@@ -611,7 +476,7 @@ def _impact_svg(
             28,
             58,
             f"{len(changed_files)} changed files - {len(direct)} direct - "
-            f"{len(transitive)} caller impact - {len(findings)} findings",
+            f"{len(transitive)} caller impact",
             "subtitle",
         ),
     ]
@@ -686,25 +551,20 @@ def _impact_target_labels(
     *,
     target_flow_ids: list[str],
     target_symbols: list[str],
-    target_finding_ids: list[str],
     target_dependency_paths: list[str],
 ) -> list[str]:
     labels: list[str] = []
     labels.extend(f"flow:{item}" for item in target_flow_ids)
     labels.extend(f"symbol:{item}" for item in target_symbols)
-    labels.extend(f"finding:{item}" for item in target_finding_ids)
     labels.extend(f"path:{item}" for item in target_dependency_paths)
     return labels
 
 
 def _flow_layout(
     flow: Flow,
-    findings: list[Finding],
     highlight_node_ids: set[str],
     *,
     rendered_nodes: list[FlowNode],
-    finding: Finding | None = None,
-    diagnostic: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     width = SNAPSHOT_WIDTH
     header_height = 108
@@ -717,11 +577,7 @@ def _flow_layout(
         for index, node in enumerate(rendered_nodes)
     }
     graph_height = header_height + max(1, len(rendered_nodes)) * (node_height + row_gap) + 86
-    panel_height = _finding_panel_height(finding, diagnostic) if finding and diagnostic else 0
-    panel_x = SNAPSHOT_MARGIN_X
-    panel_y = graph_height + 18 if panel_height else 0
-    panel_width = DIAGNOSTIC_PANEL_WIDTH
-    height = panel_y + panel_height + 44 if panel_height else graph_height
+    height = graph_height
     rendered_edge_count = sum(
         edge.source in positions and edge.target in positions for edge in flow.edges
     )
@@ -736,15 +592,10 @@ def _flow_layout(
         "node_height": node_height,
         "x": x,
         "graph_height": graph_height,
-        "panel_height": panel_height,
-        "panel_x": panel_x,
-        "panel_y": panel_y,
-        "panel_width": panel_width,
         "positions": positions,
         "rendered_edge_count": rendered_edge_count,
         "omitted_edge_count": max(0, len(flow.edges) - rendered_edge_count),
         "highlighted_node_count": len(highlight_node_ids),
-        "finding_count": len(findings),
     }
 
 
@@ -772,16 +623,6 @@ def _flow_layout_payload(
         },
         "rendered_edge_count": layout["rendered_edge_count"],
         "omitted_edge_count": layout["omitted_edge_count"],
-        "diagnostic_panel": (
-            {
-                "x": layout["panel_x"],
-                "y": layout["panel_y"],
-                "width": layout["panel_width"],
-                "height": layout["panel_height"],
-            }
-            if layout["panel_height"]
-            else None
-        ),
         "compact": len(rendered_nodes) < len(flow.nodes),
         "node_positions": [
             {
@@ -832,7 +673,6 @@ def _impact_layout(
     changed_files: list[str],
     direct: list[Flow],
     transitive: list[Flow],
-    findings: list[Finding],
     *,
     rendered_direct: list[Flow],
     rendered_transitive: list[Flow],
@@ -872,7 +712,6 @@ def _impact_layout(
         "transitive_column": {"x": column_x, "y": transitive_y, "width": column_width},
         "changed_file_count": len(changed_files),
         "target_count": len(target_labels),
-        "finding_count": len(findings),
         "unresolved_target_count": len(unresolved_targets),
     }
 
@@ -929,7 +768,6 @@ def _impact_layout_quality(
             "transitive_flow_count": len(transitive),
             "rendered_transitive_flow_count": len(rendered_transitive),
             "omitted_transitive_flow_count": omitted_transitive,
-            "finding_count": int(layout["finding_count"]),
             "unresolved_target_count": int(layout["unresolved_target_count"]),
         },
         clarity=_layout_clarity(
@@ -1131,18 +969,6 @@ def _flow_layout_boxes(rendered_nodes: list[FlowNode], layout: dict[str, Any]) -
         for node in rendered_nodes
         if node.id in positions
     ]
-    panel_height = int(layout.get("panel_height") or 0)
-    if panel_height:
-        boxes.append(
-            _LayoutBox(
-                id="diagnostic-panel",
-                x=float(layout["panel_x"]),
-                y=float(layout["panel_y"]),
-                width=float(layout["panel_width"]),
-                height=float(panel_height),
-                kind="diagnostic_panel",
-            )
-        )
     return boxes
 
 
@@ -1382,19 +1208,14 @@ def _flow_node(
     height: int,
     *,
     highlighted: bool,
-    finding_count: int,
 ) -> str:
     x, y = position
     classes = ["node", f"kind-{node.kind.value}"]
     if highlighted:
         classes.append("highlight")
-    if finding_count:
-        classes.append("has-finding")
     shape = _node_shape(node.kind, x, y, width, height, " ".join(classes))
     label_lines = _wrap(node.label, 34, 2)
     meta = f"{node.location.path}:{node.location.start_line}"
-    if finding_count:
-        meta += f" - {finding_count} finding{'s' if finding_count != 1 else ''}"
     text_lines = [
         _text(x + width / 2, y + 28, line, "node-label", anchor="middle") for line in label_lines
     ]
@@ -1463,125 +1284,6 @@ def _impact_box(flow: Flow, x: int, y: int, height: int, *, width: int) -> str:
     return "\n".join(lines)
 
 
-def _finding_panel(
-    finding: Finding,
-    diagnostic: dict[str, Any],
-    *,
-    x: int,
-    y: int,
-    width: int,
-) -> dict[str, Any]:
-    lines = _finding_panel_lines(finding, diagnostic)
-    row_height = 17
-    height = _finding_panel_height(finding, diagnostic)
-    parts = [
-        f'<rect class="diagnostic-panel" x="{x}" y="{y}" width="{width}" '
-        f'height="{height}" rx="12" />',
-        _text(x + 14, y + 24, "Finding context", "panel-title"),
-    ]
-    cursor = y + 48
-    for line in lines:
-        parts.append(_text(x + 14, cursor, line, "panel-text"))
-        cursor += row_height
-    return {"height": height, "svg": "\n".join(parts)}
-
-
-def _finding_panel_height(finding: Finding, diagnostic: dict[str, Any]) -> int:
-    return 44 + len(_finding_panel_lines(finding, diagnostic)) * 17
-
-
-def _finding_panel_lines(finding: Finding, diagnostic: dict[str, Any]) -> list[str]:
-    lines = [
-        f"Evidence: {_enum_text(finding.evidence)}",
-        f"Severity: {_enum_text(finding.severity)}",
-    ]
-    confidence = diagnostic.get("confidence")
-    if isinstance(confidence, dict):
-        lines.append(
-            "Confidence: "
-            + _compact(
-                f"{confidence.get('score', 'n/a')} {confidence.get('basis', '')}",
-                34,
-            )
-        )
-    missing = diagnostic.get("missing")
-    if missing:
-        lines.append(f"Missing: {_compact(_value_summary(missing), 36)}")
-    expected = diagnostic.get("expected")
-    if expected:
-        lines.append(f"Expected: {_compact(_value_summary(expected), 34)}")
-    actual = diagnostic.get("actual")
-    if actual:
-        lines.append(f"Actual: {_compact(_value_summary(actual), 36)}")
-    review = diagnostic.get("review_prompt")
-    if review:
-        lines.extend(f"Review: {line}" for line in _wrap(str(review), 34, 2))
-    evidence = _evidence_lines(diagnostic.get("evidence_chain", []))
-    if evidence:
-        lines.append("Evidence chain:")
-        lines.extend(evidence)
-    return lines[:18]
-
-
-def _evidence_lines(chain: Any) -> list[str]:
-    if not isinstance(chain, list):
-        return []
-    useful = [
-        item
-        for item in chain
-        if isinstance(item, dict) and item.get("type") not in {"finding", "flow"}
-    ]
-    return [_compact(f"- {_evidence_summary(item)}", 36) for item in useful[:6]]
-
-
-def _evidence_summary(item: dict[str, Any]) -> str:
-    item_type = str(item.get("type", "evidence"))
-    if item_type == "implicit_fallback":
-        values = _value_summary(item.get("handled_values"))
-        return f"implicit fallback after {values}"
-    if item_type == "constant_guard":
-        return f"{item.get('constant')} always {item.get('guard_always')}"
-    if item_type == "handler_outcomes":
-        return "handler outcome can swallow error"
-    if item_type == "empty_branches":
-        return "empty branch performs no modeled work"
-    if item_type == "dispatch_outcomes":
-        return "dispatch fallthrough differs from exits"
-    if item_type == "related_decisions":
-        nodes = item.get("nodes")
-        count = len(nodes) if isinstance(nodes, list) else 0
-        return f"{count} related decision nodes"
-    if item.get("source"):
-        return f"{item_type} at {item.get('source')}"
-    return item_type.replace("_", " ")
-
-
-def _diagnostic_for_snapshot(
-    model: ProjectModel,
-    finding: Finding,
-    flow: Flow,
-    node: FlowNode | None,
-) -> dict[str, Any]:
-    diagnostic = finding.metadata.get("diagnostic")
-    if isinstance(diagnostic, dict):
-        return diagnostic
-    return diagnostic_for_finding(finding, flow=flow, node=node, model=model)
-
-
-def _value_summary(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, dict):
-        return ", ".join(f"{key}={_value_summary(item)}" for key, item in value.items())
-    if isinstance(value, list | tuple | set):
-        return ", ".join(str(item) for item in value)
-    return str(value)
-
-
-def _enum_text(value: Any) -> str:
-    return str(getattr(value, "value", value))
-
-
 def _style() -> str:
     return """
 <style>
@@ -1595,15 +1297,11 @@ def _style() -> str:
   .kind-decision { fill: #fff7ed; stroke: #f97316; }
   .kind-call { fill: #ecfeff; stroke: #0891b2; }
   .kind-error { fill: #fef2f2; stroke: #ef4444; }
-  .has-finding { stroke-width: 2; }
   .highlight { stroke: #2563eb; stroke-width: 3; filter: drop-shadow(0 2px 5px #bfdbfe); }
   .edge { fill: none; stroke: #64748b; stroke-width: 1.2; marker-end: url(#arrow); }
   .edge-label { fill: #475569; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
   .node-label { fill: #0f172a; font: 700 12px system-ui, sans-serif; }
   .node-meta { fill: #64748b; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .diagnostic-panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; }
-  .panel-title { fill: #0f172a; font: 700 13px system-ui, sans-serif; }
-  .panel-text { fill: #334155; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
 </style>
 <defs>
   <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">

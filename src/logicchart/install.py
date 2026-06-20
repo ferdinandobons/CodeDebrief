@@ -28,11 +28,11 @@ CODEX_MCP_END = "# logicchart:mcp-config:end"
 
 SKILL_DESCRIPTION = (
     "Use when answering codebase logic, behavior, workflow/flusso, decision, "
-    "state/status, change impact, testing, review-signal, or visual workflow/canvas "
-    "questions in a project that uses LogicChart. Prefer the LogicChart MCP "
-    "agent_context tool before broad searches, and use snapshot_slice, the canonical "
-    "workflow_slice Mermaid visual, or viewer_targets when the user asks to show, "
-    "visualize, render, diagram, canvas, workflow, flusso, or workflow_slice."
+    "state/status, change impact, testing, or visual workflow/canvas questions in a "
+    "project that uses LogicChart. Prefer the LogicChart MCP agent_context tool before "
+    "broad searches, and use snapshot_slice, the canonical workflow_slice Mermaid "
+    "visual, or viewer_targets when the user asks to show, visualize, render, diagram, "
+    "canvas, workflow, flusso, or workflow_slice."
 )
 
 SKILL_TEMPLATE = f"""---
@@ -48,10 +48,10 @@ configured.
 ## Default Workflow
 
 1. Call MCP `agent_context` before broad file-by-file search. Pass the user question plus
-   changed files, current file, selected code, flow id, symbol, finding id, or dependency
-   path when available.
+   changed files, current file, selected code, flow id, symbol, or dependency path when
+   available.
 2. Inspect `workflow_slice`. Answer from deterministic fields: presentation,
-   primary/supporting flows, ordered steps, decisions, source ranges, and review signals.
+   primary/supporting flows, ordered steps, decisions, source ranges, calls, and visuals.
 3. Use `expand_slice`, `workflow_path`, `explain_flow`, `explain_node`, or `explain_edge`
    only when the first slice is too narrow.
 4. After substantial source changes, run `update_logicchart` and `validate_artifacts`;
@@ -76,7 +76,7 @@ flusso, or similar code path:
    selected workflow, not every low-signal implementation node, but do not remove facts
    needed to understand the logical path.
 5. Call `snapshot_slice` using `workflow_slice.id`, `workflow_slice.handle.flow_ids`, and
-   `workflow_slice.handle.finding_ids`.
+   any `workflow_slice` handles returned by LogicChart.
 6. Show the SVG snapshot or rendered visual first when the client supports it. If the
    client has an SVG/HTML visualization widget, render `snapshot.svg` with that widget
    instead of pasting the SVG or Mermaid as text.
@@ -117,8 +117,7 @@ flusso, or similar code path:
 - MCP is local-first and deterministic; do not ask for provider keys for the primary
   workflow.
 - Keep agent-authored annotations separate from deterministic facts.
-- Treat `VERIFIED` as syntax-backed, `INFERRED` as heuristic, and `POTENTIAL_GAP` as a
-  review candidate, not a confirmed defect.
+- Use LogicChart to explain modeled code logic, not to present possible defects.
 - Use `logicchart view` only for the human manual UI.
 """
 
@@ -130,11 +129,11 @@ def _instruction_block(local_notes: str = "") -> str:
 
 This project uses LogicChart to keep decision flows synchronized with the source code.
 
-For codebase questions about behavior, decisions, missing cases, or change impact:
+For codebase questions about behavior, decisions, workflow structure, or change impact:
 
 1. Prefer the LogicChart MCP `agent_context` tool before broad file-by-file searches.
 2. Use `agent_context` for substantial changes, passing changed files, selected code,
-   current file, flow id, symbol, finding id, or dependency path when available; inspect
+   current file, flow id, symbol, or dependency path when available; inspect
    its returned `workflow_slice` before answering.
 3. When the user asks to show a workflow, flusso, visual flow, canvas, or
    `workflow_slice`, prefer a visual answer: use `snapshot_slice` when available and render
@@ -167,8 +166,7 @@ For codebase questions about behavior, decisions, missing cases, or change impac
    related area. Show raw JSON or YAML only when explicitly requested.
 4. Use `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`, `explain_node`,
    or `explain_edge` only when the first slice needs more precise context.
-5. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` review signals.
-6. Use `logicchart view ...` only when a human wants the manual UI flowchart.
+5. Use `logicchart view ...` only when a human wants the manual UI flowchart.
 
 When helping a user set up or learn LogicChart:
 
@@ -184,9 +182,9 @@ When helping a user set up or learn LogicChart:
 
 After a substantial code change:
 
-1. Use LogicChart MCP `agent_context` to review affected entry points and callers.
-2. Ground the review in the returned `workflow_slice`; expand it through MCP only when
-   the initial slice omits relevant callers, callees, domain states, or findings.
+1. Use LogicChart MCP `agent_context` to inspect affected entry points and callers.
+2. Ground the explanation in the returned `workflow_slice`; expand it through MCP only
+   when the initial slice omits relevant callers, callees, domain states, or paths.
 3. Run `logicchart update`; use `logicchart update --full` after analyzer upgrades or
    when cached file models should be ignored.
 4. Commit synchronized changes to:
@@ -204,9 +202,8 @@ For viewer/UI changes:
 {notes}
 {LOCAL_NOTES_END}
 
-Do not present inferred review signals as confirmed defects. LogicChart marks syntax-backed
-facts as `VERIFIED`, deterministic heuristics as `INFERRED`, and review candidates as
-`POTENTIAL_GAP`.
+LogicChart is a comprehension and navigation tool for source-grounded workflows. Use it
+to explain modeled logic, not to present possible defects.
 {END}
 """
 
@@ -319,10 +316,25 @@ def _extract_legacy_local_notes(managed: str) -> str:
     start = managed.find(marker)
     if start == -1:
         return ""
-    end = managed.find("\nDo not present inferred", start)
-    if end == -1:
-        end = len(managed)
-    return managed[start:end].strip()
+    tail = managed[start:].splitlines()
+    collected: list[str] = []
+    saw_list_item = False
+    for line in tail:
+        stripped = line.strip()
+        if not stripped:
+            collected.append(line)
+            continue
+        if not collected or stripped == marker:
+            collected.append(line)
+            continue
+        if re.match(r"^(?:\d+\.|[-*])\s+", stripped):
+            saw_list_item = True
+            collected.append(line)
+            continue
+        if saw_list_item:
+            break
+        collected.append(line)
+    return "\n".join(collected).strip()
 
 
 def _install_codex_mcp_config(root: Path) -> Path | None:

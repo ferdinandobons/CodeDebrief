@@ -21,7 +21,6 @@ from logicchart.mcp_server import (
     _domain_logic_map,
     _enrichment_options,
     _enrichment_preview_payload,
-    _finding_dict,
     _model_load_error,
     _quality_report,
     _unknown_target_error,
@@ -210,7 +209,6 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
             "current_file": None,
             "flow_id": None,
             "symbol": None,
-            "finding_id": None,
             "dependency_path": None,
             "domain": None,
             "value": None,
@@ -299,7 +297,6 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
                 "current_file": None,
                 "flow_id": None,
                 "symbol": None,
-                "finding_id": None,
                 "dependency_path": None,
                 "domain": None,
                 "value": None,
@@ -317,43 +314,6 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
             token_budget=600,
         )["presentation"]["canonical_visual"]
     )
-
-
-def test_mcp_finding_dict_includes_optional_annotation(tmp_path: Path) -> None:
-    (tmp_path / "service.py").write_text(
-        """
-from enum import Enum
-
-
-class Status(Enum):
-    OPEN = "open"
-    CLOSED = "closed"
-    DELETED = "deleted"
-
-
-def handle(status):
-    match status:
-        case Status.OPEN:
-            return "open"
-        case Status.CLOSED:
-            return "closed"
-""",
-        encoding="utf-8",
-    )
-    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
-    finding = model.findings[0]
-    flow = next(flow for flow in model.flows if flow.id == finding.flow_id)
-    row = _finding_dict(
-        finding,
-        model,
-        {"findings": {finding.id: {"summary": "Missing deleted branch."}}},
-    )
-    indexed_row = _finding_dict(finding, model, flows_by_id={flow.id: flow})
-
-    assert row["annotation"]["summary"] == "Missing deleted branch."
-    assert row["metadata"]["diagnostic"]["rule_id"] == finding.kind
-    assert indexed_row["metadata"]["diagnostic"] == row["metadata"]["diagnostic"]
-    assert row["next_tools"]["finding_context"]["tool"] == "get_finding_context"
 
 
 def test_mcp_lists_and_queries_flows(tmp_path: Path) -> None:
@@ -398,12 +358,8 @@ def authorize(user):
                     "logicchart_summary",
                     "agent_context",
                     "analysis_quality",
-                    "explain_finding_chain",
-                    "get_finding_context",
-                    "finding_rules",
                     "get_flow_navigation",
                     "get_flow_snapshot",
-                    "get_finding_snapshot",
                     "get_subgraph_snapshot",
                     "get_impact_snapshot",
                     "preview_enrichment",
@@ -415,7 +371,6 @@ def authorize(user):
                     "domain_map",
                     "where_state_handled",
                     "find_decision_nodes",
-                    "review_queue",
                     "context_pack",
                     "validate_artifacts",
                     "expand_slice",
@@ -425,12 +380,19 @@ def authorize(user):
                     "explain_node",
                     "explain_edge",
                 } <= names
+                assert {
+                    "explain_finding_chain",
+                    "get_finding_context",
+                    "finding_rules",
+                    "get_finding_snapshot",
+                    "review_queue",
+                }.isdisjoint(names)
 
                 listed = await session.call_tool("list_flows", {"entrypoints_only": False})
                 assert not listed.isError
                 listed_rows = listed.structuredContent["result"]  # type: ignore[index]
                 assert listed_rows[0]["id"] == flow.id  # type: ignore[index]
-                assert listed_rows[0]["findings"] == 0  # type: ignore[index]
+                assert "findings" not in listed_rows[0]  # type: ignore[index]
 
                 # Spec §5.2: every query/list tool exposes a token_budget cap.
                 schema_by_name = {tool.name: tool.inputSchema for tool in tools.tools}
@@ -442,19 +404,14 @@ def authorize(user):
                     "get_flow",
                     "get_flow_navigation",
                     "get_flow_snapshot",
-                    "get_finding_snapshot",
                     "get_subgraph_snapshot",
                     "get_impact_snapshot",
                     "query_logic",
                     "analysis_quality",
-                    "explain_finding_chain",
-                    "get_finding_context",
-                    "finding_rules",
                     "analyze_impact",
                     "preview_enrichment",
                     "preview_annotation_targets",
                     "domain_map",
-                    "review_queue",
                     "context_pack",
                     "agent_context",
                     "expand_slice",
@@ -474,7 +431,6 @@ def authorize(user):
                     "current_file",
                     "flow_id",
                     "symbol",
-                    "finding_id",
                     "dependency_path",
                     "domain",
                     "value",
@@ -483,40 +439,27 @@ def authorize(user):
                 snapshot_slice_properties = schema_by_name["snapshot_slice"].get("properties", {})
                 assert "include_svg" in snapshot_slice_properties
                 context_properties = schema_by_name["context_pack"].get("properties", {})
-                assert {"flow_ids", "symbols", "finding_ids", "dependency_paths"} <= set(
-                    context_properties
-                )
+                assert {"flow_ids", "symbols", "dependency_paths"} <= set(context_properties)
                 assert {
                     "language",
                     "source_path",
                     "domain",
                     "value",
-                    "finding_kind",
-                    "finding_severity",
-                    "finding_evidence",
                 } <= set(context_properties)
                 assert "visual_byte_budget" in context_properties
                 for impact_tool in ("analyze_impact", "get_impact_snapshot"):
                     impact_properties = schema_by_name[impact_tool].get("properties", {})
                     assert "dependency_paths" in impact_properties
-                query_properties = schema_by_name["query_logic"].get("properties", {})
-                assert {"finding_kind", "finding_severity", "finding_evidence"} <= set(
-                    query_properties
-                )
                 enrichment_properties = schema_by_name["preview_enrichment"].get("properties", {})
-                assert {"flow_ids", "finding_ids", "max_nodes_per_flow"} <= set(
-                    enrichment_properties
-                )
+                assert {"flow_ids", "max_nodes_per_flow"} <= set(enrichment_properties)
                 annotation_target_properties = schema_by_name["preview_annotation_targets"].get(
                     "properties", {}
                 )
-                assert {"flow_ids", "finding_ids", "max_nodes_per_flow"} <= set(
-                    annotation_target_properties
-                )
+                assert {"flow_ids", "max_nodes_per_flow"} <= set(annotation_target_properties)
                 write_annotation_properties = schema_by_name["write_annotations"].get(
                     "properties", {}
                 )
-                assert {"flows", "nodes", "findings", "scopes", "replace_existing"} <= set(
+                assert {"flows", "nodes", "scopes", "replace_existing"} <= set(
                     write_annotation_properties
                 )
 
@@ -539,7 +482,7 @@ def authorize(user):
                 assert not agent_context.isError
                 agent_context_payload = agent_context.structuredContent  # type: ignore[assignment]
                 assert agent_context_payload["tool"] == "agent_context"  # type: ignore[index]
-                assert "confirmed defects" in agent_context_payload["guardrail"]  # type: ignore[index]
+                assert "source-grounded" in agent_context_payload["guardrail"]  # type: ignore[index]
                 assert (  # type: ignore[index]
                     agent_context_payload["inputs"]["current_file"] == "app.py"
                 )
@@ -596,7 +539,6 @@ def authorize(user):
                     {
                         "slice_id": workflow_slice["id"],
                         "flow_ids": workflow_slice["handle"]["flow_ids"],
-                        "finding_ids": workflow_slice["handle"]["finding_ids"],
                         "direction": "neighbors",
                         "token_budget": 480,
                     },
@@ -610,7 +552,6 @@ def authorize(user):
                     {
                         "slice_id": workflow_slice["id"],
                         "flow_ids": workflow_slice["handle"]["flow_ids"],
-                        "finding_ids": workflow_slice["handle"]["finding_ids"],
                         "token_budget": 480,
                     },
                 )
@@ -633,7 +574,6 @@ def authorize(user):
                     {
                         "slice_id": workflow_slice["id"],
                         "flow_ids": workflow_slice["handle"]["flow_ids"],
-                        "finding_ids": workflow_slice["handle"]["finding_ids"],
                         "include_svg": False,
                         "token_budget": 480,
                     },
@@ -681,7 +621,7 @@ def authorize(user):
                 summary = await session.call_tool("logicchart_summary", {})
                 assert not summary.isError
                 assert "flows" in str(summary.content)
-                assert "finding_rules" in str(summary.content)
+                assert "finding_rules" not in str(summary.content)
                 assert "quality" in str(summary.content)
                 assert "language_capabilities" in str(summary.content)
                 assert "Annotated authorization" not in str(summary.content)
@@ -697,7 +637,9 @@ def authorize(user):
                 assert enrichment_payload["provider_call_made"] is False  # type: ignore[index]
                 assert enrichment_payload["send_required"] is True  # type: ignore[index]
                 assert enrichment_payload["targets"]["flow_ids"] == [flow.id]  # type: ignore[index]
+                assert "finding_ids" not in enrichment_payload["targets"]  # type: ignore[index]
                 assert enrichment_payload["request"]["flows"][0]["id"] == flow.id  # type: ignore[index]
+                assert "findings" not in enrichment_payload["request"]  # type: ignore[index]
                 assert "LOGICCHART_LLM_API_KEY" not in str(enrichment.content)
                 assert "agent-authored annotations" in enrichment_payload["guardrail"]  # type: ignore[index]
                 assert (  # type: ignore[index]
@@ -815,40 +757,6 @@ def authorize(user):
                     == "python_ast"
                 )
                 assert isinstance(quality_payload["attention"], list)  # type: ignore[index]
-
-                rules = await session.call_tool("finding_rules", {"kind": "missing_branch"})
-                assert not rules.isError
-                assert "Missing explicit fallback" in str(rules.content)
-                rule_payload = rules.structuredContent["result"][0]  # type: ignore[index]
-                assert "true_positive_example" in rule_payload
-                assert "intentional_suppression_example" in rule_payload
-                missing_finding = await session.call_tool(
-                    "explain_finding_chain",
-                    {"finding_id": "missing-finding"},
-                )
-                assert not missing_finding.isError
-                missing_finding_payload = missing_finding.structuredContent  # type: ignore[assignment]
-                assert missing_finding_payload["error_code"] == "finding_not_found"  # type: ignore[index]
-                assert (  # type: ignore[index]
-                    missing_finding_payload["next_tools"]["review_queue"]["tool"] == "review_queue"
-                )
-                missing_finding_context = await session.call_tool(
-                    "get_finding_context",
-                    {"finding_id": "missing-finding"},
-                )
-                assert not missing_finding_context.isError
-                assert (  # type: ignore[index]
-                    missing_finding_context.structuredContent["error_code"] == "finding_not_found"
-                )
-                missing_finding_snapshot = await session.call_tool(
-                    "get_finding_snapshot",
-                    {"finding_id": "missing-finding"},
-                )
-                assert not missing_finding_snapshot.isError
-                assert (  # type: ignore[index]
-                    missing_finding_snapshot.structuredContent["error_code"]
-                    == "snapshot_finding_not_found"
-                )
 
                 navigation = await session.call_tool(
                     "get_flow_navigation",
@@ -1135,21 +1043,9 @@ def test_query_model_and_mcp_query_logic_have_same_shape(tmp_path: Path) -> None
     )
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     write_artifacts(tmp_path, result.model)
-    assert result.model.findings
     expected_rows = [match.to_dict() for match in query_model(result.model, "admin authorize")]
-    expected_finding_rows = [
-        match.to_dict()
-        for match in query_model(
-            result.model,
-            "",
-            finding_kind="missing_branch",
-            finding_severity="warning",
-            finding_evidence="POTENTIAL_GAP",
-        )
-    ]
 
     mcp_rows: list[dict[str, object]] = []
-    mcp_finding_rows: list[dict[str, object]] = []
     mcp_context_payloads: list[dict[str, object]] = []
 
     async def call_mcp() -> None:
@@ -1167,27 +1063,9 @@ def test_query_model_and_mcp_query_logic_have_same_shape(tmp_path: Path) -> None
                 # (each content block is one item serialized on its own).
                 payload = response.structuredContent["result"]  # type: ignore[index]
                 mcp_rows.extend(payload)
-                finding_response = await session.call_tool(
-                    "query_logic",
-                    {
-                        "question": "",
-                        "finding_kind": "missing_branch",
-                        "finding_severity": "warning",
-                        "finding_evidence": "POTENTIAL_GAP",
-                    },
-                )
-                assert not finding_response.isError
-                finding_payload = finding_response.structuredContent["result"]  # type: ignore[index]
-                mcp_finding_rows.extend(finding_payload)
                 context_response = await session.call_tool(
                     "context_pack",
-                    {
-                        "question": "",
-                        "finding_kind": "missing_branch",
-                        "finding_severity": "warning",
-                        "finding_evidence": "POTENTIAL_GAP",
-                        "token_budget": 240,
-                    },
+                    {"question": "admin authorize", "token_budget": 240},
                 )
                 assert not context_response.isError
                 mcp_context_payloads.append(context_response.structuredContent)  # type: ignore[arg-type]
@@ -1196,24 +1074,10 @@ def test_query_model_and_mcp_query_logic_have_same_shape(tmp_path: Path) -> None
 
     assert expected_rows == mcp_rows
     assert expected_rows
-    assert expected_finding_rows == mcp_finding_rows
-    assert expected_finding_rows
-    assert any(
-        "finding evidence matches `POTENTIAL_GAP`" in row["reasons"]
-        for row in expected_finding_rows
-    )
     assert len(mcp_context_payloads) == 1
     context_payload = mcp_context_payloads[0]
-    assert context_payload["query_filters"] == {
-        "finding_kind": "missing_branch",
-        "finding_severity": "warning",
-        "finding_evidence": "POTENTIAL_GAP",
-    }
-    assert context_payload["query"] == expected_finding_rows
-    assert context_payload["review"]
-    assert {
-        (row["kind"], row["severity"], row["evidence"]) for row in context_payload["review"]
-    } == {("missing_branch", "warning", "POTENTIAL_GAP")}
+    assert context_payload["query_filters"] == {}
+    assert "review" not in context_payload
     for row in expected_rows:
         assert set(row) == {
             "flow_id",
@@ -1224,14 +1088,7 @@ def test_query_model_and_mcp_query_logic_have_same_shape(tmp_path: Path) -> None
             "scope",
             "score",
             "reasons",
-            "finding_count",
-            "finding_ids",
-            "finding_kinds",
-            "finding_severities",
-            "finding_evidence",
-            "omitted_finding_count",
             "subgraph_flow_ids",
-            "subgraph_finding_ids",
             "next_tools",
             "source",
         }
@@ -1239,19 +1096,9 @@ def test_query_model_and_mcp_query_logic_have_same_shape(tmp_path: Path) -> None
         assert row["next_tools"]["context_pack"]["tool"] == "context_pack"
         assert row["next_tools"]["subgraph_snapshot"]["tool"] == "get_subgraph_snapshot"
         assert row["subgraph_flow_ids"] == [row["flow_id"]]
-    for row in expected_finding_rows:
-        assert row["finding_count"] == 1
-        assert row["finding_ids"]
-        assert row["finding_kinds"] == ["missing_branch"]
-        assert row["finding_severities"] == ["warning"]
-        assert row["finding_evidence"] == ["POTENTIAL_GAP"]
-        assert row["subgraph_finding_ids"] == row["finding_ids"]
-        assert (
-            row["next_tools"]["subgraph_snapshot"]["arguments"]["finding_ids"] == row["finding_ids"]
-        )
 
 
-def test_domain_map_does_not_attach_findings_to_unrelated_same_flow_domain(
+def test_domain_map_reports_independent_decision_domains(
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "app.py"
@@ -1279,13 +1126,15 @@ def route(user, order):
     )
 
     concepts = {row["domain"]: row for row in payload["concepts"]}
-    assert concepts["status"]["finding_count"] == 1
-    assert [item["kind"] for item in concepts["status"]["findings"]] == ["missing_branch"]
-    assert concepts["role"]["finding_count"] == 0
-    assert concepts["role"]["findings"] == []
+    assert concepts["status"]["handled_values"] == ["draft", "paid"]
+    assert concepts["role"]["handled_values"] == ["admin"]
+    assert "findings" not in concepts["status"]
+    assert "missing_values" not in concepts["status"]
+    assert "findings" not in concepts["role"]
+    assert "missing_values" not in concepts["role"]
 
 
-def test_domain_map_keeps_enum_exhaustiveness_findings_on_matching_domain(
+def test_domain_map_reports_enum_handled_values_without_inferring_missing_cases(
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "app.py"
@@ -1322,10 +1171,10 @@ def route(status):
     assert len(payload["concepts"]) == 1
     concept = payload["concepts"][0]
     assert concept["domain"] == "Status"
-    assert concept["missing_values"] == ["Status.PAID"]
+    assert concept["handled_values"] == ["Status.DRAFT", "Status.OPEN"]
     assert concept["decision_nodes"][0]["source_range"]["path"] == "app.py"
-    assert concept["findings"][0]["source_range"]["path"] == "app.py"
-    assert [item["kind"] for item in concept["findings"]] == ["enum_exhaustiveness"]
+    assert "findings" not in concept
+    assert "missing_values" not in concept
 
     missing_value_payload = _domain_logic_map(
         model,
@@ -1335,11 +1184,7 @@ def route(status):
         token_budget=0,
     )
 
-    assert len(missing_value_payload["concepts"]) == 1
-    missing_value_concept = missing_value_payload["concepts"][0]
-    assert missing_value_concept["domain"] == "Status"
-    assert missing_value_concept["handled_values"] == ["Status.DRAFT", "Status.OPEN"]
-    assert missing_value_concept["missing_values"] == ["Status.PAID"]
+    assert missing_value_payload["concepts"] == []
 
 
 def test_domain_map_caps_snapshot_targets_with_token_budget(tmp_path: Path) -> None:
@@ -1404,7 +1249,7 @@ def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> 
                 payload = summary.structuredContent  # type: ignore[assignment]
                 assert payload["error_code"] == "artifact_missing"  # type: ignore[index]
                 assert payload["recoverable"] is True  # type: ignore[index]
-                assert "review signal" in payload["guardrail"]  # type: ignore[index]
+                assert "generated artifacts" in payload["guardrail"]  # type: ignore[index]
                 assert (  # type: ignore[index]
                     payload["next_tools"]["update_model"]["tool"] == "update_logicchart"
                 )
@@ -1584,14 +1429,12 @@ def test_mcp_enrichment_preview_payload_contract(tmp_path: Path) -> None:
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     write_artifacts(tmp_path, result.model)
     config = LogicChartConfig.load(tmp_path)
-    finding = result.model.findings[0]
+    flow = next(item for item in result.model.flows if item.name == "route")
     options = _enrichment_options(
         scope=None,
-        flow_ids=None,
-        finding_ids=[finding.id],
+        flow_ids=[flow.id],
         max_flows=8,
         max_nodes_per_flow=12,
-        max_findings=12,
         token_budget=240,
     )
     preview = build_enrichment_preview(tmp_path, result.model, config, options)
@@ -1604,10 +1447,10 @@ def test_mcp_enrichment_preview_payload_contract(tmp_path: Path) -> None:
     assert payload["provider_call_made"] is False
     assert payload["request"]["selection"]["max_flows"] == 1
     assert payload["request"]["selection"]["max_nodes_per_flow"] == 4
-    assert payload["targets"]["flow_ids"] == [finding.flow_id]
-    assert payload["targets"]["finding_ids"] == [finding.id]
-    assert payload["next_tools"]["review_queue"]["tool"] == "review_queue"
-    assert payload["next_tools"]["subgraph_snapshot"]["arguments"]["finding_ids"] == [finding.id]
+    assert payload["targets"]["flow_ids"] == [flow.id]
+    assert "finding_ids" not in payload["targets"]
+    assert "findings" not in payload["request"]
+    assert payload["next_tools"]["subgraph_snapshot"]["arguments"]["flow_ids"] == [flow.id]
     assert "next_cli" not in payload
     assert "logicchart validate" in payload["next_actions"][2]
     assert "agent-authored annotations" in payload["guardrail"]
@@ -1625,15 +1468,13 @@ def test_mcp_context_visual_pack_direct_contracts(tmp_path: Path) -> None:
     )
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     model = result.model
-    finding = model.findings[0]
-    flow = next(item for item in model.flows if item.id == finding.flow_id)
+    flow = next(item for item in model.flows if item.name == "dispatch")
     impact = impact_model(model, [], flow_ids=[flow.id])
 
     payload = _context_visual_pack(
         model,
         impact=impact,
         matches=[],
-        review_findings=[finding],
         scope=None,
         include_visual=True,
         token_budget=120,
@@ -1644,7 +1485,6 @@ def test_mcp_context_visual_pack_direct_contracts(tmp_path: Path) -> None:
     assert payload["next_tools"]["impact_snapshot"]["arguments"]["flow_ids"] == [flow.id]
     assert payload["next_tools"]["subgraph_snapshot"]["arguments"] == {
         "flow_ids": [flow.id],
-        "finding_ids": [finding.id],
         "format": "svg",
         "token_budget": 120,
     }
@@ -1654,19 +1494,16 @@ def test_mcp_context_visual_pack_direct_contracts(tmp_path: Path) -> None:
     assert payload["subgraph_snapshot"]["layout_quality"]["status"] == "compact"
     assert payload["subgraph_snapshot"]["layout_quality"]["counts"]["omitted_node_count"] >= 1
     assert payload["subgraph_snapshot"]["rendered_flow_ids"] == [flow.id]
-    assert payload["subgraph_snapshot"]["finding_ids"] == [finding.id]
     assert payload["flow_snapshots"][0]["flow_id"] == flow.id
     assert payload["flow_snapshots"][0]["layout_quality"]["status"] == "compact"
     assert payload["flow_snapshots"][0]["layout_quality"]["counts"]["omitted_node_count"] >= 1
-    assert payload["finding_snapshots"][0]["finding_id"] == finding.id
-    assert payload["finding_snapshots"][0]["layout_quality"]["counts"]["rendered_node_count"] >= 1
+    assert "finding_snapshots" not in payload
     assert payload["snapshot_budget"]["used_visual_bytes"] > 0
 
     capped = _context_visual_pack(
         model,
         impact=impact,
         matches=[],
-        review_findings=[finding],
         scope=None,
         include_visual=True,
         token_budget=120,
@@ -1678,7 +1515,6 @@ def test_mcp_context_visual_pack_direct_contracts(tmp_path: Path) -> None:
     assert "subgraph_snapshot" not in capped
     assert capped["subgraph_snapshot_omitted_reason"] == "visual_byte_budget"
     assert capped["flow_snapshots"] == []
-    assert capped["finding_snapshots"] == []
     assert capped["omitted_visual_snapshot_reasons"] == {
         "visual_byte_budget": capped["omitted_visual_snapshot_count"]
     }
@@ -1737,10 +1573,6 @@ def test_mcp_recovery_payload_helpers_are_actionable(tmp_path: Path) -> None:
     assert unknown_flow["next_tools"]["list_flows"]["tool"] == "list_flows"
     assert unknown_flow["next_tools"]["query_logic"]["arguments"]["question"] == "missing-flow"
 
-    unknown_finding = _unknown_target_error("finding", "missing-finding")
-    assert unknown_finding["error_code"] == "finding_not_found"
-    assert unknown_finding["next_tools"]["review_queue"]["tool"] == "review_queue"
-
     stale = _validation_payload({"ok": False, "errors": ["stale"], "warnings": []})
     assert stale["next_tools"]["update_model"]["tool"] == "update_logicchart"
     assert stale["next_cli"] == [
@@ -1763,142 +1595,6 @@ def test_mcp_recovery_payload_helpers_are_actionable(tmp_path: Path) -> None:
     }
     assert workflow["next_artifacts"]["local_html"] is None
     assert workflow["next_artifacts"]["commit"][0].endswith("logic-flow.json")
-
-
-def test_mcp_review_queue_prioritizes_findings(tmp_path: Path) -> None:
-    source = tmp_path / "app.py"
-    source.write_text(
-        "def dispatch(order):\n"
-        "    if order.status == Status.OPEN:\n"
-        "        return 'open'\n"
-        "    elif order.status == Status.CLOSED:\n"
-        "        return 'closed'\n",
-        encoding="utf-8",
-    )
-    result = ProjectAnalyzer(tmp_path).analyze(full=True)
-    write_artifacts(tmp_path, result.model)
-
-    captured: list[dict[str, object]] = []
-
-    async def call_review_queue() -> None:
-        parameters = StdioServerParameters(
-            command=sys.executable,
-            args=["-m", "logicchart.cli", "mcp", str(tmp_path)],
-        )
-        async with stdio_client(parameters) as streams:
-            read_stream, write_stream = streams
-            async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
-                response = await session.call_tool("review_queue", {"token_budget": 120})
-                assert not response.isError
-                captured.extend(response.structuredContent["result"])  # type: ignore[index]
-                snapshot = await session.call_tool(
-                    "get_finding_snapshot",
-                    {"finding_id": captured[0]["id"]},
-                )
-                assert not snapshot.isError
-                assert "<svg" in str(snapshot.content)
-                subgraph_snapshot = await session.call_tool(
-                    "get_subgraph_snapshot",
-                    {"finding_ids": [captured[0]["id"]], "token_budget": 160},
-                )
-                assert not subgraph_snapshot.isError
-                subgraph_payload = subgraph_snapshot.structuredContent  # type: ignore[assignment]
-                assert subgraph_payload["finding_ids"] == [captured[0]["id"]]  # type: ignore[index]
-                assert subgraph_payload["highlighted_node_ids"]  # type: ignore[index]
-                context = await session.call_tool(
-                    "get_finding_context",
-                    {"finding_id": captured[0]["id"], "token_budget": 160},
-                )
-                assert not context.isError
-                payload = context.structuredContent  # type: ignore[assignment]
-                assert payload["finding"]["id"] == captured[0]["id"]  # type: ignore[index]
-                assert payload["evidence_guardrail"]["tier"] == "POTENTIAL_GAP"  # type: ignore[index]
-                assert payload["focus_flow"]["name"] == "dispatch"  # type: ignore[index]
-                assert payload["related_nodes"]  # type: ignore[index]
-                assert (
-                    payload["next_tools"]["visual_snapshot"]["tool"]  # type: ignore[index]
-                    == "get_finding_snapshot"
-                )
-                assert (
-                    payload["next_tools"]["subgraph_snapshot"]["tool"]  # type: ignore[index]
-                    == "get_subgraph_snapshot"
-                )
-                explanation = await session.call_tool(
-                    "explain_finding_chain",
-                    {"finding_id": captured[0]["id"], "token_budget": 160},
-                )
-                assert not explanation.isError
-                assert "get_finding_context" in str(explanation.content)
-                visual_context = await session.call_tool(
-                    "context_pack",
-                    {
-                        "question": "dispatch status",
-                        "changed_files": ["app.py"],
-                        "include_visual": True,
-                        "token_budget": 120,
-                    },
-                )
-                assert not visual_context.isError
-                visual_payload = visual_context.structuredContent  # type: ignore[assignment]
-                visual = visual_payload["visual_context"]  # type: ignore[index]
-                assert visual["include_visual"] is True
-                assert visual["impact_snapshot"]["format"] == "svg"
-                assert "unresolved_targets" in visual["impact_snapshot"]
-                assert "<svg" in visual["impact_snapshot"]["svg"]
-                assert visual["subgraph_snapshot"]["format"] == "svg"
-                assert visual["subgraph_snapshot"]["finding_ids"] == [captured[0]["id"]]
-                assert "<svg" in visual["subgraph_snapshot"]["svg"]
-                assert visual["flow_snapshots"]
-                assert visual["finding_snapshots"]
-                assert visual["flow_snapshots"][0]["rendered_node_count"] >= 1
-                assert visual["finding_snapshots"][0]["finding_id"] == captured[0]["id"]
-                assert visual["snapshot_budget"]["flow_snapshots"] == 1
-                assert visual["snapshot_budget"]["used_visual_bytes"] > 0
-                capped_visual_context = await session.call_tool(
-                    "context_pack",
-                    {
-                        "question": "dispatch status",
-                        "changed_files": ["app.py"],
-                        "include_visual": True,
-                        "token_budget": 120,
-                        "visual_byte_budget": 1,
-                    },
-                )
-                assert not capped_visual_context.isError
-                capped_payload = capped_visual_context.structuredContent  # type: ignore[assignment]
-                capped_visual = capped_payload["visual_context"]  # type: ignore[index]
-                assert capped_visual["include_visual"] is True
-                assert capped_visual["snapshot_budget"]["visual_byte_budget"] == 1
-                assert capped_visual["snapshot_budget"]["used_visual_bytes"] == 0
-                assert "impact_snapshot" not in capped_visual
-                assert capped_visual["impact_snapshot_omitted_reason"] == "visual_byte_budget"
-                assert "subgraph_snapshot" not in capped_visual
-                assert capped_visual["subgraph_snapshot_omitted_reason"] == "visual_byte_budget"
-                assert capped_visual["flow_snapshots"] == []
-                assert capped_visual["finding_snapshots"] == []
-                assert capped_visual["omitted_visual_snapshot_count"] >= 3
-                assert capped_visual["omitted_visual_snapshot_reasons"] == {
-                    "visual_byte_budget": capped_visual["omitted_visual_snapshot_count"]
-                }
-                assert (
-                    capped_visual["next_tools"]["impact_snapshot"]["tool"]  # type: ignore[index]
-                    == "get_impact_snapshot"
-                )
-                assert (
-                    capped_visual["next_tools"]["subgraph_snapshot"]["tool"]  # type: ignore[index]
-                    == "get_subgraph_snapshot"
-                )
-
-    asyncio.run(call_review_queue())
-
-    assert captured
-    assert captured[0]["kind"] == "missing_branch"
-    assert "flow" in captured[0]
-    diagnostic = captured[0]["metadata"]["diagnostic"]
-    assert diagnostic["rule_id"] == "missing_branch"
-    assert diagnostic["review_prompt"]
-    assert diagnostic["suggested_next_actions"]
 
 
 def test_get_flow_subgraph_is_internally_consistent(tmp_path: Path) -> None:

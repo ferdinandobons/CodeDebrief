@@ -7,13 +7,10 @@ from pathlib import Path
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.model import Flow, ProjectModel, SourceLocation
 from logicchart.query import (
-    explain_finding,
     find_decisions,
-    finding_context,
     flow_navigation,
     model_summary,
     query_model,
-    render_finding_explanation,
     where_is_state_handled,
 )
 
@@ -42,58 +39,39 @@ def _flow(flow_id: str, name: str, symbol: str) -> Flow:
     )
 
 
-def test_model_summary_counts_by_kind(tmp_path: Path) -> None:
+def test_model_summary_focuses_on_flows_and_quality(tmp_path: Path) -> None:
     model = _model(tmp_path, _CHAIN)
     summary = model_summary(model)
     assert summary["flows"] >= 1
-    assert summary["findings"]["total"] == len(model.findings)
-    assert "missing_branch" in summary["findings"]["by_kind"]
-    assert summary["findings"]["by_severity"]
-    assert summary["findings"]["by_evidence"]
+    assert "quality" in summary
+    assert "findings" not in summary
 
 
-def test_explain_finding_returns_chain(tmp_path: Path) -> None:
+def test_analysis_no_longer_generates_review_findings(tmp_path: Path) -> None:
     model = _model(tmp_path, _CHAIN)
-    finding = next(f for f in model.findings if f.kind == "missing_branch")
-    chain = explain_finding(model, finding.id)
-    assert chain is not None
-    assert chain["kind"] == "missing_branch"
-    assert chain["decision"] is not None
-    assert explain_finding(model, "does-not-exist") is None
+    assert model.findings == []
+    assert "finding_rules" not in model.metadata
+    assert "finding_count" not in model.metadata
 
 
-def test_finding_annotations_are_exposed_in_query_surfaces(tmp_path: Path) -> None:
+def test_flow_annotations_are_exposed_in_query_surfaces(tmp_path: Path) -> None:
     model = _model(tmp_path, _CHAIN)
-    finding = next(f for f in model.findings if f.kind == "missing_branch")
-    flow = next(item for item in model.flows if item.id == finding.flow_id)
+    flow = model.flows[0]
     flow.metadata["scope"] = ["core"]
     annotations = {
-        "findings": {
-            finding.id: {
-                "summary": "Status C is not handled.",
-                "explanation": "The enum-like branch set only covers A and B.",
-                "remediation": "Add an explicit Status.C branch or fallback.",
+        "flows": {
+            flow.id: {
+                "label": "Primary status handler",
+                "summary": "Handles the status branch decisions.",
             }
         },
         "scopes": {"core": {"label": "Core flows", "summary": "Decision-heavy core paths."}},
     }
 
-    chain = explain_finding(model, finding.id, annotations)
-    assert chain is not None
-    assert chain["annotation"]["summary"] == "Status C is not handled."
-    assert "Annotation:" in render_finding_explanation(chain)
-
-    navigation = flow_navigation(model, finding.flow_id, annotations=annotations)
-    assert navigation["findings"][0]["annotation"]["remediation"].startswith("Add an explicit")
-    assert navigation["annotations"]["findings"][finding.id]["summary"] == (
-        "Status C is not handled."
-    )
+    navigation = flow_navigation(model, flow.id, annotations=annotations)
+    assert navigation["annotations"]["flow"]["label"] == "Primary status handler"
+    assert "findings" not in navigation["annotations"]
     assert navigation["annotations"]["scopes"]["core"]["label"] == "Core flows"
-
-    context = finding_context(model, finding.id, annotations=annotations)
-    assert context is not None
-    assert context["finding"]["annotation"]["explanation"].startswith("The enum-like")
-    assert context["focus_flow"]["findings"] == 1
 
 
 def test_flow_navigation_resolves_target_without_name_ambiguity_regression(
@@ -124,7 +102,7 @@ def test_where_is_state_handled(tmp_path: Path) -> None:
 
 def test_find_decisions_missing_fallback(tmp_path: Path) -> None:
     gaps = find_decisions(_model(tmp_path, _CHAIN), missing_fallback=True)
-    assert gaps and all(decision["has_gap"] for decision in gaps)
+    assert gaps and all(decision["has_implicit_fallback"] for decision in gaps)
 
 
 def test_find_decisions_subject_is_equality_not_substring(tmp_path: Path) -> None:

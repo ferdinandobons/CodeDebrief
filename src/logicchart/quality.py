@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
-from logicchart.model import Finding, Flow, FlowNode, NodeKind, ProjectModel
+from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel
 
 GENERIC_LABELS = {
     "call",
@@ -39,7 +39,6 @@ def model_quality(model: ProjectModel) -> dict[str, Any]:
     edge_count = sum(len(flow.edges) for flow in model.flows)
     generic_labels = _generic_label_nodes(model.flows)
     source_locations = _source_location_nodes(model.flows)
-    findings = model.findings
     skipped_files = _skipped_files(model)
     parse_error_files = _parse_error_files(model.flows)
     huge_flows = [
@@ -86,13 +85,11 @@ def model_quality(model: ProjectModel) -> dict[str, Any]:
             "low_confidence": len(low_confidence),
             "resolution_rate": _ratio(len(resolved), len(call_nodes)),
         },
-        "findings": _finding_quality(findings),
         "languages": _language_depth(
             model,
             non_test_flows=non_test_flows,
             resolved_calls=resolved,
             unresolved_calls=unresolved,
-            findings=findings,
             generic_labels=generic_labels,
             skipped_files=skipped_files,
             parse_error_files=parse_error_files,
@@ -115,23 +112,6 @@ def model_quality(model: ProjectModel) -> dict[str, Any]:
     }
 
 
-def finding_counts(findings: list[Finding]) -> dict[str, Any]:
-    """Count findings by the dimensions shown in summaries and quality reports."""
-    by_kind: Counter[Any] = Counter()
-    by_severity: Counter[str] = Counter()
-    by_evidence: Counter[str] = Counter()
-    for finding in findings:
-        by_kind[finding.kind] += 1
-        by_severity[finding.severity.value] += 1
-        by_evidence[finding.evidence.value] += 1
-    return {
-        "total": len(findings),
-        "by_kind": dict(by_kind),
-        "by_severity": dict(by_severity),
-        "by_evidence": dict(by_evidence),
-    }
-
-
 def render_quality(quality: dict[str, Any]) -> str:
     files = quality["files"]
     flows = quality["flows"]
@@ -139,7 +119,6 @@ def render_quality(quality: dict[str, Any]) -> str:
     labels = quality["labels"]
     source = quality["source_locations"]
     graph = quality["graph"]
-    findings = quality["findings"]
     languages = quality.get("languages", {})
     language_depth = languages.get("depth", {}) if isinstance(languages, dict) else {}
     attention = languages.get("attention", []) if isinstance(languages, dict) else []
@@ -153,7 +132,6 @@ def render_quality(quality: dict[str, Any]) -> str:
         f"- Calls: {calls['resolved']}/{calls['total']} resolved "
         f"({calls['resolution_rate']:.0%}); {calls['unresolved']} unresolved, "
         f"{calls['ambiguous']} ambiguous, {calls['low_confidence']} low-confidence",
-        f"- Review signals: {findings['total']} total ({_format_counts(findings['by_evidence'])})",
         f"- Labels: {labels['generic_nodes']} generic nodes ({labels['generic_ratio']:.0%})",
         f"- Source coverage: {source['nodes_with_source']} nodes ({source['coverage']:.0%})",
         f"- Graph density: {graph['edges']} edges / {graph['nodes']} nodes "
@@ -196,10 +174,6 @@ def render_quality(quality: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _finding_quality(findings: list[Finding]) -> dict[str, Any]:
-    return finding_counts(findings)
-
-
 def _flow_distribution(flows: list[Flow]) -> dict[str, Any]:
     counts = Counter(flow.location.path for flow in flows)
     values = sorted(counts.values())
@@ -218,7 +192,6 @@ def _language_depth(
     non_test_flows: list[Flow],
     resolved_calls: list[FlowNode],
     unresolved_calls: list[FlowNode],
-    findings: list[Finding],
     generic_labels: list[dict[str, Any]],
     skipped_files: list[dict[str, str]],
     parse_error_files: list[dict[str, Any]],
@@ -251,12 +224,6 @@ def _language_depth(
                     unresolved_counts[flow.language] += 1
             if node.location.path and node.location.start_line > 0 and node.location.end_line > 0:
                 source_counts[flow.language] += 1
-    finding_counts = Counter(
-        flow.language
-        for finding in findings
-        for flow in non_test_flows
-        if flow.id == finding.flow_id
-    )
     generic_counts = Counter(_sample_language(item) for item in generic_labels)
     node_counts = Counter(flow.language for flow in non_test_flows for _node in flow.nodes)
     skipped_counts = Counter(item.get("language", "") for item in skipped_files)
@@ -292,7 +259,6 @@ def _language_depth(
             "resolved_calls": resolved,
             "unresolved_calls": unresolved_counts[language],
             "call_resolution_rate": _ratio(resolved, calls),
-            "findings": finding_counts[language],
             "generic_nodes": generic_counts[language],
             "generic_ratio": _ratio(generic_counts[language], nodes),
             "source_coverage": _ratio(source_counts[language], nodes),

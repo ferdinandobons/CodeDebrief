@@ -1,11 +1,10 @@
-"""The finding-kind vocabulary and category axis are single-sourced and complete."""
+"""Legacy finding types remain loadable but are no longer emitted by analysis."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.diagnostics import finding_rule_contracts_by_kind
 from logicchart.model import FindingKind
 
 _FIXTURE = (
@@ -20,27 +19,14 @@ _FIXTURE = (
     "            return 1\n"
     "        case Status.B:\n"
     "            return 2\n"
-    "    return 0\n    dead()\n"  # also yields a single-flow dead_code finding
+    "    return 0\n"
 )
 
 
-def test_every_finding_kind_is_an_enum_member_with_a_category(tmp_path: Path) -> None:
+def test_finding_kind_enum_is_legacy_compatible_but_not_emitted(tmp_path: Path) -> None:
+    assert FindingKind.MISSING_BRANCH.value == "missing_branch"
+
     (tmp_path / "mod.py").write_text(_FIXTURE, encoding="utf-8")
     model = ProjectAnalyzer(tmp_path).analyze(full=True).model
 
-    assert model.findings, "fixture should produce findings"
-    valid_kinds = {kind.value for kind in FindingKind}
-    for finding in model.findings:
-        assert finding.kind in valid_kinds, finding.kind
-        assert finding.metadata.get("category") in {"single_flow", "cross_flow"}
-
-    kinds = {finding.kind for finding in model.findings}
-    assert FindingKind.ENUM_EXHAUSTIVENESS.value in kinds  # cross-flow
-    assert FindingKind.DEAD_CODE.value in kinds  # single-flow
-
-    rules = finding_rule_contracts_by_kind()
-    assert set(rules) == valid_kinds
-    assert all(
-        rules[finding.kind]["category"] == finding.metadata["category"]
-        for finding in model.findings
-    )
+    assert model.findings == []

@@ -1,18 +1,14 @@
 from __future__ import annotations
 
 import re
-from collections import defaultdict
 from enum import Enum
 from urllib.parse import quote
 
-from logicchart.model import Evidence, Finding, Flow, FlowNode, NodeKind, ProjectModel
+from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel
 
 
-def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
+def render_markdown(model: ProjectModel) -> str:
     entrypoints = [flow for flow in model.flows if flow.is_entrypoint]
-    confirmed = [f for f in model.findings if f.evidence is not Evidence.POTENTIAL_GAP]
-    gaps = [f for f in model.findings if f.evidence is Evidence.POTENTIAL_GAP]
-    findings_by_flow_node = _findings_by_flow_node(model.findings)
     lines = [
         "# LogicChart Decision Flows",
         "",
@@ -22,7 +18,6 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
         f"- **Source root:** {_code_span(model.root)}",
         f"- **Flows:** {len(model.flows)}",
         f"- **Entry points:** {len(entrypoints)}",
-        f"- **Review signals:** {len(confirmed)} verified/inferred · {len(gaps)} review-only",
     ]
     scopes = model.metadata.get("scopes", {})
     if scopes:
@@ -32,30 +27,10 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
         )
     lines.extend(["", "## Project Map", ""])
     lines.extend(_project_map(model, entrypoints))
-    lines.extend(["", "## Review Signals", ""])
-    # Signal/noise split (§5.2/§7): verified/inferred facts in the main section,
-    # POTENTIAL_GAP candidates in a collapsible block, so found vs guessed stays clear.
-    if confirmed:
-        lines.extend(_finding_line(finding) for finding in confirmed)
-    else:
-        lines.append("No verified or inferred review signals were detected.")
-    if gaps:
-        open_attr = " open" if include_gaps else ""
-        lines.extend(
-            [
-                "",
-                f"<details{open_attr}>",
-                f"<summary>Review-only - {len(gaps)} POTENTIAL_GAP "
-                "(heuristic candidates, not confirmed)</summary>",
-                "",
-            ]
-        )
-        lines.extend(_finding_line(finding) for finding in gaps)
-        lines.extend(["", "</details>"])
 
     lines.extend(["", "## Entry Point Flows", ""])
     for flow in entrypoints:
-        lines.extend(_flow_section(flow, findings_by_flow_node.get(flow.id, {})))
+        lines.extend(_flow_section(flow))
 
     subflows = [
         flow for flow in model.flows if not flow.is_entrypoint and not flow.metadata.get("test")
@@ -64,7 +39,7 @@ def render_markdown(model: ProjectModel, *, include_gaps: bool = False) -> str:
         lines.extend(["", "## Referenced Subflows", ""])
         for flow in subflows:
             if flow.called_by:
-                lines.extend(_flow_section(flow, findings_by_flow_node.get(flow.id, {})))
+                lines.extend(_flow_section(flow))
 
     return "\n".join(lines).rstrip() + "\n"
 
@@ -96,17 +71,7 @@ def _project_map(model: ProjectModel, entrypoints: list[Flow]) -> list[str]:
     return lines
 
 
-def _findings_by_flow_node(findings: list[Finding]) -> dict[str, dict[str, list[str]]]:
-    by_flow_node: dict[str, dict[str, list[str]]] = {}
-    for finding in findings:
-        if not finding.node_id:
-            continue
-        findings_by_node = by_flow_node.setdefault(finding.flow_id, defaultdict(list))
-        findings_by_node[finding.node_id].append(finding.message)
-    return by_flow_node
-
-
-def _flow_section(flow: Flow, findings_by_node: dict[str, list[str]]) -> list[str]:
+def _flow_section(flow: Flow) -> list[str]:
     source = _source_reference(flow.location.path, flow.location.start_line)
     lines = [
         f"### {_md_inline(flow.name)}",
@@ -123,28 +88,8 @@ def _flow_section(flow: Flow, findings_by_node: dict[str, list[str]]) -> list[st
         label = f'|"{_escape(edge.label)}"|' if edge.label else ""
         lines.append(f"  {_mermaid_id(edge.source)} -->{label} {_mermaid_id(edge.target)}")
     lines.append("```")
-    if findings_by_node:
-        nodes_by_id = {node.id: node for node in flow.nodes}
-        lines.extend(["", "**Review points:**"])
-        for node_id, messages in findings_by_node.items():
-            node = nodes_by_id[node_id]
-            for message in messages:
-                lines.append(f"- {_code_span(node.label)}: {_md_inline(message)}")
     lines.append("")
     return lines
-
-
-def _finding_line(finding: Finding) -> str:
-    source = _source_reference(finding.location.path, finding.location.start_line)
-    line = (
-        f"- **{finding.severity.value.upper()} · {finding.evidence.value} · "
-        f"{_enum_value(finding.kind)}** {_md_inline(finding.message)} ({source}) · "
-        f"finding id {_code_span(finding.id)}"
-    )
-    diagnostic = finding.metadata.get("diagnostic")
-    if isinstance(diagnostic, dict) and diagnostic.get("review_prompt"):
-        line += f" Review: {_md_inline(str(diagnostic['review_prompt']))}"
-    return line
 
 
 def _enum_value(value: object) -> str:
@@ -183,8 +128,8 @@ def _escape(value: str) -> str:
     )
 
 
-# Inline metacharacters that could turn a source-derived finding message into a live
-# link, emphasis, code span, table cell, or raw HTML in a committed report.
+# Inline metacharacters that could turn source-derived text into a live link, emphasis,
+# code span, table cell, or raw HTML in a committed report.
 _MD_INLINE_SPECIAL = re.compile(r"([\\`*_\[\]()<>|#~])")
 
 

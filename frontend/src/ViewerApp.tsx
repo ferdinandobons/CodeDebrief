@@ -159,14 +159,6 @@ export function ViewerApp({
   const selectedConnectionPropKey = selectionKey(selectedConnectionProp);
   const detailLayoutCache = useRef(new Map<string, Map<string, FlowDetailLayout>>());
   const layoutCache = useRef(new Map<string, ReturnType<typeof createViewerLayout>>());
-  const findingCountsByFlowId = useMemo(() => {
-    const counts = new Map<string, number>();
-    (payload?.findings || []).forEach(finding => {
-      if (!finding.flow_id) return;
-      counts.set(finding.flow_id, (counts.get(finding.flow_id) || 0) + 1);
-    });
-    return counts;
-  }, [payload]);
   useEffect(() => {
     manualPositionsChangeRef.current = onManualNodePositionsChange;
   }, [onManualNodePositionsChange]);
@@ -1244,15 +1236,9 @@ export function ViewerApp({
         {[...flowPositions.values()].map(position => {
           const flow = flowById.get(position.id);
           const flowAnnotation = payload?.annotations?.flows?.[position.id];
-          const flowFindingCount =
-            flow && isLogicChartFlow(flow) ? findingCountsByFlowId.get(flow.id) || 0 : 0;
           const flowSummary =
             flow && isLogicChartFlow(flow)
-              ? flowAccessibilitySummary(
-                  asLogicChartFlow(flow),
-                  flowFindingCount,
-                  flowAnnotation,
-                )
+              ? flowAccessibilitySummary(asLogicChartFlow(flow), flowAnnotation)
               : position.id;
           const flowTitle = annotationTitle(flowSummary, flowAnnotation);
           const flowOpen = routeFlowIds.includes(position.id);
@@ -2389,7 +2375,6 @@ function flowMeta(flow: ProgressiveFlowNode): string[] {
 
 function flowAccessibilitySummary(
   flow: LogicChartFlow,
-  findingCount: number,
   annotation?: LogicChartAnnotationText,
 ): string {
   const nodes = flow.nodes || [];
@@ -2401,7 +2386,6 @@ function flowAccessibilitySummary(
     plural(decisionCount, "decision"),
     plural((flow.calls || []).length, "call"),
     plural((flow.called_by || []).length, "caller"),
-    plural(findingCount, "review signal"),
   ];
   const source = flowPath(flow);
   if (source) pieces.push(source);

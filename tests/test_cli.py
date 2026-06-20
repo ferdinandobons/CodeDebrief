@@ -185,13 +185,12 @@ def test_update_full_flag_dispatches_to_full_analysis(
 
     monkeypatch.setattr(cli_module, "_analyze", fake_analyze)
 
-    assert main(["update", str(tmp_path), "--full", "--no-html", "--include-gaps"]) == 0
+    assert main(["update", str(tmp_path), "--full", "--no-html"]) == 0
     assert calls == [
         {
             "root": tmp_path,
             "full": True,
             "include_html": False,
-            "include_gaps": True,
             "profile": None,
         }
     ]

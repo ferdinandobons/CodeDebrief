@@ -18,8 +18,6 @@
       --active: #202637;
       --chip: #1a2130;
       --tool: rgba(17, 20, 27, 0.92);
-      --finding-bg: #28220f;
-      --finding-error-bg: #2b1518;
       --drawer-backdrop: rgba(0, 0, 0, .55);
       --on-accent: #090b10;
       --node-fill: #151a24;
@@ -55,8 +53,6 @@
       --active: #202637;
       --chip: #1a2130;
       --tool: rgba(17, 20, 27, 0.92);
-      --finding-bg: #28220f;
-      --finding-error-bg: #2b1518;
       --drawer-backdrop: rgba(0, 0, 0, .55);
       --on-accent: #090b10;
       --node-fill: #151a24;
@@ -904,16 +900,6 @@
       text-align: center;
       color: var(--muted);
     }
-    .finding {
-      border-left: 4px solid var(--amber);
-      border-radius: 8px;
-      background: var(--finding-bg);
-      padding: 11px 12px;
-      margin-bottom: 9px;
-      font-size: 12px;
-      line-height: 1.45;
-    }
-    .finding.error { border-color: var(--coral); background: var(--finding-error-bg); }
     .legend {
       margin-top: auto;
       border-top: 1px solid var(--line);
@@ -953,7 +939,6 @@
     .node.call .shape { fill: var(--fill-call); stroke: var(--violet); }
     .node.terminal .shape { fill: var(--fill-terminal); stroke: var(--cyan); }
     .node.error .shape { fill: var(--fill-error); stroke: var(--coral); }
-    .node.has-finding .shape { stroke: var(--coral); stroke-width: 3; }
     .node:hover .shape, .node:focus-visible .shape { filter: url(#nodeLift); stroke-width: 2.6; }
     /* Keyboard focus remains visible without drawing rectangular CSS boxes around SVG nodes. */
     .node:focus-visible { outline: none; }
@@ -1212,10 +1197,9 @@
       stroke-dasharray: 4 5;
       opacity: .7;
     }
-    /* --- Right column: quality, source, and review-signal panels ------------- */
+    /* --- Right column: quality and source panels ----------------------------- */
     /* The rail splits vertically into panels that each scroll independently, so a long
-       snippet or findings list scrolls inside its panel and never pushes the others
-       off-screen. */
+       snippet scrolls inside its panel and never pushes the others off-screen. */
     .right-rail .rail-inner { display: flex; flex-direction: column; min-height: 0; }
     .detail-drawer-head {
       display: flex;
@@ -1291,7 +1275,6 @@
     }
     .panel-quality { flex: 0 0 auto; max-height: 260px; border-bottom: 1px solid var(--line); }
     .panel-source { flex: 1 1 48%; border-bottom: 1px solid var(--line); }
-    .panel-errors { flex: 1 1 42%; }
     .panel[data-collapsed] {
       flex: 0 0 auto;
       max-height: none;
@@ -1528,8 +1511,7 @@
       outline-offset: -2px;
     }
     /* The selected block's source line(s) -- the shared accent, same --blue as the canvas
-       block, tree file, and finding selection. A left bar makes a multi-line span read as
-       one selection. */
+       block and tree file. A left bar makes a multi-line span read as one selection. */
     .code-line.selected {
       background: var(--active);
       box-shadow: inset 3px 0 0 var(--blue);
@@ -1543,262 +1525,6 @@
     .code-text { white-space: pre-wrap; overflow-wrap: anywhere; }
     .code-line.selected .code-gutter { color: var(--blue); }
 
-    /* Logical-errors panel: one button row per finding, tier badge + kind + message. */
-    .errors-scroll { display: flex; flex-direction: column; gap: 9px; }
-    .finding-row {
-      display: block;
-      width: 100%;
-      text-align: left;
-      border: 0;
-      border-left: 4px solid var(--amber);
-      border-radius: 8px;
-      background: var(--finding-bg);
-      padding: 10px 12px;
-      cursor: pointer;
-      font: inherit;
-      color: var(--ink);
-      transition: box-shadow .14s ease;
-    }
-    .finding-row.error { border-left-color: var(--coral); background: var(--finding-error-bg); }
-    .finding-row:hover { box-shadow: 0 0 0 1px var(--line-strong) inset; }
-    .finding-row:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-    /* Selected finding -- the shared accent ring, same --blue as the block/source/tree. */
-    .finding-row.selected { box-shadow: 0 0 0 2px var(--blue) inset; }
-    .finding-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-    .tier-badge {
-      flex: none;
-      padding: 2px 7px;
-      border-radius: 999px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      color: var(--on-accent);
-      background: var(--muted);
-    }
-    /* Evidence tiers (VERIFIED / INFERRED / POTENTIAL_GAP), reusing theme accents so they
-       read in light + dark. Unknown tiers fall back to the neutral .tier-badge above. */
-    .tier-badge.tier-verified { background: var(--cyan); }
-    .tier-badge.tier-inferred { background: var(--blue); }
-    .tier-badge.tier-potential-gap { background: var(--coral); }
-    .finding-kind {
-      color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: .04em;
-    }
-    .finding-annotation-badge {
-      flex: none;
-      margin-left: auto;
-      padding: 2px 7px;
-      border: 1px solid var(--line-strong);
-      border-radius: 999px;
-      color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-    .finding-message { font-size: 12px; line-height: 1.45; }
-    .finding-loc {
-      margin-top: 5px;
-      color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 10px;
-      overflow-wrap: anywhere;
-    }
-    .finding-diagnostic {
-      margin-top: 9px;
-      padding-top: 9px;
-      border-top: 1px solid var(--line);
-      display: grid;
-      gap: 8px;
-    }
-    .diagnostic-grid { display: grid; gap: 5px; }
-    .diagnostic-line {
-      display: grid;
-      grid-template-columns: minmax(74px, max-content) 1fr;
-      gap: 8px;
-      align-items: start;
-      min-width: 0;
-    }
-    .diagnostic-label {
-      color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-    .diagnostic-value {
-      color: var(--ink);
-      font-size: 11px;
-      line-height: 1.45;
-      overflow-wrap: anywhere;
-    }
-    .diagnostic-copy {
-      margin: 0;
-      color: var(--ink);
-      font-size: 11px;
-      line-height: 1.5;
-    }
-    .finding-annotation {
-      display: grid;
-      gap: 5px;
-      padding: 8px;
-      border: 1px solid var(--line);
-      border-radius: 7px;
-      background: color-mix(in srgb, var(--blue) 7%, transparent);
-    }
-    .finding-annotation-title {
-      color: var(--blue);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-    .diagnostic-muted { color: var(--muted); }
-    .diagnostic-remediation { color: var(--ink); font-weight: 650; }
-    .diagnostic-review { color: var(--blue); }
-    .diagnostic-actions {
-      margin: 0;
-      padding-left: 17px;
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.45;
-    }
-    .diagnostic-chart {
-      display: grid;
-      gap: 6px;
-      min-width: 0;
-      padding: 8px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: color-mix(in srgb, var(--panel) 84%, transparent);
-    }
-    .diagnostic-chart-title {
-      color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0;
-      text-transform: uppercase;
-    }
-    .diagnostic-chart-svg {
-      display: block;
-      width: 100%;
-      min-height: 112px;
-    }
-    .diagnostic-chart-edge {
-      stroke: color-mix(in srgb, var(--edge) 72%, var(--blue));
-      stroke-width: 1.5;
-      vector-effect: non-scaling-stroke;
-    }
-    .diagnostic-chart-node {
-      cursor: pointer;
-      outline: none;
-    }
-    .diagnostic-chart-box {
-      fill: var(--panel-2);
-      stroke: var(--line-strong);
-      stroke-width: 1.2;
-      vector-effect: non-scaling-stroke;
-    }
-    .diagnostic-chart-node.focus .diagnostic-chart-box {
-      stroke: var(--coral);
-      stroke-width: 2.2;
-    }
-    .diagnostic-chart-node.evidence .diagnostic-chart-box {
-      stroke: var(--amber);
-    }
-    .diagnostic-chart-node.flow .diagnostic-chart-box {
-      stroke: var(--cyan);
-    }
-    .diagnostic-chart-node:hover .diagnostic-chart-box,
-    .diagnostic-chart-node:focus-visible .diagnostic-chart-box {
-      stroke: var(--blue);
-      stroke-width: 2.4;
-    }
-    .diagnostic-chart-label {
-      fill: var(--ink);
-      font-size: 10px;
-      font-weight: 700;
-      pointer-events: none;
-    }
-    .diagnostic-chart-meta {
-      fill: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 8px;
-      font-weight: 700;
-      pointer-events: none;
-      text-transform: uppercase;
-    }
-    .diagnostic-related {
-      display: grid;
-      gap: 6px;
-      min-width: 0;
-    }
-    .diagnostic-related-title {
-      color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0;
-      text-transform: uppercase;
-    }
-    .diagnostic-context-list {
-      display: grid;
-      gap: 5px;
-      min-width: 0;
-    }
-    .diagnostic-context-button {
-      display: grid;
-      gap: 2px;
-      width: 100%;
-      min-width: 0;
-      padding: 6px 8px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: var(--panel);
-      color: var(--ink);
-      cursor: pointer;
-      font: inherit;
-      text-align: left;
-    }
-    .diagnostic-context-button:hover {
-      border-color: var(--line-strong);
-      background: var(--panel-strong);
-    }
-    .diagnostic-context-button:focus-visible {
-      outline: 2px solid var(--blue);
-      outline-offset: 2px;
-    }
-    .diagnostic-context-label {
-      color: var(--ink);
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 1.35;
-      overflow-wrap: anywhere;
-    }
-    .diagnostic-context-meta {
-      color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 10px;
-      line-height: 1.35;
-      overflow-wrap: anywhere;
-    }
-
-    /* Compact counts-by-tier summary shown instead of an unbounded list for a broad
-       (empty / L0 / scope) selection -- the errors panel never renders thousands of rows. */
-    .errors-summary { display: flex; flex-direction: column; gap: 8px; }
-    .errors-summary .summary-line { display: flex; align-items: center; gap: 8px; }
-    .errors-summary .summary-count {
-      color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 11px;
-      font-weight: 700;
-    }
     /* "N more lines not shown" marker under an elided (capped) source snippet. */
     .code-elided {
       margin: 8px 14px 0;
@@ -1809,7 +1535,7 @@
       font-size: 11px;
     }
     /* Visually-hidden aria-live status region: present for screen readers, off-screen for
-       sighted users. Announces "source: file:line" / "<n> findings" on selection change. */
+       sighted users. Announces source/detail changes on selection change. */
     .sr-only {
       position: absolute;
       width: 1px;
@@ -1983,7 +1709,6 @@
         padding: 0 10px;
       }
       .panel-source { flex: 1 1 58%; }
-      .panel-errors { flex: 0 1 42%; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }

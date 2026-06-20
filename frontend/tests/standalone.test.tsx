@@ -416,7 +416,6 @@ describe("standalone viewer bridge", () => {
     expect(select).toHaveBeenLastCalledWith({
       edgeId: null,
       endLine: null,
-      findingId: null,
       flowId: null,
       line: null,
       nodeId: null,
@@ -455,7 +454,6 @@ describe("standalone viewer bridge", () => {
     expect(select).toHaveBeenLastCalledWith({
       edgeId: null,
       endLine: null,
-      findingId: null,
       flowId: null,
       line: null,
       nodeId: null,
@@ -698,7 +696,6 @@ describe("standalone viewer bridge", () => {
     expect(select).toHaveBeenLastCalledWith({
       edgeId: null,
       endLine: 18,
-      findingId: null,
       flowId: "load-order",
       line: 18,
       nodeId: null,
@@ -749,7 +746,6 @@ describe("standalone viewer bridge", () => {
     expect(select).toHaveBeenLastCalledWith({
       edgeId: null,
       endLine: 3,
-      findingId: null,
       flowId: "orders-route",
       line: 3,
       nodeId: null,
@@ -823,7 +819,6 @@ describe("standalone viewer bridge", () => {
     expect(select).toHaveBeenLastCalledWith({
       edgeId: null,
       endLine: 3,
-      findingId: null,
       flowId: "orders-route",
       line: 3,
       nodeId: null,
@@ -862,7 +857,6 @@ describe("standalone viewer bridge", () => {
     expect(select).toHaveBeenLastCalledWith({
       edgeId: null,
       endLine: 6,
-      findingId: null,
       flowId: "orders-route",
       line: 6,
       nodeId: "orders-route:n2",
@@ -925,7 +919,6 @@ describe("standalone viewer bridge", () => {
     expect(select).toHaveBeenLastCalledWith({
       edgeId: "start->orders-route:n2",
       endLine: 6,
-      findingId: null,
       flowId: "orders-route",
       line: 6,
       nodeId: "orders-route:n2",
@@ -1112,7 +1105,6 @@ describe("standalone viewer bridge", () => {
     expect(select).toHaveBeenLastCalledWith({
       edgeId: null,
       endLine: null,
-      findingId: null,
       flowId: null,
       line: null,
       nodeId: null,

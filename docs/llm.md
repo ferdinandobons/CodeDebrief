@@ -1,84 +1,73 @@
-# Agent-Authored Enrichment
+# Agent-Authored Annotations
 
-LogicChart is deterministic, local-first, and does not require provider keys. The main
-enrichment workflow is handled by the coding agent that is already working with the user:
+LogicChart is deterministic, local-first, and does not require provider keys. The primary
+agent workflow is MCP-driven:
 
-1. The user asks the coding agent for clearer labels, summaries, or explanations.
-2. The agent calls MCP `agent_context` for a deterministic `workflow_slice`.
-3. The agent answers from the slice presentation contract, ordered steps, decisions,
-   review signals, and source ranges instead of dumping raw JSON or YAML unless requested.
-4. The agent writes generated text as validated annotations.
-5. LogicChart keeps those annotations separate from deterministic facts.
+1. The user asks a coding agent a code-logic question.
+2. The agent calls MCP `agent_context`.
+3. LogicChart returns a deterministic `workflow_slice`.
+4. The agent answers from the slice presentation contract, ordered steps, decisions,
+   calls, source ranges, and visual handles.
+5. Optional agent-authored labels or summaries are written as validated annotations.
 
 Generated annotation text must be treated as `agent_generated`. It can improve readability,
-but it must not replace source-backed flow data, diagnostic evidence, or review-signal tiers.
+but it must not replace source-backed flow data or deterministic graph structure.
 
 ## Agent Skills
 
 `logicchart setup-agent codex` installs `.agents/skills/logicchart/SKILL.md`.
-`logicchart setup-agent claude` installs `.claude/skills/logicchart/SKILL.md`. These
-provider-native skills route implicit code-logic questions to MCP `agent_context` and route
-visual workflow requests to `snapshot_slice` first, with `viewer_targets` as the manual UI
-fallback when inline SVG rendering is unavailable. In clients such as Claude Code that can
-render SVG through a visualization widget, the agent should pass `snapshot.svg` to that
-widget instead of falling back to Mermaid text. When inline SVG is unavailable,
-`snapshot_slice` can be called with `include_svg=false`; the agent should then provide the
-returned local `artifact.html_path`, `artifact.svg_path`, or `artifact.open_command` before
-any text fallback. `workflow_slice.presentation.canonical_visual.diagram` is the exact
-top-to-bottom Mermaid fallback for copyable text output, not a diagram the agent should
-recreate. Snapshot SVGs and Mermaid fallbacks are vertical/top-to-bottom; the agent should
-not redraw them as horizontal summaries. If an MCP result is too large, saved externally,
-truncated, or missing the exact canonical visual, the agent should retry with a smaller
-`token_budget` and a narrower `flow_id`, `symbol`, `current_file`, or `scope` instead of
-listing flows or reading source files to hand-build a diagram. The agent should
-inspect the full returned slice first, use
-`expand_slice` or `workflow_path` when relevant nodes or paths are missing, then choose the
-clearest useful first-pass subset to show. That depth choice is presentation only: every
-visible node, edge, branch, value, and source anchor must stay grounded in returned
-workflow-slice or focused explain-tool fields. Visual answers should say the diagram is a
-bounded summary that can be expanded, then offer to simplify labels in the user's language,
-expand omitted nodes or adjacent flows, or explore a related area. Language-friendly wording
-is a separate translation layer, not a new source of facts.
+`logicchart setup-agent claude` installs `.claude/skills/logicchart/SKILL.md`.
 
-## MCP Annotation Workflow
+These provider-native skills route implicit code-logic questions to MCP `agent_context`
+and route visual workflow requests to `snapshot_slice` first. `viewer_targets` are manual
+follow-up targets for `logicchart view`.
+
+When a user asks for a workflow visual:
+
+1. Render `snapshot.svg` through the client's SVG/HTML visualization widget when one is
+   available.
+2. If inline SVG is unavailable, call `snapshot_slice` with `include_svg=false` and use
+   the returned local artifact path.
+3. If a text fallback is needed, render
+   `workflow_slice.presentation.canonical_visual.diagram` exactly as returned.
+
+Snapshot SVGs and Mermaid fallbacks are vertical/top-to-bottom. The agent should not
+redraw them as horizontal summaries or hand-build a replacement diagram from source reads.
+If a result is too large, truncated, or missing the exact canonical visual, retry with a
+smaller `token_budget` and a narrower `flow_id`, `symbol`, `current_file`, or `scope`.
+
+The agent may choose how much detail to show first, but visible nodes, edges, branches,
+values, and source anchors must stay grounded in returned LogicChart payloads. Visual
+answers should say the diagram is a bounded summary that can be expanded, then offer to:
+
+- simplify labels in the user's language;
+- expand omitted nodes, branches, or adjacent flows;
+- explore a related area or path.
+
+Language-friendly wording is a separate presentation layer, not a new source of facts.
+
+## Annotation Workflow
 
 `preview_annotation_targets` is the preferred local-only MCP helper. It selects bounded
-candidate flows and review signals, returns the context an agent may want to annotate, and
+candidate flows, nodes, and scopes, returns the context an agent may want to annotate, and
 always reports `provider_call_made: false`.
 
 Use it to inspect annotation targets and payload size. Then use:
 
-- `write_annotations` to merge validated `agent_generated` labels, summaries,
-  explanations, and remediation notes into `logicchart-out/logic-annotations.json`.
-- `validate_annotations` to check the sidecar against the current model hash and ids.
-- `annotation_status` to inspect sidecar status, counts, and optional contents.
+- `write_annotations` to merge validated `agent_generated` labels, summaries, and
+  descriptions into `logicchart-out/logic-annotations.json`;
+- `validate_annotations` to check the sidecar against the current model hash and ids;
+- `annotation_status` to inspect sidecar status, counts, and optional contents;
 - `clear_annotations` with `confirm=true` to remove optional generated annotation text.
 
-`write_annotations` rejects non-`agent_generated` provenance. Provider-managed or manual
-annotation metadata can still be validated as sidecar content, but it is intentionally not
-the primary MCP write path.
+`write_annotations` rejects non-`agent_generated` provenance. Provider-managed enrichment
+support remains in internal modules for compatibility and tests, but it is not the primary
+product path and is not part of the public CLI. No setup flow should ask users for API
+keys during normal LogicChart use.
 
-`preview_enrichment` remains as a compatibility/local-preview helper, but should not be
-treated as a provider-send workflow. The public CLI intentionally does not expose `llm` or
-`enrich` commands.
+## Viewer And MCP Display
 
-## Provider-Managed Code Path
-
-Provider-managed enrichment support remains in internal modules for compatibility and
-experimentation, but it is not the primary product path and is not part of the public CLI.
-No setup flow should ask users for API keys during normal LogicChart use.
-
-If provider-managed code is used by maintainers or tests, the same trust rules apply:
-
-- do not commit `.env.logicchart`;
-- do not send source-derived payloads without explicit user approval;
-- validate returned annotations against the current model hash and known ids;
-- reject unknown targets, unsupported fields, stale hashes, and overlong text;
-- display provider or agent text separately from deterministic diagnostics.
-
-## Viewer and MCP Display
-
-When a valid annotation sidecar is present, LogicChart may display labels, summaries,
-review-signal explanations, remediation notes, and scope descriptions in MCP responses,
-snapshots, and the viewer. These annotations remain optional. The analyzer, validation,
-review signals, evidence tiers, and flow structure must remain correct without them.
+When a valid annotation sidecar is present, LogicChart may display flow labels, node
+labels, flow summaries, and scope descriptions in MCP responses, snapshots, and the
+viewer. These annotations remain optional. Flow structure, source anchors, decisions, and
+validation must remain correct without them.

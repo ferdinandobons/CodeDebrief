@@ -28,7 +28,7 @@ def _analyzed_project(tmp_path: Path) -> ProjectModel:
     return result.model
 
 
-def _analyzed_project_with_finding(tmp_path: Path) -> ProjectModel:
+def _analyzed_multi_flow_project(tmp_path: Path) -> ProjectModel:
     (tmp_path / "a_health.py").write_text(
         "def health():\n    return 'ok'\n",
         encoding="utf-8",
@@ -68,28 +68,19 @@ def test_enrichment_preview_builds_payload_without_provider_call(tmp_path: Path)
     assert "LOGICCHART_LLM_API_KEY" not in json.dumps(payload)
 
 
-def test_enrichment_preview_prioritizes_flows_with_findings(tmp_path: Path) -> None:
-    model = _analyzed_project_with_finding(tmp_path)
+def test_enrichment_preview_prioritizes_entrypoint_flow_order(tmp_path: Path) -> None:
+    model = _analyzed_multi_flow_project(tmp_path)
     config = LogicChartConfig.load(tmp_path)
-    finding = model.findings[0]
 
     preview = build_enrichment_preview(
         tmp_path,
         model,
         config,
-        EnrichmentOptions(max_flows=1, max_findings=1),
-    )
-    targeted_preview = build_enrichment_preview(
-        tmp_path,
-        model,
-        config,
-        EnrichmentOptions(finding_ids=(finding.id,), max_flows=1, max_findings=1),
+        EnrichmentOptions(max_flows=1),
     )
 
-    assert preview["targets"]["flow_ids"] == [finding.flow_id]
-    assert preview["targets"]["finding_ids"] == [finding.id]
-    assert targeted_preview["targets"]["flow_ids"] == [finding.flow_id]
-    assert targeted_preview["targets"]["finding_ids"] == [finding.id]
+    assert preview["targets"]["flow_ids"]
+    assert "finding_ids" not in preview["targets"]
 
 
 def test_enrichment_preview_scope_filter_uses_flow_scope_metadata(tmp_path: Path) -> None:
@@ -154,7 +145,6 @@ def test_send_enrichment_writes_validated_annotation_sidecar(
                 "model_hash": preview["model_hash"],
                 "flows": {flow.id: {"label": "Role authorization gate"}},
                 "nodes": {node.id: {"label": "Admin role check"}},
-                "findings": {},
                 "scopes": {},
             }
         )

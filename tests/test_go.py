@@ -92,11 +92,11 @@ def test_go_if_and_switch_decisions(tmp_path: Path) -> None:
     assert {"Active", "Suspended"} <= set(switch.metadata["values"])
 
 
-def test_go_switch_without_default_is_flagged(tmp_path: Path) -> None:
+def test_go_switch_without_default_stays_in_flow_model(tmp_path: Path) -> None:
     model = _analyze(tmp_path)
     handle = _flow(model, "Handle")
-    kinds = {f.kind for f in model.findings if f.flow_id == handle.id}
-    assert "missing_branch" in kinds
+    assert any(n.kind is NodeKind.DECISION and n.label == "Switch on status" for n in handle.nodes)
+    assert model.findings == []
 
 
 def test_go_same_package_call_resolves(tmp_path: Path) -> None:

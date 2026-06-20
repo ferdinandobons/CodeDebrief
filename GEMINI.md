@@ -3,11 +3,11 @@
 
 This project uses LogicChart to keep decision flows synchronized with the source code.
 
-For codebase questions about behavior, decisions, missing cases, or change impact:
+For codebase questions about behavior, decisions, workflow structure, or change impact:
 
 1. Prefer the LogicChart MCP `agent_context` tool before broad file-by-file searches.
 2. Use `agent_context` for substantial changes, passing changed files, selected code,
-   current file, flow id, symbol, finding id, or dependency path when available; inspect
+   current file, flow id, symbol, or dependency path when available; inspect
    its returned `workflow_slice` before answering.
 3. When the user asks to show a workflow, flusso, visual flow, canvas, or
    `workflow_slice`, prefer a visual answer: use `snapshot_slice` when available and render
@@ -40,8 +40,7 @@ For codebase questions about behavior, decisions, missing cases, or change impac
    related area. Show raw JSON or YAML only when explicitly requested.
 4. Use `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`, `explain_node`,
    or `explain_edge` only when the first slice needs more precise context.
-5. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` review signals.
-6. Use `logicchart view ...` only when a human wants the manual UI flowchart.
+5. Use `logicchart view ...` only when a human wants the manual UI flowchart.
 
 When helping a user set up or learn LogicChart:
 
@@ -57,9 +56,9 @@ When helping a user set up or learn LogicChart:
 
 After a substantial code change:
 
-1. Use LogicChart MCP `agent_context` to review affected entry points and callers.
-2. Ground the review in the returned `workflow_slice`; expand it through MCP only when
-   the initial slice omits relevant callers, callees, domain states, or findings.
+1. Use LogicChart MCP `agent_context` to inspect affected entry points and callers.
+2. Ground the explanation in the returned `workflow_slice`; expand it through MCP only
+   when the initial slice omits relevant callers, callees, domain states, or paths.
 3. Run `logicchart update`; use `logicchart update --full` after analyzer upgrades or
    when cached file models should be ignored.
 4. Commit synchronized changes to:
@@ -84,7 +83,6 @@ For local real-world regression checks:
    analysis output.
 <!-- logicchart:local-notes:end -->
 
-Do not present inferred review signals as confirmed defects. LogicChart marks syntax-backed
-facts as `VERIFIED`, deterministic heuristics as `INFERRED`, and review candidates as
-`POTENTIAL_GAP`.
+LogicChart is a comprehension and navigation tool for source-grounded workflows. Use it
+to explain modeled logic, not to present possible defects.
 <!-- logicchart:instructions:end -->

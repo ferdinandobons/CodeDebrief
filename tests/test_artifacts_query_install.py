@@ -1,5 +1,4 @@
 import json
-from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -19,7 +18,7 @@ from logicchart.install import (
     install_mcp_config,
 )
 from logicchart.query import impact_model, query_model
-from logicchart.util import read_json, write_json
+from logicchart.util import read_json
 from logicchart.validation import (
     schema_file_language_ids,
     schema_language_ids,
@@ -125,7 +124,7 @@ def _assert_logicchart_skill(content: str) -> None:
     assert "`viewer_targets` command" in content
     assert "`workflow_slice.presentation` as supporting context" in content
     assert "Do not answer with raw JSON or YAML" in content
-    assert "POTENTIAL_GAP" in content
+    assert "POTENTIAL_GAP" not in content
 
 
 def test_artifacts_query_impact_and_agent_install(tmp_path: Path) -> None:
@@ -198,7 +197,7 @@ def test_validate_logicchart_reports_ok_for_current_artifact(tmp_path: Path) -> 
     assert report.artifact == str(json_path)
 
 
-def test_schema_pins_optional_diagnostic_metadata_contract(tmp_path: Path) -> None:
+def test_artifact_keeps_empty_legacy_findings_field(tmp_path: Path) -> None:
     (tmp_path / "orders.py").write_text(
         "def route(order):\n"
         "    if order.status == 'draft':\n"
@@ -209,113 +208,16 @@ def test_schema_pins_optional_diagnostic_metadata_contract(tmp_path: Path) -> No
     )
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     artifact = result.model.to_dict()
-    finding = artifact["findings"][0]
     schema = read_json(Path(__file__).parents[1] / "schema" / "logic-flow.schema.json")
-    validator = Draft202012Validator(schema)
 
-    validator.validate(artifact)
-    assert "finding_rules" in schema["$defs"]["project_metadata"]["properties"]
-    assert "diagnostic" in schema["$defs"]["finding_metadata"]["properties"]
+    Draft202012Validator(schema).validate(artifact)
+    # The schema still carries the legacy key for compatibility, but the product no longer
+    # generates review findings or finding-rule metadata.
+    assert "findings" in schema["required"]
+    assert artifact["findings"] == []
+    assert "finding_count" not in artifact["metadata"]
+    assert "finding_rules" not in artifact["metadata"]
     assert "quality" in schema["$defs"]["project_metadata"]["properties"]
-
-    legacy_compatible = deepcopy(artifact)
-    legacy_compatible["findings"][0]["metadata"].pop("diagnostic")
-    validator.validate(legacy_compatible)
-
-    malformed = deepcopy(artifact)
-    malformed["findings"][0]["metadata"]["diagnostic"]["confidence"]["score"] = "high"
-    errors = list(validator.iter_errors(malformed))
-    assert any("is not of type" in error.message for error in errors)
-    assert finding["metadata"]["diagnostic"]["rule_id"] == finding["kind"]
-
-
-def test_validate_checks_finding_rule_metadata_contract(tmp_path: Path) -> None:
-    (tmp_path / "orders.py").write_text(
-        "def route(order):\n"
-        "    if order.status == 'draft':\n"
-        "        return draft(order)\n"
-        "    elif order.status == 'paid':\n"
-        "        return paid(order)\n",
-        encoding="utf-8",
-    )
-    result = ProjectAnalyzer(tmp_path).analyze(full=True)
-    json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
-    artifact = read_json(json_path)
-    finding = artifact["findings"][0]
-    rules = artifact["metadata"]["finding_rules"]
-
-    rules[finding["kind"]]["metadata_fields"].append("missing_contract_field")
-    write_json(json_path, artifact)
-
-    report = validate_logicchart(tmp_path)
-
-    assert not report.ok
-    assert any("missing_contract_field" in error for error in report.errors)
-
-
-def test_validate_checks_finding_rule_registry_is_current(tmp_path: Path) -> None:
-    (tmp_path / "orders.py").write_text(
-        "def route(order):\n"
-        "    if order.status == 'draft':\n"
-        "        return draft(order)\n"
-        "    elif order.status == 'paid':\n"
-        "        return paid(order)\n",
-        encoding="utf-8",
-    )
-    result = ProjectAnalyzer(tmp_path).analyze(full=True)
-    json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
-    artifact = read_json(json_path)
-    finding = artifact["findings"][0]
-
-    artifact["metadata"]["finding_rules"][finding["kind"]]["review_prompt"] = "stale"
-    write_json(json_path, artifact)
-
-    report = validate_logicchart(tmp_path)
-
-    assert not report.ok
-    assert any("metadata.finding_rules" in error and "stale" in error for error in report.errors)
-
-
-def test_validate_checks_diagnostic_rule_id_matches_finding_kind(tmp_path: Path) -> None:
-    (tmp_path / "orders.py").write_text(
-        "def route(order):\n"
-        "    if order.status == 'draft':\n"
-        "        return draft(order)\n"
-        "    elif order.status == 'paid':\n"
-        "        return paid(order)\n",
-        encoding="utf-8",
-    )
-    result = ProjectAnalyzer(tmp_path).analyze(full=True)
-    json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
-    artifact = read_json(json_path)
-    artifact["findings"][0]["metadata"]["diagnostic"]["rule_id"] = "dead_code"
-    write_json(json_path, artifact)
-
-    report = validate_logicchart(tmp_path)
-
-    assert not report.ok
-    assert any("does not match finding kind" in error for error in report.errors)
-
-
-def test_validate_allows_legacy_artifact_without_finding_rule_registry(tmp_path: Path) -> None:
-    (tmp_path / "orders.py").write_text(
-        "def route(order):\n"
-        "    if order.status == 'draft':\n"
-        "        return draft(order)\n"
-        "    elif order.status == 'paid':\n"
-        "        return paid(order)\n",
-        encoding="utf-8",
-    )
-    result = ProjectAnalyzer(tmp_path).analyze(full=True)
-    json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
-    artifact = read_json(json_path)
-    artifact["metadata"].pop("finding_rules")
-    write_json(json_path, artifact)
-
-    report = validate_logicchart(tmp_path)
-
-    assert report.ok
-    assert report.errors == []
 
 
 def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
@@ -485,7 +387,7 @@ For local real-world regression checks:
 1. Keep `examples/Certifexp/` private and untracked.
 2. Do not commit Certifexp source or generated artifacts.
 
-Do not present inferred review signals as confirmed defects.
+Legacy LogicChart instructions outside local notes should be replaced.
 {END}
 """,
         encoding="utf-8",
@@ -499,6 +401,7 @@ Do not present inferred review signals as confirmed defects.
     assert "Do not commit Certifexp source or generated artifacts." in updated
     assert updated.index(LOCAL_NOTES_START) < updated.index("For local real-world")
     assert updated.index("generated artifacts.") < updated.index(LOCAL_NOTES_END)
+    assert "Legacy LogicChart instructions outside local notes should be replaced." not in updated
 
 
 def test_install_mcp_config_writes_project_scoped_files(tmp_path: Path) -> None:

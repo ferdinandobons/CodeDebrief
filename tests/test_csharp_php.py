@@ -54,7 +54,7 @@ def test_csharp_methods_switch_try_calls(tmp_path: Path) -> None:
         n for n in handle.nodes if n.kind is NodeKind.DECISION and n.label.startswith("Switch")
     )
     assert {"1", "2"} <= set(switch.metadata["values"])
-    assert "missing_branch" in {f.kind for f in model.findings if f.flow_id == handle.id}
+    assert model.findings == []
     # try/catch produces the error boundary decision
     assert any(n.metadata.get("domain") == "error" for n in handle.nodes)
     assert _flow(model, "Svc.Persist").id in handle.calls
@@ -150,5 +150,5 @@ def test_php_methods_switch_calls(tmp_path: Path) -> None:
         n for n in handle.nodes if n.kind is NodeKind.DECISION and n.label.startswith("Switch")
     )
     assert {'"a"', '"b"'} <= set(switch.metadata["values"])
-    assert "missing_branch" in {f.kind for f in model.findings if f.flow_id == handle.id}
+    assert model.findings == []
     assert _flow(model, "Svc.persist").id in handle.calls

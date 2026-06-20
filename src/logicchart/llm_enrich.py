@@ -11,22 +11,19 @@ from typing import Any
 from logicchart.annotations import ANNOTATIONS_SCHEMA_VERSION, annotations_path, model_hash
 from logicchart.config import LogicChartConfig
 from logicchart.llm_config import get_provider, logicchart_env_path, read_logicchart_env
-from logicchart.model import Finding, Flow, FlowNode, ProjectModel
+from logicchart.model import Flow, FlowNode, ProjectModel
 from logicchart.util import metadata_scope_names
 
 _DEFAULT_MAX_FLOWS = 12
 _DEFAULT_MAX_NODES_PER_FLOW = 18
-_DEFAULT_MAX_FINDINGS = 20
 
 
 @dataclass(frozen=True)
 class EnrichmentOptions:
     scope: str | None = None
     flow_ids: tuple[str, ...] = ()
-    finding_ids: tuple[str, ...] = ()
     max_flows: int = _DEFAULT_MAX_FLOWS
     max_nodes_per_flow: int = _DEFAULT_MAX_NODES_PER_FLOW
-    max_findings: int = _DEFAULT_MAX_FINDINGS
 
 
 class EnrichmentError(RuntimeError):
@@ -46,9 +43,7 @@ def build_enrichment_preview(
     provider_id = llm_values.get("LOGICCHART_LLM_PROVIDER")
     provider = get_provider(provider_id) if provider_id else None
     selected_flows = _select_flows(model, options)
-    selected_flow_ids = {flow.id for flow in selected_flows}
-    selected_findings = _select_findings(model, selected_flow_ids, options)
-    request = _build_llm_request(model, selected_flows, selected_findings, options)
+    request = _build_llm_request(model, selected_flows, options)
 
     return {
         "provider_call_made": False,
@@ -63,15 +58,9 @@ def build_enrichment_preview(
         "targets": {
             "scope": options.scope,
             "flow_ids": [flow.id for flow in selected_flows],
-            "finding_ids": [finding.id for finding in selected_findings],
             "omitted_flow_count": max(
                 0,
                 len(_candidate_flows(model, options)) - len(selected_flows),
-            ),
-            "omitted_finding_count": max(
-                0,
-                len(_candidate_findings(model, selected_flow_ids, options))
-                - len(selected_findings),
             ),
         },
         "request": request,
@@ -154,10 +143,6 @@ def render_enrichment_preview(preview: dict[str, Any]) -> str:
         f"model configured: {preview['model'] or '(none)'}",
         f"output: {preview['output']}",
         f"flows: {len(targets['flow_ids'])} selected, {targets['omitted_flow_count']} omitted",
-        (
-            f"findings: {len(targets['finding_ids'])} selected, "
-            f"{targets['omitted_finding_count']} omitted"
-        ),
         "provider call made: false",
         "Run with --send to call the configured provider.",
     ]
@@ -167,7 +152,6 @@ def render_enrichment_preview(preview: dict[str, Any]) -> str:
 def _build_llm_request(
     model: ProjectModel,
     flows: list[Flow],
-    findings: list[Finding],
     options: EnrichmentOptions,
 ) -> dict[str, Any]:
     return {
@@ -178,7 +162,6 @@ def _build_llm_request(
             "allowed_buckets": {
                 "flows": ["label", "description", "summary"],
                 "nodes": ["label", "description"],
-                "findings": ["summary", "explanation", "remediation"],
                 "scopes": ["label", "description", "summary"],
             },
             "limits": {"label": 120, "text": 2000},
@@ -187,18 +170,16 @@ def _build_llm_request(
             "Use only ids present in this request.",
             "Do not create, delete, or rename flow nodes.",
             "Keep labels short and specific to the code behavior.",
-            "Do not present INFERRED or POTENTIAL_GAP review signals as confirmed defects.",
+            "Use annotations to improve comprehension; do not frame them as defect reports.",
             "Return a JSON object matching logic-annotations schema_version 1.0.",
         ],
         "selection": {
             "scope": options.scope,
             "max_flows": options.max_flows,
             "max_nodes_per_flow": options.max_nodes_per_flow,
-            "max_findings": options.max_findings,
         },
         "scopes": _request_scopes(model, flows),
         "flows": [_flow_payload(flow, options.max_nodes_per_flow) for flow in flows],
-        "findings": [_finding_payload(finding) for finding in findings],
     }
 
 
@@ -217,74 +198,15 @@ def _candidate_flows(model: ProjectModel, options: EnrichmentOptions) -> list[Fl
             for flow in flows
             if flow.id in wanted or flow.symbol in wanted or flow.name in wanted
         ]
-    if options.finding_ids:
-        wanted_findings = set(options.finding_ids)
-        finding_flow_ids = {
-            finding.flow_id for finding in model.findings if finding.id in wanted_findings
-        }
-        explicit = [flow for flow in model.flows if flow.id in finding_flow_ids]
-        if options.scope:
-            explicit = [flow for flow in explicit if options.scope in _flow_scopes(flow)]
-        by_id = {flow.id: flow for flow in flows}
-        by_id.update({flow.id: flow for flow in explicit})
-        flows = list(by_id.values())
-    finding_priority = _finding_priority_by_flow(model.findings)
     return sorted(
         flows,
         key=lambda flow: (
-            finding_priority.get(flow.id, (99, 99)),
             not flow.is_entrypoint,
             flow.location.path,
             flow.name,
             flow.id,
         ),
     )
-
-
-def _select_findings(
-    model: ProjectModel,
-    selected_flow_ids: set[str],
-    options: EnrichmentOptions,
-) -> list[Finding]:
-    return _candidate_findings(model, selected_flow_ids, options)[: max(0, options.max_findings)]
-
-
-def _candidate_findings(
-    model: ProjectModel,
-    selected_flow_ids: set[str],
-    options: EnrichmentOptions,
-) -> list[Finding]:
-    findings = [finding for finding in model.findings if finding.flow_id in selected_flow_ids]
-    if options.finding_ids:
-        wanted = set(options.finding_ids)
-        findings = [finding for finding in findings if finding.id in wanted]
-    severity_rank = {"error": 0, "warning": 1, "info": 2}
-    evidence_rank = {"VERIFIED": 0, "INFERRED": 1, "POTENTIAL_GAP": 2}
-    return sorted(
-        findings,
-        key=lambda item: (
-            severity_rank.get(item.severity.value, 99),
-            evidence_rank.get(item.evidence.value, 99),
-            item.location.path,
-            item.location.start_line,
-            item.id,
-        ),
-    )
-
-
-def _finding_priority_by_flow(findings: list[Finding]) -> dict[str, tuple[int, int]]:
-    severity_rank = {"error": 0, "warning": 1, "info": 2}
-    evidence_rank = {"VERIFIED": 0, "INFERRED": 1, "POTENTIAL_GAP": 2}
-    priorities: dict[str, tuple[int, int]] = {}
-    for finding in findings:
-        priority = (
-            severity_rank.get(finding.severity.value, 99),
-            evidence_rank.get(finding.evidence.value, 99),
-        )
-        existing = priorities.get(finding.flow_id)
-        if existing is None or priority < existing:
-            priorities[finding.flow_id] = priority
-    return priorities
 
 
 def _request_scopes(model: ProjectModel, flows: list[Flow]) -> dict[str, Any]:
@@ -321,37 +243,6 @@ def _node_payload(node: FlowNode) -> dict[str, Any]:
         "evidence": node.evidence.value,
         "source": _source_payload(node.location),
     }
-
-
-def _finding_payload(finding: Finding) -> dict[str, Any]:
-    diagnostic = finding.metadata.get("diagnostic", {})
-    return {
-        "id": finding.id,
-        "kind": finding.kind,
-        "severity": finding.severity.value,
-        "evidence": finding.evidence.value,
-        "message": finding.message,
-        "detail": finding.detail,
-        "flow_id": finding.flow_id,
-        "node_id": finding.node_id,
-        "source": _source_payload(finding.location),
-        "diagnostic": _compact_diagnostic(diagnostic if isinstance(diagnostic, dict) else {}),
-    }
-
-
-def _compact_diagnostic(diagnostic: dict[str, Any]) -> dict[str, Any]:
-    keys = (
-        "rule_id",
-        "category",
-        "confidence",
-        "confidence_basis",
-        "expected",
-        "actual",
-        "missing",
-        "review_prompt",
-        "suggested_next_actions",
-    )
-    return {key: diagnostic[key] for key in keys if key in diagnostic}
 
 
 def _source_payload(location: Any) -> dict[str, Any]:

@@ -94,78 +94,22 @@ def test_render_html_embeds_only_matching_annotations(tmp_path: Path) -> None:
     assert stale_payload["metadata"]["annotations"]["status"] == "stale"
 
 
-def test_render_html_embeds_finding_annotations(tmp_path: Path) -> None:
-    (tmp_path / "service.py").write_text(
-        """
-from enum import Enum
-
-
-class Status(Enum):
-    OPEN = "open"
-    CLOSED = "closed"
-    DELETED = "deleted"
-
-
-def handle(status):
-    match status:
-        case Status.OPEN:
-            return "open"
-        case Status.CLOSED:
-            return "closed"
-""",
-        encoding="utf-8",
-    )
-    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
-    finding = model.findings[0]
-    annotations = annotations_path(tmp_path)
-    annotations.parent.mkdir(parents=True)
-    annotations.write_text(
-        json.dumps(
-            {
-                "schema_version": "1.0",
-                "model_hash": model_hash(model),
-                "findings": {
-                    finding.id: {
-                        "summary": "Deleted status is not represented.",
-                        "explanation": "The rendered finding keeps enrichment separate.",
-                        "remediation": "Add the missing case or a fallback.",
-                    }
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    html = render_html(model, tmp_path)
-    match = re.search(
-        r'<script id="logicchart-data" type="application/json">(.*?)</script>',
-        html,
-        re.DOTALL,
-    )
-    assert match is not None
-    payload = json.loads(match.group(1).replace("<\\/", "</"))
-    assert payload["annotations"]["findings"][finding.id]["summary"] == (
-        "Deleted status is not represented."
-    )
-    assert "finding-annotation-badge" in html
-
-
 def test_render_html_emits_directory_tree(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
     # The directory tree container the left rail renders into is wired up.
     assert 'id="tree"' in html
-    # Codebase search, review triage, and language filter are wired above the tree.
-    assert 'id="reviewFilter"' in html
-    assert "Show only flows with review signals" in html
+    # Codebase search and language filter are wired above the tree.
+    assert 'id="reviewFilter"' not in html
+    assert "Show only flows with review signals" not in html
     assert 'id="langFilter"' in html
     assert 'id="globalSearch"' in html
-    assert "Find path, symbol, signal" in html
+    assert "Find path, symbol, or flow" in html
     # tree.js is actually inlined into the page (a function unique to it). Asserting a
     # runtime-only DOM attribute like data-flow-id would pass vacuously just because the
     # script source mentions it, so we pin a structural marker instead.
     assert "refreshRovingTarget" in html
     assert "flowMatchesQuery" in html
-    assert "setupReviewFilter" in html
+    assert "setupReviewFilter" not in html
 
     # The embedded JSON payload carries a non-empty directory tree (file leaves with
     # flow ids), not just the literal key. Parse the data <script> and check it.
@@ -301,40 +245,38 @@ def test_render_html_wires_framework_decision_expansion(tmp_path: Path) -> None:
     assert "expandFlowInline" not in html
 
 
-def test_render_html_emits_source_and_errors_panels(tmp_path: Path) -> None:
+def test_render_html_emits_quality_and_source_panels(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
-    # Phase 4: the right column splits into a Source panel (top) and a Logical-errors
-    # panel (bottom). Pin both container ids so the split cannot silently regress.
+    # The right rail is for model quality and source inspection, not a review queue.
     assert 'id="source"' in html
-    assert 'id="errors"' in html
-    assert 'id="reviewQueueToggle"' in html
+    assert 'id="quality"' in html
+    assert 'id="errors"' not in html
+    assert 'id="reviewQueueToggle"' not in html
     assert "data-collapsible-panel" in html
     assert 'id="qualityPanelToggle"' in html
     assert 'id="sourcePanelToggle"' in html
-    assert 'id="errorsPanelToggle"' in html
+    assert 'id="errorsPanelToggle"' not in html
     assert 'id="detailsCollapseAll"' in html
     assert 'id="detailsExpandAll"' in html
     assert 'aria-controls="quality"' in html
     assert 'aria-controls="source"' in html
-    assert 'aria-controls="errors"' in html
-    # panels.js is actually inlined: a structural marker unique to it (the function that
-    # subscribes both panels to the shared selection store).
+    assert 'aria-controls="errors"' not in html
+    # panels.js is actually inlined: structural markers unique to quality/source rendering.
     assert "renderSource" in html
-    assert "renderErrors" in html
-    assert "prioritizedFindings" in html
-    assert "appendFindingDiagnostic" in html
-    assert "appendDiagnosticChart" in html
-    assert "diagnosticChartItems" in html
-    assert "diagnostic-grid" in html
-    assert "diagnostic-chart" in html
-    assert "Diagnostic subgraph" in html
-    assert "Focused diagnostic subgraph" in html
-    assert "data-diagnostic-chart-node" in html
-    assert "diagnostic-related" in html
-    assert "Related flows" in html
-    assert "Evidence nodes" in html
-    assert "contextForFinding" in html
-    assert "finding_rules" in html
+    assert "renderQuality" in html
+    assert "renderErrors" not in html
+    assert "prioritizedFindings" not in html
+    assert "appendFindingDiagnostic" not in html
+    assert "appendDiagnosticChart" not in html
+    assert "diagnosticChartItems" not in html
+    assert "diagnostic-grid" not in html
+    assert "diagnostic-chart" not in html
+    assert "Diagnostic subgraph" not in html
+    assert "Focused diagnostic subgraph" not in html
+    assert "data-diagnostic-chart-node" not in html
+    assert "diagnostic-related" not in html
+    assert "contextForFinding" not in html
+    assert "finding_rules" not in html
     # The full-screen toggle on the canvas toolbar (aria-pressed, data-action hook).
     assert 'data-action="fullscreen"' in html
     assert 'id="detailButton"' in html
@@ -391,11 +333,11 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "humanizeIdentifier(" in html
 
     # The Source panel is meaningful only when a file/flow is selected; scope/root views
-    # should let review signals use the right rail without a placeholder source panel.
+    # keep the details rail focused on model quality instead of placeholder source content.
     assert "sourcePanel.hidden = !flow" in html
 
     # Project-quality metrics are surfaced in the details rail from generated metadata,
-    # giving large-codebase review a visible analyzer coverage and precision snapshot.
+    # giving large-codebase exploration a visible analyzer coverage and precision snapshot.
     assert 'id="qualityPanel"' in html
     assert "model.metadata.quality" in html
     assert "qualityMetric(" in html
@@ -405,14 +347,13 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "Language attention" in html
     assert ".quality-metrics" in html
 
-    # Selecting a decision node should visually select its review-signal row even when the
-    # user did not click the review-signal row itself.
-    assert "finding.node_id === sel.nodeId" in html
+    # The details rail no longer exposes review-signal row synchronization.
+    assert "finding.node_id === sel.nodeId" not in html
 
     # Full-screen canvas hides rails, so the rail menu must not remain as a no-op control.
     assert "body[data-fullscreen] #menuButton" in html
 
-    # Narrow-view study mode keeps the canvas primary: source/findings are a stateful
+    # Narrow-view study mode keeps the canvas primary: source/details are a stateful
     # details drawer, and the canvas level is mirrored onto the body for responsive styling.
     assert "setRightRailOpen(" in html
     assert "data-detail-open" in html
@@ -435,7 +376,7 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     # back to #path while the inline decision graph is open.
     assert "suppressScopeFocus" in html
 
-    # Large-codebase scan aids: scope finding density, progressive route expansion, and
+    # Large-codebase scan aids: progressive route expansion and
     # tree empty state for search/filter misses should stay wired into the viewer.
     assert "contextFlowIds" in html
     assert "entryFlowIds" in html
@@ -453,10 +394,10 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "data-panel-heading" in html
     assert 'id="qualityPanelToggle"' in html
     assert 'id="sourcePanelToggle"' in html
-    assert 'id="errorsPanelToggle"' in html
+    assert 'id="errorsPanelToggle"' not in html
     assert 'aria-controls="quality"' in html
     assert 'aria-controls="source"' in html
-    assert 'aria-controls="errors"' in html
+    assert 'aria-controls="errors"' not in html
     assert 'target.closest("button, a, input, select, textarea")' in html
     assert 'heading.setAttribute("role", "button")' in html
     assert 'heading.setAttribute("tabindex", "0")' in html
@@ -488,7 +429,7 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "Collapse all expanded sections and return to the codebase root" in html
     assert "Expand all scopes and flows in the current graph" in html
     assert "Open ${flowDisplayName(flow)} in the progressive flowchart" in html
-    assert "Select logic block on line" in html
+    assert "Select source line" in html
     assert "selectedSourceRange" in html
     assert "sel.flowId === flow.id" in html
 

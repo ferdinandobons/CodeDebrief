@@ -655,7 +655,6 @@ type DetailSelection = DetailEdgeSelection | DetailNodeSelection;
 interface LogicChartShellSelection {
   edgeId?: string | null;
   endLine?: number | null;
-  findingId?: string | null;
   flowId?: string | null;
   line?: number | null;
   nodeId?: string | null;
@@ -681,7 +680,6 @@ function publishShellDetailSelection(
   shell.select({
     edgeId: "edgeId" in selection ? selection.edgeId : null,
     endLine: endLineForLocation(location),
-    findingId: null,
     flowId: selection.flowId,
     line: location?.start_line ?? null,
     nodeId,
@@ -700,7 +698,6 @@ function publishShellFlowSelection(
   shell.select({
     edgeId: null,
     endLine: endLineForLocation(flow?.location),
-    findingId: null,
     flowId,
     line: flow?.location?.start_line ?? null,
     nodeId: null,
@@ -715,7 +712,6 @@ function publishShellScopeSelection(scope: string) {
   shell.select({
     edgeId: null,
     endLine: null,
-    findingId: null,
     flowId: null,
     line: null,
     nodeId: null,
@@ -731,7 +727,6 @@ function publishShellRootSelection() {
   shell.select({
     edgeId: null,
     endLine: null,
-    findingId: null,
     flowId: null,
     line: null,
     nodeId: null,

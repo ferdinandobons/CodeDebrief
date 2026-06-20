@@ -11,7 +11,6 @@ from logicchart.analysis.registry import supported_language_ids
 from logicchart.annotations import load_annotations
 from logicchart.artifacts import output_paths
 from logicchart.config import LogicChartConfig
-from logicchart.diagnostics import finding_rule_contracts_by_kind
 from logicchart.model import ProjectModel
 from logicchart.quality import model_quality
 from logicchart.util import read_json
@@ -80,7 +79,6 @@ def validate_logicchart(
         return report
 
     _validate_languages(model, report)
-    _validate_finding_rule_contracts(model, report)
     _validate_json_schema(artifact, report)
     annotations = load_annotations(root, model, active_config)
     if include_annotations or annotations.status != "absent":
@@ -133,65 +131,6 @@ def _validate_languages(model: ProjectModel, report: ValidationReport) -> None:
     unknown = sorted(found - supported)
     if unknown:
         report.add_error("Artifact uses unregistered language ids: " + ", ".join(unknown))
-
-
-def _validate_finding_rule_contracts(model: ProjectModel, report: ValidationReport) -> None:
-    rules = model.metadata.get("finding_rules")
-    if rules is None:
-        return
-    if not isinstance(rules, dict):
-        report.add_error("metadata.finding_rules must be an object when present.")
-        return
-    current_rules = finding_rule_contracts_by_kind()
-    _validate_current_finding_rules(rules, current_rules, report)
-    for finding in model.findings:
-        rule = rules.get(finding.kind)
-        if not isinstance(rule, dict):
-            report.add_error(f"{finding.id}: missing finding rule contract for {finding.kind!r}.")
-            continue
-        if rule.get("rule_id") != finding.kind:
-            report.add_error(
-                f"{finding.id}: finding rule contract id {rule.get('rule_id')!r} "
-                f"does not match finding kind {finding.kind!r}."
-            )
-        metadata_fields = rule.get("metadata_fields", [])
-        if not isinstance(metadata_fields, list):
-            report.add_error(f"{finding.id}: rule metadata_fields must be a list.")
-            continue
-        invalid_fields = [field for field in metadata_fields if not isinstance(field, str)]
-        if invalid_fields:
-            report.add_error(f"{finding.id}: rule metadata_fields entries must be strings.")
-            continue
-        missing = [field for field in metadata_fields if field not in finding.metadata]
-        if missing:
-            report.add_error(
-                f"{finding.id}: finding metadata is missing rule-declared fields: "
-                + ", ".join(missing)
-            )
-        diagnostic = finding.metadata.get("diagnostic")
-        if isinstance(diagnostic, dict) and diagnostic.get("rule_id") != finding.kind:
-            report.add_error(
-                f"{finding.id}: diagnostic rule_id {diagnostic.get('rule_id')!r} "
-                f"does not match finding kind {finding.kind!r}."
-            )
-
-
-def _validate_current_finding_rules(
-    artifact_rules: dict[str, Any],
-    current_rules: dict[str, dict[str, Any]],
-    report: ValidationReport,
-) -> None:
-    missing = sorted(kind for kind in current_rules if kind not in artifact_rules)
-    if missing:
-        report.add_error(
-            "metadata.finding_rules is missing current detector contracts: " + ", ".join(missing)
-        )
-    for kind, expected in current_rules.items():
-        observed = artifact_rules.get(kind)
-        if observed is None:
-            continue
-        if observed != expected:
-            report.add_error(f"metadata.finding_rules[{kind!r}] is stale; run `logicchart update`.")
 
 
 def _validate_json_schema(artifact: dict[str, Any], report: ValidationReport) -> None:

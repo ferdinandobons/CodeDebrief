@@ -1,4 +1,4 @@
-"""Match-statement dispatch: guarded wildcards and OR-patterns (review fixes)."""
+"""Match-statement dispatch modeling: guarded wildcards and OR patterns."""
 
 from __future__ import annotations
 
@@ -22,18 +22,13 @@ def _analyze(tmp_path: Path, body: str) -> ProjectModel:
     return ProjectAnalyzer(tmp_path).analyze(full=True).model
 
 
-def _kinds(model: ProjectModel, flow_name: str) -> set[str]:
-    flow = next(f for f in model.flows if f.name == flow_name)
-    return {f.kind for f in model.findings if f.flow_id == flow.id}
-
-
 def _match_meta(model: ProjectModel, flow_name: str) -> dict:
     flow = next(f for f in model.flows if f.name == flow_name)
     node = next(n for n in flow.nodes if n.kind is NodeKind.DECISION)
     return node.metadata
 
 
-def test_guarded_wildcard_is_not_an_exhaustive_default(tmp_path: Path) -> None:
+def test_guarded_wildcard_is_modeled_without_public_findings(tmp_path: Path) -> None:
     body = (
         "def handle(status):\n"
         "    match status:\n"
@@ -45,12 +40,12 @@ def test_guarded_wildcard_is_not_an_exhaustive_default(tmp_path: Path) -> None:
         "            return 3\n"
     )
     model = _analyze(tmp_path, body)
-    assert "enum_exhaustiveness" in _kinds(model, "handle")
-    missing = next(f.metadata["missing"] for f in model.findings if f.kind == "enum_exhaustiveness")
-    assert set(missing) == {"Status.C", "Status.D"}
+    meta = _match_meta(model, "handle")
+    assert {"Status.A", "Status.B"} <= set(meta["values"])
+    assert model.findings == []
 
 
-def test_guarded_wildcard_leaves_no_spurious_dead_code(tmp_path: Path) -> None:
+def test_guarded_wildcard_leaves_trailing_return_live(tmp_path: Path) -> None:
     body = (
         "def handle(status):\n"
         "    match status:\n"
@@ -61,8 +56,9 @@ def test_guarded_wildcard_leaves_no_spurious_dead_code(tmp_path: Path) -> None:
         "    return 'fallthrough'\n"
     )
     model = _analyze(tmp_path, body)
-    # The trailing return is live for C/D when the guard is false - not dead code.
-    assert "dead_code" not in _kinds(model, "handle")
+    flow = next(f for f in model.flows if f.name == "handle")
+    assert any(node.label == "Return 'fallthrough'" for node in flow.nodes)
+    assert model.findings == []
 
 
 def test_or_pattern_members_are_split(tmp_path: Path) -> None:
@@ -78,12 +74,10 @@ def test_or_pattern_members_are_split(tmp_path: Path) -> None:
     meta = _match_meta(model, "handle")
     assert meta["value_namespace"] == "Status"
     assert {"Status.A", "Status.B", "Status.C"} <= set(meta["values"])
-    assert "enum_exhaustiveness" in _kinds(model, "handle")
-    missing = next(f.metadata["missing"] for f in model.findings if f.kind == "enum_exhaustiveness")
-    assert set(missing) == {"Status.D"}
+    assert model.findings == []
 
 
-def test_real_default_stays_silent(tmp_path: Path) -> None:
+def test_real_default_stays_explicit(tmp_path: Path) -> None:
     body = (
         "def handle(status):\n"
         "    match status:\n"
@@ -95,4 +89,6 @@ def test_real_default_stays_silent(tmp_path: Path) -> None:
         "            return 0\n"
     )
     model = _analyze(tmp_path, body)
-    assert _kinds(model, "handle") == set()
+    meta = _match_meta(model, "handle")
+    assert any(branch["label"] == "_" and not branch["implicit"] for branch in meta["branches"])
+    assert model.findings == []

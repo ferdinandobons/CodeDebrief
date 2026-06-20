@@ -10,7 +10,7 @@ from logicchart.quality import model_quality, render_quality
 from logicchart.validation import validate_logicchart
 
 
-def test_model_quality_counts_calls_findings_and_labels(tmp_path: Path) -> None:
+def test_model_quality_counts_calls_and_labels(tmp_path: Path) -> None:
     (tmp_path / "app.py").write_text(
         "def target():\n"
         "    return 1\n\n"
@@ -35,8 +35,7 @@ def test_model_quality_counts_calls_findings_and_labels(tmp_path: Path) -> None:
     assert quality["calls"]["total"] >= 2
     assert quality["calls"]["resolved"] >= 1
     assert quality["calls"]["unresolved"] >= 1
-    assert quality["findings"]["total"] >= 1
-    assert "missing_branch" in quality["findings"]["by_kind"]
+    assert "findings" not in quality
     python_depth = quality["languages"]["depth"]["python"]
     assert python_depth["files"] == 1
     assert python_depth["flows"] >= 2

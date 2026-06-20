@@ -6,7 +6,7 @@ import json
 import re
 import shlex
 import sys
-from collections import Counter, deque
+from collections import deque
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict
 from itertools import pairwise
@@ -25,18 +25,11 @@ from logicchart.annotations import (
 )
 from logicchart.artifacts import load_model, output_paths, write_artifacts
 from logicchart.config import LogicChartConfig
-from logicchart.diagnostics import diagnostic_for_finding, finding_rule_contracts
 from logicchart.llm_enrich import EnrichmentOptions, build_enrichment_preview
 from logicchart.model import Flow, FlowEdge, FlowNode, NodeKind, ProjectModel
 from logicchart.quality import model_quality
 from logicchart.query import (
-    explain_finding,
     find_decisions,
-    finding_annotation,
-    finding_context,
-    finding_matches_filters,
-    finding_next_tools,
-    finding_priority,
     flow_navigation,
     flow_summary,
     git_changed_files,
@@ -47,7 +40,6 @@ from logicchart.query import (
 )
 from logicchart.render.snapshot import (
     SNAPSHOT_FORMATS,
-    render_finding_snapshot,
     render_flow_snapshot,
     render_impact_snapshot,
     render_subgraph_snapshot,
@@ -68,15 +60,12 @@ _LOAD_ERRORS = (OSError, ValueError, KeyError, TypeError)
 MCP_INSTRUCTIONS = """Use LogicChart as an agent-first code-logic understanding layer.
 Prefer agent_context for ordinary user questions before broad file-by-file search. Use
 domain_map when the user asks about statuses, roles, permissions, or other state-like
-logic. Use get_finding_context and get_finding_snapshot before treating a review signal as
-actionable.
+logic.
 After substantial code edits, call update_logicchart and validate_artifacts, then commit
 the synchronized logic-flow.json and logic-flow.md artifacts when they changed. Use
 update_logicchart(full=true) when artifacts are missing, stale, or analyzer behavior
-changed and cached file models should be ignored. Treat VERIFIED as syntax-backed,
-INFERRED as deterministic heuristic, and POTENTIAL_GAP as a review candidate, not a
-confirmed defect. Use preview_annotation_targets and write_annotations for local
-agent-authored annotations without provider keys."""
+changed and cached file models should be ignored. Use preview_annotation_targets and
+write_annotations for local agent-authored labels and summaries without provider keys."""
 
 
 def _cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]:
@@ -102,10 +91,9 @@ def _impact_changed_files(
     changed_files: list[str] | None,
     flow_ids: list[str] | None,
     symbols: list[str] | None,
-    finding_ids: list[str] | None,
     dependency_paths: list[str] | None,
 ) -> list[str]:
-    has_targets = bool(flow_ids or symbols or finding_ids or dependency_paths)
+    has_targets = bool(flow_ids or symbols or dependency_paths)
     if changed_files is not None:
         return changed_files
     return [] if has_targets else git_changed_files(project_root)
@@ -131,7 +119,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if error is not None:
             return [error]
         assert model is not None
-        findings_by_flow = Counter(finding.flow_id for finding in model.findings)
         return _cap(
             [
                 {
@@ -141,7 +128,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                     "entry_kind": flow.entry_kind,
                     "framework": flow.framework,
                     "source": f"{flow.location.path}:{flow.location.start_line}",
-                    "findings": findings_by_flow[flow.id],
                 }
                 for flow in model.flows
                 if flow.is_entrypoint or not entrypoints_only
@@ -151,7 +137,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
 
     @server.tool()
     def get_flow(flow_id: str, token_budget: int = 0) -> dict[str, Any]:
-        """Return one complete flow, including nodes, edges, callers, and findings."""
+        """Return one complete flow, including nodes, edges, callers, and callees."""
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return error
@@ -173,24 +159,11 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             ],
             token_budget,
         )
-        annotations = load_annotations(project_root, model, active_config)
-        annotation_payload = annotations.annotations if annotations.ok else None
-        flow_lookup = {flow.id: flow}
-        return {
-            "flow": flow_dict,
-            "findings": _cap(
-                [
-                    _finding_dict(item, model, annotation_payload, flows_by_id=flow_lookup)
-                    for item in model.findings
-                    if item.flow_id == flow.id
-                ],
-                token_budget,
-            ),
-        }
+        return {"flow": flow_dict}
 
     @server.tool()
     def get_flow_navigation(flow_id: str, token_budget: int = 0) -> dict[str, Any]:
-        """Return an agent navigation pack for one flow: relations, decisions, findings."""
+        """Return an agent navigation pack for one flow: relations and decisions."""
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return error
@@ -222,9 +195,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         limit: int = 10,
         scope: str | None = None,
         language: str | None = None,
-        finding_kind: str | None = None,
-        finding_severity: str | None = None,
-        finding_evidence: str | None = None,
         source_path: str | None = None,
         symbol: str | None = None,
         domain: str | None = None,
@@ -247,9 +217,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             limit,
             scope,
             language=language,
-            finding_kind=finding_kind,
-            finding_severity=finding_severity,
-            finding_evidence=finding_evidence,
             source_path=source_path,
             symbol=symbol,
             domain=domain,
@@ -258,54 +225,12 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         return _cap([match.to_dict() for match in matches], token_budget)
 
     @server.tool()
-    def get_findings(flow_id: str | None = None, token_budget: int = 0) -> list[dict[str, Any]]:
-        """List review signals with structured diagnostics, confidence, and next actions."""
-        model, error = _try_load(project_root, active_config)
-        if error is not None:
-            return [error]
-        assert model is not None
-        annotations = load_annotations(project_root, model, active_config)
-        annotation_payload = annotations.annotations if annotations.ok else None
-        flows_by_id = {flow.id: flow for flow in model.flows}
-        return _cap(
-            [
-                _finding_dict(item, model, annotation_payload, flows_by_id=flows_by_id)
-                for item in model.findings
-                if flow_id is None or item.flow_id == flow_id
-            ],
-            token_budget,
-        )
-
-    @server.tool()
-    def finding_rules(kind: str | None = None, token_budget: int = 0) -> list[dict[str, Any]]:
-        """Return stable detector contracts: purpose, preconditions, caveats, remediation."""
-        return _cap(finding_rule_contracts(kind), token_budget)
-
-    @server.tool()
-    def get_finding_snapshot(
-        finding_id: str, format: str = "svg", token_budget: int = 0
-    ) -> dict[str, Any]:
-        """Return a deterministic visual SVG snapshot centered on one finding."""
-        if format not in SNAPSHOT_FORMATS:
-            return unsupported_snapshot_format(format)
-        model, error = _try_load(project_root, active_config)
-        if error is not None:
-            return error
-        assert model is not None
-        return render_finding_snapshot(
-            model,
-            finding_id,
-            max_nodes=_snapshot_node_budget(token_budget),
-        )
-
-    @server.tool()
     def get_subgraph_snapshot(
         flow_ids: list[str] | None = None,
-        finding_ids: list[str] | None = None,
         format: str = "svg",
         token_budget: int = 0,
     ) -> dict[str, Any]:
-        """Return a deterministic visual SVG snapshot for explicit flows/findings."""
+        """Return a deterministic visual SVG snapshot for explicit flows."""
         if format not in SNAPSHOT_FORMATS:
             return unsupported_snapshot_format(format)
         model, error = _try_load(project_root, active_config)
@@ -315,14 +240,13 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         return render_subgraph_snapshot(
             model,
             flow_ids=flow_ids,
-            finding_ids=finding_ids,
             max_flows=_snapshot_flow_budget(token_budget),
             max_nodes=_snapshot_node_budget(token_budget),
         )
 
     @server.tool()
     def logicchart_summary() -> dict[str, Any]:
-        """An orientation snapshot: flow/entrypoint counts and findings by kind/severity."""
+        """An orientation snapshot: flow, entrypoint, language, and quality counts."""
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return error
@@ -335,10 +259,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
     def preview_enrichment(
         scope: str | None = None,
         flow_ids: list[str] | None = None,
-        finding_ids: list[str] | None = None,
         max_flows: int = 8,
         max_nodes_per_flow: int = 12,
-        max_findings: int = 12,
         env_file: str | None = None,
         token_budget: int = 0,
     ) -> dict[str, Any]:
@@ -355,10 +277,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         options = _enrichment_options(
             scope=scope,
             flow_ids=flow_ids,
-            finding_ids=finding_ids,
             max_flows=max_flows,
             max_nodes_per_flow=max_nodes_per_flow,
-            max_findings=max_findings,
             token_budget=token_budget,
         )
         preview = build_enrichment_preview(
@@ -377,10 +297,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
     def preview_annotation_targets(
         scope: str | None = None,
         flow_ids: list[str] | None = None,
-        finding_ids: list[str] | None = None,
         max_flows: int = 8,
         max_nodes_per_flow: int = 12,
-        max_findings: int = 12,
         token_budget: int = 0,
     ) -> dict[str, Any]:
         """Preview local annotation targets without provider setup or network calls."""
@@ -389,10 +307,8 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             preview_enrichment(
                 scope=scope,
                 flow_ids=flow_ids,
-                finding_ids=finding_ids,
                 max_flows=max_flows,
                 max_nodes_per_flow=max_nodes_per_flow,
-                max_findings=max_findings,
                 env_file=None,
                 token_budget=token_budget,
             ),
@@ -457,7 +373,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         annotations: dict[str, Any] | None = None,
         flows: dict[str, dict[str, str]] | None = None,
         nodes: dict[str, dict[str, str]] | None = None,
-        findings: dict[str, dict[str, str]] | None = None,
         scopes: dict[str, dict[str, str]] | None = None,
         generated_by: dict[str, Any] | None = None,
         replace_existing: bool = False,
@@ -474,7 +389,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             annotations=annotations,
             flows=flows,
             nodes=nodes,
-            findings=findings,
             scopes=scopes,
             generated_by=generated_by,
             replace_existing=replace_existing,
@@ -508,7 +422,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
 
     @server.tool()
     def analysis_quality(token_budget: int = 0) -> dict[str, Any]:
-        """Analyzer-quality metrics with attention signals and agent follow-up tools."""
+        """Analyzer-quality metrics for model coverage, parsing, calls, and labels."""
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return error
@@ -517,46 +431,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         if not isinstance(quality, dict):
             quality = model_quality(model)
         return _quality_report(quality, token_budget)
-
-    @server.tool()
-    def explain_finding_chain(finding_id: str, token_budget: int = 0) -> dict[str, Any]:
-        """The deterministic evidence chain behind one finding (decision, condition, branches).
-
-        Returns one small record; token_budget is accepted only to match the uniform
-        query/list tool contract.
-        """
-        model, error = _try_load(project_root, active_config)
-        if error is not None:
-            return error
-        assert model is not None
-        annotations = load_annotations(project_root, model, active_config)
-        annotation_payload = annotations.annotations if annotations.ok else None
-        result = explain_finding(model, finding_id, annotation_payload)
-        if result is None:
-            return _unknown_target_error("finding", finding_id)
-        result["next_tools"] = {
-            "finding_context": {
-                "tool": "get_finding_context",
-                "arguments": {"finding_id": finding_id, "token_budget": token_budget},
-            },
-            "visual_snapshot": {
-                "tool": "get_finding_snapshot",
-                "arguments": {"finding_id": finding_id, "format": "svg"},
-            },
-        }
-        return result
-
-    @server.tool()
-    def get_finding_context(finding_id: str, token_budget: int = 0) -> dict[str, Any]:
-        """Return a bounded deterministic subgraph around one review signal."""
-        model, error = _try_load(project_root, active_config)
-        if error is not None:
-            return error
-        assert model is not None
-        annotations = load_annotations(project_root, model, active_config)
-        annotation_payload = annotations.annotations if annotations.ok else None
-        result = finding_context(model, finding_id, token_budget, annotation_payload)
-        return result if result is not None else _unknown_target_error("finding", finding_id)
 
     @server.tool()
     def where_state_handled(
@@ -576,7 +450,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         missing_fallback: bool = False,
         token_budget: int = 0,
     ) -> list[dict[str, Any]]:
-        """Structured search over decision nodes (by domain/subject/missing-fallback)."""
+        """Structured search over decision nodes (by domain/subject/implicit fallback)."""
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return [error]
@@ -596,7 +470,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         scope: str | None = None,
         token_budget: int = 900,
     ) -> dict[str, Any]:
-        """Aggregate domain/state handling across decisions, flows, and findings."""
+        """Aggregate domain/state handling across decisions and flows."""
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return error
@@ -615,7 +489,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         scope: str | None = None,
         flow_ids: list[str] | None = None,
         symbols: list[str] | None = None,
-        finding_ids: list[str] | None = None,
         dependency_paths: list[str] | None = None,
         token_budget: int = 0,
     ) -> dict[str, Any]:
@@ -628,7 +501,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             return error
         assert model is not None
         changes = _impact_changed_files(
-            project_root, changed_files, flow_ids, symbols, finding_ids, dependency_paths
+            project_root, changed_files, flow_ids, symbols, dependency_paths
         )
         result = impact_model(
             model,
@@ -636,7 +509,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             scope,
             flow_ids=flow_ids,
             symbols=symbols,
-            finding_ids=finding_ids,
             dependency_paths=dependency_paths,
         )
         direct = [
@@ -646,23 +518,16 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             _impact_flow_summary(item, result.impact_reasons)
             for item in result.transitively_impacted
         ]
-        flows_by_id = {flow.id: flow for flow in model.flows}
         return {
             "changed_files": result.changed_files,
             "target_flow_ids": result.target_flow_ids,
             "target_symbols": result.target_symbols,
-            "target_finding_ids": result.target_finding_ids,
             "target_dependency_paths": result.target_dependency_paths,
             "unresolved_targets": result.unresolved_targets,
             "impact_reasons": result.impact_reasons,
             "direct": _cap(direct, token_budget),
             "transitive": _cap(transitive, token_budget),
-            "findings": _cap(
-                [_finding_dict(item, model, flows_by_id=flows_by_id) for item in result.findings],
-                token_budget,
-            ),
             "subgraph_flow_ids": result.subgraph_flow_ids,
-            "subgraph_finding_ids": result.subgraph_finding_ids,
         }
 
     @server.tool()
@@ -671,7 +536,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         scope: str | None = None,
         flow_ids: list[str] | None = None,
         symbols: list[str] | None = None,
-        finding_ids: list[str] | None = None,
         dependency_paths: list[str] | None = None,
         format: str = "svg",
         token_budget: int = 0,
@@ -684,7 +548,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             return error
         assert model is not None
         changes = _impact_changed_files(
-            project_root, changed_files, flow_ids, symbols, finding_ids, dependency_paths
+            project_root, changed_files, flow_ids, symbols, dependency_paths
         )
         result = impact_model(
             model,
@@ -692,58 +556,20 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             scope,
             flow_ids=flow_ids,
             symbols=symbols,
-            finding_ids=finding_ids,
             dependency_paths=dependency_paths,
         )
         return render_impact_snapshot(
             changed_files=result.changed_files,
             direct=result.directly_impacted,
             transitive=result.transitively_impacted,
-            findings=result.findings,
             max_flows=_snapshot_flow_budget(token_budget),
             target_flow_ids=result.target_flow_ids,
             target_symbols=result.target_symbols,
-            target_finding_ids=result.target_finding_ids,
             target_dependency_paths=result.target_dependency_paths,
             unresolved_targets=result.unresolved_targets,
             impact_reasons=result.impact_reasons,
             subgraph_flow_ids=result.subgraph_flow_ids,
-            subgraph_finding_ids=result.subgraph_finding_ids,
         )
-
-    @server.tool()
-    def review_queue(
-        scope: str | None = None,
-        evidence: str | None = None,
-        severity: str | None = None,
-        token_budget: int = 0,
-    ) -> list[dict[str, Any]]:
-        """Prioritized findings for an agent to review before or after editing."""
-        model, error = _try_load(project_root, active_config)
-        if error is not None:
-            return [error]
-        assert model is not None
-        annotations = load_annotations(project_root, model, active_config)
-        annotation_payload = annotations.annotations if annotations.ok else None
-        flows = {flow.id: flow for flow in model.flows if flow_in_agent_scope(flow, scope)}
-        rows = []
-        for finding in model.findings:
-            if finding.flow_id not in flows:
-                continue
-            if evidence is not None and finding.evidence.value != evidence:
-                continue
-            if severity is not None and finding.severity.value != severity:
-                continue
-            flow = flows[finding.flow_id]
-            rows.append(
-                {
-                    **_finding_dict(finding, model, annotation_payload, flows_by_id=flows),
-                    "flow": flow_summary(flow),
-                    "priority": finding_priority(finding),
-                }
-            )
-        rows.sort(key=lambda item: (item["priority"], item["location"]["path"], item["message"]))
-        return _cap(rows, token_budget)
 
     @server.tool()
     def context_pack(
@@ -752,26 +578,22 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         scope: str | None = None,
         flow_ids: list[str] | None = None,
         symbols: list[str] | None = None,
-        finding_ids: list[str] | None = None,
         dependency_paths: list[str] | None = None,
         language: str | None = None,
         source_path: str | None = None,
         domain: str | None = None,
         value: str | None = None,
-        finding_kind: str | None = None,
-        finding_severity: str | None = None,
-        finding_evidence: str | None = None,
         include_visual: bool = False,
         token_budget: int = 600,
         visual_byte_budget: int = _DEFAULT_CONTEXT_VISUAL_BYTE_BUDGET,
     ) -> dict[str, Any]:
-        """Compact orientation pack: summary, relevant flows, impact, review, visuals.
+        """Compact orientation pack: summary, relevant flows, impact, navigation, visuals.
 
-        ``flow_ids``, ``symbols``, ``finding_ids``, and ``dependency_paths`` mirror
+        ``flow_ids``, ``symbols``, and ``dependency_paths`` mirror
         ``analyze_impact`` so an agent can build a context pack around an exact flow,
-        symbol, diagnostic, or source subtree without pretending a file changed.
+        symbol, or source subtree without pretending a file changed.
         Query filters mirror ``query_logic`` so agents can request a bounded pack for
-        source, state-domain, language, or finding evidence slices without lexical terms.
+        source, state-domain, or language slices without lexical terms.
         ``visual_byte_budget`` caps inline SVG bytes when ``include_visual`` is true;
         omitted snapshots remain available through the returned ``next_tools``.
         """
@@ -788,15 +610,11 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             scope=scope,
             flow_ids=flow_ids,
             symbols=symbols,
-            finding_ids=finding_ids,
             dependency_paths=dependency_paths,
             language=language,
             source_path=source_path,
             domain=domain,
             value=value,
-            finding_kind=finding_kind,
-            finding_severity=finding_severity,
-            finding_evidence=finding_evidence,
             include_visual=include_visual,
             token_budget=token_budget,
             visual_byte_budget=visual_byte_budget,
@@ -810,7 +628,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         current_file: str | None = None,
         flow_id: str | None = None,
         symbol: str | None = None,
-        finding_id: str | None = None,
         dependency_path: str | None = None,
         domain: str | None = None,
         value: str | None = None,
@@ -821,9 +638,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         """Primary agent entrypoint for code-logic questions and change impact.
 
         Accepts the context a coding agent naturally has: user question, changed files,
-        selected code/current file, or focused flow/symbol/finding/dependency targets.
+        selected code/current file, or focused flow/symbol/dependency targets.
         Returns one bounded workflow_slice plus compatible query, impact, navigation,
-        finding, source-range, guardrail, and optional visual snapshot context.
+        source-range, guardrail, and optional visual snapshot context.
         """
         effective_question = _agent_context_question(question, selected_code)
         source_path = current_file.strip() if current_file and current_file.strip() else None
@@ -841,7 +658,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             scope=scope,
             flow_ids=_single_item_list(flow_id),
             symbols=_single_item_list(symbol),
-            finding_ids=_single_item_list(finding_id),
             dependency_paths=_single_item_list(dependency_path),
             source_path=source_path,
             domain=domain,
@@ -866,7 +682,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 "current_file": source_path,
                 "flow_id": flow_id,
                 "symbol": symbol,
-                "finding_id": finding_id,
                 "dependency_path": dependency_path,
                 "domain": domain,
                 "value": value,
@@ -883,8 +698,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             "tool": "agent_context",
             "guardrail": (
                 "Use this as source-grounded context for explanation or edits. Do not "
-                "present INFERRED or POTENTIAL_GAP review signals as confirmed defects, and keep "
-                "agent-generated annotation text separate from deterministic facts."
+                "invent workflow steps, branches, constants, limits, or error codes outside "
+                "the returned LogicChart payload; keep agent-generated annotation text "
+                "separate from deterministic facts."
             ),
             "inputs": {
                 "question": question,
@@ -893,7 +709,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 "selected_code_excerpt": _selected_code_excerpt(selected_code),
                 "flow_id": flow_id,
                 "symbol": symbol,
-                "finding_id": finding_id,
                 "dependency_path": dependency_path,
                 "domain": domain,
                 "value": value,
@@ -905,20 +720,18 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             "context": pack,
             "domain_map": domain_payload,
             "recommended_next_tools": recommended_next_tools,
-            "recommended_human_review": _agent_context_review_points(pack),
         }
 
     @server.tool()
     def expand_slice(
         slice_id: str | None = None,
         flow_ids: list[str] | None = None,
-        finding_ids: list[str] | None = None,
         direction: str = "neighbors",
         depth: int = 1,
         include_visual: bool = False,
         token_budget: int = 900,
     ) -> dict[str, Any]:
-        """Widen or deepen a workflow slice from stable flow/finding handles."""
+        """Widen or deepen a workflow slice from stable flow handles."""
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return error
@@ -926,7 +739,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
         expansion = _expand_workflow_slice_targets(
             model,
             flow_ids=flow_ids,
-            finding_ids=finding_ids,
             direction=direction,
             depth=depth,
             token_budget=token_budget,
@@ -938,7 +750,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
                 expansion["message"],
                 slice_id=slice_id,
                 flow_ids=flow_ids,
-                finding_ids=finding_ids,
             )
         pack = _context_pack_payload(
             project_root,
@@ -946,7 +757,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             model,
             question=f"expand workflow slice {direction}",
             flow_ids=expansion["flow_ids"],
-            finding_ids=expansion["finding_ids"],
             include_visual=include_visual,
             token_budget=token_budget,
         )
@@ -964,7 +774,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             inputs={
                 "slice_id": slice_id,
                 "flow_ids": flow_ids or [],
-                "finding_ids": finding_ids or [],
                 "direction": direction,
                 "depth": depth,
                 "include_visual": include_visual,
@@ -1050,7 +859,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
     def snapshot_slice(
         slice_id: str | None = None,
         flow_ids: list[str] | None = None,
-        finding_ids: list[str] | None = None,
         format: str = "svg",
         include_svg: bool = True,
         token_budget: int = 900,
@@ -1063,20 +871,17 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             return error
         assert model is not None
         normalized_flow_ids = _known_flow_ids(model, flow_ids)
-        normalized_finding_ids = _known_finding_ids(model, finding_ids)
-        if not normalized_flow_ids and not normalized_finding_ids:
+        if not normalized_flow_ids:
             return _slice_target_error(
                 "snapshot_slice",
                 "slice_targets_missing",
-                "snapshot_slice requires at least one known flow_id or finding_id.",
+                "snapshot_slice requires at least one known flow_id.",
                 slice_id=slice_id,
                 flow_ids=flow_ids,
-                finding_ids=finding_ids,
             )
         snapshot = render_subgraph_snapshot(
             model,
             flow_ids=normalized_flow_ids,
-            finding_ids=normalized_finding_ids,
             max_flows=_snapshot_flow_budget(token_budget),
             max_nodes=_snapshot_node_budget(token_budget),
         )
@@ -1085,7 +890,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             snapshot,
             slice_id=slice_id,
             flow_ids=normalized_flow_ids,
-            finding_ids=normalized_finding_ids,
         )
         snapshot_payload = dict(snapshot)
         if not include_svg and "svg" in snapshot_payload:
@@ -1098,13 +902,11 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             "slice_id": slice_id,
             "format": format,
             "flow_ids": normalized_flow_ids,
-            "finding_ids": normalized_finding_ids,
             "snapshot": snapshot_payload,
             "artifact": artifact,
             "viewer_targets": _workflow_viewer_targets(
                 model,
                 normalized_flow_ids,
-                normalized_finding_ids,
             ),
             "guardrail": (
                 "Snapshots are deterministic visual context for the selected slice. "
@@ -1116,7 +918,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
 
     @server.tool()
     def explain_flow(flow_id: str, token_budget: int = 900) -> dict[str, Any]:
-        """Explain one flow with source anchors, decisions, calls, findings, and next tools."""
+        """Explain one flow with source anchors, decisions, calls, and next tools."""
         model, error = _try_load(project_root, active_config)
         if error is not None:
             return error
@@ -1202,7 +1004,6 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             "deleted_files": result.deleted_files,
             "cache_hits": result.cache_hits,
             "flows": len(result.model.flows),
-            "findings": len(result.model.findings),
             "artifacts": [
                 str(json_path),
                 str(markdown_path),
@@ -1235,31 +1036,24 @@ def _context_pack_payload(
     scope: str | None = None,
     flow_ids: list[str] | None = None,
     symbols: list[str] | None = None,
-    finding_ids: list[str] | None = None,
     dependency_paths: list[str] | None = None,
     language: str | None = None,
     source_path: str | None = None,
     domain: str | None = None,
     value: str | None = None,
-    finding_kind: str | None = None,
-    finding_severity: str | None = None,
-    finding_evidence: str | None = None,
     include_visual: bool = False,
     token_budget: int = 600,
     visual_byte_budget: int = _DEFAULT_CONTEXT_VISUAL_BYTE_BUDGET,
 ) -> dict[str, Any]:
     scope_filter, scope_query_hint = _agent_scope_filter(model, scope)
     effective_question = _question_with_scope_hint(question, scope_query_hint)
-    changes = _impact_changed_files(
-        root, changed_files, flow_ids, symbols, finding_ids, dependency_paths
-    )
+    changes = _impact_changed_files(root, changed_files, flow_ids, symbols, dependency_paths)
     impact = impact_model(
         model,
         changes,
         scope_filter,
         flow_ids=flow_ids,
         symbols=symbols,
-        finding_ids=finding_ids,
         dependency_paths=dependency_paths,
     )
     query_filters = {
@@ -1269,9 +1063,6 @@ def _context_pack_payload(
             "source_path": source_path,
             "domain": domain,
             "value": value,
-            "finding_kind": finding_kind,
-            "finding_severity": finding_severity,
-            "finding_evidence": finding_evidence,
         }.items()
         if val is not None
     }
@@ -1290,9 +1081,6 @@ def _context_pack_payload(
             source_path=source_path,
             domain=domain,
             value=value,
-            finding_kind=finding_kind,
-            finding_severity=finding_severity,
-            finding_evidence=finding_evidence,
         )
     }
     for action_term in sorted(_agent_action_terms(effective_question)):
@@ -1305,47 +1093,11 @@ def _context_pack_payload(
             source_path=source_path,
             domain=domain,
             value=value,
-            finding_kind=finding_kind,
-            finding_severity=finding_severity,
-            finding_evidence=finding_evidence,
         ):
             matches_by_id.setdefault(match.flow.id, match)
     matches = _agent_order_matches(list(matches_by_id.values()), effective_question)[:8]
-    review_flow_ids = {flow.id for flow in impact.all_flows} | {match.flow.id for match in matches}
-    has_specific_context = bool(
-        (question and question.strip())
-        or changes
-        or flow_ids
-        or symbols
-        or finding_ids
-        or dependency_paths
-        or query_filters
-    )
-    scoped_flow_ids = {flow.id for flow in model.flows if flow_in_agent_scope(flow, scope_filter)}
-    review_findings = [
-        finding
-        for finding in model.findings
-        if finding.flow_id in scoped_flow_ids
-        and (
-            finding.flow_id in review_flow_ids or (not review_flow_ids and not has_specific_context)
-        )
-        and finding_matches_filters(
-            finding,
-            kind=finding_kind,
-            severity=finding_severity,
-            evidence=finding_evidence,
-        )
-    ]
-    review_findings.sort(
-        key=lambda item: (finding_priority(item), item.location.path, item.message)
-    )
     annotations = load_annotations(root, model, config)
     annotation_payload = annotations.annotations if annotations.ok else None
-    flows_by_id = {flow.id: flow for flow in model.flows}
-    review_rows = [
-        _finding_dict(finding, model, annotation_payload, flows_by_id=flows_by_id)
-        for finding in review_findings
-    ]
     return {
         "summary": model_summary(model),
         "query_filters": query_filters,
@@ -1354,7 +1106,6 @@ def _context_pack_payload(
             "changed_files": impact.changed_files,
             "target_flow_ids": impact.target_flow_ids,
             "target_symbols": impact.target_symbols,
-            "target_finding_ids": impact.target_finding_ids,
             "target_dependency_paths": impact.target_dependency_paths,
             "unresolved_targets": impact.unresolved_targets,
             "impact_reasons": impact.impact_reasons,
@@ -1373,7 +1124,6 @@ def _context_pack_payload(
                 token_budget,
             ),
             "subgraph_flow_ids": impact.subgraph_flow_ids,
-            "subgraph_finding_ids": impact.subgraph_finding_ids,
         },
         "navigation": _context_navigation_pack(
             model,
@@ -1382,12 +1132,10 @@ def _context_pack_payload(
             annotations=annotation_payload,
             token_budget=token_budget,
         ),
-        "review": _cap(review_rows, token_budget),
         "visual_context": _context_visual_pack(
             model,
             impact=impact,
             matches=matches,
-            review_findings=review_findings,
             scope=scope_filter,
             include_visual=include_visual,
             token_budget=token_budget,
@@ -1413,24 +1161,20 @@ def _workflow_slice_payload(
         flow_id for flow_id in selected_flow_ids if flow_id not in set(primary_flow_ids)
     ][: _slice_supporting_budget(token_budget)]
     visible_flow_ids = _unique_preserve_order([*primary_flow_ids, *supporting_flow_ids])
-    finding_ids = _workflow_finding_ids(pack)
-    slice_id = _workflow_slice_id(model, inputs, visible_flow_ids, finding_ids)
+    slice_id = _workflow_slice_id(model, inputs, visible_flow_ids)
     primary_flows = _workflow_flow_rows(model, primary_flow_ids)
     supporting_flows = _workflow_flow_rows(model, supporting_flow_ids)
     ordered_steps = _workflow_ordered_steps(model, primary_flow_ids, token_budget)
     decisions = _workflow_decisions(model, visible_flow_ids, token_budget)
-    review_signals = _workflow_review_signals(pack, token_budget)
-    viewer_targets = _workflow_viewer_targets(model, visible_flow_ids, finding_ids)
+    viewer_targets = _workflow_viewer_targets(model, visible_flow_ids)
     canonical_visual = _workflow_canonical_visual(
         model,
         visible_flow_ids,
-        finding_ids,
         token_budget,
     )
     next_tools = _workflow_slice_next_tools(
         primary_flow_ids,
         supporting_flow_ids,
-        finding_ids,
         token_budget,
     )
     return {
@@ -1447,7 +1191,6 @@ def _workflow_slice_payload(
             "slice_id": slice_id,
             "model_hash": model_hash(model),
             "flow_ids": visible_flow_ids,
-            "finding_ids": finding_ids,
             "scope": inputs.get("scope"),
             "question": question,
         },
@@ -1457,7 +1200,6 @@ def _workflow_slice_payload(
             supporting_flows=supporting_flows,
             ordered_steps=ordered_steps,
             decisions=decisions,
-            review_signals=review_signals,
             viewer_targets=viewer_targets,
             canonical_visual=canonical_visual,
             next_tools=next_tools,
@@ -1468,17 +1210,15 @@ def _workflow_slice_payload(
         "decisions": decisions,
         "calls": _workflow_calls(model, visible_flow_ids, token_budget),
         "domain_logic": _workflow_domain_logic(domain_map_payload, visible_flow_ids, token_budget),
-        "review_signals": review_signals,
         "source_ranges": _workflow_source_ranges(model, visible_flow_ids, pack, token_budget),
         "visuals": _workflow_visuals(pack),
         "viewer_targets": viewer_targets,
         "omissions": _workflow_omissions(pack, selected_flow_ids, visible_flow_ids, token_budget),
-        "next_actions": _workflow_next_actions(primary_flow_ids, supporting_flow_ids, finding_ids),
+        "next_actions": _workflow_next_actions(primary_flow_ids, supporting_flow_ids),
         "next_tools": next_tools,
         "guardrail": (
-            "workflow_slice is deterministic, local, and source-grounded. INFERRED and "
-            "POTENTIAL_GAP review signals are candidates, not confirmed defects; "
-            "agent-generated annotations must remain separate from deterministic facts."
+            "workflow_slice is deterministic, local, and source-grounded. Agent-generated "
+            "annotations must remain separate from deterministic LogicChart facts."
         ),
     }
 
@@ -1487,13 +1227,11 @@ def _workflow_slice_id(
     model: ProjectModel,
     inputs: dict[str, Any],
     flow_ids: list[str],
-    finding_ids: list[str],
 ) -> str:
     payload = {
         "model_hash": model_hash(model),
         "inputs": inputs,
         "flow_ids": flow_ids,
-        "finding_ids": finding_ids,
     }
     raw = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))
     return f"slice-{hashlib.sha256(raw.encode('utf-8')).hexdigest()[:16]}"
@@ -1505,7 +1243,6 @@ def _workflow_presentation_contract(
     supporting_flows: list[dict[str, Any]],
     ordered_steps: list[dict[str, Any]],
     decisions: list[dict[str, Any]],
-    review_signals: list[dict[str, Any]],
     viewer_targets: dict[str, Any],
     canonical_visual: dict[str, Any],
     next_tools: dict[str, Any],
@@ -1522,7 +1259,6 @@ def _workflow_presentation_contract(
             "supporting_flows": len(supporting_flows),
             "ordered_steps": len(ordered_steps),
             "decisions": len(decisions),
-            "review_signals": len(review_signals),
             "viewer_targets": viewer_targets.get("target_count", 0),
             "canonical_visual_nodes": canonical_visual.get("node_count", 0),
             "canonical_visual_edges": canonical_visual.get("edge_count", 0),
@@ -1537,7 +1273,6 @@ def _workflow_presentation_contract(
             {"label": "Supporting Flows", "source_fields": ["supporting_flows"]},
             {"label": "Ordered Steps", "source_fields": ["ordered_steps"]},
             {"label": "Decision Nodes", "source_fields": ["decisions"]},
-            {"label": "Review Signals", "source_fields": ["review_signals"]},
             {"label": "Visual Targets", "source_fields": ["viewer_targets", "next_tools"]},
         ],
         "agent_guidance": [
@@ -1554,7 +1289,7 @@ def _workflow_presentation_contract(
             "A separate human-friendly translation may rewrite labels in the user's "
             "language only from returned node, edge, source, and decision fields.",
             "Use ordered_steps as the canonical walkthrough and keep source anchors visible.",
-            "Keep flow_id and finding_id values visible so the slice can be expanded.",
+            "Keep flow_id and node_id values visible so the slice can be expanded.",
             "Do not invent steps, constants, limits, error codes, or branches outside "
             "this payload.",
             "Show raw JSON or YAML only when the user explicitly asks for raw output.",
@@ -1623,7 +1358,7 @@ def _workflow_presentation_contract(
         },
         "visual_guidance": (
             "If the user asks to visualize the slice, call snapshot_slice with "
-            "handle.flow_ids and handle.finding_ids. If the client has an SVG/HTML "
+            "handle.flow_ids. If the client has an SVG/HTML "
             "visualization widget, render snapshot.svg through that widget. If inline SVG "
             "is unavailable in the client, call snapshot_slice with include_svg=false and "
             "provide the returned artifact html_path/svg_path or open_command before any "
@@ -1646,7 +1381,6 @@ def _workflow_presentation_contract(
 def _workflow_canonical_visual(
     model: ProjectModel,
     flow_ids: list[str],
-    finding_ids: list[str],
     token_budget: int,
 ) -> dict[str, Any]:
     flows = [cast(Flow, flow) for flow in _flows_by_ids(model, flow_ids)]
@@ -1735,7 +1469,6 @@ def _workflow_canonical_visual(
             "source_ranges",
         ],
         "flow_ids": rendered_flow_ids,
-        "finding_ids": finding_ids,
         "node_count": len(rendered_nodes),
         "edge_count": edge_count,
         "layout": {
@@ -1827,20 +1560,6 @@ def _workflow_selected_flow_ids(pack: dict[str, Any]) -> list[str]:
     return _unique_preserve_order(ids)
 
 
-def _workflow_finding_ids(pack: dict[str, Any]) -> list[str]:
-    ids: list[str] = []
-    impact = pack.get("impact")
-    if isinstance(impact, dict):
-        ids.extend(_string_list(impact.get("subgraph_finding_ids")))
-    for item in _list_dicts(pack.get("review")):
-        if item.get("id"):
-            ids.append(str(item["id"]))
-    for item in _list_dicts(pack.get("query")):
-        ids.extend(_string_list(item.get("finding_ids")))
-        ids.extend(_string_list(item.get("subgraph_finding_ids")))
-    return _unique_preserve_order(ids)
-
-
 def _workflow_selection(
     pack: dict[str, Any],
     inputs: dict[str, Any],
@@ -1862,7 +1581,6 @@ def _workflow_selection(
         "query_filters": pack.get("query_filters", {}),
         "primary_flow_ids": primary_flow_ids,
         "supporting_flow_ids": supporting_flow_ids,
-        "finding_ids": _workflow_finding_ids(pack),
         "selection_reasons": reasons,
         "impact_reasons": (pack.get("impact") or {}).get("impact_reasons", {})
         if isinstance(pack.get("impact"), dict)
@@ -2005,30 +1723,6 @@ def _workflow_domain_logic(
     }
 
 
-def _workflow_review_signals(pack: dict[str, Any], token_budget: int) -> list[dict[str, Any]]:
-    rows = []
-    for item in _list_dicts(pack.get("review"))[: _slice_item_budget(token_budget)]:
-        rows.append(
-            {
-                "finding_id": item.get("id"),
-                "kind": item.get("kind"),
-                "severity": item.get("severity"),
-                "evidence": item.get("evidence"),
-                "message": item.get("message"),
-                "flow_id": item.get("flow_id"),
-                "node_id": item.get("node_id"),
-                "source": item.get("location"),
-                "guardrail": (
-                    "Review candidate, not a confirmed defect."
-                    if item.get("evidence") in {"INFERRED", "POTENTIAL_GAP"}
-                    else "Source-backed review signal."
-                ),
-                "next_tools": item.get("next_tools", {}),
-            }
-        )
-    return rows
-
-
 def _workflow_source_ranges(
     model: ProjectModel,
     flow_ids: list[str],
@@ -2059,28 +1753,6 @@ def _workflow_source_ranges(
         add(flow.location, flow_id=flow.id)
         for node in flow.nodes:
             add(node.location, flow_id=flow.id, node_id=node.id)
-    for item in _list_dicts(pack.get("review")):
-        location = item.get("location")
-        if not isinstance(location, dict):
-            continue
-        start_line = _coerce_int(location.get("start_line"), 0)
-        key = (
-            str(location.get("path", "")),
-            start_line,
-            _coerce_int(location.get("end_line"), start_line),
-        )
-        if key in seen or not key[0]:
-            continue
-        seen.add(key)
-        ranges.append(
-            {
-                "path": key[0],
-                "start_line": key[1],
-                "end_line": key[2],
-                "flow_id": item.get("flow_id"),
-                "finding_id": item.get("id"),
-            }
-        )
     return ranges[: _slice_item_budget(token_budget)]
 
 
@@ -2089,9 +1761,7 @@ def _workflow_visuals(pack: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(visual, dict):
         return {"include_visual": False, "next_tools": {}}
     inline_keys = [
-        key
-        for key in ("impact_snapshot", "subgraph_snapshot", "flow_snapshots", "finding_snapshots")
-        if key in visual
+        key for key in ("impact_snapshot", "subgraph_snapshot", "flow_snapshots") if key in visual
     ]
     return {
         "include_visual": visual.get("include_visual", False),
@@ -2107,12 +1777,7 @@ def _workflow_visuals(pack: dict[str, Any]) -> dict[str, Any]:
 def _workflow_viewer_targets(
     model: ProjectModel,
     flow_ids: list[str],
-    finding_ids: list[str],
 ) -> dict[str, Any]:
-    findings = _findings_by_ids(model, finding_ids)
-    target_flow_ids = _unique_preserve_order(
-        [*flow_ids, *(finding.flow_id for finding in findings if finding.flow_id)]
-    )
     flow_targets = [
         {
             "type": "flow",
@@ -2121,25 +1786,13 @@ def _workflow_viewer_targets(
             "hash_fragment": _viewer_flow_hash(flow.id),
             "source": _source_anchor(flow.location),
         }
-        for flow in _flows_by_ids(model, target_flow_ids)
-    ]
-    finding_targets = [
-        {
-            "type": "finding",
-            "finding_id": finding.id,
-            "flow_id": finding.flow_id,
-            "node_id": finding.node_id,
-            "hash_fragment": _viewer_flow_hash(finding.flow_id),
-            "source": _source_anchor(finding.location),
-        }
-        for finding in findings
+        for flow in _flows_by_ids(model, flow_ids)
     ]
     return {
         "command": "logicchart view",
         "route": "flow-hash",
         "targets": flow_targets,
-        "finding_targets": finding_targets,
-        "target_count": len(flow_targets) + len(finding_targets),
+        "target_count": len(flow_targets),
         "guardrail": (
             "Use logicchart view for manual inspection, then append a hash_fragment to "
             "the generated viewer URL or local HTML file. These links open visual context; "
@@ -2169,7 +1822,6 @@ def _workflow_omissions(
         "omitted_selected_flow_count": max(0, len(selected_flow_ids) - len(visible_flow_ids)),
         "omitted_flow_navigation_count": navigation.get("omitted_flow_navigation_count", 0),
         "omitted_flow_snapshot_count": visual.get("omitted_flow_snapshot_count", 0),
-        "omitted_finding_snapshot_count": visual.get("omitted_finding_snapshot_count", 0),
         "omitted_visual_snapshot_count": visual.get("omitted_visual_snapshot_count", 0),
         "unresolved_targets": impact.get("unresolved_targets", []),
     }
@@ -2178,16 +1830,13 @@ def _workflow_omissions(
 def _workflow_next_actions(
     primary_flow_ids: list[str],
     supporting_flow_ids: list[str],
-    finding_ids: list[str],
 ) -> list[str]:
     actions = [
         "Use ordered_steps and source_ranges when answering the user.",
-        "Keep review_signals evidence tiers explicit.",
+        "Use decision metadata and source anchors rather than inventing missing branches.",
     ]
     if supporting_flow_ids:
         actions.append("Inspect supporting_flows when caller/callee context changes the answer.")
-    if finding_ids:
-        actions.append("Use get_finding_context before treating review signals as actionable.")
     if primary_flow_ids:
         actions.append("Use snapshot_slice when visual flowchart context would clarify the answer.")
     return actions
@@ -2196,7 +1845,6 @@ def _workflow_next_actions(
 def _workflow_slice_next_tools(
     primary_flow_ids: list[str],
     supporting_flow_ids: list[str],
-    finding_ids: list[str],
     token_budget: int,
 ) -> dict[str, Any]:
     flow_ids = _unique_preserve_order([*primary_flow_ids, *supporting_flow_ids])
@@ -2205,7 +1853,6 @@ def _workflow_slice_next_tools(
             "tool": "expand_slice",
             "arguments": {
                 "flow_ids": flow_ids,
-                "finding_ids": finding_ids,
                 "direction": "neighbors",
                 "depth": 1,
                 "token_budget": token_budget,
@@ -2215,7 +1862,6 @@ def _workflow_slice_next_tools(
             "tool": "snapshot_slice",
             "arguments": {
                 "flow_ids": flow_ids,
-                "finding_ids": finding_ids,
                 "format": "svg",
                 "include_svg": True,
                 "token_budget": token_budget,
@@ -2236,24 +1882,17 @@ def _workflow_slice_next_tools(
                 "token_budget": token_budget,
             },
         }
-    if finding_ids:
-        tools["top_finding_context"] = {
-            "tool": "get_finding_context",
-            "arguments": {"finding_id": finding_ids[0], "token_budget": token_budget},
-        }
     return tools
 
 
 def _workflow_task_type(question: str | None, inputs: dict[str, Any]) -> str:
     text = (question or "").lower()
     if inputs.get("changed_files"):
-        return "review_impact"
-    if inputs.get("finding_id"):
-        return "inspect_review_signal"
+        return "change_impact"
     if inputs.get("domain") or inputs.get("value"):
         return "inspect_domain_logic"
     if any(term in text for term in ("impact", "break", "affected", "modifica", "rompe")):
-        return "review_impact"
+        return "change_impact"
     if any(term in text for term in ("test", "coverage", "verifica")):
         return "prepare_tests"
     if any(term in text for term in ("where", "handled", "status", "state", "role")):
@@ -2280,30 +1919,20 @@ def _expand_workflow_slice_targets(
     model: ProjectModel,
     *,
     flow_ids: list[str] | None,
-    finding_ids: list[str] | None,
     direction: str,
     depth: int,
     token_budget: int,
 ) -> dict[str, Any]:
     normalized_direction = direction if direction in _slice_expansion_directions() else "neighbors"
     known_seed_flows = _known_flow_ids(model, flow_ids)
-    known_finding_ids = _known_finding_ids(model, finding_ids)
-    known_seed_flows.extend(
-        finding.flow_id
-        for finding in _findings_by_ids(model, known_finding_ids)
-        if finding.flow_id not in known_seed_flows
-    )
     known_seed_flows = _unique_preserve_order(known_seed_flows)
     unknown_flow_ids = [item for item in flow_ids or [] if item not in set(known_seed_flows)]
-    unknown_finding_ids = [item for item in finding_ids or [] if item not in set(known_finding_ids)]
-    if not known_seed_flows and not known_finding_ids:
+    if not known_seed_flows:
         return {
             "error_code": "slice_targets_missing",
-            "message": "expand_slice requires at least one known flow_id or finding_id.",
+            "message": "expand_slice requires at least one known flow_id.",
             "flow_ids": [],
-            "finding_ids": [],
             "unknown_flow_ids": unknown_flow_ids,
-            "unknown_finding_ids": unknown_finding_ids,
         }
     expanded = set(known_seed_flows)
     frontier = set(known_seed_flows)
@@ -2323,11 +1952,9 @@ def _expand_workflow_slice_targets(
         "message": None,
         "seed_flow_ids": known_seed_flows,
         "flow_ids": ordered,
-        "finding_ids": known_finding_ids,
         "direction": normalized_direction,
         "depth": max(0, min(depth, 4)),
         "unknown_flow_ids": unknown_flow_ids,
-        "unknown_finding_ids": unknown_finding_ids,
         "omitted_expanded_flow_count": max(0, len(expanded) - len(ordered)),
     }
 
@@ -2510,36 +2137,16 @@ def _workflow_path_error(
 
 
 def _focused_flow_explanation(model: ProjectModel, flow: Any, token_budget: int) -> dict[str, Any]:
-    finding_rows = [
-        _finding_dict(finding, model, flows_by_id={flow.id: flow})
-        for finding in model.findings
-        if finding.flow_id == flow.id
-    ]
     return {
         "tool": "explain_flow",
         "flow": _workflow_flow_rows(model, [flow.id])[0],
         "ordered_steps": _workflow_ordered_steps(model, [flow.id], token_budget),
         "decisions": _workflow_decisions(model, [flow.id], token_budget),
         "calls": _workflow_calls(model, [flow.id], token_budget),
-        "review_signals": [
-            {
-                "finding_id": item.get("id"),
-                "kind": item.get("kind"),
-                "severity": item.get("severity"),
-                "evidence": item.get("evidence"),
-                "message": item.get("message"),
-                "guardrail": (
-                    "Review candidate, not a confirmed defect."
-                    if item.get("evidence") in {"INFERRED", "POTENTIAL_GAP"}
-                    else "Source-backed review signal."
-                ),
-            }
-            for item in finding_rows[: _slice_item_budget(token_budget)]
-        ],
         "source_ranges": _workflow_source_ranges(
             model,
             [flow.id],
-            {"review": finding_rows},
+            {},
             token_budget,
         ),
         "next_tools": {
@@ -2568,11 +2175,6 @@ def _focused_node_explanation(
 ) -> dict[str, Any]:
     incoming = [edge for edge in flow.edges if edge.target == node.id]
     outgoing = [edge for edge in flow.edges if edge.source == node.id]
-    related_findings = [
-        finding
-        for finding in model.findings
-        if finding.flow_id == flow.id and finding.node_id == node.id
-    ]
     return {
         "tool": "explain_node",
         "flow": flow_summary(flow),
@@ -2591,10 +2193,6 @@ def _focused_node_explanation(
         ],
         "outgoing_edges": [
             _edge_payload(edge) for edge in outgoing[: _slice_item_budget(token_budget)]
-        ],
-        "review_signals": [
-            _finding_dict(finding, model, flows_by_id={flow.id: flow})
-            for finding in related_findings[: _slice_item_budget(token_budget)]
         ],
         "next_tools": {
             "explain_flow": {
@@ -2665,7 +2263,6 @@ def _slice_target_error(
     *,
     slice_id: str | None,
     flow_ids: list[str] | None,
-    finding_ids: list[str] | None,
 ) -> dict[str, Any]:
     return {
         "tool": tool,
@@ -2674,7 +2271,6 @@ def _slice_target_error(
         "error_code": error_code,
         "slice_id": slice_id,
         "flow_ids": flow_ids or [],
-        "finding_ids": finding_ids or [],
         "recoverable": True,
         "guardrail": (
             "Slice tools operate only on ids in the current local model. Re-run "
@@ -2698,21 +2294,9 @@ def _known_flow_ids(model: ProjectModel, flow_ids: list[str] | None) -> list[str
     return _unique_preserve_order(flow_id for flow_id in flow_ids or [] if flow_id in known)
 
 
-def _known_finding_ids(model: ProjectModel, finding_ids: list[str] | None) -> list[str]:
-    known = {finding.id for finding in model.findings}
-    return _unique_preserve_order(
-        finding_id for finding_id in finding_ids or [] if finding_id in known
-    )
-
-
 def _flows_by_ids(model: ProjectModel, flow_ids: list[str]) -> list[Any]:
     flows = {flow.id: flow for flow in model.flows}
     return [flows[flow_id] for flow_id in flow_ids if flow_id in flows]
-
-
-def _findings_by_ids(model: ProjectModel, finding_ids: list[str]) -> list[Any]:
-    findings = {finding.id: finding for finding in model.findings}
-    return [findings[finding_id] for finding_id in finding_ids if finding_id in findings]
 
 
 def _flow_by_id(model: ProjectModel, flow_id: str) -> Any | None:
@@ -2845,16 +2429,13 @@ def _context_visual_pack(
     *,
     impact: Any,
     matches: list[Any],
-    review_findings: list[Any],
     scope: str | None,
     include_visual: bool,
     token_budget: int,
     visual_byte_budget: int,
 ) -> dict[str, Any]:
     flow_candidates = _context_visual_flows(impact, matches)
-    finding_candidates = review_findings
     flow_limit = _context_visual_item_budget(token_budget)
-    finding_limit = _context_visual_item_budget(token_budget)
     visual_byte_limit = max(0, visual_byte_budget)
     flow_tool_args = [
         {
@@ -2867,19 +2448,7 @@ def _context_visual_pack(
         }
         for flow in flow_candidates[:flow_limit]
     ]
-    finding_tool_args = [
-        {
-            "tool": "get_finding_snapshot",
-            "arguments": {
-                "finding_id": finding.id,
-                "format": "svg",
-                "token_budget": token_budget,
-            },
-        }
-        for finding in finding_candidates[:finding_limit]
-    ]
     subgraph_flow_ids = [flow.id for flow in flow_candidates[:flow_limit]]
-    subgraph_finding_ids = [finding.id for finding in finding_candidates[:finding_limit]]
     impact_arguments: dict[str, Any] = {
         "changed_files": impact.changed_files,
         "format": "svg",
@@ -2891,8 +2460,6 @@ def _context_visual_pack(
         impact_arguments["flow_ids"] = impact.target_flow_ids
     if impact.target_symbols:
         impact_arguments["symbols"] = impact.target_symbols
-    if impact.target_finding_ids:
-        impact_arguments["finding_ids"] = impact.target_finding_ids
     if impact.target_dependency_paths:
         impact_arguments["dependency_paths"] = impact.target_dependency_paths
     payload: dict[str, Any] = {
@@ -2900,7 +2467,6 @@ def _context_visual_pack(
         "format": "svg",
         "snapshot_budget": {
             "flow_snapshots": flow_limit,
-            "finding_snapshots": finding_limit,
             "node_budget": _snapshot_node_budget(token_budget),
             "flow_budget": _snapshot_flow_budget(token_budget),
             "visual_byte_budget": visual_byte_limit,
@@ -2912,19 +2478,16 @@ def _context_visual_pack(
                 "arguments": impact_arguments,
             },
             "flow_snapshots": flow_tool_args,
-            "finding_snapshots": finding_tool_args,
             "subgraph_snapshot": {
                 "tool": "get_subgraph_snapshot",
                 "arguments": {
                     "flow_ids": subgraph_flow_ids,
-                    "finding_ids": subgraph_finding_ids,
                     "format": "svg",
                     "token_budget": token_budget,
                 },
             },
         },
         "omitted_flow_snapshot_count": max(0, len(flow_candidates) - flow_limit),
-        "omitted_finding_snapshot_count": max(0, len(finding_candidates) - finding_limit),
         "omitted_visual_snapshot_count": 0,
         "omitted_visual_snapshot_reasons": {},
     }
@@ -2948,27 +2511,23 @@ def _context_visual_pack(
         changed_files=impact.changed_files,
         direct=impact.directly_impacted,
         transitive=impact.transitively_impacted,
-        findings=impact.findings,
         max_flows=_snapshot_flow_budget(token_budget),
         target_flow_ids=impact.target_flow_ids,
         target_symbols=impact.target_symbols,
-        target_finding_ids=impact.target_finding_ids,
         target_dependency_paths=impact.target_dependency_paths,
         unresolved_targets=impact.unresolved_targets,
         impact_reasons=impact.impact_reasons,
         subgraph_flow_ids=impact.subgraph_flow_ids,
-        subgraph_finding_ids=impact.subgraph_finding_ids,
     )
     if include_snapshot(impact_snapshot):
         payload["impact_snapshot"] = impact_snapshot
     else:
         payload["impact_snapshot_omitted_reason"] = "visual_byte_budget"
 
-    if subgraph_flow_ids or subgraph_finding_ids:
+    if subgraph_flow_ids:
         subgraph_snapshot = render_subgraph_snapshot(
             model,
             flow_ids=subgraph_flow_ids,
-            finding_ids=subgraph_finding_ids,
             max_flows=_snapshot_flow_budget(token_budget),
             max_nodes=_snapshot_node_budget(token_budget),
         )
@@ -2987,17 +2546,6 @@ def _context_visual_pack(
         else:
             payload["omitted_flow_snapshot_count"] += 1
     payload["flow_snapshots"] = flow_snapshots
-
-    finding_snapshots = []
-    for finding in finding_candidates[:finding_limit]:
-        snapshot = render_finding_snapshot(
-            model, finding.id, max_nodes=_snapshot_node_budget(token_budget)
-        )
-        if include_snapshot(snapshot):
-            finding_snapshots.append(snapshot)
-        else:
-            payload["omitted_finding_snapshot_count"] += 1
-    payload["finding_snapshots"] = finding_snapshots
     payload["snapshot_budget"]["used_visual_bytes"] = used_visual_bytes
     payload["omitted_visual_snapshot_count"] = sum(omitted_visual_reasons.values())
     payload["omitted_visual_snapshot_reasons"] = omitted_visual_reasons
@@ -3110,7 +2658,6 @@ def _write_snapshot_artifact(
     *,
     slice_id: str | None,
     flow_ids: list[str],
-    finding_ids: list[str],
 ) -> dict[str, Any]:
     svg = snapshot.get("svg")
     if not isinstance(svg, str) or not svg.startswith("<svg"):
@@ -3119,7 +2666,7 @@ def _write_snapshot_artifact(
             "reason": "snapshot_svg_unavailable",
         }
     digest = hashlib.sha256(svg.encode("utf-8")).hexdigest()[:16]
-    stem = _snapshot_artifact_stem(slice_id, flow_ids, finding_ids, digest)
+    stem = _snapshot_artifact_stem(slice_id, flow_ids, digest)
     snapshot_dir = project_root / ".logicchart" / "snapshots"
     svg_path = snapshot_dir / f"{stem}.svg"
     html_path = snapshot_dir / f"{stem}.html"
@@ -3157,10 +2704,9 @@ def _write_snapshot_artifact(
 def _snapshot_artifact_stem(
     slice_id: str | None,
     flow_ids: list[str],
-    finding_ids: list[str],
     digest: str,
 ) -> str:
-    label = slice_id or "-".join([*flow_ids[:2], *finding_ids[:2]]) or "slice"
+    label = slice_id or "-".join(flow_ids[:2]) or "slice"
     safe = re.sub(r"[^A-Za-z0-9_.-]+", "-", label).strip(".-")
     if not safe:
         safe = "slice"
@@ -3271,62 +2817,22 @@ def _agent_context_next_tools(pack: dict[str, Any], token_budget: int) -> dict[s
             "tool": "validate_artifacts",
             "arguments": {"check_sync": True, "include_quality": True},
         },
-        "review_queue": {
-            "tool": "review_queue",
-            "arguments": {"token_budget": token_budget},
-        },
     }
     if visual_tools:
         next_tools["visual_context"] = visual_tools
     impact = pack.get("impact")
     if isinstance(impact, dict):
         flow_ids = _string_list(impact.get("subgraph_flow_ids"))
-        finding_ids = _string_list(impact.get("subgraph_finding_ids"))
-        if flow_ids or finding_ids:
+        if flow_ids:
             next_tools["subgraph_snapshot"] = {
                 "tool": "get_subgraph_snapshot",
                 "arguments": {
                     "flow_ids": flow_ids,
-                    "finding_ids": finding_ids,
                     "format": "svg",
                     "token_budget": token_budget,
                 },
             }
-    review = pack.get("review")
-    if isinstance(review, list) and review:
-        first = review[0]
-        if isinstance(first, dict) and first.get("id"):
-            next_tools["top_finding_context"] = {
-                "tool": "get_finding_context",
-                "arguments": {"finding_id": first["id"], "token_budget": token_budget},
-            }
     return next_tools
-
-
-def _agent_context_review_points(pack: dict[str, Any]) -> list[dict[str, Any]]:
-    review = pack.get("review")
-    if not isinstance(review, list):
-        return []
-    points: list[dict[str, Any]] = []
-    for finding in review[:5]:
-        if not isinstance(finding, dict):
-            continue
-        points.append(
-            {
-                "finding_id": finding.get("id"),
-                "severity": finding.get("severity"),
-                "evidence": finding.get("evidence"),
-                "kind": finding.get("kind"),
-                "message": finding.get("message"),
-                "source": finding.get("location"),
-                "guardrail": (
-                    "Review candidate, not a confirmed defect."
-                    if finding.get("evidence") in {"INFERRED", "POTENTIAL_GAP"}
-                    else "Source-backed review signal."
-                ),
-            }
-        )
-    return points
 
 
 def _domain_logic_map(
@@ -3375,18 +2881,15 @@ def _domain_logic_map(
                     }
                 )
 
-    _attach_domain_findings(model, concepts, normalized_value, scope)
     if normalized_value is not None:
         concepts = {
             key: concept
             for key, concept in concepts.items()
             if _metadata_value_matches(normalized_value, concept["handled_values"])
-            or _metadata_value_matches(normalized_value, concept["missing_values"])
         }
     concept_rows = [_domain_concept_payload(item, token_budget) for item in concepts.values()]
     concept_rows.sort(
         key=lambda item: (
-            -item["finding_count"],
             -item["decision_count"],
             item["domain"],
         )
@@ -3400,8 +2903,9 @@ def _domain_logic_map(
     return {
         "tool": "domain_map",
         "guardrail": (
-            "Domain maps are deterministic summaries of decision metadata and related "
-            "findings. INFERRED and POTENTIAL_GAP findings remain review candidates."
+            "Domain maps are deterministic summaries of decision metadata. They show "
+            "where values and state-like concepts are handled in modeled flows; they "
+            "do not infer missing cases or defects."
         ),
         "filters": {
             "domain": normalized_domain,
@@ -3435,76 +2939,27 @@ def _empty_domain_concept(domain: str) -> dict[str, Any]:
         "subjects": set(),
         "value_namespaces": set(),
         "handled_values": set(),
-        "missing_values": set(),
         "flow_ids": set(),
         "node_ids": set(),
         "decision_nodes": [],
-        "findings": [],
     }
-
-
-def _attach_domain_findings(
-    model: ProjectModel,
-    concepts: dict[str, dict[str, Any]],
-    value: str | None,
-    scope: str | None,
-) -> None:
-    flows_by_id = {flow.id: flow for flow in model.flows}
-    for finding in model.findings:
-        flow = flows_by_id.get(finding.flow_id)
-        if flow is None or not flow_in_agent_scope(flow, scope):
-            continue
-        metadata = finding.metadata
-        missing_values = _metadata_string_values(metadata.get("missing"))
-        if value is not None and not _metadata_value_matches(value, missing_values):
-            continue
-        finding_keys = set(_domain_keys(metadata))
-        subject = metadata.get("subject")
-        for concept in concepts.values():
-            concept_subjects = concept["subjects"]
-            matches_key = concept["domain"] in finding_keys
-            matches_subject = isinstance(subject, str) and subject in concept_subjects
-            matches_node = bool(finding.node_id and finding.node_id in concept["node_ids"])
-            if not (matches_key or matches_subject or matches_node):
-                continue
-            concept["missing_values"].update(missing_values)
-            concept["findings"].append(
-                {
-                    "finding_id": finding.id,
-                    "kind": finding.kind,
-                    "severity": finding.severity.value,
-                    "evidence": finding.evidence.value,
-                    "message": finding.message,
-                    "missing_values": missing_values,
-                    "flow_id": finding.flow_id,
-                    "source": f"{finding.location.path}:{finding.location.start_line}",
-                    "source_range": _source_anchor(finding.location),
-                }
-            )
 
 
 def _domain_concept_payload(concept: dict[str, Any], token_budget: int) -> dict[str, Any]:
     per_section_limit = max(1, token_budget // 240) if token_budget > 0 else 20
     flow_ids = sorted(concept["flow_ids"])
     visible_flow_ids = flow_ids[:per_section_limit] if token_budget > 0 else flow_ids
-    finding_ids = [item["finding_id"] for item in concept["findings"]]
-    finding_ids = finding_ids[:per_section_limit]
     return {
         "domain": concept["domain"],
         "subjects": sorted(concept["subjects"]),
         "value_namespaces": sorted(concept["value_namespaces"]),
         "handled_values": sorted(concept["handled_values"]),
-        "missing_values": sorted(concept["missing_values"]),
         "decision_count": len(concept["decision_nodes"]),
         "flow_count": len(concept["flow_ids"]),
-        "finding_count": len(concept["findings"]),
         "decision_nodes": concept["decision_nodes"][:per_section_limit],
-        "findings": concept["findings"][:per_section_limit],
         "omitted_decision_count": max(0, len(concept["decision_nodes"]) - per_section_limit),
-        "omitted_finding_count": max(0, len(concept["findings"]) - per_section_limit),
         "omitted_subgraph_flow_count": max(0, len(flow_ids) - len(visible_flow_ids)),
         "subgraph_flow_ids": visible_flow_ids,
-        "subgraph_finding_ids": finding_ids,
         "next_tools": {
             "context_pack": {
                 "tool": "context_pack",
@@ -3514,7 +2969,6 @@ def _domain_concept_payload(concept: dict[str, Any], token_budget: int) -> dict[
                 "tool": "get_subgraph_snapshot",
                 "arguments": {
                     "flow_ids": visible_flow_ids,
-                    "finding_ids": finding_ids,
                     "format": "svg",
                 },
             },
@@ -3615,26 +3069,20 @@ def _enrichment_options(
     *,
     scope: str | None,
     flow_ids: list[str] | None,
-    finding_ids: list[str] | None,
     max_flows: int,
     max_nodes_per_flow: int,
-    max_findings: int,
     token_budget: int,
 ) -> EnrichmentOptions:
     flow_limit = max(0, max_flows)
     node_limit = max(0, max_nodes_per_flow)
-    finding_limit = max(0, max_findings)
     if token_budget > 0:
         flow_limit = min(flow_limit, max(1, token_budget // 240))
         node_limit = min(node_limit, max(4, token_budget // 100))
-        finding_limit = min(finding_limit, max(1, token_budget // 180))
     return EnrichmentOptions(
         scope=scope,
         flow_ids=tuple(flow_ids or ()),
-        finding_ids=tuple(finding_ids or ()),
         max_flows=flow_limit,
         max_nodes_per_flow=node_limit,
-        max_findings=finding_limit,
     )
 
 
@@ -3645,23 +3093,12 @@ def _enrichment_preview_payload(
 ) -> dict[str, Any]:
     targets = preview.get("targets", {})
     selected_flow_ids = _string_list(targets.get("flow_ids"))
-    selected_finding_ids = _string_list(targets.get("finding_ids"))
-    next_tools: dict[str, Any] = {
-        "review_queue": {
-            "tool": "review_queue",
-            "arguments": {"token_budget": token_budget or 600},
-        },
-        "get_findings": {
-            "tool": "get_findings",
-            "arguments": {"token_budget": token_budget or 600},
-        },
-    }
-    if selected_flow_ids or selected_finding_ids:
+    next_tools: dict[str, Any] = {}
+    if selected_flow_ids:
         next_tools["subgraph_snapshot"] = {
             "tool": "get_subgraph_snapshot",
             "arguments": {
                 "flow_ids": selected_flow_ids,
-                "finding_ids": selected_finding_ids,
                 "format": "svg",
                 "token_budget": token_budget,
             },
@@ -3683,7 +3120,7 @@ def _enrichment_preview_payload(
         ),
         "next_tools": next_tools,
         "next_actions": [
-            "Review selected flow/finding ids before writing annotations.",
+            "Inspect selected flow and node ids before writing annotations.",
             "Use generated text only as agent_generated annotation content.",
             "Run logicchart validate after annotation sidecar changes.",
         ],
@@ -3694,7 +3131,6 @@ def _annotation_allowed_fields() -> dict[str, list[str]]:
     return {
         "flows": ["label", "description", "summary"],
         "nodes": ["label", "description"],
-        "findings": ["summary", "explanation", "remediation"],
         "scopes": ["label", "description", "summary"],
     }
 
@@ -3710,7 +3146,7 @@ def _annotation_status_payload(
         "tool": "annotation_status",
         "guardrail": (
             "Annotations are optional agent-generated presentation text. They do not "
-            "change deterministic flows, findings, or validation facts."
+            "change deterministic flows, decisions, calls, source anchors, or validation facts."
         ),
         **loaded.to_dict(),
         "schema_version": ANNOTATIONS_SCHEMA_VERSION,
@@ -3739,7 +3175,6 @@ def _write_annotations_payload(
     annotations: dict[str, Any] | None,
     flows: dict[str, dict[str, str]] | None,
     nodes: dict[str, dict[str, str]] | None,
-    findings: dict[str, dict[str, str]] | None,
     scopes: dict[str, dict[str, str]] | None,
     generated_by: dict[str, Any] | None,
     replace_existing: bool,
@@ -3747,7 +3182,6 @@ def _write_annotations_payload(
     bucket_inputs: dict[str, dict[str, dict[str, str]] | None] = {
         "flows": flows,
         "nodes": nodes,
-        "findings": findings,
         "scopes": scopes,
     }
     has_bucket_inputs = any(value is not None for value in bucket_inputs.values())
@@ -3829,10 +3263,10 @@ def _annotation_candidate_payload(
     else:
         candidate = {
             bucket: dict((existing or {}).get(bucket, {}))
-            for bucket in ("flows", "nodes", "findings", "scopes")
+            for bucket in ("flows", "nodes", "scopes")
         }
         if replace_existing:
-            candidate = {bucket: {} for bucket in ("flows", "nodes", "findings", "scopes")}
+            candidate = {bucket: {} for bucket in ("flows", "nodes", "scopes")}
         for bucket, entries in bucket_inputs.items():
             if entries is not None:
                 bucket_payload = candidate.setdefault(bucket, {})
@@ -3918,17 +3352,14 @@ def _quality_report(quality: dict[str, Any], token_budget: int) -> dict[str, Any
         "quality": _bounded_quality(quality, token_budget),
         "attention": _quality_attention_items(quality, token_budget),
         "guardrail": (
-            "Quality attention signals identify analyzer limits and review targets; "
-            "they are not confirmed defects by themselves."
+            "Quality attention signals identify analyzer limits such as skipped files, "
+            "parse warnings, unresolved calls, generic labels, or dense graphs. They "
+            "describe model coverage, not application defects."
         ),
         "next_tools": {
             "validate_quality": {
                 "tool": "validate_artifacts",
                 "arguments": {"include_quality": True},
-            },
-            "review_queue": {
-                "tool": "review_queue",
-                "arguments": {"token_budget": token_budget},
             },
         },
     }
@@ -4098,10 +3529,6 @@ def _validation_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "tool": "analysis_quality",
             "arguments": {"token_budget": 600},
         },
-        "review_queue": {
-            "tool": "review_queue",
-            "arguments": {"token_budget": 600},
-        },
     }
     if not payload.get("ok"):
         next_tools = {
@@ -4115,8 +3542,7 @@ def _validation_payload(payload: dict[str, Any]) -> dict[str, Any]:
         **payload,
         "guardrail": (
             "Artifact validation checks generated model freshness, schema, annotations, "
-            "and optional analyzer-quality thresholds; it does not confirm or dismiss "
-            "review signals."
+            "and optional analyzer-quality thresholds."
         ),
         "next_tools": next_tools,
         "next_cli": _validation_next_cli(bool(payload.get("ok"))),
@@ -4154,10 +3580,6 @@ def _update_workflow_payload(
                 "tool": "analysis_quality",
                 "arguments": {"token_budget": 600},
             },
-            "review_queue": {
-                "tool": "review_queue",
-                "arguments": {"token_budget": 600},
-            },
         },
         "next_artifacts": {
             "commit": [str(json_path), str(markdown_path)],
@@ -4180,60 +3602,17 @@ def _quality_item_budget(token_budget: int) -> int:
     return max(1, min(8, token_budget // 120))
 
 
-def _finding_dict(
-    finding: Any,
-    model: ProjectModel | None = None,
-    annotations: dict[str, Any] | None = None,
-    flows_by_id: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    data = asdict(finding)
-    metadata = data.setdefault("metadata", {})
-    if not isinstance(metadata.get("diagnostic"), dict):
-        flow = None
-        node = None
-        if flows_by_id is not None:
-            flow = flows_by_id.get(finding.flow_id)
-        elif model is not None:
-            flow = next((item for item in model.flows if item.id == finding.flow_id), None)
-        if flow is not None and finding.node_id:
-            node = next((item for item in flow.nodes if item.id == finding.node_id), None)
-        metadata["diagnostic"] = diagnostic_for_finding(
-            finding,
-            flow=flow,
-            node=node,
-            model=model,
-        )
-    annotation = finding_annotation(finding.id, annotations)
-    if annotation:
-        data["annotation"] = annotation
-    data["next_tools"] = finding_next_tools(finding.id, finding.flow_id)
-    return data
-
-
 def _unknown_target_error(target_type: str, target_id: str) -> dict[str, Any]:
-    next_tools: dict[str, dict[str, Any]]
-    if target_type == "flow":
-        next_tools = {
-            "list_flows": {
-                "tool": "list_flows",
-                "arguments": {"entrypoints_only": False, "token_budget": 600},
-            },
-            "query_logic": {
-                "tool": "query_logic",
-                "arguments": {"question": target_id, "token_budget": 600},
-            },
-        }
-    else:
-        next_tools = {
-            "review_queue": {
-                "tool": "review_queue",
-                "arguments": {"token_budget": 600},
-            },
-            "get_findings": {
-                "tool": "get_findings",
-                "arguments": {"token_budget": 600},
-            },
-        }
+    next_tools: dict[str, dict[str, Any]] = {
+        "list_flows": {
+            "tool": "list_flows",
+            "arguments": {"entrypoints_only": False, "token_budget": 600},
+        },
+        "query_logic": {
+            "tool": "query_logic",
+            "arguments": {"question": target_id, "token_budget": 600},
+        },
+    }
     return {
         "error": f"Unknown {target_type}: {target_id}",
         "error_code": f"{target_type}_not_found",
@@ -4241,8 +3620,8 @@ def _unknown_target_error(target_type: str, target_id: str) -> dict[str, Any]:
         "target_id": target_id,
         "recoverable": True,
         "guardrail": (
-            "This reports an invalid MCP target from the generated model; it is not a "
-            "source-code review signal."
+            "This reports an invalid MCP target from the generated model. Re-run "
+            "query_logic or list_flows to resolve a current flow/node handle."
         ),
         "next_tools": next_tools,
     }
@@ -4280,8 +3659,8 @@ def _model_load_error(
         },
         "recoverable": True,
         "guardrail": (
-            "This reports missing or invalid generated artifacts; it is not a "
-            "source-code review signal."
+            "This reports missing or invalid generated artifacts. Run update_logicchart "
+            "and validate_artifacts before relying on MCP context."
         ),
         "next_tools": {
             "update_model": {

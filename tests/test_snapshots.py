@@ -5,7 +5,6 @@ from pathlib import Path
 from logicchart.analysis.project import ProjectAnalyzer
 from logicchart.model import Flow, FlowEdge, FlowNode, NodeKind, ProjectModel, SourceLocation
 from logicchart.render.snapshot import (
-    render_finding_snapshot,
     render_flow_snapshot,
     render_impact_snapshot,
     render_subgraph_snapshot,
@@ -53,44 +52,6 @@ def test_flow_snapshot_renders_decision_flow_svg(tmp_path: Path) -> None:
     assert clarity["counts"]["canvas_overflow_count"] >= 0
     assert clarity["counts"]["edge_obstacle_hit_count"] >= 0
     assert clarity["minimum_box_gap"] > 0
-
-
-def test_finding_snapshot_highlights_finding_node(tmp_path: Path) -> None:
-    (tmp_path / "app.py").write_text(
-        "def dispatch(order):\n"
-        "    if order.status == Status.OPEN:\n"
-        "        return 'open'\n"
-        "    elif order.status == Status.CLOSED:\n"
-        "        return 'closed'\n",
-        encoding="utf-8",
-    )
-    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
-    finding = model.findings[0]
-
-    snapshot = render_finding_snapshot(model, finding.id)
-
-    assert snapshot["finding_id"] == finding.id
-    assert snapshot["flow_id"] == finding.flow_id
-    assert snapshot["highlighted_node_ids"] == [finding.node_id]
-    assert snapshot["diagnostic_category"] == "single_flow"
-    assert snapshot["evidence_item_count"] >= 4
-    assert "highlight" in snapshot["svg"]
-    assert "Finding context" in snapshot["svg"]
-    assert "Evidence: POTENTIAL_GAP" in snapshot["svg"]
-    assert "Evidence chain:" in snapshot["svg"]
-    assert "implicit fallback" in snapshot["svg"]
-    assert snapshot["layout"]["node_positions"]
-    assert snapshot["layout"]["orientation"] == "vertical"
-    assert snapshot["layout"]["diagnostic_panel"] is not None
-    assert (
-        snapshot["layout"]["diagnostic_panel"]["y"] > snapshot["layout"]["node_positions"][-1]["y"]
-    )
-    assert snapshot["layout"]["canvas"]["height"] >= 1
-    assert snapshot["layout"]["canvas"]["height"] > snapshot["layout"]["canvas"]["width"]
-    assert (
-        snapshot["layout_quality"]["counts"]["rendered_node_count"]
-        == snapshot["rendered_node_count"]
-    )
 
 
 def test_flow_snapshot_budget_omits_nodes_but_keeps_highlight() -> None:
@@ -188,7 +149,6 @@ def test_impact_snapshot_renders_empty_state() -> None:
         changed_files=["docs/readme.md"],
         direct=[],
         transitive=[],
-        findings=[],
     )
 
     assert snapshot["format"] == "svg"
@@ -210,13 +170,11 @@ def test_impact_snapshot_reports_targets_and_unresolved_targets() -> None:
         changed_files=[],
         direct=[],
         transitive=[],
-        findings=[],
         target_flow_ids=["missing-flow"],
         target_dependency_paths=["backend/payments"],
         unresolved_targets=[{"type": "flow", "value": "missing-flow", "reason": "not_found"}],
         impact_reasons={},
         subgraph_flow_ids=[],
-        subgraph_finding_ids=[],
     )
 
     assert snapshot["target_flow_ids"] == ["missing-flow"]
@@ -250,7 +208,6 @@ def test_impact_snapshot_budget_reports_omitted_flows() -> None:
         changed_files=["app.py"],
         direct=flows[:2],
         transitive=flows[2:],
-        findings=[],
         max_flows=1,
     )
 
@@ -330,16 +287,11 @@ def test_snapshot_target_errors_are_structured() -> None:
     )
 
     flow_error = render_flow_snapshot(model, "missing-flow")
-    finding_error = render_finding_snapshot(model, "missing-finding")
 
     assert flow_error["error"] == "Unknown flow: missing-flow"
     assert flow_error["error_code"] == "snapshot_flow_not_found"
     assert flow_error["target_type"] == "flow"
     assert flow_error["recoverable"] is True
-    assert finding_error["error"] == "Unknown finding: missing-finding"
-    assert finding_error["error_code"] == "snapshot_finding_not_found"
-    assert finding_error["target_type"] == "finding"
-    assert finding_error["recoverable"] is True
 
 
 def test_unsupported_snapshot_format_reports_supported_formats() -> None:

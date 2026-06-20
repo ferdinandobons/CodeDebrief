@@ -9,22 +9,18 @@ right flows) is covered by the demo golden test; here we isolate the scoring mec
 from __future__ import annotations
 
 from logicchart.model import (
-    Evidence,
-    Finding,
     Flow,
     FlowNode,
     NodeKind,
     ProjectModel,
-    Severity,
     SourceLocation,
 )
 from logicchart.query import (
     ENTRYPOINT_BONUS,
-    FINDING_WEIGHT,
     IDENTITY_WEIGHT,
     NODE_WEIGHT,
+    STRUCTURE_WEIGHT,
     QueryMatch,
-    finding_context,
     flow_in_scope,
     impact_model,
     query_model,
@@ -67,52 +63,32 @@ def _flow(
     )
 
 
-def _finding(
-    flow_id: str,
-    message: str,
-    *,
-    kind: str = "missing_branch",
-    severity: Severity = Severity.WARNING,
-    evidence: Evidence = Evidence.POTENTIAL_GAP,
-) -> Finding:
-    return Finding(
-        id=f"{flow_id}-find",
-        kind=kind,
-        severity=severity,
-        message=message,
-        evidence=evidence,
-        flow_id=flow_id,
-        location=_loc(),
-    )
-
-
-def _model(flows: list[Flow], findings: list[Finding] | None = None) -> ProjectModel:
+def _model(flows: list[Flow]) -> ProjectModel:
     return ProjectModel(
         schema_version="1.1",
         generated_at="2026-06-16T00:00:00+00:00",
         root="/tmp/project",
         flows=flows,
-        findings=findings or [],
     )
 
 
 def test_bucket_weights_and_order_are_exact() -> None:
-    """Three flows that hit the SAME term in different buckets rank identity > finding
+    """Three flows that hit the SAME term in different buckets rank identity > structure
     > node, with scores equal to the named per-bucket constants."""
     model = _model(
         flows=[
             _flow("f-id", "widget", symbol="widget"),  # identity hit
             _flow("f-node", "alpha", node_labels=("the widget toggles",)),  # node hit
-            _flow("f-find", "beta"),  # finding hit
+            _flow("f-structure", "beta"),  # source path hit
         ],
-        findings=[_finding("f-find", "widget review gap")],
     )
+    model.flows[2].location = _loc("src/widget/service.py")
     matches = query_model(model, "widget")
 
-    assert [m.flow.id for m in matches] == ["f-id", "f-find", "f-node"]
+    assert [m.flow.id for m in matches] == ["f-id", "f-structure", "f-node"]
     by_id = {m.flow.id: m.score for m in matches}
     assert by_id["f-id"] == IDENTITY_WEIGHT
-    assert by_id["f-find"] == FINDING_WEIGHT
+    assert by_id["f-structure"] == STRUCTURE_WEIGHT
     assert by_id["f-node"] == NODE_WEIGHT
 
 
@@ -235,60 +211,6 @@ def test_structured_query_filters_can_match_without_terms() -> None:
     ]
 
 
-def test_query_can_filter_findings_by_kind_severity_and_evidence_without_terms() -> None:
-    model = _model(
-        flows=[
-            _flow("review", "review_order"),
-            _flow("audit", "audit_order"),
-        ],
-        findings=[
-            _finding("review", "Missing fallback for review state"),
-            _finding(
-                "audit",
-                "Audit handler has inferred enum gap",
-                kind="enum_exhaustiveness",
-                evidence=Evidence.INFERRED,
-            ),
-        ],
-    )
-
-    matches = query_model(
-        model,
-        "",
-        finding_kind="missing_branch",
-        finding_severity="warning",
-        finding_evidence="POTENTIAL_GAP",
-    )
-
-    assert [match.flow.id for match in matches] == ["review"]
-    assert matches[0].score == 3 * 5
-    assert matches[0].reasons == [
-        "flow has `missing_branch` findings",
-        "finding severity matches `warning`",
-        "finding evidence matches `POTENTIAL_GAP`",
-    ]
-    payload = matches[0].to_dict()
-    assert payload["finding_count"] == 1
-    assert payload["finding_ids"] == ["review-find"]
-    assert payload["finding_kinds"] == ["missing_branch"]
-    assert payload["finding_severities"] == ["warning"]
-    assert payload["finding_evidence"] == ["POTENTIAL_GAP"]
-    assert payload["subgraph_flow_ids"] == ["review"]
-    assert payload["subgraph_finding_ids"] == ["review-find"]
-    assert payload["next_tools"]["subgraph_snapshot"] == {
-        "tool": "get_subgraph_snapshot",
-        "arguments": {
-            "flow_ids": ["review"],
-            "finding_ids": ["review-find"],
-            "format": "svg",
-        },
-    }
-    assert query_model(model, "", finding_severity="error") == []
-    assert [match.flow.id for match in query_model(model, "", finding_evidence="INFERRED")] == [
-        "audit"
-    ]
-
-
 def test_substring_no_longer_matches() -> None:
     """'order' must NOT match inside 'reordering_queue' (token, not substring); it must
     still match a flow whose identity contains 'order' as a whole token."""
@@ -379,14 +301,7 @@ def test_query_match_to_dict_shape() -> None:
         "scope": [],
         "score": 6,
         "reasons": ["`widget` matches the flow identity"],
-        "finding_count": 0,
-        "finding_ids": [],
-        "finding_kinds": [],
-        "finding_severities": [],
-        "finding_evidence": [],
-        "omitted_finding_count": 0,
         "subgraph_flow_ids": ["f1"],
-        "subgraph_finding_ids": [],
         "next_tools": {
             "flow_navigation": {
                 "tool": "get_flow_navigation",
@@ -402,7 +317,7 @@ def test_query_match_to_dict_shape() -> None:
             },
             "subgraph_snapshot": {
                 "tool": "get_subgraph_snapshot",
-                "arguments": {"flow_ids": ["f1"], "finding_ids": [], "format": "svg"},
+                "arguments": {"flow_ids": ["f1"], "format": "svg"},
             },
         },
         "source": "app.py:1",
@@ -410,170 +325,33 @@ def test_query_match_to_dict_shape() -> None:
     assert "source" not in match.to_dict(include_source=False)
 
 
-def test_query_match_bounds_finding_ids_for_large_results() -> None:
-    findings = []
-    for index in range(10):
-        finding = _finding("f1", f"missing fallback {index}")
-        finding.id = f"find-{index}"
-        findings.append(finding)
-    match = QueryMatch(
-        flow=_flow("f1", "widget", symbol="widget"),
-        score=6,
-        reasons=["`widget` matches the flow identity"],
-        findings=findings,
-    )
-
-    payload = match.to_dict()
-
-    assert payload["finding_count"] == 10
-    assert payload["finding_ids"] == [f"find-{index}" for index in range(8)]
-    assert payload["subgraph_finding_ids"] == [f"find-{index}" for index in range(8)]
-    assert payload["omitted_finding_count"] == 2
-    assert payload["next_tools"]["subgraph_snapshot"]["arguments"]["finding_ids"] == [
-        f"find-{index}" for index in range(8)
-    ]
-
-
-def test_finding_context_collects_related_subject_subgraph() -> None:
-    focus_node = FlowNode(
-        id="dispatch:status",
-        kind=NodeKind.DECISION,
-        label="if order.status == OPEN",
-        location=_loc("orders.py", 10),
-        metadata={
-            "subject": "order.status",
-            "value_namespace": "OrderStatus",
-            "values": ["OPEN"],
-            "branches": [{"label": "OPEN", "outcome": "return open"}],
-        },
-    )
-    sibling_node = FlowNode(
-        id="cancel:status",
-        kind=NodeKind.DECISION,
-        label="if order.status == CANCELLED",
-        location=_loc("orders.py", 30),
-        metadata={
-            "subject": "order.status",
-            "value_namespace": "OrderStatus",
-            "values": ["CANCELLED"],
-            "branches": [{"label": "CANCELLED", "outcome": "return cancel"}],
-        },
-    )
-    focus_flow = Flow(
-        id="dispatch",
-        name="dispatch",
-        symbol="dispatch",
-        language="python",
-        framework="generic",
-        entry_kind="function",
-        is_entrypoint=True,
-        location=_loc("orders.py", 1),
-        nodes=[focus_node],
-        calls=["audit"],
-    )
-    sibling_flow = Flow(
-        id="cancel",
-        name="cancel",
-        symbol="cancel",
-        language="python",
-        framework="generic",
-        entry_kind="function",
-        is_entrypoint=True,
-        location=_loc("orders.py", 24),
-        nodes=[sibling_node],
-    )
-    audit_flow = _flow("audit", "audit")
-    finding = Finding(
-        id="dispatch-find",
-        kind="enum_exhaustiveness",
-        severity=Severity.WARNING,
-        message="Declared OrderStatus members not handled for order.status: CANCELLED",
-        evidence=Evidence.INFERRED,
-        flow_id="dispatch",
-        node_id="dispatch:status",
-        location=_loc("orders.py", 10),
-        metadata={
-            "category": "cross_flow",
-            "subject": "order.status",
-            "value_namespace": "OrderStatus",
-            "missing": ["CANCELLED"],
-            "declared": ["OPEN", "CANCELLED"],
-        },
-    )
-    related_finding = Finding(
-        id="cancel-find",
-        kind="missing_branch",
-        severity=Severity.WARNING,
-        message="Decision has no explicit fallback: order.status",
-        evidence=Evidence.POTENTIAL_GAP,
-        flow_id="cancel",
-        node_id="cancel:status",
-        location=_loc("orders.py", 30),
-        metadata={
-            "category": "single_flow",
-            "subject": "order.status",
-            "value_namespace": "OrderStatus",
-        },
-    )
-    model = _model([focus_flow, sibling_flow, audit_flow], [finding, related_finding])
-
-    context = finding_context(model, "dispatch-find", token_budget=160)
-
-    assert context is not None
-    assert context["evidence_guardrail"]["tier"] == "INFERRED"
-    assert context["diagnostic_summary"]["missing"] == ["CANCELLED"]
-    assert context["focus_flow"]["id"] == "dispatch"
-    assert context["focus_node"]["node_id"] == "dispatch:status"
-    by_flow = {item["id"]: item for item in context["related_flows"]}
-    assert "called_by_finding_flow" in by_flow["audit"]["roles"]
-    assert "handles_missing_value" in by_flow["cancel"]["roles"]
-    by_node = {item["node_id"]: item for item in context["related_nodes"]}
-    assert "finding_evidence" in by_node["dispatch:status"]["reasons"]
-    assert "handles_missing_value" in by_node["cancel:status"]["reasons"]
-    assert context["related_findings"][0]["id"] == "cancel-find"
-    assert context["next_tools"]["visual_snapshot"]["tool"] == "get_finding_snapshot"
-
-
-def test_impact_model_accepts_flow_symbol_and_finding_targets() -> None:
+def test_impact_model_accepts_flow_and_symbol_targets() -> None:
     target = _flow("target", "target", symbol="pkg:target")
     caller = _flow("caller", "caller", symbol="pkg:caller")
     caller.calls = ["target"]
     target.called_by = ["caller"]
     unrelated = _flow("other", "other", symbol="pkg:other")
-    finding = Finding(
-        id="target-find",
-        kind="missing_branch",
-        severity=Severity.WARNING,
-        message="Decision has no explicit fallback",
-        evidence=Evidence.POTENTIAL_GAP,
-        flow_id="target",
-        location=_loc("target.py", 3),
-    )
-    model = _model([target, caller, unrelated], [finding])
+    model = _model([target, caller, unrelated])
 
     result = impact_model(
         model,
         [],
         flow_ids=["target", "missing-flow"],
         symbols=["caller", "missing-symbol"],
-        finding_ids=["target-find", "missing-finding"],
     )
 
     assert result.changed_files == []
     assert result.target_flow_ids == ["target", "missing-flow"]
     assert result.target_symbols == ["caller", "missing-symbol"]
-    assert result.target_finding_ids == ["target-find", "missing-finding"]
     assert {flow.id for flow in result.directly_impacted} == {"target", "caller"}
     assert result.impact_reasons == {
         "caller": ["explicit symbol/name target `caller`"],
-        "target": ["explicit flow target `target`", "explicit finding target `target-find`"],
+        "target": ["explicit flow target `target`"],
     }
     assert result.subgraph_flow_ids == ["caller", "target"]
-    assert result.subgraph_finding_ids == ["target-find"]
     assert {item["value"]: item["reason"] for item in result.unresolved_targets} == {
         "missing-flow": "not_found",
         "missing-symbol": "not_found",
-        "missing-finding": "not_found",
     }
 
 

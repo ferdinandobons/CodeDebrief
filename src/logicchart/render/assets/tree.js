@@ -16,7 +16,6 @@
       const byId = LC.byId || new Map();
       const treeEl = document.getElementById("tree");
       const langFilterEl = document.getElementById("langFilter");
-      const reviewFilterEl = document.getElementById("reviewFilter");
       const searchEl = document.getElementById("globalSearch");
       if (!treeEl || !fullTree) return;
 
@@ -25,17 +24,8 @@
       // the old rail's visibility rule. "" means "All languages".
       const languages = Array.isArray(model.languages) ? model.languages : [];
       const scopeNames = new Set(Object.keys(model.scopes || {}));
-      const findings = LC.findings || model.findings || [];
-      const findingsByFlow = new Map();
-      findings.forEach(finding => {
-        if (!finding.flow_id) return;
-        const list = findingsByFlow.get(finding.flow_id) || [];
-        list.push(finding);
-        findingsByFlow.set(finding.flow_id, list);
-      });
       let activeLang = "";
       let activeQuery = "";
-      let reviewOnly = false;
 
       // Per-render lookup maps, rebuilt every time the tree is (re)rendered so a language
       // change cleanly replaces them.
@@ -149,18 +139,12 @@
       function flowsForFile(file) {
         const flows = (file.flow_ids || []).map(id => byId.get(id)).filter(Boolean);
         const byLanguage = activeLang ? flows.filter(f => f.language === activeLang) : flows;
-        const byReview = reviewOnly
-          ? byLanguage.filter(flow => findingsByFlow.has(flow.id))
-          : byLanguage;
-        const visible = activeQuery ? byReview.filter(flowMatchesQuery) : byReview;
+        const visible = activeQuery ? byLanguage.filter(flowMatchesQuery) : byLanguage;
         return sortFlows(visible);
       }
 
       function flowMatchesQuery(flow) {
         if (!activeQuery) return true;
-        const findingsText = (findingsByFlow.get(flow.id) || [])
-          .map(finding => `${finding.kind || ""} ${finding.message || ""} ${finding.evidence || ""}`)
-          .join(" ");
         const scope = flow.metadata && Array.isArray(flow.metadata.scope)
           ? flow.metadata.scope.join(" ")
           : "";
@@ -172,7 +156,6 @@
           flow.entry_kind,
           scope,
           flow.location && flow.location.path,
-          findingsText,
         ].join(" ").toLowerCase();
         return activeQuery.split(/\s+/).every(term => haystack.includes(term));
       }
@@ -379,7 +362,7 @@
         } else if (LC.resetGraph) {
           LC.resetGraph();
         } else if (LC.select) {
-          LC.select({ scope: null, path: null, flowId: null, nodeId: null, findingId: null });
+          LC.select({ scope: null, path: null, flowId: null, nodeId: null });
         }
       }
 
@@ -583,23 +566,6 @@
         });
       }
 
-      function setupReviewFilter() {
-        if (!reviewFilterEl) return;
-        if (!findings.length) {
-          reviewFilterEl.hidden = true;
-          return;
-        }
-        const flowCount = new Set(findings.map(finding => finding.flow_id).filter(Boolean)).size;
-        reviewFilterEl.hidden = false;
-        reviewFilterEl.textContent = `Review ${flowCount}`;
-        reviewFilterEl.addEventListener("click", () => {
-          reviewOnly = !reviewOnly;
-          reviewFilterEl.setAttribute("aria-pressed", String(reviewOnly));
-          render();
-          clearCanvasSelectionForLanguageFilter();
-        });
-      }
-
       function setupSearch() {
         if (!searchEl) return;
         searchEl.addEventListener("input", () => {
@@ -611,7 +577,6 @@
 
       setupSearch();
       setupLanguageFilter();
-      setupReviewFilter();
       render();
 
       LC.onFlowSelected = function (flow) {
@@ -624,7 +589,7 @@
       };
 
       // Bidirectional highlight: a selection made on ANY surface (a canvas block, a source
-      // line, a review-signal row) reveals + highlights the owning file/flow row here, in the one
+      // line, or the tree itself) reveals + highlights the owning file/flow row here, in the one
       // shared accent. Block clicks publish a flowId without going through onFlowSelected,
       // so subscribe to the store directly. revealPath + highlightActive are the same calls
       // onFlowSelected uses, so the tree's accent never drifts from the rest of the app.

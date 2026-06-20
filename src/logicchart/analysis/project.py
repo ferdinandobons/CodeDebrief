@@ -12,7 +12,6 @@ from logicchart.analysis.common import (
     CONFIDENCE_NONE,
     DEFAULT_EXPORT_MARKER,
 )
-from logicchart.analysis.cross_flow import cross_flow_findings
 from logicchart.analysis.discovery import discover_source_files
 from logicchart.analysis.registry import (
     LanguageAnalyzer,
@@ -21,12 +20,9 @@ from logicchart.analysis.registry import (
     spec_for_language,
 )
 from logicchart.config import LogicChartConfig
-from logicchart.diagnostics import enrich_model_diagnostics
 from logicchart.model import (
     FileAnalysis,
     FileRecord,
-    Finding,
-    FindingKind,
     Flow,
     FlowNode,
     NodeKind,
@@ -221,7 +217,6 @@ class ProjectAnalyzer:
         self, analyses: list[FileAnalysis], skipped_files: list[tuple[str, str]]
     ) -> ProjectModel:
         flows = [flow for analysis in analyses for flow in analysis.flows]
-        findings = [finding for analysis in analyses for finding in analysis.findings]
         self._link_calls(flows)
         self._link_tests(flows)
         # Keyed by language so a Python enum and a same-named TS union stay distinct
@@ -232,12 +227,6 @@ class ProjectAnalyzer:
             for name, members in analysis.enums.items():
                 known = language_enums.setdefault(name, [])
                 known.extend(member for member in members if member not in known)
-        constants_by_path = {analysis.path: analysis.constants for analysis in analyses}
-        findings.extend(
-            cross_flow_findings(flows, enums, constants_by_path, gated=self.config.gated_detectors)
-        )
-        findings = _suppress_redundant_missing_branch(findings)
-        findings = _deduplicate_findings(findings)
         # Tag every flow with the macro-part(s) it belongs to (backend/frontend/infra),
         # so the model can be viewed whole or restricted to a scope.
         scope_counts: Counter[str] = Counter()
@@ -260,20 +249,18 @@ class ProjectAnalyzer:
             generated_at=datetime.now(timezone.utc).isoformat(),
             root=".",
             flows=sorted(flows, key=lambda item: (not item.is_entrypoint, item.symbol)),
-            findings=sorted(findings, key=lambda item: (item.severity.value, item.message)),
+            findings=[],
             files=files,
             metadata={
                 "languages": sorted({item.language for item in analyses}),
                 "entrypoint_count": sum(flow.is_entrypoint for flow in flows),
                 "flow_count": len(flows),
-                "finding_count": len(findings),
                 "enums": enums,
                 "language_capabilities": language_capability_matrix(),
                 "scopes": dict(sorted(scope_counts.items())),
                 "skipped_files": _skipped_file_records(skipped_files),
             },
         )
-        enrich_model_diagnostics(model)
         model.metadata["quality"] = model_quality(model)
         return model
 
@@ -385,27 +372,3 @@ def _skipped_file_records(skipped_files: list[tuple[str, str]]) -> list[dict[str
         }
         for path, reason in sorted(skipped_files)
     ]
-
-
-def _suppress_redundant_missing_branch(findings: list[Finding]) -> list[Finding]:
-    """Drop missing_branch where enum_exhaustiveness already names the missing members.
-
-    Both fire on a state-like dispatch with no fallback; the declared-set finding is
-    more actionable, so keep it and suppress the generic one on that node.
-    """
-    enum_nodes = {
-        (item.flow_id, item.node_id)
-        for item in findings
-        if item.kind == FindingKind.ENUM_EXHAUSTIVENESS
-    }
-    return [
-        item
-        for item in findings
-        if not (
-            item.kind == FindingKind.MISSING_BRANCH and (item.flow_id, item.node_id) in enum_nodes
-        )
-    ]
-
-
-def _deduplicate_findings(findings: list[Finding]) -> list[Finding]:
-    return list({item.id: item for item in findings}.values())

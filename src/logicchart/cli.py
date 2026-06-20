@@ -116,11 +116,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     update.add_argument("--full", action="store_true", help="Ignore the incremental cache.")
     update.add_argument("--no-html", action="store_true", help="Skip the local HTML artifact.")
-    update.add_argument(
-        "--include-gaps",
-        action="store_true",
-        help="Expand review-only (POTENTIAL_GAP) findings in Markdown.",
-    )
     _add_profile_argument(update)
 
     view = subparsers.add_parser(
@@ -250,7 +245,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 Path(args.path),
                 full=args.full,
                 include_html=not args.no_html,
-                include_gaps=args.include_gaps,
                 profile=args.profile,
             )
         if args.command == "view":
@@ -332,7 +326,6 @@ def _setup_agent(
         root,
         full=full,
         include_html=include_html,
-        include_gaps=False,
         profile=profile,
         show_next_steps=False,
     )
@@ -366,7 +359,7 @@ def _setup_agent(
             "Ask your coding agent ordinary questions about the code logic.",
             "Try: How does this feature work?",
             "Try: What logic is impacted by this change?",
-            "Try: Which review signals or missing cases should I inspect?",
+            "Try: Show me the workflow for this feature.",
             "Manual UI: `logicchart view`",
         ]
     )
@@ -386,7 +379,6 @@ def _analyze(
     *,
     full: bool,
     include_html: bool,
-    include_gaps: bool = False,
     profile: str | None = None,
     show_next_steps: bool = True,
 ) -> int:
@@ -399,18 +391,12 @@ def _analyze(
         root,
         result.model,
         include_html=include_html,
-        include_gaps=include_gaps,
         config=config,
     )
-    findings = len(result.model.findings)
     print("LogicChart update")
     print("Status: OK - artifacts refreshed.")
     print(f"Project: {root}")
-    print(
-        "Summary: "
-        f"{len(result.model.files)} files, {len(result.model.flows)} flows, "
-        f"{findings} review signal{'s' if findings != 1 else ''}."
-    )
+    print(f"Summary: {len(result.model.files)} files, {len(result.model.flows)} flows.")
     print(
         "Cache: "
         f"{result.cache_hits} hits, {len(result.changed_files)} changed, "
