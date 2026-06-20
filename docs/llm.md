@@ -22,7 +22,8 @@ visual workflow requests to `snapshot_slice` first, with `viewer_targets` as the
 fallback when inline SVG rendering is unavailable. When the agent cannot show the SVG
 inline, it should render `workflow_slice.presentation.canonical_visual.diagram` exactly as
 the top-to-bottom Mermaid fallback instead of synthesizing a new Mermaid diagram or compact
-linear workflow summary. The agent should inspect the full returned slice first, use
+linear workflow summary. Snapshot SVGs and Mermaid fallbacks are vertical/top-to-bottom; the
+agent should not redraw them as horizontal summaries. The agent should inspect the full returned slice first, use
 `expand_slice` or `workflow_path` when relevant nodes or paths are missing, then choose the
 clearest useful first-pass subset to show. That depth choice is presentation only: every
 visible node, edge, branch, value, and source anchor must stay grounded in returned

@@ -56,6 +56,9 @@ The project follows Semantic Versioning.
 - Added MCP and agent-skill guidance for deterministic visual workflow answers where
   agents inspect the full slice, choose a clear first-pass subset, and offer
   language-friendly or expanded follow-ups without inventing graph facts.
+- Added vertical/top-to-bottom layout guarantees for workflow-slice Mermaid and MCP SVG
+  snapshots so repeated chat visuals do not alternate between horizontal and vertical
+  graphs.
 - Added per-language depth metrics to the quality payload, including file/flow coverage,
   decisions, calls, findings, source coverage, capability metadata, and attention signals.
 - Added TypeScript/JavaScript expression-bodied arrow function support, including ternary

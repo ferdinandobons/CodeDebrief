@@ -38,7 +38,8 @@ def test_flow_snapshot_renders_decision_flow_svg(tmp_path: Path) -> None:
     assert "<admin>" not in svg
     assert snapshot["layout"]["engine"] == "static-flow-snapshot-v1"
     assert snapshot["layout"]["direction"] == "top_to_bottom"
-    assert snapshot["layout"]["canvas"]["width"] == 920
+    assert snapshot["layout"]["orientation"] == "vertical"
+    assert snapshot["layout"]["canvas"]["width"] == 720
     assert snapshot["layout"]["rendered_edge_count"] >= 1
     assert snapshot["layout"]["node_positions"][0]["id"] == flow.nodes[0].id
     assert snapshot["layout_quality"]["status"] == "complete"
@@ -79,7 +80,13 @@ def test_finding_snapshot_highlights_finding_node(tmp_path: Path) -> None:
     assert "Evidence chain:" in snapshot["svg"]
     assert "implicit fallback" in snapshot["svg"]
     assert snapshot["layout"]["node_positions"]
+    assert snapshot["layout"]["orientation"] == "vertical"
+    assert snapshot["layout"]["diagnostic_panel"] is not None
+    assert (
+        snapshot["layout"]["diagnostic_panel"]["y"] > snapshot["layout"]["node_positions"][-1]["y"]
+    )
     assert snapshot["layout"]["canvas"]["height"] >= 1
+    assert snapshot["layout"]["canvas"]["height"] > snapshot["layout"]["canvas"]["width"]
     assert (
         snapshot["layout_quality"]["counts"]["rendered_node_count"]
         == snapshot["rendered_node_count"]
@@ -187,7 +194,11 @@ def test_impact_snapshot_renders_empty_state() -> None:
     assert snapshot["format"] == "svg"
     assert snapshot["direct_flow_ids"] == []
     assert snapshot["layout"]["engine"] == "static-impact-snapshot-v1"
+    assert snapshot["layout"]["direction"] == "top_to_bottom_sections"
+    assert snapshot["layout"]["orientation"] == "vertical"
     assert snapshot["layout"]["columns"][0]["id"] == "direct"
+    assert snapshot["layout"]["columns"][0]["x"] == snapshot["layout"]["columns"][1]["x"]
+    assert snapshot["layout"]["columns"][0]["y"] < snapshot["layout"]["columns"][1]["y"]
     assert snapshot["layout_quality"]["status"] == "complete"
     assert snapshot["layout_quality"]["counts"]["direct_flow_count"] == 0
     assert snapshot["layout_quality"]["clarity"]["status"] == "clear"
@@ -248,6 +259,8 @@ def test_impact_snapshot_budget_reports_omitted_flows() -> None:
     assert snapshot["omitted_direct_flow_count"] == 1
     assert snapshot["omitted_transitive_flow_count"] == 1
     assert snapshot["layout"]["compact"] is True
+    assert snapshot["layout"]["direction"] == "top_to_bottom_sections"
+    assert snapshot["layout"]["orientation"] == "vertical"
     assert snapshot["layout_quality"]["status"] == "compact"
     assert snapshot["layout_quality"]["counts"]["omitted_direct_flow_count"] == 1
     assert snapshot["layout_quality"]["counts"]["omitted_transitive_flow_count"] == 1
@@ -298,6 +311,9 @@ def test_subgraph_snapshot_layout_quality_reports_compaction() -> None:
     )
 
     assert snapshot["layout"]["compact"] is True
+    assert snapshot["layout"]["direction"] == "top_to_bottom_stacked_flows"
+    assert snapshot["layout"]["orientation"] == "vertical"
+    assert snapshot["layout"]["canvas"]["width"] == 720
     assert snapshot["layout_quality"]["status"] == "compact"
     assert snapshot["layout_quality"]["counts"]["flow_count"] == 3
     assert snapshot["layout_quality"]["counts"]["rendered_flow_count"] == 2

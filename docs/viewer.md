@@ -99,7 +99,8 @@ Workflow-slice payloads also include a deterministic presentation contract. For 
 visual workflow requests, agents should render
 `workflow_slice.presentation.canonical_visual.diagram` exactly as the top-to-bottom Mermaid
 text fallback, or use `snapshot_slice` when inline SVG is available. Agents should not
-synthesize alternate diagrams from prose. They should inspect the full returned slice,
+synthesize alternate diagrams from prose. Snapshot SVGs and Mermaid fallbacks are
+vertical/top-to-bottom, while `logicchart view` remains the interactive manual canvas. They should inspect the full returned slice,
 request expansion or paths when relevant context is missing, then choose the clearest useful
 first-pass subset to show. That choice may omit low-signal implementation nodes, but every
 visible block must be derived from the selected slice or focused explain-tool payloads.

@@ -160,7 +160,9 @@ canonical top-to-bottom Mermaid `flowchart TD` from
 `workflow_slice.presentation.canonical_visual.diagram`, keep its `diagram_hash` when useful,
 then provide the returned `viewer_targets` command and hash target. Agents should not
 synthesize alternate Mermaid diagrams or add limits, error codes, or branches that are not
-present in the `workflow_slice` payload. For a first visual answer, the agent should inspect
+present in the `workflow_slice` payload. Snapshot SVGs and Mermaid fallbacks are vertical,
+top-to-bottom visuals so repeated chat answers do not alternate between horizontal and
+vertical layouts. For a first visual answer, the agent should inspect
 the full returned slice, request `expand_slice` or `workflow_path` if the selected context is
 missing relevant nodes or paths, then show the clearest useful subset of that deterministic
 workflow. The subset can omit low-signal implementation nodes, but every visible block must

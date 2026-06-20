@@ -74,6 +74,8 @@ flusso, or similar code path:
 4. Call `snapshot_slice` using `workflow_slice.id`, `workflow_slice.handle.flow_ids`, and
    `workflow_slice.handle.finding_ids`.
 5. Show the SVG snapshot or rendered visual first when the client supports it.
+   LogicChart snapshots and Mermaid fallbacks are vertical/top-to-bottom visuals; do not
+   rotate them into horizontal summaries.
 6. If inline SVG rendering is not possible, render
    `workflow_slice.presentation.canonical_visual.diagram` exactly as the top-to-bottom
    Mermaid fallback. Keep the returned `diagram_hash` visible when useful. Do not
@@ -123,6 +125,8 @@ For codebase questions about behavior, decisions, missing cases, or change impac
    client cannot render the SVG inline, render
    `workflow_slice.presentation.canonical_visual.diagram` exactly as the top-to-bottom
    Mermaid fallback.
+   Keep LogicChart visuals vertical/top-to-bottom; do not redraw them as horizontal
+   summaries.
    Inspect the full returned `workflow_slice` before deciding what to show. Choose the
    first visible depth yourself: show the clearest useful subset, then say that the
    displayed diagram is a bounded summary and can be expanded.

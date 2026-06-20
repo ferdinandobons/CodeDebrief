@@ -81,6 +81,9 @@ LogicChart is in a strong alpha state.
   top-to-bottom Mermaid fallback built from graph nodes and edges plus a stable
   `diagram_hash`. Agents should render that field exactly for repeated visual workflow
   requests instead of synthesizing diagrams from prose.
+- MCP visual snapshots now use vertical/top-to-bottom layouts for flow, finding, impact,
+  and subgraph contexts. This keeps chat-rendered workflow visuals consistent while leaving
+  `logicchart view` as the interactive manual canvas.
 - The presentation contract now separates depth selection from factual content. Agents can
   inspect the full returned slice, use LogicChart expansion/path tools when relevant
   context is missing, and choose the clearest useful first-pass subset, but displayed blocks

@@ -46,9 +46,10 @@ class _LayoutEdge:
     label: str
 
 
-DIAGNOSTIC_PANEL_X = 646
-DIAGNOSTIC_PANEL_Y = 116
-DIAGNOSTIC_PANEL_WIDTH = 246
+SNAPSHOT_WIDTH = 720
+SNAPSHOT_MARGIN_X = 52
+FLOW_NODE_WIDTH = 340
+DIAGNOSTIC_PANEL_WIDTH = SNAPSHOT_WIDTH - SNAPSHOT_MARGIN_X * 2
 
 
 def unsupported_snapshot_format(requested: str) -> dict[str, Any]:
@@ -408,7 +409,17 @@ def _flow_svg(
     node_width = int(layout["node_width"])
     node_height = int(layout["node_height"])
     positions = layout["positions"]
-    panel = _finding_panel(finding, diagnostic) if finding and diagnostic else None
+    panel = (
+        _finding_panel(
+            finding,
+            diagnostic,
+            x=int(layout["panel_x"]),
+            y=int(layout["panel_y"]),
+            width=int(layout["panel_width"]),
+        )
+        if finding and diagnostic
+        else None
+    )
     parts = [
         _svg_open(width, height, title or flow.name),
         _style(),
@@ -581,7 +592,6 @@ def _impact_svg(
     height = int(layout["height"])
     row_height = int(layout["row_height"])
     row_gap = int(layout["row_gap"])
-    target_offset = int(layout["target_offset"])
     omitted_direct = max(0, len(direct) - len(rendered_direct))
     omitted_transitive = max(0, len(transitive) - len(rendered_transitive))
     meta_lines: list[str] = []
@@ -608,26 +618,38 @@ def _impact_svg(
     parts.extend(_text(28, 84 + index * 24, line, "meta") for index, line in enumerate(meta_lines))
     parts.extend(
         [
-            _text(80, 126 + target_offset, "Direct impact", "column"),
-            _text(530, 126 + target_offset, "Caller impact", "column"),
+            _text(
+                int(layout["direct_column"]["x"]) + 28,
+                int(layout["direct_heading_y"]),
+                "Direct impact",
+                "column",
+            ),
+            _text(
+                int(layout["transitive_column"]["x"]) + 28,
+                int(layout["transitive_heading_y"]),
+                "Caller impact",
+                "column",
+            ),
         ]
     )
     for index, flow in enumerate(rendered_direct):
         parts.append(
             _impact_box(
                 flow,
-                52,
-                150 + target_offset + index * (row_height + row_gap),
+                int(layout["direct_column"]["x"]),
+                int(layout["direct_column"]["y"]) + index * (row_height + row_gap),
                 row_height,
+                width=int(layout["direct_column"]["width"]),
             )
         )
     for index, flow in enumerate(rendered_transitive):
         parts.append(
             _impact_box(
                 flow,
-                502,
-                150 + target_offset + index * (row_height + row_gap),
+                int(layout["transitive_column"]["x"]),
+                int(layout["transitive_column"]["y"]) + index * (row_height + row_gap),
                 row_height,
+                width=int(layout["transitive_column"]["width"]),
             )
         )
     if not direct and not transitive:
@@ -636,7 +658,7 @@ def _impact_svg(
             if unresolved_targets
             else "No modeled flows are affected by these files."
         )
-        parts.append(_text(52, 184 + target_offset, message, "meta"))
+        parts.append(_text(52, int(layout["direct_column"]["y"]) + 42, message, "meta"))
     if omitted_direct or omitted_transitive:
         parts.append(
             _text(
@@ -684,19 +706,22 @@ def _flow_layout(
     finding: Finding | None = None,
     diagnostic: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    width = 920
+    width = SNAPSHOT_WIDTH
     header_height = 108
     row_gap = 34
-    node_width = 340
+    node_width = FLOW_NODE_WIDTH
     node_height = 76
-    x = 290
+    x = (width - node_width) // 2
     positions = {
         node.id: (x, header_height + index * (node_height + row_gap))
         for index, node in enumerate(rendered_nodes)
     }
     graph_height = header_height + max(1, len(rendered_nodes)) * (node_height + row_gap) + 86
     panel_height = _finding_panel_height(finding, diagnostic) if finding and diagnostic else 0
-    height = max(graph_height, panel_height + 132 if panel_height else graph_height)
+    panel_x = SNAPSHOT_MARGIN_X
+    panel_y = graph_height + 18 if panel_height else 0
+    panel_width = DIAGNOSTIC_PANEL_WIDTH
+    height = panel_y + panel_height + 44 if panel_height else graph_height
     rendered_edge_count = sum(
         edge.source in positions and edge.target in positions for edge in flow.edges
     )
@@ -712,6 +737,9 @@ def _flow_layout(
         "x": x,
         "graph_height": graph_height,
         "panel_height": panel_height,
+        "panel_x": panel_x,
+        "panel_y": panel_y,
+        "panel_width": panel_width,
         "positions": positions,
         "rendered_edge_count": rendered_edge_count,
         "omitted_edge_count": max(0, len(flow.edges) - rendered_edge_count),
@@ -729,6 +757,7 @@ def _flow_layout_payload(
     return {
         "engine": layout["engine"],
         "direction": layout["direction"],
+        "orientation": "vertical",
         "canvas": {"width": layout["width"], "height": layout["height"]},
         "node": {
             "width": layout["node_width"],
@@ -743,6 +772,16 @@ def _flow_layout_payload(
         },
         "rendered_edge_count": layout["rendered_edge_count"],
         "omitted_edge_count": layout["omitted_edge_count"],
+        "diagnostic_panel": (
+            {
+                "x": layout["panel_x"],
+                "y": layout["panel_y"],
+                "width": layout["panel_width"],
+                "height": layout["panel_height"],
+            }
+            if layout["panel_height"]
+            else None
+        ),
         "compact": len(rendered_nodes) < len(flow.nodes),
         "node_positions": [
             {
@@ -800,26 +839,37 @@ def _impact_layout(
     target_labels: list[str],
     unresolved_targets: list[Any],
 ) -> dict[str, Any]:
-    width = 920
+    width = SNAPSHOT_WIDTH
     row_height = 84
     row_gap = 22
-    rows = max(1, max(len(rendered_direct), len(rendered_transitive)))
     meta_line_count = (
         int(bool(changed_files)) + int(bool(target_labels)) + int(bool(unresolved_targets))
     )
     target_offset = max(0, meta_line_count - 1) * 24
-    height = 156 + target_offset + rows * (row_height + row_gap) + 80
+    section_gap = 42
+    column_x = SNAPSHOT_MARGIN_X
+    column_width = width - SNAPSHOT_MARGIN_X * 2
+    direct_heading_y = 126 + target_offset
+    direct_y = direct_heading_y + 24
+    direct_rows = max(1, len(rendered_direct))
+    transitive_heading_y = direct_y + direct_rows * (row_height + row_gap) + section_gap
+    transitive_y = transitive_heading_y + 24
+    transitive_rows = max(1, len(rendered_transitive))
+    height = transitive_y + transitive_rows * (row_height + row_gap) + 80
     return {
         "engine": "static-impact-snapshot-v1",
-        "direction": "left_to_right_columns",
+        "direction": "top_to_bottom_sections",
         "width": width,
         "height": height,
         "row_height": row_height,
         "row_gap": row_gap,
-        "rows": rows,
+        "rows": direct_rows + transitive_rows,
+        "section_gap": section_gap,
         "target_offset": target_offset,
-        "direct_column": {"x": 52, "y": 150 + target_offset, "width": 366},
-        "transitive_column": {"x": 502, "y": 150 + target_offset, "width": 366},
+        "direct_heading_y": direct_heading_y,
+        "transitive_heading_y": transitive_heading_y,
+        "direct_column": {"x": column_x, "y": direct_y, "width": column_width},
+        "transitive_column": {"x": column_x, "y": transitive_y, "width": column_width},
         "changed_file_count": len(changed_files),
         "target_count": len(target_labels),
         "finding_count": len(findings),
@@ -837,6 +887,7 @@ def _impact_layout_payload(
     return {
         "engine": layout["engine"],
         "direction": layout["direction"],
+        "orientation": "vertical",
         "canvas": {"width": layout["width"], "height": layout["height"]},
         "row": {"height": layout["row_height"], "gap": layout["row_gap"]},
         "target_count": layout["target_count"],
@@ -893,14 +944,14 @@ def _subgraph_layout(
     rendered: list[_RenderedSubgraphFlow],
     unresolved_targets: list[dict[str, str]],
 ) -> dict[str, Any]:
-    width = 1060
+    width = SNAPSHOT_WIDTH
     header_height = 116 + (24 if unresolved_targets else 0)
     section_gap = 28
     section_header_height = 70
-    node_width = 340
+    node_width = FLOW_NODE_WIDTH
     node_height = 76
     row_gap = 34
-    x = 360
+    x = (width - node_width) // 2
     y = header_height
     sections: list[dict[str, Any]] = []
     positions: dict[str, tuple[int, int]] = {}
@@ -945,7 +996,7 @@ def _subgraph_layout(
     height = y + 44
     return {
         "engine": "static-subgraph-snapshot-v1",
-        "direction": "stacked_flows",
+        "direction": "top_to_bottom_stacked_flows",
         "width": width,
         "height": height,
         "header_height": header_height,
@@ -975,6 +1026,7 @@ def _subgraph_layout_payload(
     return {
         "engine": layout["engine"],
         "direction": layout["direction"],
+        "orientation": "vertical",
         "canvas": {"width": layout["width"], "height": layout["height"]},
         "node": {
             "width": layout["node_width"],
@@ -1084,9 +1136,9 @@ def _flow_layout_boxes(rendered_nodes: list[FlowNode], layout: dict[str, Any]) -
         boxes.append(
             _LayoutBox(
                 id="diagnostic-panel",
-                x=DIAGNOSTIC_PANEL_X,
-                y=DIAGNOSTIC_PANEL_Y,
-                width=DIAGNOSTIC_PANEL_WIDTH,
+                x=float(layout["panel_x"]),
+                y=float(layout["panel_y"]),
+                width=float(layout["panel_width"]),
                 height=float(panel_height),
                 kind="diagnostic_panel",
             )
@@ -1396,26 +1448,29 @@ def _edge(
     )
 
 
-def _impact_box(flow: Flow, x: int, y: int, height: int) -> str:
-    width = 366
+def _impact_box(flow: Flow, x: int, y: int, height: int, *, width: int) -> str:
     lines = [
         f'<rect class="impact-node" x="{x}" y="{y}" width="{width}" height="{height}" rx="10" />',
-        _text(x + 16, y + 28, _compact(flow.name, 42), "node-label"),
+        _text(x + 16, y + 28, _compact(flow.name, 72), "node-label"),
         _text(
             x + 16,
             y + 52,
             f"{flow.entry_kind} - {flow.language}",
             "node-meta",
         ),
-        _text(x + 16, y + 72, _compact(flow.location.path, 52), "node-meta"),
+        _text(x + 16, y + 72, _compact(flow.location.path, 82), "node-meta"),
     ]
     return "\n".join(lines)
 
 
-def _finding_panel(finding: Finding, diagnostic: dict[str, Any]) -> dict[str, Any]:
-    x = DIAGNOSTIC_PANEL_X
-    y = DIAGNOSTIC_PANEL_Y
-    width = DIAGNOSTIC_PANEL_WIDTH
+def _finding_panel(
+    finding: Finding,
+    diagnostic: dict[str, Any],
+    *,
+    x: int,
+    y: int,
+    width: int,
+) -> dict[str, Any]:
     lines = _finding_panel_lines(finding, diagnostic)
     row_height = 17
     height = _finding_panel_height(finding, diagnostic)

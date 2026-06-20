@@ -1622,7 +1622,7 @@ def _workflow_canonical_visual(
 ) -> dict[str, Any]:
     flows = [cast(Flow, flow) for flow in _flows_by_ids(model, flow_ids)]
     node_budget = max(12, _slice_item_budget(token_budget))
-    lines = ["flowchart TD"]
+    lines = ["flowchart TD", '  subgraph workflow_slice["workflow_slice"]', "    direction TB"]
     rendered_nodes: set[str] = set()
     flow_node_ids: dict[str, list[str]] = {}
     rendered_flow_ids: list[str] = []
@@ -1632,7 +1632,7 @@ def _workflow_canonical_visual(
     layout_constraint_count = 0
 
     if not flows:
-        lines.append('  empty["No modeled flows selected for this workflow_slice"]')
+        lines.append('    empty["No modeled flows selected for this workflow_slice"]')
 
     for flow in flows:
         flow_node_ids[flow.id] = []
@@ -1641,29 +1641,29 @@ def _workflow_canonical_visual(
             continue
         rendered_flow_ids.append(flow.id)
         lines.append(
-            f"  subgraph {_workflow_mermaid_id(f'flow:{flow.id}')}"
+            f"    subgraph {_workflow_mermaid_id(f'flow:{flow.id}')}"
             f'["{_workflow_mermaid_label(flow.name)}"]'
         )
-        lines.append("    direction TB")
+        lines.append("      direction TB")
         if not flow.nodes:
             summary_id = _workflow_mermaid_id(f"{flow.id}:summary")
-            lines.append(f'    {summary_id}["{_workflow_mermaid_label(flow.name)}"]')
+            lines.append(f'      {summary_id}["{_workflow_mermaid_label(flow.name)}"]')
             flow_node_ids[flow.id].append(summary_id)
         for node in flow.nodes:
             if len(rendered_nodes) >= node_budget:
                 omitted_nodes += 1
                 continue
             node_id = _workflow_mermaid_id(node.id)
-            lines.append(f"    {_workflow_mermaid_node(node, node_id)}")
+            lines.append(f"      {_workflow_mermaid_node(node, node_id)}")
             rendered_nodes.add(node.id)
             flow_node_ids[flow.id].append(node_id)
         for edge in flow.edges:
             if edge.source in rendered_nodes and edge.target in rendered_nodes:
-                lines.append(f"    {_workflow_mermaid_edge(edge)}")
+                lines.append(f"      {_workflow_mermaid_edge(edge)}")
                 edge_count += 1
             else:
                 omitted_edges += 1
-        lines.append("  end")
+        lines.append("    end")
 
     flows_by_id = {flow.id: flow for flow in flows}
     for flow in flows:
@@ -1687,9 +1687,10 @@ def _workflow_canonical_visual(
         next_nodes = flow_node_ids.get(next_flow_id, [])
         if not previous_nodes or not next_nodes:
             continue
-        lines.append(f"  {previous_nodes[-1]} ~~~ {next_nodes[0]}")
+        lines.append(f"    {previous_nodes[-1]} ~~~ {next_nodes[0]}")
         layout_constraint_count += 1
 
+    lines.append("  end")
     diagram = "\n".join(lines)
     return {
         "schema_version": "workflow_slice.canonical_visual.v1",
@@ -1711,6 +1712,7 @@ def _workflow_canonical_visual(
         "layout": {
             "direction": "top_to_bottom",
             "flow_direction": "top_to_bottom",
+            "flow_grouping": "vertical_parent_subgraph",
             "constraint_count": layout_constraint_count,
             "constraint_edge": "invisible_mermaid_link",
         },
