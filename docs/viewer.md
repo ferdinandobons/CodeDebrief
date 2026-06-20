@@ -99,10 +99,14 @@ Workflow-slice payloads also include a deterministic presentation contract. For 
 visual workflow requests, agents should render
 `workflow_slice.presentation.canonical_visual.diagram` exactly as the top-to-bottom Mermaid
 text fallback, or use `snapshot_slice` when inline SVG is available. Agents should not
-synthesize alternate diagrams from prose. They may choose a concise or expanded slice with
-LogicChart handles, but every visible block must be derived from the selected slice.
-Human-friendly labels should be presented in the language used by the user as a translation
-of the canonical payload, not as replacement evidence.
+synthesize alternate diagrams from prose. They should inspect the full returned slice,
+request expansion or paths when relevant context is missing, then choose the clearest useful
+first-pass subset to show. That choice may omit low-signal implementation nodes, but every
+visible block must be derived from the selected slice or focused explain-tool payloads.
+The answer should say the diagram is a bounded summary that can be expanded, then offer to
+simplify labels in the user's language, expand omitted nodes or adjacent flows, or explore
+a related area. Human-friendly labels should be presented in the language used by the user
+as a translation of the canonical payload, not as replacement evidence.
 Workflow-slice and `snapshot_slice` MCP payloads include
 `viewer_targets` with `logicchart view` hash fragments such as `#flow=<flow-id>`. These are
 manual follow-up targets for the generated viewer; the deterministic slice and snapshot

@@ -22,10 +22,14 @@ visual workflow requests to `snapshot_slice` first, with `viewer_targets` as the
 fallback when inline SVG rendering is unavailable. When the agent cannot show the SVG
 inline, it should render `workflow_slice.presentation.canonical_visual.diagram` exactly as
 the top-to-bottom Mermaid fallback instead of synthesizing a new Mermaid diagram or compact
-linear workflow summary. The agent can vary depth by requesting a narrower or expanded
-slice, but node and edge content must stay grounded in returned workflow-slice fields.
-Language-friendly wording uses the language of the user's request and is a separate
-translation layer, not a new source of facts.
+linear workflow summary. The agent should inspect the full returned slice first, use
+`expand_slice` or `workflow_path` when relevant nodes or paths are missing, then choose the
+clearest useful first-pass subset to show. That depth choice is presentation only: every
+visible node, edge, branch, value, and source anchor must stay grounded in returned
+workflow-slice or focused explain-tool fields. Visual answers should say the diagram is a
+bounded summary that can be expanded, then offer to simplify labels in the user's language,
+expand omitted nodes or adjacent flows, or explore a related area. Language-friendly wording
+is a separate translation layer, not a new source of facts.
 
 ## MCP Annotation Workflow
 

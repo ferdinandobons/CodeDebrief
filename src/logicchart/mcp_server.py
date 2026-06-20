@@ -1528,6 +1528,9 @@ def _workflow_presentation_contract(
             "this payload.",
             "Tell the user the shown diagram is a bounded summary of the selected "
             "logic and can be expanded.",
+            "End visual answers with concise follow-up choices: simplify labels in "
+            "the user's language, expand omitted nodes or branches, or explore a "
+            "related area.",
             "A separate human-friendly translation may rewrite labels in the user's "
             "language only from returned node, edge, source, and decision fields.",
             "Use ordered_steps as the canonical walkthrough and keep source anchors visible.",
@@ -1547,6 +1550,25 @@ def _workflow_presentation_contract(
                 "derive each displayed block from canonical_visual, ordered_steps, "
                 "decisions, source_ranges, or focused explain_* tool results."
             ),
+        },
+        "display_policy": {
+            "source_extraction": (
+                "Use LogicChart as the deterministic source for the workflow requested "
+                "by the user. Inspect the returned workflow_slice first; if relevant "
+                "nodes, branches, callers, callees, or paths are missing, use "
+                "recommended_next_tools before answering."
+            ),
+            "first_response": (
+                "Show the clearest useful subset of the selected workflow. The agent "
+                "may omit low-signal implementation nodes from the first visible graph, "
+                "but it must preserve all displayed facts exactly from the selected "
+                "workflow_slice or focused follow-up tool payloads."
+            ),
+            "closing_options": [
+                "Offer a language-friendly rewrite of the graph labels in the user's language.",
+                "Offer to expand the diagram with omitted nodes, branches, or adjacent flows.",
+                "Offer to explore another related area or deepen a specific path.",
+            ],
         },
         "label_policy": {
             "canonical": (
@@ -1579,6 +1601,8 @@ def _workflow_presentation_contract(
             "handle.flow_ids and handle.finding_ids. If inline SVG is unavailable, render "
             "presentation.canonical_visual.diagram exactly; do not synthesize a new Mermaid "
             "diagram. Explain that the diagram is a bounded summary and can be expanded. "
+            "End with options to simplify labels in the user's language, expand the "
+            "graph with omitted details, or explore a related area. "
             "Open viewer_targets with logicchart view for manual inspection."
         ),
         "canonical_visual": canonical_visual,

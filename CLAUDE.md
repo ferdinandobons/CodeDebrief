@@ -14,14 +14,17 @@ For codebase questions about behavior, decisions, missing cases, or change impac
    client cannot render the SVG inline, render
    `workflow_slice.presentation.canonical_visual.diagram` exactly as the top-to-bottom
    Mermaid fallback.
-   Choose depth by using the returned slice handles, `expand_slice`, or `workflow_path`;
-   say that the displayed diagram is a bounded summary and can be expanded.
+   Inspect the full returned `workflow_slice` before deciding what to show. Choose the
+   first visible depth yourself: show the clearest useful subset, then say that the
+   displayed diagram is a bounded summary and can be expanded.
    Do not synthesize a new Mermaid diagram and do not add limits, error codes, branches,
    or service steps that are absent from the `workflow_slice` payload. If the user asks
    for a more language-friendly version, rewrite the technical block labels in simple
    wording using the language of the user's request. This is allowed only as a separate
-   presentation layer derived from returned node, edge, decision, and source fields. Show
-   raw JSON or YAML only when explicitly requested.
+   presentation layer derived from returned node, edge, decision, and source fields. End
+   visual answers with concise options in the user's language: simplify labels, expand
+   omitted nodes/branches/adjacent flows, or explore a related area. Show raw JSON or YAML
+   only when explicitly requested.
 4. Use `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`, `explain_node`,
    or `explain_edge` only when the first slice needs more precise context.
 5. Review `logicchart-out/logic-flow.md` and any related `POTENTIAL_GAP` review signals.

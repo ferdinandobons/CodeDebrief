@@ -82,8 +82,11 @@ LogicChart is in a strong alpha state.
   `diagram_hash`. Agents should render that field exactly for repeated visual workflow
   requests instead of synthesizing diagrams from prose.
 - The presentation contract now separates depth selection from factual content. Agents can
-  ask LogicChart for a narrower or expanded slice, but displayed blocks must be derived
-  from returned node, edge, decision, and source fields. Language-friendly wording is
+  inspect the full returned slice, use LogicChart expansion/path tools when relevant
+  context is missing, and choose the clearest useful first-pass subset, but displayed blocks
+  must be derived from returned node, edge, decision, and source fields. Visual answers now
+  explicitly close with follow-up options to simplify labels in the user's language, expand
+  omitted nodes or adjacent flows, or explore a related area. Language-friendly wording is
   allowed only as a separate translation layer in the language used by the user.
 - MCP is now a default runtime dependency. `uv tool install .` installs the central MCP
   surface without requiring the legacy `.[mcp]` extra.

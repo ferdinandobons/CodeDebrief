@@ -53,6 +53,9 @@ The project follows Semantic Versioning.
   `logicchart validate --quality`, MCP summaries, and `validate_artifacts`.
 - Added optional parse-warning quality thresholds to CLI `validate` and MCP
   `validate_artifacts`.
+- Added MCP and agent-skill guidance for deterministic visual workflow answers where
+  agents inspect the full slice, choose a clear first-pass subset, and offer
+  language-friendly or expanded follow-ups without inventing graph facts.
 - Added per-language depth metrics to the quality payload, including file/flow coverage,
   decisions, calls, findings, source coverage, capability metadata, and attention signals.
 - Added TypeScript/JavaScript expression-bodied arrow function support, including ternary

@@ -43,15 +43,21 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "When the user asks to show a workflow, flusso, visual flow, canvas" in content
     assert "`workflow_slice.presentation.canonical_visual.diagram` exactly" in content
     assert "top-to-bottom" in content
+    assert "full returned `workflow_slice`" in content
+    assert "clearest useful subset" in content
     assert "bounded summary" in content
     assert "can be expanded" in content
     assert "language-friendly" in content
     assert "language of the user's request" in content
+    assert "simplify labels" in content
+    assert "omitted nodes/branches/adjacent flows" in content
+    assert "explore a related area" in content
     assert "synthesize a new Mermaid" in content
     assert "absent" in content
     assert "`workflow_slice` payload" in content
     assert "raw JSON" in content
-    assert "YAML only when explicitly" in content
+    assert "YAML" in content
+    assert "explicitly requested" in content
     assert "requested" in content
     assert "logicchart view ..." in content
     assert "provider keys" in content
@@ -73,11 +79,17 @@ def _assert_logicchart_skill(content: str) -> None:
     assert "`workflow_slice.presentation.canonical_visual.diagram` exactly" in content
     assert "top-to-bottom" in content
     assert "`diagram_hash`" in content
-    assert "stable concise `token_budget`" in content
+    assert "stable token" in content
+    assert "full returned `workflow_slice`" in content
+    assert "clearest useful subset" in content
+    assert "low-signal implementation node" in content
     assert "bounded summary" in content
     assert "human-friendly" in content
     assert "language-friendly" in content
     assert "language of the user's request" in content
+    assert "simplify the labels" in content
+    assert "expand omitted" in content
+    assert "related area or deeper path" in content
     assert "synthesize a new Mermaid" in content
     assert "absent" in content
     assert "`workflow_slice` payload" in content

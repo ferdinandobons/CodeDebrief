@@ -160,11 +160,15 @@ canonical top-to-bottom Mermaid `flowchart TD` from
 `workflow_slice.presentation.canonical_visual.diagram`, keep its `diagram_hash` when useful,
 then provide the returned `viewer_targets` command and hash target. Agents should not
 synthesize alternate Mermaid diagrams or add limits, error codes, or branches that are not
-present in the `workflow_slice` payload. The agent may choose a shallower or deeper view
-by asking LogicChart for a narrower slice, `expand_slice`, or `workflow_path`, but every
-displayed block must come from deterministic slice fields or a focused explain tool. A
-language-friendly rewrite is allowed only as a separate translation layer in the language
-used by the user, preserving ids or source anchors and not adding facts. In practice, SVG
+present in the `workflow_slice` payload. For a first visual answer, the agent should inspect
+the full returned slice, request `expand_slice` or `workflow_path` if the selected context is
+missing relevant nodes or paths, then show the clearest useful subset of that deterministic
+workflow. The subset can omit low-signal implementation nodes, but every visible block must
+come from deterministic slice fields or a focused explain tool. The answer should say the
+diagram is a bounded summary that can be expanded, then offer concise follow-ups: rewrite
+labels in simpler language in the user's language, expand omitted nodes or adjacent flows,
+or explore a related area. A language-friendly rewrite is allowed only as a separate
+translation layer, preserving ids or source anchors and not adding facts. In practice, SVG
 snapshots are the best inline visual when the client supports images, canonical
 top-to-bottom Mermaid is the portable text fallback, and `logicchart view` remains the
 interactive manual viewer.

@@ -241,8 +241,25 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
     )
     assert "bounded summary" in " ".join(workflow_slice["presentation"]["agent_guidance"])
     assert "depth_policy" in workflow_slice["presentation"]
+    assert "display_policy" in workflow_slice["presentation"]
     assert "label_policy" in workflow_slice["presentation"]
     assert "media_policy" in workflow_slice["presentation"]
+    assert (
+        "deterministic source"
+        in workflow_slice["presentation"]["display_policy"]["source_extraction"]
+    )
+    assert (
+        "clearest useful subset"
+        in workflow_slice["presentation"]["display_policy"]["first_response"]
+    )
+    assert (
+        "low-signal implementation nodes"
+        in workflow_slice["presentation"]["display_policy"]["first_response"]
+    )
+    closing_options = " ".join(workflow_slice["presentation"]["display_policy"]["closing_options"])
+    assert "language-friendly rewrite" in closing_options
+    assert "omitted nodes" in closing_options
+    assert "related area" in closing_options
     assert "human-friendly" in workflow_slice["presentation"]["label_policy"]["human_friendly"]
     assert (
         "language used by the user"
@@ -250,6 +267,7 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
     )
     assert "snapshot_slice" in workflow_slice["presentation"]["media_policy"]["svg_snapshot"]
     assert "logicchart view" in workflow_slice["presentation"]["media_policy"]["manual_viewer"]
+    assert "explore a related area" in workflow_slice["presentation"]["visual_guidance"]
     canonical_visual = workflow_slice["presentation"]["canonical_visual"]
     assert canonical_visual["schema_version"] == "workflow_slice.canonical_visual.v1"
     assert canonical_visual["format"] == "mermaid"
@@ -540,8 +558,13 @@ def authorize(user):
                     workflow_slice["presentation"]["agent_guidance"]
                 )
                 assert "depth_policy" in workflow_slice["presentation"]
+                assert "display_policy" in workflow_slice["presentation"]
                 assert "label_policy" in workflow_slice["presentation"]
                 assert "media_policy" in workflow_slice["presentation"]
+                display_policy = workflow_slice["presentation"]["display_policy"]  # type: ignore[index]
+                assert "deterministic source" in display_policy["source_extraction"]
+                assert "clearest useful subset" in display_policy["first_response"]
+                assert "omitted nodes" in " ".join(display_policy["closing_options"])
                 canonical_visual = workflow_slice["presentation"]["canonical_visual"]  # type: ignore[index]
                 assert canonical_visual["format"] == "mermaid"
                 assert canonical_visual["diagram"].startswith("flowchart TD\n")
