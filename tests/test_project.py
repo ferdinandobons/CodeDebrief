@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from logicchart.analysis.project import ProjectAnalyzer
+from codedebrief.analysis.project import ProjectAnalyzer
 
 
 def test_project_links_calls_and_reuses_cache(tmp_path: Path) -> None:

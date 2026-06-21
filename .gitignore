@@ -17,17 +17,20 @@ build/
 .codex/config.toml
 .mcp.json
 .cursor/mcp.json
-.env.logicchart
+.env.codedebrief
 
 # Local analysis state and generated browser view
-.logicchart/
-**/logicchart-out/logic-flow.html
+.codedebrief/
+**/codedebrief-out/codedebrief.html
+
+# Local examples and real-world fixtures
+examples/
 
 # Private local real-world fixture. Keep it available for local smoke tests, but
 # never publish its source, generated artifacts, caches, or nested repository data.
 examples/Certifexp/
 
-# Common project artifacts that LogicChart should not analyze
+# Common project artifacts that CodeDebrief should not analyze
 node_modules/
 .next/
 coverage/

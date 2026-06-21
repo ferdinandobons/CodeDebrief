@@ -13,9 +13,9 @@ import json
 import re
 from pathlib import Path
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.render.html import render_html
-from logicchart.render.payload import build_payload
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.render.html import render_html
+from codedebrief.render.payload import build_payload
 
 
 def _model(tmp_path: Path):
@@ -31,7 +31,7 @@ def test_render_html_emits_shell(tmp_path: Path) -> None:
     # Style block survived the asset extraction.
     assert "<style>" in html
     # The JSON payload hook the shell script reads from is present.
-    assert "logicchart-data" in html
+    assert "codedebrief-data" in html
     # The official chart host the viewer draws into is wired up.
     assert 'id="typedViewerHost"' in html
     # The header stays compact and avoids decorative product-tagline copy.
@@ -62,7 +62,7 @@ def test_render_html_emits_directory_tree(tmp_path: Path) -> None:
     # The embedded JSON payload carries a non-empty directory tree (file leaves with
     # flow ids), not just the literal key. Parse the data <script> and check it.
     match = re.search(
-        r'<script id="logicchart-data" type="application/json">(.*?)</script>',
+        r'<script id="codedebrief-data" type="application/json">(.*?)</script>',
         html,
         re.DOTALL,
     )
@@ -87,7 +87,7 @@ def test_render_html_has_no_leftover_placeholders(tmp_path: Path) -> None:
         "__SHELL_JS__",
         "__TREE_JS__",
         "__PANELS_JS__",
-        "__LOGICCHART_DATA__",
+        "__CODEDEBRIEF_DATA__",
     ):
         assert placeholder not in html
 
@@ -102,7 +102,7 @@ def test_render_html_emits_official_react_flowchart(tmp_path: Path) -> None:
     assert "expandFlowInline" not in html
     # The payload carries the aggregated cross-scope edge list the L0 view draws.
     match = re.search(
-        r'<script id="logicchart-data" type="application/json">(.*?)</script>',
+        r'<script id="codedebrief-data" type="application/json">(.*?)</script>',
         html,
         re.DOTALL,
     )
@@ -111,7 +111,7 @@ def test_render_html_emits_official_react_flowchart(tmp_path: Path) -> None:
     assert isinstance(payload["scope_edges"], list)
     # The primary canvas is flow-first: scopes expand into a universal progressive
     # entrypoint/call graph, not file boxes tuned to a particular repository shape.
-    assert "mountStandaloneLogicChartViewer" in html
+    assert "mountStandaloneCodeDebriefViewer" in html
     assert "routeFlowIds" in html
 
 
@@ -161,14 +161,14 @@ def test_render_html_includes_semantic_flow_kind_styles(tmp_path: Path) -> None:
     assert ".scope-node .scope-name" not in html
     assert "active-parent" in html
     assert "exportCurrentCanvas" in html
-    assert "logicchart-flowchart" in html
+    assert "codedebrief-flowchart" in html
     assert 'id="fitView"' in html
     assert "Fit current flowchart" in html
     assert "typed.fitView" in html
     assert 'id="expandView"' in html
     assert ">EXPAND</button>" in html
     assert "typed.expandAll" in html
-    assert "logicchart-expand-progress" in html
+    assert "codedebrief-expand-progress" in html
     assert 'class="tool-group"' in html
     assert 'class="tool reset-tool command-tool"' in html
     assert 'class="tool expand-tool command-tool"' in html
@@ -176,7 +176,7 @@ def test_render_html_includes_semantic_flow_kind_styles(tmp_path: Path) -> None:
     assert "Export current flowchart as PNG" in html
     assert "Export current flowchart as JPG" in html
     assert "themeToggle" not in html
-    assert "logicchart-overview" not in html
+    assert "codedebrief-overview" not in html
     assert "inline-flow-panel" not in html
     assert "makeFileBox" not in html
     assert "expandedFiles" not in html
@@ -186,7 +186,7 @@ def test_render_html_wires_framework_decision_expansion(tmp_path: Path) -> None:
     html = render_html(_model(tmp_path), tmp_path)
     # The framework runtime owns progressive expansion. Pin these seams so the generated
     # viewer cannot regress into the deleted static canvas path.
-    assert "mountStandaloneLogicChartViewer" in html
+    assert "mountStandaloneCodeDebriefViewer" in html
     assert "selectFlow(flow.id)" in html
     assert "selectScope" in html
     assert "syncShellFromHash" in html
@@ -227,7 +227,7 @@ def test_render_html_emits_quality_and_source_panels(tmp_path: Path) -> None:
     assert "aria-pressed" in html
     assert "setRightRailOpen(false);" in html
     # The shared selection store the four surfaces publish/subscribe through.
-    assert "LC.select" in html
+    assert "codeDebrief.select" in html
 
     # The visually-hidden aria-live region the panels announce selection changes into.
     assert 'id="panelStatus"' in html
@@ -237,7 +237,7 @@ def test_render_html_emits_quality_and_source_panels(tmp_path: Path) -> None:
     # lightweight reference into it (not its own copy). We can only assert the payload
     # here (no DOM), so check the reference + store rode along.
     match = re.search(
-        r'<script id="logicchart-data" type="application/json">(.*?)</script>',
+        r'<script id="codedebrief-data" type="application/json">(.*?)</script>',
         html,
         re.DOTALL,
     )
@@ -329,10 +329,10 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert 'id="leftRailResizer"' in html
     assert 'id="rightRailResizer"' in html
     assert 'role="separator"' in html
-    assert "logicchart-left-rail-width" in html
-    assert "logicchart-right-rail-width" in html
+    assert "codedebrief-left-rail-width" in html
+    assert "codedebrief-right-rail-width" in html
     assert "initCollapsiblePanels" in html
-    assert "logicchart-panel-collapsed-" in html
+    assert "codedebrief-panel-collapsed-" in html
     assert "data-panel-heading" in html
     assert 'id="qualityPanelToggle"' in html
     assert 'id="sourcePanelToggle"' in html
@@ -390,8 +390,8 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "manualPositions.clear()" in html
     assert "openDetails" in html
     assert (
-        "LC.select(selectionForFlow(flow));\n"
-        "          if (LC.openDetails) LC.openDetails();" in html
+        "codeDebrief.select(selectionForFlow(flow));\n"
+        "          if (codeDebrief.openDetails) codeDebrief.openDetails();" in html
     )
     assert ".edge-hit, .edge-hit-segment, .edge-label-wrap" in html
     assert "bindEdgeActivationParts" in html
@@ -410,6 +410,6 @@ def test_render_html_wires_framework_viewer_runtime(tmp_path: Path) -> None:
     assert 'params.get("runtime") === "static"' not in html
     assert 'dataset.runtime = "static"' not in html
     assert 'dataset.runtime = "unavailable"' in html
-    assert "mountStandaloneLogicChartViewer" in html
-    assert "logicchartTypedViewer" in html
+    assert "mountStandaloneCodeDebriefViewer" in html
+    assert "codedebriefTypedViewer" in html
     assert "legacyCanvas" not in html

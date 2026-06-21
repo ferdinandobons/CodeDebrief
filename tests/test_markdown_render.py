@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from logicchart.model import (
+from codedebrief.model import (
     Flow,
     FlowEdge,
     FlowNode,
@@ -10,7 +10,7 @@ from logicchart.model import (
     ProjectModel,
     SourceLocation,
 )
-from logicchart.render.markdown import render_markdown
+from codedebrief.render.markdown import render_markdown
 
 
 def _flow(
@@ -59,7 +59,7 @@ def _model(flow: Flow) -> ProjectModel:
 def test_markdown_renders_flow_report() -> None:
     out = render_markdown(_model(_flow()))
 
-    assert "# LogicChart Decision Flows" in out
+    assert "# CodeDebrief Decision Flows" in out
     assert "## Project Map" in out
     assert "## Entry Point Flows" in out
     assert "flowchart TD" in out

@@ -1,0 +1,23 @@
+.git/
+.venv/
+.codedebrief/
+.claude/
+.codex/config.toml
+.mcp.json
+.cursor/mcp.json
+codedebrief-out/
+node_modules/
+.next/
+dist/
+build/
+coverage/
+__pycache__/
+.DS_Store
+*.log
+*.min.js
+*.generated.*
+*.d.ts
+
+# Private local real-world fixture used only for opt-in/local validation. It must
+# never be included in the public root CodeDebrief artifact.
+examples/Certifexp/

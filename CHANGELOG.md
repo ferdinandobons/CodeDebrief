@@ -1,25 +1,32 @@
 # Changelog
 
-All notable changes to LogicChart will be documented in this file.
+All notable changes to CodeDebrief will be documented in this file.
 
 The project follows Semantic Versioning.
 
 ## Unreleased
 
+### Changed
+
+- Renamed the project, Python package, CLI, MCP server, generated artifacts, viewer runtime,
+  and documentation surface to CodeDebrief.
+- Made `examples/` local-only and ignored; the committed dogfood artifact now maps
+  `src/codedebrief` instead of relying on tracked demo/shop fixtures.
+
 ## 0.10.0 - 2026-06-21
 
 ### Changed
 
-- Reoriented LogicChart around code-logic comprehension instead of review findings:
+- Reoriented CodeDebrief around code-logic comprehension instead of review findings:
   MCP workflow slices, agent instructions, Markdown artifacts, and the generated viewer
   now emphasize deterministic flows, decisions, calls, source anchors, visual snapshots,
-  and manual exploration through `logicchart view`.
+  and manual exploration through `codedebrief view`.
 - Moved MCP into the default runtime install so release and source-checkout installs include
   the primary agent surface without requiring an optional extra.
-- Updated `logicchart setup-agent codex|claude|gemini|cursor` so setup writes only the
+- Updated `codedebrief setup-agent codex|claude|gemini|cursor` so setup writes only the
   requested target's instruction, skill, and MCP files.
 - Added Gemini CLI / Antigravity parity for `setup-agent gemini`: it now writes the
-  provider-native LogicChart skill and project-scoped `.gemini/settings.json` MCP config,
+  provider-native CodeDebrief skill and project-scoped `.gemini/settings.json` MCP config,
   including the same Mermaid artifact guidance used by Claude when inline rendering is not
   available.
 - Updated agent guidance so visual workflow answers use the deterministic
@@ -65,7 +72,7 @@ The project follows Semantic Versioning.
 - Fixed visual workflow guidance so repeated chat requests prefer vertical/top-to-bottom
   deterministic visuals and offer language-friendly or expanded follow-ups without
   changing graph facts.
-- Fixed stale docs and examples that still described LogicChart as a review-signal or
+- Fixed stale docs and examples that still described CodeDebrief as a review-signal or
   detector product.
 
 ## 0.8.0 - 2026-06-17
@@ -138,36 +145,36 @@ The project follows Semantic Versioning.
 
 ### Added
 
-- Added `logicchart doctor` to check the active installation, parser grammar imports, and
+- Added `codedebrief doctor` to check the active installation, parser grammar imports, and
   repair command for stale editable installs.
 
 ### Fixed
 
 - Fixed analysis robustness when a lazy language grammar is missing from the active Python
   environment: affected files are now reported as skipped instead of aborting the whole run.
-- Fixed `logicchart --version` so it follows installed package metadata instead of a stale
+- Fixed `codedebrief --version` so it follows installed package metadata instead of a stale
   duplicated constant.
 
 ## 0.4.1 - 2026-06-16
 
 ### Fixed
 
-- Fixed packaged `logicchart validate` so installed wheels include and load the bundled JSON
+- Fixed packaged `codedebrief validate` so installed wheels include and load the bundled JSON
   Schema outside the source checkout.
 
 ## 0.4.0 - 2026-06-16
 
 ### Added
 
-- Added built-in analysis profiles for the public demo artifact, LogicChart self-analysis,
+- Added built-in analysis profiles for the public demo artifact, CodeDebrief self-analysis,
   and a whole-checkout project map without overwriting each other.
-- Added `logicchart validate`, artifact/schema registry validation, and optional full
+- Added `codedebrief validate`, artifact/schema registry validation, and optional full
   source sync checks for local CI and agent workflows.
 - Added richer query filters and ranking signals (`--language`, `--finding-kind`, scope,
   language, path, decision metadata, and finding text).
 - Added MCP agent tools for prioritized review queues, compact context packs, and artifact
   validation.
-- Added optional `logicchart install --mcp-config ...` project MCP config generation and
+- Added optional `codedebrief install --mcp-config ...` project MCP config generation and
   server instructions for agent workflow guidance.
 - Added viewer flow search and a prioritized review queue in the review-signals panel.
 - Clarified the earlier CLI/MCP agent workflow in the README.
@@ -175,7 +182,7 @@ The project follows Semantic Versioning.
 ### Changed
 
 - Simplified the README Quick Start to the two commands needed for first success:
-  `logicchart analyze --full` and `logicchart view`.
+  `codedebrief analyze --full` and `codedebrief view`.
 - Updated public/package positioning around local-first decision flowcharts for humans and
   coding agents.
 - Removed internal planning/design documents from `docs/`, keeping the public repository
@@ -206,7 +213,7 @@ whole-codebase one - 10 control-flow languages plus Terraform, organized by macr
 
 ### Whole codebase and scopes
 
-- Macro-part scopes: declare `[logicchart.scopes]` (or fall back to the inferred top-level
+- Macro-part scopes: declare `[codedebrief.scopes]` (or fall back to the inferred top-level
   directory) so one model can be viewed whole or restricted to backend/frontend/infra.
 - `--scope` on `query` and `impact`; scope and language filters in the viewer.
 - Every flow records the scope(s) it belongs to; the Markdown header summarizes the
@@ -245,7 +252,7 @@ flowcharts, with evidence-tiered findings (`VERIFIED` / `INFERRED` / `POTENTIAL_
 ### Analysis & IR
 
 - Deterministic Python (AST) and TypeScript/TSX (tree-sitter) analyzers producing one
-  canonical `logic-flow.json` model (schema 1.1).
+  canonical `codedebrief.json` model (schema 1.1).
 - Framework adapters: FastAPI routes; Next.js route handlers, middleware, server
   actions, pages, and layouts; shallow React components, hooks, and event handlers;
   public/exported functions, CLI commands, and tests.
@@ -275,11 +282,11 @@ flowcharts, with evidence-tiered findings (`VERIFIED` / `INFERRED` / `POTENTIAL_
 - Interactive local HTML viewer.
 - MCP server with 11 tools and a `token_budget` cap on every query/list tool.
 - Agent instruction installer (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, Cursor rules) and
-  managed git auto-sync hooks with a `merge=union` driver for `logic-flow.json`.
+  managed git auto-sync hooks with a `merge=union` driver for `codedebrief.json`.
 
 ### Robustness
 
 - Incremental content-hash cache with per-file analysis.
 - Per-file parse isolation: an un-parseable or non-UTF-8 file is skipped and reported
   in `skipped_files` rather than aborting the whole run.
-- Malformed `logic-flow.json` is rejected with a clean error instead of a raw traceback.
+- Malformed `codedebrief.json` is rejected with a clean error instead of a raw traceback.

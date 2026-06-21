@@ -10,14 +10,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.model import (
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.model import (
     FileRecord,
     Flow,
     ProjectModel,
     SourceLocation,
 )
-from logicchart.render.payload import (
+from codedebrief.render.payload import (
     attach_source_snippets,
     build_payload,
     build_scope_edges,
@@ -283,7 +283,7 @@ def test_attach_source_snippets_tolerates_binary_file(tmp_path: Path) -> None:
 def test_attach_source_snippets_caps_long_flow(tmp_path: Path) -> None:
     # A flow over a function longer than MAX_SNIPPET_LINES embeds only the head lines and
     # marks the tail elided -- the embedded span is bounded regardless of function size.
-    from logicchart.render.payload import MAX_SNIPPET_LINES
+    from codedebrief.render.payload import MAX_SNIPPET_LINES
 
     total = MAX_SNIPPET_LINES + 120
     big = "def f():\n" + "".join(f"    x{i} = {i}\n" for i in range(total))

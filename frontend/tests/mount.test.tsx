@@ -1,10 +1,10 @@
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { mountLogicChartViewer, type LogicChartPayload } from "../src";
+import { mountCodeDebriefViewer, type CodeDebriefPayload } from "../src";
 import { rasterExportSizeForBounds } from "../src/mount";
 
-const payload: LogicChartPayload = {
+const payload: CodeDebriefPayload = {
   flows: [
     {
       id: "orders-route",
@@ -50,7 +50,7 @@ const payload: LogicChartPayload = {
   ],
 };
 
-describe("mountLogicChartViewer", () => {
+describe("mountCodeDebriefViewer", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -59,20 +59,20 @@ describe("mountLogicChartViewer", () => {
   it("mounts, updates, and unmounts the viewer in a DOM container", async () => {
     const container = document.createElement("main");
     document.body.appendChild(container);
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
 
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload,
         routeFlowIds: ["orders-route"],
         scope: "frontend",
       });
     });
 
-    expect(container.querySelector(".logicchart-viewer")).not.toBeNull();
+    expect(container.querySelector(".codedebrief-viewer")).not.toBeNull();
     expect(container.querySelector('[data-scope="frontend"]')).not.toBeNull();
     expect(container.querySelector('[data-flow-id="load-order"]')).not.toBeNull();
-    const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
+    const svg = container.querySelector<SVGSVGElement>(".codedebrief-viewer");
     const flowDetailsLayer = container.querySelector(".flow-details");
     const flowNodesLayer = container.querySelector(".flow-nodes");
     expect(
@@ -211,7 +211,7 @@ describe("mountLogicChartViewer", () => {
   });
 
   it("focuses a selected open flow instead of shrinking it into the whole scope", async () => {
-    const crowdedPayload: LogicChartPayload = {
+    const crowdedPayload: CodeDebriefPayload = {
       flows: [
         ...payload.flows,
         ...Array.from({ length: 14 }, (_, index) => ({
@@ -233,16 +233,16 @@ describe("mountLogicChartViewer", () => {
     const container = document.createElement("main");
     document.body.appendChild(container);
 
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload: crowdedPayload,
         routeFlowIds: ["orders-route"],
         scope: "frontend",
       });
     });
 
-    const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
+    const svg = container.querySelector<SVGSVGElement>(".codedebrief-viewer");
     if (!svg) throw new Error("expected mounted viewer svg");
     const broadViewBox = parseViewBox(svg);
 
@@ -291,21 +291,21 @@ describe("mountLogicChartViewer", () => {
     });
     const container = document.createElement("main");
     document.body.appendChild(container);
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
 
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload,
         routeFlowIds: ["orders-route"],
         scope: "frontend",
       });
     });
 
-    const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
+    const svg = container.querySelector<SVGSVGElement>(".codedebrief-viewer");
     if (!svg) throw new Error("expected mounted viewer svg");
-    expect(container.querySelector(".logicchart-viewer-frame")).not.toBeNull();
-    expect(container.querySelector(".logicchart-overview")).toBeNull();
-    expect(container.querySelector(".logicchart-overview-map")).toBeNull();
+    expect(container.querySelector(".codedebrief-viewer-frame")).not.toBeNull();
+    expect(container.querySelector(".codedebrief-overview")).toBeNull();
+    expect(container.querySelector(".codedebrief-overview-map")).toBeNull();
 
     await act(async () => {
       mounted.fitView();
@@ -352,10 +352,10 @@ describe("mountLogicChartViewer", () => {
   it("keeps scope selection connected to root and entrypoint links", async () => {
     const container = document.createElement("main");
     document.body.appendChild(container);
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
 
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload,
         routeFlowIds: ["orders-route"],
         scope: "frontend",
@@ -369,7 +369,7 @@ describe("mountLogicChartViewer", () => {
       frontendScope.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    const svg = container.querySelector(".logicchart-viewer");
+    const svg = container.querySelector(".codedebrief-viewer");
     const selectedScope = container.querySelector('[data-scope="frontend"]');
     const unrelatedScope = container.querySelector('[data-scope="backend"]');
     const connectedFlow = container.querySelector('[data-flow-id="orders-route"]');
@@ -395,10 +395,10 @@ describe("mountLogicChartViewer", () => {
   it("highlights the full visible call component when a scope is selected", async () => {
     const container = document.createElement("main");
     document.body.appendChild(container);
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
 
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload: callChainPayload(),
         routeFlowIds: ["entry", "load-user", "validate-user"],
         scope: "frontend",
@@ -436,10 +436,10 @@ describe("mountLogicChartViewer", () => {
   it("highlights the full visible call component when a flow node is selected", async () => {
     const container = document.createElement("main");
     document.body.appendChild(container);
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
 
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload: callChainPayload(),
         routeFlowIds: ["entry", "load-user", "validate-user"],
         scope: "frontend",
@@ -477,10 +477,10 @@ describe("mountLogicChartViewer", () => {
   it("dims flow and detail content when the root node is selected", async () => {
     const container = document.createElement("main");
     document.body.appendChild(container);
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
 
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload,
         routeFlowIds: ["orders-route"],
         scope: "frontend",
@@ -494,7 +494,7 @@ describe("mountLogicChartViewer", () => {
       rootShape.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    const svg = container.querySelector(".logicchart-viewer");
+    const svg = container.querySelector(".codedebrief-viewer");
     const flow = container.querySelector('[data-flow-id="orders-route"]');
     const detailNode = container.querySelector('[data-detail-node-id="orders-route:n2"]');
 
@@ -514,7 +514,7 @@ describe("mountLogicChartViewer", () => {
   it("keeps node drag responsive and stops dragging on global abort", async () => {
     const container = document.createElement("main");
     document.body.appendChild(container);
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
     const manualPositionsChange = vi.fn();
     const frames = new Map<number, FrameRequestCallback>();
     let nextFrameId = 1;
@@ -540,7 +540,7 @@ describe("mountLogicChartViewer", () => {
     };
 
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload,
         routeFlowIds: ["orders-route"],
         scope: "frontend",
@@ -548,7 +548,7 @@ describe("mountLogicChartViewer", () => {
       });
     });
 
-    const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
+    const svg = container.querySelector<SVGSVGElement>(".codedebrief-viewer");
     const flowNode = container.querySelector<SVGGElement>('[data-flow-id="orders-route"]');
     const flowShape = container.querySelector<SVGElement>('[data-flow-id="orders-route"] .shape');
     if (!svg || !flowNode || !flowShape) throw new Error("expected draggable flow node");
@@ -603,11 +603,11 @@ describe("mountLogicChartViewer", () => {
   it("flushes the final node drag position from pointerup", async () => {
     const container = document.createElement("main");
     document.body.appendChild(container);
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
     const manualPositionsChange = vi.fn();
 
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload,
         routeFlowIds: ["orders-route"],
         scope: "frontend",
@@ -615,7 +615,7 @@ describe("mountLogicChartViewer", () => {
       });
     });
 
-    const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
+    const svg = container.querySelector<SVGSVGElement>(".codedebrief-viewer");
     const flowNode = container.querySelector<SVGGElement>('[data-flow-id="orders-route"]');
     const flowShape = container.querySelector<SVGElement>('[data-flow-id="orders-route"] .shape');
     if (!svg || !flowNode || !flowShape) throw new Error("expected draggable flow node");
@@ -647,17 +647,17 @@ describe("mountLogicChartViewer", () => {
   it("keeps canvas pan responsive and stops panning on global abort", async () => {
     const container = document.createElement("main");
     document.body.appendChild(container);
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
 
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload,
         routeFlowIds: ["orders-route"],
         scope: "frontend",
       });
     });
 
-    const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
+    const svg = container.querySelector<SVGSVGElement>(".codedebrief-viewer");
     if (!svg) throw new Error("expected viewer svg");
     const [, , viewBoxWidth, viewBoxHeight] = parseViewBox(svg);
     Object.defineProperty(svg, "clientWidth", { configurable: true, value: viewBoxWidth });
@@ -702,17 +702,17 @@ describe("mountLogicChartViewer", () => {
   it("flushes the final canvas pan position from pointerup", async () => {
     const container = document.createElement("main");
     document.body.appendChild(container);
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
 
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload,
         routeFlowIds: ["orders-route"],
         scope: "frontend",
       });
     });
 
-    const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
+    const svg = container.querySelector<SVGSVGElement>(".codedebrief-viewer");
     if (!svg) throw new Error("expected viewer svg");
     const [, , viewBoxWidth, viewBoxHeight] = parseViewBox(svg);
     Object.defineProperty(svg, "clientWidth", { configurable: true, value: viewBoxWidth });
@@ -740,17 +740,17 @@ describe("mountLogicChartViewer", () => {
   it("keeps infinite-canvas viewport operations finite and resettable", async () => {
     const container = document.createElement("main");
     document.body.appendChild(container);
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
 
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload,
         routeFlowIds: ["orders-route"],
         scope: "frontend",
       });
     });
 
-    const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
+    const svg = container.querySelector<SVGSVGElement>(".codedebrief-viewer");
     if (!svg) throw new Error("expected viewer svg");
     const initialViewBox = svg.getAttribute("viewBox");
     const [, , viewBoxWidth, viewBoxHeight] = parseViewBox(svg);
@@ -786,19 +786,19 @@ describe("mountLogicChartViewer", () => {
   it("zooms with the wheel around the cursor without bubbling to the shell", async () => {
     const container = document.createElement("main");
     document.body.appendChild(container);
-    let mounted!: ReturnType<typeof mountLogicChartViewer>;
+    let mounted!: ReturnType<typeof mountCodeDebriefViewer>;
     const bubbledWheel = vi.fn();
     container.addEventListener("wheel", bubbledWheel);
 
     await act(async () => {
-      mounted = mountLogicChartViewer(container, {
+      mounted = mountCodeDebriefViewer(container, {
         payload,
         routeFlowIds: ["orders-route"],
         scope: "frontend",
       });
     });
 
-    const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
+    const svg = container.querySelector<SVGSVGElement>(".codedebrief-viewer");
     if (!svg) throw new Error("expected viewer svg");
     const before = parseViewBox(svg);
     Object.defineProperty(svg, "clientWidth", { configurable: true, value: 1000 });
@@ -843,7 +843,7 @@ describe("mountLogicChartViewer", () => {
       configurable: true,
       value: vi.fn((blob: Blob) => {
         objectUrlBlobs.push(blob);
-        return `blob:logicchart-${objectUrlBlobs.length}`;
+        return `blob:codedebrief-${objectUrlBlobs.length}`;
       }),
     });
     Object.defineProperty(URL, "revokeObjectURL", {
@@ -876,7 +876,7 @@ describe("mountLogicChartViewer", () => {
       downloads.push({ download: this.download, href: this.href });
     });
 
-    const mounted = mountLogicChartViewer(container, {
+    const mounted = mountCodeDebriefViewer(container, {
       payload,
       routeFlowIds: ["orders-route"],
       scope: "frontend",
@@ -892,7 +892,7 @@ describe("mountLogicChartViewer", () => {
 
     expect(rasterMime).toBe("image/jpeg");
     expect(downloads).toHaveLength(1);
-    expect(downloads[0].download).toMatch(/^logicchart-flowchart-.*\.jpg$/);
+    expect(downloads[0].download).toMatch(/^codedebrief-flowchart-.*\.jpg$/);
     expect(objectUrlBlobs).toHaveLength(2);
     await expect(readBlobText(objectUrlBlobs[0])).resolves.not.toContain("edge-hit-path");
     await expect(readBlobText(objectUrlBlobs[0])).resolves.not.toContain("root-scope-hit");
@@ -933,7 +933,7 @@ function readBlobText(blob: Blob): Promise<string> {
   });
 }
 
-function callChainPayload(): LogicChartPayload {
+function callChainPayload(): CodeDebriefPayload {
   return {
     flows: [
       {

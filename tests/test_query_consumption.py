@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from logicchart.model import ProjectModel
-from logicchart.query import impact_model
+from codedebrief.model import ProjectModel
+from codedebrief.query import impact_model
 
 
 def test_normalize_path_preserves_dot_prefixed_paths() -> None:

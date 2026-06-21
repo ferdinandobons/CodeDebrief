@@ -1,16 +1,16 @@
 import {
-  mountLogicChartViewer,
-  type MountedLogicChartViewer,
+  mountCodeDebriefViewer,
+  type MountedCodeDebriefViewer,
 } from "./mount";
 import type { ExportImageFormat } from "./mount";
 import {
   buildFlowIndex,
   scopeNamesForFlow,
   scopeSummaries,
-  type LogicChartFlow,
-  type LogicChartLocation,
-  type LogicChartPayload,
-} from "./logicchart-model";
+  type CodeDebriefFlow,
+  type CodeDebriefLocation,
+  type CodeDebriefPayload,
+} from "./codedebrief-model";
 import type {
   DetailEdgeSelection,
   DetailNodeSelection,
@@ -26,7 +26,7 @@ export interface StandaloneViewerOptions {
   location?: Pick<Location, "hash">;
 }
 
-export interface MountedStandaloneLogicChartViewer {
+export interface MountedStandaloneCodeDebriefViewer {
   expandAll: () => void;
   exportImage: (format: ExportImageFormat) => void;
   fitView: () => void;
@@ -38,11 +38,11 @@ export interface MountedStandaloneLogicChartViewer {
   unmount: () => void;
 }
 
-export function mountStandaloneLogicChartViewer(
+export function mountStandaloneCodeDebriefViewer(
   container: Element,
-  payload: LogicChartPayload,
+  payload: CodeDebriefPayload,
   options: StandaloneViewerOptions = {},
-): MountedStandaloneLogicChartViewer {
+): MountedStandaloneCodeDebriefViewer {
   const canSubscribe =
     typeof window !== "undefined" && options.location === undefined;
   const flowById = buildFlowIndex(payload);
@@ -202,7 +202,7 @@ export function mountStandaloneLogicChartViewer(
     };
   };
   const initialProps = buildProps();
-  let mounted: MountedLogicChartViewer | null = mountLogicChartViewer(container, initialProps);
+  let mounted: MountedCodeDebriefViewer | null = mountCodeDebriefViewer(container, initialProps);
   publishShellRouteSelection(flowById, initialProps);
   const updateMounted = () => {
     const props = buildProps();
@@ -389,20 +389,20 @@ interface ExpansionProgress {
 function createExpansionProgress(container: Element): ExpansionProgress {
   const ownerDocument = container.ownerDocument;
   const overlay = ownerDocument.createElement("div");
-  overlay.className = "logicchart-expand-progress";
+  overlay.className = "codedebrief-expand-progress";
   overlay.setAttribute("role", "status");
   overlay.setAttribute("aria-live", "polite");
   overlay.hidden = true;
 
   const label = ownerDocument.createElement("span");
-  label.className = "logicchart-expand-progress-label";
+  label.className = "codedebrief-expand-progress-label";
   const bar = ownerDocument.createElement("div");
-  bar.className = "logicchart-expand-progress-track";
+  bar.className = "codedebrief-expand-progress-track";
   const value = ownerDocument.createElement("div");
-  value.className = "logicchart-expand-progress-value";
+  value.className = "codedebrief-expand-progress-value";
   bar.appendChild(value);
   const count = ownerDocument.createElement("span");
-  count.className = "logicchart-expand-progress-count";
+  count.className = "codedebrief-expand-progress-count";
   overlay.append(label, bar, count);
   container.appendChild(overlay);
 
@@ -450,7 +450,7 @@ function emptyViewerState(): ViewerPersistedState {
 }
 
 function directConnectionScopeNames(
-  flowById: ReadonlyMap<string, LogicChartFlow>,
+  flowById: ReadonlyMap<string, CodeDebriefFlow>,
   directConnectionIndex: ReadonlyMap<string, ReadonlySet<string>>,
   flowId: string,
 ): string[] {
@@ -475,7 +475,7 @@ function directConnectionFlowIds(
 }
 
 function directConnectionIndexForFlows(
-  flowById: ReadonlyMap<string, LogicChartFlow>,
+  flowById: ReadonlyMap<string, CodeDebriefFlow>,
 ): Map<string, Set<string>> {
   const index = new Map<string, Set<string>>();
   const add = (sourceId: string, targetId: string) => {
@@ -509,7 +509,7 @@ function contextFlowIdsForOpenedFlows(
 
 function readViewerState(
   key: string,
-  flowById: ReadonlyMap<string, LogicChartFlow>,
+  flowById: ReadonlyMap<string, CodeDebriefFlow>,
 ): ViewerPersistedState {
   const storage = browserStorage();
   if (!storage) return emptyViewerState();
@@ -601,7 +601,7 @@ function clearViewerState(key: string) {
   }
 }
 
-function viewerStateStorageKey(payload: LogicChartPayload): string {
+function viewerStateStorageKey(payload: CodeDebriefPayload): string {
   const flowSignature = payload.flows
     .map(flow =>
       [
@@ -613,7 +613,7 @@ function viewerStateStorageKey(payload: LogicChartPayload): string {
     )
     .sort()
     .join("|");
-  return `logicchart-viewer-state:v${VIEWER_STATE_VERSION}:${hashString(flowSignature)}`;
+  return `codedebrief-viewer-state:v${VIEWER_STATE_VERSION}:${hashString(flowSignature)}`;
 }
 
 function browserStorage(): Storage | null {
@@ -652,7 +652,7 @@ function hashForFlow(flowId: string): string {
 
 type DetailSelection = DetailEdgeSelection | DetailNodeSelection;
 
-interface LogicChartShellSelection {
+interface CodeDebriefShellSelection {
   edgeId?: string | null;
   endLine?: number | null;
   flowId?: string | null;
@@ -662,16 +662,16 @@ interface LogicChartShellSelection {
   scope?: string | null;
 }
 
-interface LogicChartShell {
+interface CodeDebriefShell {
   openDetails?: () => void;
-  select?: (selection: LogicChartShellSelection) => void;
+  select?: (selection: CodeDebriefShellSelection) => void;
 }
 
 function publishShellDetailSelection(
-  flowById: ReadonlyMap<string, LogicChartFlow>,
+  flowById: ReadonlyMap<string, CodeDebriefFlow>,
   selection: DetailSelection,
 ) {
-  const shell = logicChartShell();
+  const shell = codeDebriefShell();
   if (!shell?.select) return;
   const flow = flowById.get(selection.flowId);
   const nodeId = "target" in selection ? selection.target : selection.nodeId;
@@ -689,10 +689,10 @@ function publishShellDetailSelection(
 }
 
 function publishShellFlowSelection(
-  flowById: ReadonlyMap<string, LogicChartFlow>,
+  flowById: ReadonlyMap<string, CodeDebriefFlow>,
   flowId: string,
 ) {
-  const shell = logicChartShell();
+  const shell = codeDebriefShell();
   if (!shell?.select) return;
   const flow = flowById.get(flowId);
   shell.select({
@@ -707,7 +707,7 @@ function publishShellFlowSelection(
 }
 
 function publishShellScopeSelection(scope: string) {
-  const shell = logicChartShell();
+  const shell = codeDebriefShell();
   if (!shell?.select) return;
   shell.select({
     edgeId: null,
@@ -722,7 +722,7 @@ function publishShellScopeSelection(scope: string) {
 }
 
 function publishShellRootSelection() {
-  const shell = logicChartShell();
+  const shell = codeDebriefShell();
   if (!shell?.select) return;
   shell.select({
     edgeId: null,
@@ -737,7 +737,7 @@ function publishShellRootSelection() {
 }
 
 function publishShellRouteSelection(
-  flowById: ReadonlyMap<string, LogicChartFlow>,
+  flowById: ReadonlyMap<string, CodeDebriefFlow>,
   props: ViewerAppProps,
 ) {
   if (props.selectedFlowId) {
@@ -758,18 +758,18 @@ function publishShellRouteSelection(
   }
 }
 
-function endLineForLocation(location: LogicChartLocation | undefined): number | null {
+function endLineForLocation(location: CodeDebriefLocation | undefined): number | null {
   if (location?.end_line != null) return location.end_line;
   return location?.start_line ?? null;
 }
 
-function logicChartShell(): LogicChartShell | undefined {
+function codeDebriefShell(): CodeDebriefShell | undefined {
   if (typeof window === "undefined") return undefined;
-  return (window as typeof window & { LC?: LogicChartShell }).LC;
+  return (window as typeof window & { CodeDebrief?: CodeDebriefShell }).CodeDebrief;
 }
 
 export function propsFromLocation(
-  payload: LogicChartPayload,
+  payload: CodeDebriefPayload,
   options: StandaloneViewerOptions = {},
 ): ViewerAppProps {
   const fallbackScope = firstScope(payload, options.initialScope);
@@ -795,7 +795,7 @@ interface ViewerRoute {
 }
 
 function routeFromHash(
-  payload: LogicChartPayload,
+  payload: CodeDebriefPayload,
   hash: string,
   fallback = firstScope(payload),
 ): ViewerRoute {
@@ -902,7 +902,7 @@ function edgeSelectionFromHashValue(value: string): Extract<
   }
 }
 
-function firstScope(payload: LogicChartPayload, preferred?: string): string {
+function firstScope(payload: CodeDebriefPayload, preferred?: string): string {
   const scopes = scopeSummaries(payload).map(scope => scope.name);
   if (preferred && scopes.includes(preferred)) return preferred;
   return scopes[0] || "codebase";

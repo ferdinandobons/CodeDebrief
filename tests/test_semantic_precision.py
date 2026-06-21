@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from logicchart.analysis.common import decision_metadata
-from logicchart.analysis.project import ProjectAnalyzer
+from codedebrief.analysis.common import decision_metadata
+from codedebrief.analysis.project import ProjectAnalyzer
 
 
 def test_set_literal_values_are_extracted() -> None:

@@ -28,12 +28,12 @@ import {
   flowLabel,
   flowPath,
   scopeNamesForFlow,
-  type LogicChartFlow,
-  type LogicChartPayload,
-} from "./logicchart-model";
+  type CodeDebriefFlow,
+  type CodeDebriefPayload,
+} from "./codedebrief-model";
 import {
   createViewerLayout,
-  isLogicChartFlow,
+  isCodeDebriefFlow,
   viewerNodeKey,
   type FlowCallEdge,
   type ManualNodePosition,
@@ -79,7 +79,7 @@ type ScheduledFrame = {
 export interface ViewerAppProps {
   scope: string;
   scopeNode?: ScopeNodePosition;
-  payload?: LogicChartPayload;
+  payload?: CodeDebriefPayload;
   layers?: ProgressiveFlowNode[][];
   routeFlowIds?: string[];
   detailFlowIds?: string[];
@@ -403,8 +403,8 @@ export function ViewerApp({
   const selectedDetailScopeIds = useMemo(() => {
     if (!selectedDetail) return new Set<string>();
     const flow = flowById.get(selectedDetail.flowId);
-    return flow && isLogicChartFlow(flow)
-      ? new Set(scopeNamesForFlow(asLogicChartFlow(flow)))
+    return flow && isCodeDebriefFlow(flow)
+      ? new Set(scopeNamesForFlow(asCodeDebriefFlow(flow)))
       : new Set<string>();
   }, [flowById, selectedDetail]);
   const selectedScopeEntryTargets = useMemo(
@@ -827,8 +827,8 @@ export function ViewerApp({
 
   return (
     <svg
-      aria-label="LogicChart progressive flowchart"
-      className="logicchart-viewer"
+      aria-label="CodeDebrief progressive flowchart"
+      className="codedebrief-viewer"
       data-selected-kind={
         currentSelection?.kind ??
         (hasRootSelection
@@ -1233,8 +1233,8 @@ export function ViewerApp({
         {[...flowPositions.values()].map(position => {
           const flow = flowById.get(position.id);
           const flowSummary =
-            flow && isLogicChartFlow(flow)
-              ? flowAccessibilitySummary(asLogicChartFlow(flow))
+            flow && isCodeDebriefFlow(flow)
+              ? flowAccessibilitySummary(asCodeDebriefFlow(flow))
               : position.id;
           const flowOpen = routeFlowIds.includes(position.id);
           const targetSelected =
@@ -1317,7 +1317,7 @@ export function ViewerApp({
                 y={-position.height / 2}
               />
               <text textAnchor="middle">
-                {flow ? displayFlowLabel(asLogicChartFlow(flow)) : position.id}
+                {flow ? displayFlowLabel(asCodeDebriefFlow(flow)) : position.id}
               </text>
               {flow ? (
                 <text className="meta" textAnchor="middle" y="22">
@@ -2188,7 +2188,7 @@ function layersSignature(layers: readonly (readonly ProgressiveFlowNode[])[] | u
   return layers.map(layer => layer.map(node => node.id).join(",")).join("|");
 }
 
-function payloadSignature(payload: LogicChartPayload | undefined): string {
+function payloadSignature(payload: CodeDebriefPayload | undefined): string {
   if (!payload) return "";
   return payload.flows
     .map(
@@ -2346,17 +2346,17 @@ function scheduleFrame(callback: () => void): ScheduledFrame {
   };
 }
 
-function asLogicChartFlow(flow: ProgressiveFlowNode): LogicChartFlow {
-  return flow as LogicChartFlow;
+function asCodeDebriefFlow(flow: ProgressiveFlowNode): CodeDebriefFlow {
+  return flow as CodeDebriefFlow;
 }
 
 function flowMeta(flow: ProgressiveFlowNode): string[] {
-  if (!isLogicChartFlow(flow)) return [];
-  const item = asLogicChartFlow(flow);
+  if (!isCodeDebriefFlow(flow)) return [];
+  const item = asCodeDebriefFlow(flow);
   return [item.entry_kind, item.language].filter((value): value is string => Boolean(value));
 }
 
-function flowAccessibilitySummary(flow: LogicChartFlow): string {
+function flowAccessibilitySummary(flow: CodeDebriefFlow): string {
   const nodes = flow.nodes || [];
   const decisionCount = nodes.filter(node => node.kind === "decision").length;
   const pieces = [
@@ -2372,7 +2372,7 @@ function flowAccessibilitySummary(flow: LogicChartFlow): string {
   return pieces.join(" · ");
 }
 
-function displayFlowLabel(flow: LogicChartFlow): string {
+function displayFlowLabel(flow: CodeDebriefFlow): string {
   return compactSvgText(flowLabel(flow), 64);
 }
 
@@ -2394,8 +2394,8 @@ function plural(count: number, noun: string): string {
 }
 
 function flowKindClass(flow: ProgressiveFlowNode | undefined): string {
-  if (!flow || !isLogicChartFlow(flow)) return "flow-kind-other";
-  const value = (asLogicChartFlow(flow).entry_kind || "").toLowerCase();
+  if (!flow || !isCodeDebriefFlow(flow)) return "flow-kind-other";
+  const value = (asCodeDebriefFlow(flow).entry_kind || "").toLowerCase();
   if (/route|endpoint|controller|resolver|handler/.test(value)) return "flow-kind-route";
   if (/component|page|view|screen/.test(value)) return "flow-kind-component";
   if (/method|member/.test(value)) return "flow-kind-method";
@@ -2429,7 +2429,7 @@ function stableHue(value: string): number {
 }
 
 function flowDetailLayouts(
-  payload: LogicChartPayload | undefined,
+  payload: CodeDebriefPayload | undefined,
   routeFlowIds: readonly string[],
 ): Map<string, FlowDetailLayout> {
   const details = new Map<string, FlowDetailLayout>();

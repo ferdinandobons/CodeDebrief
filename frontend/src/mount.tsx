@@ -10,7 +10,7 @@ const EXPORT_MAX_PIXEL_SIDE = 16_384;
 const EXPORT_MAX_PIXEL_AREA = 96_000_000;
 const EXPORT_MIN_SCALE = 0.1;
 
-export interface MountedLogicChartViewer {
+export interface MountedCodeDebriefViewer {
   exportImage: (format: ExportImageFormat) => void;
   fitView: () => void;
   resetView: () => void;
@@ -19,12 +19,12 @@ export interface MountedLogicChartViewer {
   unmount: () => void;
 }
 
-export function mountLogicChartViewer(
+export function mountCodeDebriefViewer(
   container: Element,
   props: ViewerAppProps,
-): MountedLogicChartViewer {
+): MountedCodeDebriefViewer {
   const frame = container.ownerDocument.createElement("div");
-  frame.className = "logicchart-viewer-frame";
+  frame.className = "codedebrief-viewer-frame";
   container.appendChild(frame);
 
   const root = createRoot(frame);
@@ -108,7 +108,7 @@ interface ViewBox {
 }
 
 function findViewerSvg(container: Element): SVGSVGElement | null {
-  return container.querySelector<SVGSVGElement>(".logicchart-viewer");
+  return container.querySelector<SVGSVGElement>(".codedebrief-viewer");
 }
 
 function readViewBox(svg: SVGSVGElement): ViewBox | null {
@@ -128,7 +128,7 @@ function writeViewBox(svg: SVGSVGElement, viewBox: ViewBox) {
     "viewBox",
     `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`,
   );
-  svg.dispatchEvent(new CustomEvent("logicchart:viewboxchange"));
+  svg.dispatchEvent(new CustomEvent("codedebrief:viewboxchange"));
 }
 
 function isValidViewBox(viewBox: ViewBox): boolean {
@@ -387,7 +387,7 @@ function exportSvgImage(svg: SVGSVGElement, format: ExportImageFormat) {
     const mime = format === "jpg" ? "image/jpeg" : "image/png";
     canvas.toBlob(blob => {
       if (!blob) return;
-      downloadBlob(blob, `logicchart-flowchart-${timestamp()}.${format}`);
+      downloadBlob(blob, `codedebrief-flowchart-${timestamp()}.${format}`);
     }, mime, format === "jpg" ? 0.92 : undefined);
   };
   image.onerror = () => URL.revokeObjectURL(imageUrl);

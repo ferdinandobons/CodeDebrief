@@ -4,21 +4,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from logicchart.analysis.common import (
+from codedebrief.analysis.common import (
     BRANCH_OUTCOMES,
     parse_subject_operator,
     value_namespace,
 )
-from logicchart.analysis.python import PythonAnalyzer
-from logicchart.analysis.typescript import TypeScriptAnalyzer
-from logicchart.config import LogicChartConfig
-from logicchart.model import FlowNode, NodeKind
+from codedebrief.analysis.python import PythonAnalyzer
+from codedebrief.analysis.typescript import TypeScriptAnalyzer
+from codedebrief.config import CodeDebriefConfig
+from codedebrief.model import FlowNode, NodeKind
 
 
 def _py_decision(tmp_path: Path, body: str) -> FlowNode:
     source = tmp_path / "module.py"
     source.write_text(body, encoding="utf-8")
-    flow = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source).flows[0]
+    flow = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source).flows[0]
     return next(node for node in flow.nodes if node.kind is NodeKind.DECISION)
 
 
@@ -118,7 +118,7 @@ def handle(x):
 """,
         encoding="utf-8",
     )
-    flow = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source).flows[0]
+    flow = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source).flows[0]
     assert flow.nodes
     for node in flow.nodes:
         assert node.metadata["reachable_from_entry"] is True
@@ -142,7 +142,7 @@ export async function POST(request: Request) {
 """,
         encoding="utf-8",
     )
-    flow = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source).flows[0]
+    flow = TypeScriptAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source).flows[0]
     node = next(n for n in flow.nodes if n.kind is NodeKind.DECISION)
     branches = _branches(node)
 
@@ -170,7 +170,7 @@ export async function POST(request: Request) {
 """,
         encoding="utf-8",
     )
-    flow = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source).flows[0]
+    flow = TypeScriptAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source).flows[0]
     node = next(n for n in flow.nodes if n.kind is NodeKind.DECISION)
     branches = _branches(node)
 
@@ -201,7 +201,7 @@ export async function POST(request: Request) {
 """,
         encoding="utf-8",
     )
-    flow = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source).flows[0]
+    flow = TypeScriptAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source).flows[0]
     node = next(n for n in flow.nodes if n.kind is NodeKind.DECISION)
     branches = _branches(node)
 

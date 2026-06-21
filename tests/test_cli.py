@@ -3,22 +3,22 @@ from pathlib import Path
 
 import pytest
 
-from logicchart.cli import build_parser, main
+from codedebrief.cli import build_parser, main
 
 REMOVED_AGENT_COMMAND_SNIPPETS = (
-    "logicchart query",
-    "logicchart impact",
-    "logicchart explain",
-    "logicchart navigate",
-    "logicchart snapshot",
-    "logicchart llm",
-    "logicchart enrich",
+    "codedebrief query",
+    "codedebrief impact",
+    "codedebrief explain",
+    "codedebrief navigate",
+    "codedebrief snapshot",
+    "codedebrief llm",
+    "codedebrief enrich",
     "--api-key-stdin",
 )
 
 
 def _assert_current_agent_instructions(content: str) -> None:
-    assert "Prefer the LogicChart MCP `agent_context` tool" in content
+    assert "Prefer the CodeDebrief MCP `agent_context` tool" in content
     assert "returned `workflow_slice`" in content
     assert "When the user asks to show a workflow, flusso, visual flow, canvas" in content
     assert "canonical Mermaid visual" in content
@@ -60,16 +60,16 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "explicitly requested" in content
     assert "requested" in content
     assert "`expand_slice`, `workflow_path`, `snapshot_slice`" in content
-    assert "logicchart view ..." in content
-    assert "logicchart <command> --help" in content
+    assert "codedebrief view ..." in content
+    assert "codedebrief <command> --help" in content
     assert "provider keys" in content
-    assert "`logicchart setup-agent <target>` updates only that target's files" in content
+    assert "`codedebrief setup-agent <target>` updates only that target's files" in content
     for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
         assert snippet not in content
 
 
-def _assert_logicchart_skill(content: str) -> None:
-    assert content.startswith("---\nname: logicchart\n")
+def _assert_codedebrief_skill(content: str) -> None:
+    assert content.startswith("---\nname: codedebrief\n")
     assert "`agent_context`" in content
     assert "include_visual=true" in content
     assert "`snapshot_slice`" in content
@@ -116,9 +116,9 @@ def test_top_level_help_prioritizes_flag_light_quickstart() -> None:
     help_text = build_parser().format_help()
 
     assert "Quick start:" in help_text
-    assert "logicchart setup-agent codex" in help_text
-    assert "logicchart update\n  logicchart view" in help_text
-    assert "logicchart doctor" in help_text
+    assert "codedebrief setup-agent codex" in help_text
+    assert "codedebrief update\n  codedebrief view" in help_text
+    assert "codedebrief doctor" in help_text
     assert "{setup-agent,update,view,validate,doctor,mcp}" in help_text
     for removed in (
         "analyze",
@@ -143,9 +143,9 @@ def test_command_help_documents_simple_examples(capsys: pytest.CaptureFixture[st
     assert exc_info.value.code == 0
     setup_help = capsys.readouterr().out
     assert "Examples:" in setup_help
-    assert "logicchart setup-agent codex" in setup_help
-    assert "logicchart setup-agent claude ../my-app" in setup_help
-    assert "logicchart setup-agent gemini" in setup_help
+    assert "codedebrief setup-agent codex" in setup_help
+    assert "codedebrief setup-agent claude ../my-app" in setup_help
+    assert "codedebrief setup-agent gemini" in setup_help
     assert "ask your coding agent ordinary questions" in setup_help
 
 
@@ -165,7 +165,7 @@ def test_cli_catches_oserror_instead_of_leaking_a_traceback(
 ) -> None:
     (tmp_path / "main.py").write_text("def f():\n    return 1\n", encoding="utf-8")
 
-    import logicchart.cli as cli_module
+    import codedebrief.cli as cli_module
 
     def boom(*_args: object, **_kwargs: object) -> int:
         raise PermissionError("Permission denied")
@@ -174,7 +174,7 @@ def test_cli_catches_oserror_instead_of_leaking_a_traceback(
     # A PermissionError (an OSError subclass) surfaces as a clean failure, not a traceback.
     assert main(["update", str(tmp_path), "--full"]) == 1
     output = capsys.readouterr().err
-    assert "LogicChart command FAILED" in output
+    assert "CodeDebrief command FAILED" in output
     assert "Error: Permission denied" in output
     assert "Next steps:" in output
 
@@ -182,7 +182,7 @@ def test_cli_catches_oserror_instead_of_leaking_a_traceback(
 def test_update_full_flag_dispatches_to_full_analysis(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import logicchart.cli as cli_module
+    import codedebrief.cli as cli_module
 
     calls: list[dict[str, object]] = []
 
@@ -216,9 +216,9 @@ def authorize(user):
     )
 
     assert main(["update", str(tmp_path), "--full"]) == 0
-    assert (tmp_path / "logicchart-out" / "logic-flow.json").exists()
+    assert (tmp_path / "codedebrief-out" / "codedebrief.json").exists()
     output = capsys.readouterr().out
-    assert "LogicChart update" in output
+    assert "CodeDebrief update" in output
     assert "Status: OK" in output
     assert "Summary:" in output
     assert "Artifacts:" in output
@@ -226,7 +226,7 @@ def authorize(user):
     assert main(["update", str(tmp_path)]) == 0
     assert main(["view", str(tmp_path), "--render-only"]) == 0
     output = capsys.readouterr().out
-    assert "LogicChart view" in output
+    assert "CodeDebrief view" in output
     assert "Status: OK" in output
     assert "Next steps:" in output
 
@@ -254,7 +254,7 @@ def test_removed_agent_commands_are_not_public_cli(command: str) -> None:
 
 
 def test_cli_validate_and_profiles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    source = tmp_path / "src" / "logicchart" / "main.py"
+    source = tmp_path / "src" / "codedebrief" / "main.py"
     source.parent.mkdir(parents=True)
     source.write_text(
         "def analyze_source(path):\n    if path:\n        return path\n    return None\n",
@@ -262,7 +262,7 @@ def test_cli_validate_and_profiles(tmp_path: Path, capsys: pytest.CaptureFixture
     )
 
     assert main(["update", str(tmp_path), "--profile", "self", "--full", "--no-html"]) == 0
-    assert (tmp_path / "logicchart-out" / "self" / "logic-flow.json").exists()
+    assert (tmp_path / "codedebrief-out" / "self" / "codedebrief.json").exists()
 
     assert main(["validate", str(tmp_path), "--profile", "self"]) == 0
     assert "validation OK" in capsys.readouterr().out
@@ -274,27 +274,27 @@ def test_cli_validate_and_profiles(tmp_path: Path, capsys: pytest.CaptureFixture
         (
             "codex",
             Path("AGENTS.md"),
-            Path(".agents/skills/logicchart/SKILL.md"),
+            Path(".agents/skills/codedebrief/SKILL.md"),
             Path(".codex/config.toml"),
             "Codex",
         ),
         (
             "claude",
             Path("CLAUDE.md"),
-            Path(".claude/skills/logicchart/SKILL.md"),
+            Path(".claude/skills/codedebrief/SKILL.md"),
             Path(".mcp.json"),
             "Claude",
         ),
         (
             "gemini",
             Path("GEMINI.md"),
-            Path(".gemini/skills/logicchart/SKILL.md"),
+            Path(".gemini/skills/codedebrief/SKILL.md"),
             Path(".gemini/settings.json"),
             "Gemini",
         ),
         (
             "cursor",
-            Path(".cursor/rules/logicchart.mdc"),
+            Path(".cursor/rules/codedebrief.mdc"),
             None,
             Path(".cursor/mcp.json"),
             "Cursor",
@@ -315,16 +315,16 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
         Path("AGENTS.md"),
         Path("CLAUDE.md"),
         Path("GEMINI.md"),
-        Path(".cursor/rules/logicchart.mdc"),
+        Path(".cursor/rules/codedebrief.mdc"),
     ]
     skill_paths = [
-        Path(".agents/skills/logicchart/SKILL.md"),
-        Path(".claude/skills/logicchart/SKILL.md"),
-        Path(".gemini/skills/logicchart/SKILL.md"),
+        Path(".agents/skills/codedebrief/SKILL.md"),
+        Path(".claude/skills/codedebrief/SKILL.md"),
+        Path(".gemini/skills/codedebrief/SKILL.md"),
     ]
 
     assert main(["setup-agent", agent, str(tmp_path), "--no-html"]) == 0
-    assert (tmp_path / "logicchart.toml").exists()
+    assert (tmp_path / "codedebrief.toml").exists()
     assert (tmp_path / instruction_path).exists()
     for path in instruction_paths:
         if path == instruction_path:
@@ -335,7 +335,7 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
     for path in skill_paths:
         if path == skill_path:
             assert (tmp_path / path).exists()
-            _assert_logicchart_skill((tmp_path / path).read_text(encoding="utf-8"))
+            _assert_codedebrief_skill((tmp_path / path).read_text(encoding="utf-8"))
         else:
             assert not (tmp_path / path).exists()
     if mcp_path is not None:
@@ -344,17 +344,17 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
         assert not (tmp_path / ".codex" / "config.toml").exists()
         assert not (tmp_path / ".mcp.json").exists()
         assert not (tmp_path / ".cursor" / "mcp.json").exists()
-    assert (tmp_path / "logicchart-out" / "logic-flow.json").exists()
-    assert (tmp_path / "logicchart-out" / "logic-flow.md").exists()
+    assert (tmp_path / "codedebrief-out" / "codedebrief.json").exists()
+    assert (tmp_path / "codedebrief-out" / "codedebrief.md").exists()
     agents_text = (tmp_path / instruction_path).read_text(encoding="utf-8")
     _assert_current_agent_instructions(agents_text)
     output = capsys.readouterr().out
     assert "Created" in output
-    assert "Status: OK - LogicChart is ready for your coding agent." in output
+    assert "Status: OK - CodeDebrief is ready for your coding agent." in output
     assert "Next steps:" in output
-    assert "LogicChart doctor OK" in output
-    assert "LogicChart validation OK" in output
-    assert f"LogicChart agent setup complete for {display}" in output
+    assert "CodeDebrief doctor OK" in output
+    assert "CodeDebrief validation OK" in output
+    assert f"CodeDebrief agent setup complete for {display}" in output
 
     assert main(["setup-agent", agent, str(tmp_path), "--no-html"]) == 0
     assert "already up to date" in capsys.readouterr().out

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.config import LogicChartConfig
-from logicchart.model import ProjectModel
-from logicchart.query import impact_model, query_model
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.config import CodeDebriefConfig
+from codedebrief.model import ProjectModel
+from codedebrief.query import impact_model, query_model
 
 
 def _project(tmp_path: Path, toml: str = "") -> None:
@@ -20,7 +20,7 @@ def _project(tmp_path: Path, toml: str = "") -> None:
         "export function render(items: number[]) {\n  return items.length;\n}\n", encoding="utf-8"
     )
     if toml:
-        (tmp_path / "logicchart.toml").write_text(toml, encoding="utf-8")
+        (tmp_path / "codedebrief.toml").write_text(toml, encoding="utf-8")
 
 
 def _analyze(tmp_path: Path) -> ProjectModel:
@@ -39,8 +39,8 @@ def test_scope_inferred_from_top_level_directory(tmp_path: Path) -> None:
 def test_named_scopes_from_config(tmp_path: Path) -> None:
     _project(
         tmp_path,
-        '[logicchart]\nsource_roots = ["."]\n\n'
-        '[logicchart.scopes]\napi = ["backend/**"]\nweb = ["frontend/**"]\n',
+        '[codedebrief]\nsource_roots = ["."]\n\n'
+        '[codedebrief.scopes]\napi = ["backend/**"]\nweb = ["frontend/**"]\n',
     )
     model = _analyze(tmp_path)
     by_name = {f.name: f for f in model.flows}
@@ -60,7 +60,7 @@ def test_query_and_impact_respect_scope(tmp_path: Path) -> None:
 
 
 def test_config_scopes_for_helper() -> None:
-    config = LogicChartConfig(scopes={"edge": ["edge/**"], "api": ["backend/**"]})
+    config = CodeDebriefConfig(scopes={"edge": ["edge/**"], "api": ["backend/**"]})
     assert config.scopes_for("backend/app.py") == ["api"]
     assert config.scopes_for("edge/router.go") == ["edge"]
     assert config.scopes_for("other/x.py") == []

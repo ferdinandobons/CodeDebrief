@@ -2,20 +2,20 @@
 
 These tests pin the exact per-bucket weights and the deterministic ordering, lock the
 no-match / empty-query behavior, and prove substring/entry-kind false positives are gone.
-The CORE relevance (real queries still surface the right flows) is covered by the demo
-golden test; here we isolate the scoring mechanics.
+Broader analyzer behavior is covered by the language and MCP tests; here we isolate the
+scoring mechanics.
 """
 
 from __future__ import annotations
 
-from logicchart.model import (
+from codedebrief.model import (
     Flow,
     FlowNode,
     NodeKind,
     ProjectModel,
     SourceLocation,
 )
-from logicchart.query import (
+from codedebrief.query import (
     ENTRYPOINT_BONUS,
     IDENTITY_WEIGHT,
     NODE_WEIGHT,

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.config import LogicChartConfig
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.config import CodeDebriefConfig
 
 
 def test_certifexp_real_project_local_smoke() -> None:
@@ -20,7 +20,7 @@ def test_certifexp_real_project_local_smoke() -> None:
     if not root.exists():
         pytest.skip("examples/Certifexp is a private local fixture and is not in Git")
 
-    config = LogicChartConfig(
+    config = CodeDebriefConfig(
         source_roots=[
             "backend-api/app",
             "frontend/frontend-app/src",
@@ -29,7 +29,7 @@ def test_certifexp_real_project_local_smoke() -> None:
             "infrastructure/lambdas",
             "infrastructure/modules/lambda_api/bootstrap",
         ],
-        output_dir="logicchart-out/certifexp-local",
+        output_dir="codedebrief-out/certifexp-local",
         self_exclude=False,
         scopes={
             "backend": ["backend-api/app/**", "infrastructure/lambdas/**"],

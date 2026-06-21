@@ -4,11 +4,11 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.analysis.registry import supported_language_ids
-from logicchart.artifacts import load_model, output_paths, write_artifacts
-from logicchart.config import LogicChartConfig
-from logicchart.install import (
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.analysis.registry import supported_language_ids
+from codedebrief.artifacts import load_model, output_paths, write_artifacts
+from codedebrief.config import CodeDebriefConfig
+from codedebrief.install import (
     END,
     LOCAL_NOTES_END,
     LOCAL_NOTES_START,
@@ -17,28 +17,28 @@ from logicchart.install import (
     install_agent_skill,
     install_mcp_config,
 )
-from logicchart.query import impact_model, query_model
-from logicchart.util import read_json
-from logicchart.validation import (
+from codedebrief.query import impact_model, query_model
+from codedebrief.util import read_json
+from codedebrief.validation import (
     schema_file_language_ids,
     schema_language_ids,
-    validate_logicchart,
+    validate_codedebrief,
 )
 
 REMOVED_AGENT_COMMAND_SNIPPETS = (
-    "logicchart query",
-    "logicchart impact",
-    "logicchart explain",
-    "logicchart navigate",
-    "logicchart snapshot",
-    "logicchart llm",
-    "logicchart enrich",
+    "codedebrief query",
+    "codedebrief impact",
+    "codedebrief explain",
+    "codedebrief navigate",
+    "codedebrief snapshot",
+    "codedebrief llm",
+    "codedebrief enrich",
     "--api-key-stdin",
 )
 
 
 def _assert_current_agent_instructions(content: str) -> None:
-    assert "Prefer the LogicChart MCP `agent_context` tool" in content
+    assert "Prefer the CodeDebrief MCP `agent_context` tool" in content
     assert "When the user asks to show a workflow, flusso, visual flow, canvas" in content
     assert "canonical Mermaid visual" in content
     assert "`snapshot.svg`" in content
@@ -78,15 +78,15 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "YAML" in content
     assert "explicitly requested" in content
     assert "requested" in content
-    assert "logicchart view ..." in content
+    assert "codedebrief view ..." in content
     assert "provider keys" in content
-    assert "`logicchart setup-agent <target>` updates only that target's files" in content
+    assert "`codedebrief setup-agent <target>` updates only that target's files" in content
     for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
         assert snippet not in content
 
 
-def _assert_logicchart_skill(content: str) -> None:
-    assert content.startswith("---\nname: logicchart\n")
+def _assert_codedebrief_skill(content: str) -> None:
+    assert content.startswith("---\nname: codedebrief\n")
     assert "description: Use when answering codebase logic" in content
     assert "workflow/flusso" in content
     assert "`agent_context`" in content
@@ -154,11 +154,11 @@ def get_user(user_id: str):
     assert html_path is not None and html_path.exists()
     assert "flowchart TD" in markdown_path.read_text(encoding="utf-8")
     html = html_path.read_text(encoding="utf-8")
-    assert "<title>LogicChart</title>" in html
+    assert "<title>CodeDebrief</title>" in html
     assert 'id="typedViewerHost"' in html
     assert "Decision flow index" not in html
     assert load_model(tmp_path).flows
-    schema = read_json(Path(__file__).parents[1] / "schema" / "logic-flow.schema.json")
+    schema = read_json(Path(__file__).parents[1] / "schema" / "codedebrief.schema.json")
     artifact = read_json(json_path)
     Draft202012Validator(schema).validate(artifact)
     assert schema_language_ids(schema) == supported_language_ids()
@@ -182,7 +182,7 @@ def get_user(user_id: str):
     _assert_current_agent_instructions(contents)
 
 
-def test_validate_logicchart_reports_ok_for_current_artifact(tmp_path: Path) -> None:
+def test_validate_codedebrief_reports_ok_for_current_artifact(tmp_path: Path) -> None:
     (tmp_path / "main.go").write_text(
         "package main\n\nfunc route(status string) string {\n"
         "  switch status {\n"
@@ -197,7 +197,7 @@ def test_validate_logicchart_reports_ok_for_current_artifact(tmp_path: Path) -> 
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     json_path, _, _ = write_artifacts(tmp_path, result.model, include_html=False)
 
-    report = validate_logicchart(tmp_path)
+    report = validate_codedebrief(tmp_path)
 
     assert report.ok
     assert report.errors == []
@@ -215,7 +215,7 @@ def test_artifact_uses_comprehension_schema_without_review_queue(tmp_path: Path)
     )
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     artifact = result.model.to_dict()
-    schema = read_json(Path(__file__).parents[1] / "schema" / "logic-flow.schema.json")
+    schema = read_json(Path(__file__).parents[1] / "schema" / "codedebrief.schema.json")
 
     Draft202012Validator(schema).validate(artifact)
     assert artifact["schema_version"] == "2.0"
@@ -231,7 +231,7 @@ def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
         tmp_path / "AGENTS.md",
         tmp_path / "CLAUDE.md",
         tmp_path / "GEMINI.md",
-        tmp_path / ".cursor" / "rules" / "logicchart.mdc",
+        tmp_path / ".cursor" / "rules" / "codedebrief.mdc",
     ]
     assert first == expected_targets
     for target in first:
@@ -242,7 +242,7 @@ def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
     assert (
         first[-1]
         .read_text(encoding="utf-8")
-        .startswith("---\ndescription: Keep LogicChart synchronized\nalwaysApply: true\n---\n\n")
+        .startswith("---\ndescription: Keep CodeDebrief synchronized\nalwaysApply: true\n---\n\n")
     )
 
     contents_after_first = {target: target.read_text(encoding="utf-8") for target in first}
@@ -255,36 +255,36 @@ def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_install_agent_skill_writes_provider_native_skill_files(tmp_path: Path) -> None:
-    codex_skill = tmp_path / ".agents" / "skills" / "logicchart" / "SKILL.md"
-    claude_skill = tmp_path / ".claude" / "skills" / "logicchart" / "SKILL.md"
+    codex_skill = tmp_path / ".agents" / "skills" / "codedebrief" / "SKILL.md"
+    claude_skill = tmp_path / ".claude" / "skills" / "codedebrief" / "SKILL.md"
 
     changed = install_agent_skill(tmp_path, "codex")
 
     assert changed == [codex_skill]
-    _assert_logicchart_skill(codex_skill.read_text(encoding="utf-8"))
+    _assert_codedebrief_skill(codex_skill.read_text(encoding="utf-8"))
     assert not claude_skill.exists()
     assert install_agent_skill(tmp_path, "codex") == []
 
     changed = install_agent_skill(tmp_path, "claude")
 
     assert changed == [claude_skill]
-    _assert_logicchart_skill(claude_skill.read_text(encoding="utf-8"))
+    _assert_codedebrief_skill(claude_skill.read_text(encoding="utf-8"))
     assert install_agent_skill(tmp_path, "claude") == []
 
 
 def test_install_agent_skill_all_writes_supported_skill_files_only(tmp_path: Path) -> None:
     expected_targets = [
-        tmp_path / ".agents" / "skills" / "logicchart" / "SKILL.md",
-        tmp_path / ".claude" / "skills" / "logicchart" / "SKILL.md",
-        tmp_path / ".gemini" / "skills" / "logicchart" / "SKILL.md",
+        tmp_path / ".agents" / "skills" / "codedebrief" / "SKILL.md",
+        tmp_path / ".claude" / "skills" / "codedebrief" / "SKILL.md",
+        tmp_path / ".gemini" / "skills" / "codedebrief" / "SKILL.md",
     ]
 
     changed = install_agent_skill(tmp_path, "all")
 
     assert changed == expected_targets
     for target in expected_targets:
-        _assert_logicchart_skill(target.read_text(encoding="utf-8"))
-    assert not (tmp_path / ".cursor" / "skills" / "logicchart" / "SKILL.md").exists()
+        _assert_codedebrief_skill(target.read_text(encoding="utf-8"))
+    assert not (tmp_path / ".cursor" / "skills" / "codedebrief" / "SKILL.md").exists()
     assert install_agent_skill(tmp_path, "all") == []
 
 
@@ -316,7 +316,7 @@ def test_install_preserves_project_local_notes(tmp_path: Path) -> None:
         content.replace(
             f"{LOCAL_NOTES_START}\n"
             "<!-- Add project-specific local notes here. This section is preserved by "
-            "`logicchart setup-agent`. -->\n"
+            "`codedebrief setup-agent`. -->\n"
             f"{LOCAL_NOTES_END}",
             f"{LOCAL_NOTES_START}\n{local_note}{LOCAL_NOTES_END}",
         ),
@@ -340,7 +340,7 @@ def test_install_all_refreshes_every_agent_target_and_preserves_local_notes(
         "codex": tmp_path / "AGENTS.md",
         "claude": tmp_path / "CLAUDE.md",
         "gemini": tmp_path / "GEMINI.md",
-        "cursor": tmp_path / ".cursor" / "rules" / "logicchart.mdc",
+        "cursor": tmp_path / ".cursor" / "rules" / "codedebrief.mdc",
     }
     local_notes = {
         "codex": "Codex local note: keep private fixtures untracked.",
@@ -355,7 +355,7 @@ def test_install_all_refreshes_every_agent_target_and_preserves_local_notes(
             content.replace(
                 f"{LOCAL_NOTES_START}\n"
                 "<!-- Add project-specific local notes here. This section is preserved by "
-                "`logicchart setup-agent`. -->\n"
+                "`codedebrief setup-agent`. -->\n"
                 f"{LOCAL_NOTES_END}",
                 f"{LOCAL_NOTES_START}\n{local_notes[name]}\n{LOCAL_NOTES_END}",
             ),
@@ -377,18 +377,18 @@ def test_install_migrates_legacy_local_notes(tmp_path: Path) -> None:
     target = tmp_path / "AGENTS.md"
     target.write_text(
         f"""{START}
-## LogicChart
+## CodeDebrief
 
 For viewer/UI changes:
 
-1. Check the generated demo viewer with a cache-buster URL.
+1. Check the generated viewer with a cache-buster URL.
 
 For local real-world regression checks:
 
 1. Keep `examples/Certifexp/` private and untracked.
 2. Do not commit Certifexp source or generated artifacts.
 
-Legacy LogicChart instructions outside local notes should be replaced.
+Legacy CodeDebrief instructions outside local notes should be replaced.
 {END}
 """,
         encoding="utf-8",
@@ -402,7 +402,7 @@ Legacy LogicChart instructions outside local notes should be replaced.
     assert "Do not commit Certifexp source or generated artifacts." in updated
     assert updated.index(LOCAL_NOTES_START) < updated.index("For local real-world")
     assert updated.index("generated artifacts.") < updated.index(LOCAL_NOTES_END)
-    assert "Legacy LogicChart instructions outside local notes should be replaced." not in updated
+    assert "Legacy CodeDebrief instructions outside local notes should be replaced." not in updated
 
 
 def test_install_mcp_config_writes_project_scoped_files(tmp_path: Path) -> None:
@@ -415,8 +415,8 @@ def test_install_mcp_config_writes_project_scoped_files(tmp_path: Path) -> None:
         tmp_path / ".cursor" / "mcp.json",
     ]
     codex = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
-    assert "[mcp_servers.logicchart]" in codex
-    assert 'command = "logicchart"' in codex
+    assert "[mcp_servers.codedebrief]" in codex
+    assert 'command = "codedebrief"' in codex
     assert f'"{tmp_path}"' in codex
     assert 'default_tools_approval_mode = "approve"' in codex
 
@@ -424,15 +424,15 @@ def test_install_mcp_config_writes_project_scoped_files(tmp_path: Path) -> None:
     gemini = json.loads((tmp_path / ".gemini" / "settings.json").read_text(encoding="utf-8"))
     cursor = json.loads((tmp_path / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
     for payload in (claude, gemini, cursor):
-        server = payload["mcpServers"]["logicchart"]
-        assert server["command"] == "logicchart"
+        server = payload["mcpServers"]["codedebrief"]
+        assert server["command"] == "codedebrief"
         assert server["args"] == ["mcp", str(tmp_path)]
 
     assert install_mcp_config(tmp_path, "all") == []
 
 
 def test_output_directory_cannot_escape_project(tmp_path: Path) -> None:
-    config = LogicChartConfig(output_dir="../outside")
+    config = CodeDebriefConfig(output_dir="../outside")
 
     with pytest.raises(ValueError, match="must stay inside"):
         output_paths(tmp_path, config)

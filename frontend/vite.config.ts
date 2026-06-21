@@ -13,11 +13,11 @@ export default defineConfig(({ command }) => ({
     emptyOutDir: true,
     lib: {
       entry: "frontend/src/index.ts",
-      fileName: "logicchart-viewer-runtime",
+      fileName: "codedebrief-viewer-runtime",
       formats: ["iife"],
-      name: "LogicChartViewer",
+      name: "CodeDebriefViewer",
     },
-    outDir: "src/logicchart/render/assets/generated",
+    outDir: "src/codedebrief/render/assets/generated",
     sourcemap: false,
   },
   test: {

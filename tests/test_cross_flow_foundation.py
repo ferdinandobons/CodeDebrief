@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from logicchart.analysis.common import effect_tags
-from logicchart.analysis.project import ProjectAnalyzer
+from codedebrief.analysis.common import effect_tags
+from codedebrief.analysis.project import ProjectAnalyzer
 
 
 def test_python_enum_table_is_harvested(tmp_path: Path) -> None:

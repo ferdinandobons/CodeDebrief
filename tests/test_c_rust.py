@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from logicchart.analysis.common import DEFAULT
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.model import NodeKind, ProjectModel
+from codedebrief.analysis.common import DEFAULT
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.model import NodeKind, ProjectModel
 
 _C = """int handle(int status) {
   if (status == 1) { return 0; }

@@ -2,11 +2,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ViewerApp } from "../src/ViewerApp";
-import type { LogicChartPayload } from "../src/logicchart-model";
+import type { CodeDebriefPayload } from "../src/codedebrief-model";
 import { viewerNodeKey } from "../src/viewer-layout";
 import { useViewerStore } from "../src/viewer-store";
 
-const payload: LogicChartPayload = {
+const payload: CodeDebriefPayload = {
   flows: [
     {
       id: "orders-route",
@@ -213,7 +213,7 @@ describe("ViewerApp", () => {
   });
 
   it("assigns distinct scope hues for arbitrary codebase scope names", () => {
-    const customPayload: LogicChartPayload = {
+    const customPayload: CodeDebriefPayload = {
       flows: ["api-gateway", "mobile-app", "shared_kernel", "worker.jobs"].map(
         (scope, index) => ({
           id: `${scope}-entry`,
@@ -243,7 +243,7 @@ describe("ViewerApp", () => {
   });
 
   it("routes expanded flowchart edges around manually moved detail blocks", () => {
-    const obstaclePayload: LogicChartPayload = {
+    const obstaclePayload: CodeDebriefPayload = {
       flows: [
         {
           id: "review-flow",
@@ -327,7 +327,7 @@ describe("ViewerApp", () => {
   });
 
   it("routes expanded flowchart start edges around manually moved detail blocks", () => {
-    const obstaclePayload: LogicChartPayload = {
+    const obstaclePayload: CodeDebriefPayload = {
       flows: [
         {
           id: "start-flow",

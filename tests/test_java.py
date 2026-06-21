@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.model import NodeKind, ProjectModel
-from logicchart.query import impact_model
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.model import NodeKind, ProjectModel
+from codedebrief.query import impact_model
 
 _SVC = """package com.svc;
 

@@ -1,8 +1,8 @@
 export { ViewerApp } from "./ViewerApp";
-export { mountLogicChartViewer } from "./mount";
+export { mountCodeDebriefViewer } from "./mount";
 export { payloadToReactFlowModel, toReactFlowModel } from "./react-flow-adapter";
 export {
-  mountStandaloneLogicChartViewer,
+  mountStandaloneCodeDebriefViewer,
   propsFromLocation,
 } from "./standalone";
 export {
@@ -24,14 +24,14 @@ export {
   flowsForScope,
   scopeNamesForFlow,
   scopeSummaries,
-} from "./logicchart-model";
+} from "./codedebrief-model";
 export {
   createViewerLayout,
   DEFAULT_PROGRESSIVE_LAYOUT_OPTIONS,
   DEFAULT_SCOPE_LAYOUT_OPTIONS,
   flowCallEdgeObstacleHits,
   flowCallLayoutObstacleHits,
-  isLogicChartFlow,
+  isCodeDebriefFlow,
   overlappingLayoutBoxes,
   topLevelLayoutObstacleHits,
   viewerLayoutEdgeObstacleHits,
@@ -43,10 +43,10 @@ export {
 export { useViewerStore } from "./viewer-store";
 export type { ReactFlowModel } from "./react-flow-adapter";
 export type {
-  MountedStandaloneLogicChartViewer,
+  MountedStandaloneCodeDebriefViewer,
   StandaloneViewerOptions,
 } from "./standalone";
-export type { ExportImageFormat, MountedLogicChartViewer } from "./mount";
+export type { ExportImageFormat, MountedCodeDebriefViewer } from "./mount";
 export type { SelectedConnection, ViewerState } from "./viewer-store";
 export type {
   Bounds,
@@ -65,12 +65,12 @@ export type {
   ScopeNodePosition,
 } from "./flowchart-layout";
 export type {
-  LogicChartFlow,
-  LogicChartLocation,
-  LogicChartPayload,
+  CodeDebriefFlow,
+  CodeDebriefLocation,
+  CodeDebriefPayload,
   ProgressiveModel,
   ScopeSummary,
-} from "./logicchart-model";
+} from "./codedebrief-model";
 export type {
   FlowCallEdge,
   LayoutBox,

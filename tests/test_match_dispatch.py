@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.model import NodeKind, ProjectModel
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.model import NodeKind, ProjectModel
 
 _ENUM = (
     "from enum import Enum\n\n\n"

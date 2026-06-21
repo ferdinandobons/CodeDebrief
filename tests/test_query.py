@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.model import Flow, ProjectModel, SourceLocation
-from logicchart.query import (
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.model import Flow, ProjectModel, SourceLocation
+from codedebrief.query import (
     flow_navigation,
     query_model,
 )
