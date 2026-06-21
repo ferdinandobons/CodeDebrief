@@ -4,9 +4,9 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  mountStandaloneLogicChartViewer,
-  type LogicChartPayload,
-  type MountedStandaloneLogicChartViewer,
+  mountStandaloneCodeDebriefViewer,
+  type CodeDebriefPayload,
+  type MountedStandaloneCodeDebriefViewer,
 } from "../src";
 
 declare global {
@@ -17,15 +17,15 @@ const CERTIFEXP_MODEL_PATH = join(
   process.cwd(),
   "examples",
   "Certifexp",
-  "logicchart-out",
-  "logic-flow.json",
+  "codedebrief-out",
+  "codedebrief.json",
 );
 
 const describeIfCertifexp = existsSync(CERTIFEXP_MODEL_PATH) ? describe : describe.skip;
 
 describeIfCertifexp("Certifexp local viewer performance", () => {
   let container: HTMLDivElement;
-  let mounted: MountedStandaloneLogicChartViewer | undefined;
+  let mounted: MountedStandaloneCodeDebriefViewer | undefined;
 
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -47,7 +47,7 @@ describeIfCertifexp("Certifexp local viewer performance", () => {
     const payload = loadCertifexpPayload();
     const performanceScale = Math.max(1, flowNodeCount(payload) / 10_000);
 
-    mounted = mountStandaloneLogicChartViewer(container, payload);
+    mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     const expandStart = performance.now();
     await act(async () => {
@@ -76,11 +76,11 @@ describeIfCertifexp("Certifexp local viewer performance", () => {
   }, 20000);
 });
 
-function loadCertifexpPayload(): LogicChartPayload {
-  return JSON.parse(readFileSync(CERTIFEXP_MODEL_PATH, "utf8")) as LogicChartPayload;
+function loadCertifexpPayload(): CodeDebriefPayload {
+  return JSON.parse(readFileSync(CERTIFEXP_MODEL_PATH, "utf8")) as CodeDebriefPayload;
 }
 
-function flowNodeCount(payload: LogicChartPayload): number {
+function flowNodeCount(payload: CodeDebriefPayload): number {
   return payload.flows.reduce((total, flow) => total + (flow.nodes?.length ?? 0), 0);
 }
 

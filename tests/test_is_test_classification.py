@@ -8,15 +8,15 @@ set), while genuine test files are still recognized.
 
 from __future__ import annotations
 
-from logicchart.analysis.languages.c import _is_test as c_is_test
-from logicchart.analysis.languages.cpp import _is_test as cpp_is_test
-from logicchart.analysis.languages.csharp import _is_test as csharp_is_test
-from logicchart.analysis.languages.java import _is_test as java_is_test
-from logicchart.analysis.languages.php import _is_test as php_is_test
-from logicchart.analysis.languages.ruby import _is_test as ruby_is_test
-from logicchart.analysis.languages.rust import _is_test as rust_is_test
-from logicchart.analysis.python import _is_test as python_is_test
-from logicchart.analysis.typescript import _is_test as ts_is_test
+from codedebrief.analysis.languages.c import _is_test as c_is_test
+from codedebrief.analysis.languages.cpp import _is_test as cpp_is_test
+from codedebrief.analysis.languages.csharp import _is_test as csharp_is_test
+from codedebrief.analysis.languages.java import _is_test as java_is_test
+from codedebrief.analysis.languages.php import _is_test as php_is_test
+from codedebrief.analysis.languages.ruby import _is_test as ruby_is_test
+from codedebrief.analysis.languages.rust import _is_test as rust_is_test
+from codedebrief.analysis.python import _is_test as python_is_test
+from codedebrief.analysis.typescript import _is_test as ts_is_test
 
 
 def test_typescript_real_function_named_like_test_is_not_a_test() -> None:

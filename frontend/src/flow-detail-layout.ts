@@ -1,9 +1,9 @@
 import type { Bounds, ExpandedFlowMeasure } from "./flowchart-layout";
 import type {
-  LogicChartFlow,
-  LogicChartFlowEdge,
-  LogicChartFlowNode,
-} from "./logicchart-model";
+  CodeDebriefFlow,
+  CodeDebriefFlowEdge,
+  CodeDebriefFlowNode,
+} from "./codedebrief-model";
 
 const GAP_X = 82;
 const GAP_Y = 136;
@@ -13,7 +13,7 @@ const START_EDGE_HEIGHT = 38;
 
 export interface FlowDetailNodePosition {
   id: string;
-  node: LogicChartFlowNode;
+  node: CodeDebriefFlowNode;
   x: number;
   y: number;
   width: number;
@@ -23,7 +23,7 @@ export interface FlowDetailNodePosition {
 
 export interface FlowDetailEdgeRoute {
   id: string;
-  edge: LogicChartFlowEdge;
+  edge: CodeDebriefFlowEdge;
   d: string;
   labelX: number;
   labelY: number;
@@ -42,7 +42,7 @@ export interface FlowDetailLayoutOptions {
 }
 
 export function layoutFlowDetail(
-  flow: LogicChartFlow,
+  flow: CodeDebriefFlow,
   options: FlowDetailLayoutOptions = {},
 ): FlowDetailLayout | null {
   const nodes = options.omitEntryNode
@@ -112,11 +112,11 @@ export function layoutFlowDetail(
 }
 
 function assignDepths(
-  nodes: readonly LogicChartFlowNode[],
-  edges: readonly LogicChartFlowEdge[],
+  nodes: readonly CodeDebriefFlowNode[],
+  edges: readonly CodeDebriefFlowEdge[],
 ): Map<string, number> {
   const incoming = new Map<string, number>();
-  const outgoing = new Map<string, LogicChartFlowEdge[]>();
+  const outgoing = new Map<string, CodeDebriefFlowEdge[]>();
   nodes.forEach(node => {
     incoming.set(node.id, 0);
     outgoing.set(node.id, []);
@@ -157,10 +157,10 @@ function assignDepths(
 }
 
 function groupByDepth(
-  nodes: readonly LogicChartFlowNode[],
+  nodes: readonly CodeDebriefFlowNode[],
   depths: ReadonlyMap<string, number>,
-): LogicChartFlowNode[][] {
-  const groups = new Map<number, LogicChartFlowNode[]>();
+): CodeDebriefFlowNode[][] {
+  const groups = new Map<number, CodeDebriefFlowNode[]>();
   nodes.forEach(node => {
     const depth = depths.get(node.id) || 0;
     const group = groups.get(depth) || [];
@@ -179,7 +179,7 @@ function groupByDepth(
 }
 
 function routeEdge(
-  edge: LogicChartFlowEdge,
+  edge: CodeDebriefFlowEdge,
   index: number,
   positions: ReadonlyMap<string, FlowDetailNodePosition>,
 ): FlowDetailEdgeRoute | null {

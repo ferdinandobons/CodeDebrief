@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from logicchart.model import Flow, FlowNode, NodeKind, ProjectModel, SourceLocation
-from logicchart.render.snapshot import (
+from codedebrief.model import Flow, FlowNode, NodeKind, ProjectModel, SourceLocation
+from codedebrief.render.snapshot import (
     render_subgraph_snapshot,
     unsupported_snapshot_format,
 )

@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.model import ProjectModel
-from logicchart.util import read_json
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.model import ProjectModel
+from codedebrief.util import read_json
 
 
 def _write(path: Path, content: str) -> None:
@@ -137,7 +137,7 @@ def test_a_file_that_vanishes_mid_run_does_not_abort(
     _write(tmp_path / "good.py", "def handler(x):\n    return x\n")
     _write(tmp_path / "ghost.py", "def ghost():\n    return 1\n")
 
-    import logicchart.analysis.project as project_module
+    import codedebrief.analysis.project as project_module
 
     real_sha256 = project_module.file_sha256
 
@@ -165,7 +165,7 @@ def test_missing_lazy_language_dependency_does_not_abort(
     _write(tmp_path / "good.py", "def handler(x):\n    return x\n")
     _write(tmp_path / "legacy.cs", "class Legacy { void Handle() {} }\n")
 
-    import logicchart.analysis.project as project_module
+    import codedebrief.analysis.project as project_module
 
     real_spec_for_language = project_module.spec_for_language
 
@@ -215,5 +215,5 @@ def test_missing_lazy_language_dependency_does_not_abort(
     ],
 )
 def test_from_dict_rejects_malformed_models_cleanly(payload: dict) -> None:
-    with pytest.raises(ValueError, match=r"malformed logic-flow\.json"):
+    with pytest.raises(ValueError, match=r"malformed codedebrief\.json"):
         ProjectModel.from_dict(payload)

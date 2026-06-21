@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.model import Flow, FlowNode, NodeKind
-from logicchart.query import impact_model
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.model import Flow, FlowNode, NodeKind
+from codedebrief.query import impact_model
 
 
 def _call_node(flow: Flow) -> FlowNode:

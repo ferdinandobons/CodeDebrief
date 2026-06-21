@@ -1,6 +1,6 @@
-# Contributing to LogicChart
+# Contributing to CodeDebrief
 
-LogicChart welcomes bug reports, language fixtures, framework adapters, documentation, and
+CodeDebrief welcomes bug reports, language fixtures, framework adapters, documentation, and
 code contributions.
 
 ## Development Setup
@@ -20,8 +20,8 @@ npm run viewer:build
 ```
 
 `npm run viewer:build` writes the offline React runtime to
-`src/logicchart/render/assets/generated/logicchart-viewer-runtime.iife.js`; regenerate the
-demo HTML before browser checks and open it with `?runtime=react` when testing the typed
+`src/codedebrief/render/assets/generated/codedebrief-viewer-runtime.iife.js`; regenerate the
+local HTML before browser checks and open it with `?runtime=react` when testing the typed
 canvas path.
 
 Viewer changes should preserve the manual exploration invariants: scope nodes use the same
@@ -35,14 +35,14 @@ The recommended viewer loop is:
 npm run viewer:typecheck
 npm run viewer:test
 npm run viewer:build
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run logicchart update
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run logicchart view examples/demo --render-only --no-open
+UV_CACHE_DIR=/tmp/codedebrief-uv-cache uv run codedebrief update
+UV_CACHE_DIR=/tmp/codedebrief-uv-cache uv run codedebrief view --render-only --no-open
 ```
 
-Use a cache-buster when reloading the generated demo viewer in a browser:
+Use a cache-buster when reloading the generated viewer in a browser:
 
 ```text
-logic-flow.html?runtime=react&v=<stamp>#scope=frontend
+codedebrief.html?runtime=react&v=<stamp>
 ```
 
 Before submitting a pull request:
@@ -73,5 +73,5 @@ belongs in a focused adapter or classifier, not in the renderer.
 
 ## Compatibility
 
-LogicChart supports Python 3.10 and later. Avoid changing the canonical JSON schema without
+CodeDebrief supports Python 3.10 and later. Avoid changing the canonical JSON schema without
 updating `schema_version`, migration notes, and serialization tests.

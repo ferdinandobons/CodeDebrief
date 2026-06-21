@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.artifacts import write_artifacts
-from logicchart.cli import main
-from logicchart.quality import model_quality, render_quality
-from logicchart.validation import validate_logicchart
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.artifacts import write_artifacts
+from codedebrief.cli import main
+from codedebrief.quality import model_quality, render_quality
+from codedebrief.validation import validate_codedebrief
 
 
 def test_model_quality_counts_calls_and_labels(tmp_path: Path) -> None:
@@ -76,12 +76,12 @@ def test_validate_quality_json_and_text_output(tmp_path: Path, capsys) -> None:
 def test_validate_report_can_compute_quality_for_older_artifact(tmp_path: Path) -> None:
     (tmp_path / "app.py").write_text("def f():\n    return 1\n", encoding="utf-8")
     assert main(["update", str(tmp_path), "--full", "--no-html"]) == 0
-    artifact_path = tmp_path / "logicchart-out" / "logic-flow.json"
+    artifact_path = tmp_path / "codedebrief-out" / "codedebrief.json"
     artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
     artifact["metadata"].pop("quality", None)
     artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
 
-    report = validate_logicchart(tmp_path, include_quality=True)
+    report = validate_codedebrief(tmp_path, include_quality=True)
 
     assert report.ok
     assert report.quality is not None
@@ -116,10 +116,10 @@ def test_quality_thresholds_fail_and_pass(tmp_path: Path, capsys) -> None:
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     write_artifacts(tmp_path, result.model, include_html=False)
 
-    failed = validate_logicchart(tmp_path, quality_thresholds={"max_skipped_files": 0})
-    passed = validate_logicchart(tmp_path, quality_thresholds={"max_skipped_files": 1})
-    parse_failed = validate_logicchart(tmp_path, quality_thresholds={"max_parse_warnings": 0})
-    parse_passed = validate_logicchart(tmp_path, quality_thresholds={"max_parse_warnings": 1})
+    failed = validate_codedebrief(tmp_path, quality_thresholds={"max_skipped_files": 0})
+    passed = validate_codedebrief(tmp_path, quality_thresholds={"max_skipped_files": 1})
+    parse_failed = validate_codedebrief(tmp_path, quality_thresholds={"max_parse_warnings": 0})
+    parse_passed = validate_codedebrief(tmp_path, quality_thresholds={"max_parse_warnings": 1})
 
     assert not failed.ok
     assert failed.quality is not None

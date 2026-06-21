@@ -11,10 +11,10 @@ import {
   viewerNodeKey,
   viewerLayoutBoxes,
   type ExpandedFlowMeasure,
-  type LogicChartPayload,
+  type CodeDebriefPayload,
 } from "../src";
 
-const payload: LogicChartPayload = {
+const payload: CodeDebriefPayload = {
   flows: [
     {
       id: "orders-route",
@@ -140,7 +140,7 @@ describe("viewer layout composition", () => {
   });
 
   it("routes flow calls from called_by metadata without scanning every visible flow per source", () => {
-    const calledByOnlyPayload: LogicChartPayload = {
+    const calledByOnlyPayload: CodeDebriefPayload = {
       flows: [
         {
           id: "entry",
@@ -411,7 +411,7 @@ describe("viewer layout composition", () => {
   });
 
   it("keeps directly opened internal flowcharts reachable from the codebase root", () => {
-    const callChainPayload: LogicChartPayload = {
+    const callChainPayload: CodeDebriefPayload = {
       flows: [
         {
           id: "entry",
@@ -660,7 +660,7 @@ describe("viewer layout composition", () => {
   });
 
   it("wraps large codebase entrypoint sets while preserving scope fan-out", () => {
-    const largePayload: LogicChartPayload = {
+    const largePayload: CodeDebriefPayload = {
       flows: Array.from({ length: 26 }, (_, index) => ({
         id: `api-entry-${index}`,
         name: `GET /resource/${index}`,
@@ -692,7 +692,7 @@ describe("viewer layout composition", () => {
     const scopeNames = Array.from({ length: 9 }, (_, index) =>
       `scope-${String(index).padStart(2, "0")}`,
     );
-    const multiRowPayload: LogicChartPayload = {
+    const multiRowPayload: CodeDebriefPayload = {
       flows: scopeNames.map(scope => ({
         id: `${scope}-entry`,
         name: `${scope} entry`,
@@ -786,7 +786,7 @@ describe("viewer layout composition", () => {
   });
 
   it("keeps cross-scope calls connected as one codebase graph", () => {
-    const crossScopePayload: LogicChartPayload = {
+    const crossScopePayload: CodeDebriefPayload = {
       flows: [
         {
           id: "client-entry",
@@ -941,7 +941,7 @@ describe("viewer layout composition", () => {
   });
 
   it("routes scope entrypoint elbows around manually moved entry blocks", () => {
-    const entryObstaclePayload: LogicChartPayload = {
+    const entryObstaclePayload: CodeDebriefPayload = {
       flows: [
         {
           id: "source-entry",
@@ -1006,7 +1006,7 @@ describe("viewer layout composition", () => {
   });
 
   it("assigns separate elbow lanes to high fan-out flow-call edges", () => {
-    const fanoutPayload: LogicChartPayload = {
+    const fanoutPayload: CodeDebriefPayload = {
       flows: [
         {
           id: "entry",
@@ -1052,7 +1052,7 @@ describe("viewer layout composition", () => {
   });
 
   it("routes lateral flow-call elbows around intervening blocks", () => {
-    const lateralPayload: LogicChartPayload = {
+    const lateralPayload: CodeDebriefPayload = {
       flows: [
         {
           id: "source-entry",
@@ -1139,7 +1139,7 @@ const expandedMeasures = new Map<string, ExpandedFlowMeasure>([
   ],
 ]);
 
-function denseCodebasePayload(): LogicChartPayload {
+function denseCodebasePayload(): CodeDebriefPayload {
   const scopeSpecs = [
     {
       entryKind: "handler",

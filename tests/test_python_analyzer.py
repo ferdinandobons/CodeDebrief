@@ -3,13 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from logicchart.analysis.python import (
+from codedebrief.analysis.python import (
     PythonAnalyzer,
     _dependency_paths_from_modules,
     _import_map,
 )
-from logicchart.config import LogicChartConfig
-from logicchart.model import NodeKind
+from codedebrief.config import CodeDebriefConfig
+from codedebrief.model import NodeKind
 
 
 def test_fastapi_route_builds_functional_decisions(tmp_path: Path) -> None:
@@ -32,7 +32,7 @@ async def get_user(user_id: str):
         encoding="utf-8",
     )
 
-    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
 
     assert len(analysis.flows) == 1
     flow = analysis.flows[0]
@@ -82,7 +82,7 @@ def get_profile(user_id: str):
         encoding="utf-8",
     )
 
-    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     profile = next(flow for flow in analysis.flows if flow.name == "get_profile")
 
     call_node = next(node for node in profile.nodes if node.kind is NodeKind.CALL)
@@ -110,7 +110,7 @@ def process(order):
 
     monkeypatch.setattr(ast, "get_source_segment", fail_get_source_segment)
 
-    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = analysis.flows[0]
 
     assert any(node.detail == "order.status" for node in flow.nodes)
@@ -131,7 +131,7 @@ def process(order):
         encoding="utf-8",
     )
 
-    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = next(item for item in analysis.flows if item.name == "process")
     labels = {node.label for node in flow.nodes}
 
@@ -163,7 +163,7 @@ def process(flag):
         encoding="utf-8",
     )
 
-    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = next(item for item in analysis.flows if item.name == "process")
     labels = {node.label for node in flow.nodes}
 
@@ -185,7 +185,7 @@ def process(flag, order):
         encoding="utf-8",
     )
 
-    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = next(item for item in analysis.flows if item.name == "process")
     labels = {node.label for node in flow.nodes}
 
@@ -210,7 +210,7 @@ def process():
         encoding="utf-8",
     )
 
-    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = next(item for item in analysis.flows if item.name == "process")
 
     assert "shadows_constants" not in flow.metadata
@@ -232,7 +232,7 @@ def process(order):
         encoding="utf-8",
     )
 
-    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = next(item for item in analysis.flows if item.name == "process")
     labels = [node.label for node in flow.nodes]
 
@@ -272,7 +272,7 @@ def process(order):
         encoding="utf-8",
     )
 
-    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = next(item for item in analysis.flows if item.name == "process")
 
     assert "Call persist()" not in {node.label for node in flow.nodes}
@@ -291,7 +291,7 @@ def process(orders):
         encoding="utf-8",
     )
 
-    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = next(item for item in analysis.flows if item.name == "process")
     labels = [node.label for node in flow.nodes]
 
@@ -334,7 +334,7 @@ def process(items):
         encoding="utf-8",
     )
 
-    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = next(item for item in analysis.flows if item.name == "process")
     labels = [node.label for node in flow.nodes]
 
@@ -380,7 +380,7 @@ def process(items):
         encoding="utf-8",
     )
 
-    analysis = PythonAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = next(item for item in analysis.flows if item.name == "process")
     labels = [node.label for node in flow.nodes]
 

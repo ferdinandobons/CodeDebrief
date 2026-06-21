@@ -1,11 +1,11 @@
-<!-- logicchart:instructions:start -->
-## LogicChart
+<!-- codedebrief:instructions:start -->
+## CodeDebrief
 
-This project uses LogicChart to keep decision flows synchronized with the source code.
+This project uses CodeDebrief to keep decision flows synchronized with the source code.
 
 For codebase questions about behavior, decisions, workflow structure, or changed-code context:
 
-1. Prefer the LogicChart MCP `agent_context` tool before broad file-by-file searches.
+1. Prefer the CodeDebrief MCP `agent_context` tool before broad file-by-file searches.
 2. Use `agent_context` for substantial changes, passing changed files, selected code,
    current file, flow id, symbol, or dependency path when available; inspect
    its returned `workflow_slice` before answering.
@@ -20,12 +20,12 @@ For codebase questions about behavior, decisions, workflow structure, or changed
    unless the user explicitly asks for raw or copyable Mermaid. Do not render
    `snapshot.svg` inline by default; SVG artifacts are for explicit SVG requests or local
    inspection because their layout can differ from Mermaid.
-   Keep LogicChart visuals vertical/top-to-bottom; do not redraw them as horizontal
+   Keep CodeDebrief visuals vertical/top-to-bottom; do not redraw them as horizontal
    summaries.
    Inspect the full returned `workflow_slice` before deciding what to show. Choose the
    first visible depth yourself: show the clearest useful subset, then say that the
    displayed diagram is a bounded summary and can be expanded.
-   If the LogicChart result is too large, saved externally, truncated, or missing the exact
+   If the CodeDebrief result is too large, saved externally, truncated, or missing the exact
    canonical visual, retry with a smaller `token_budget` and narrower `flow_id`, `symbol`,
    `current_file`, or `scope`; do not recover by listing flows and hand-building a
    diagram.
@@ -43,49 +43,49 @@ For codebase questions about behavior, decisions, workflow structure, or changed
    explore a related area. Show raw JSON or YAML only when explicitly requested.
 4. Use `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`, `explain_node`,
    or `explain_edge` only when the first slice needs more precise context.
-5. Use `logicchart view ...` only when a human wants the manual UI flowchart.
+5. Use `codedebrief view ...` only when a human wants the manual UI flowchart.
 
-When helping a user set up or learn LogicChart:
+When helping a user set up or learn CodeDebrief:
 
-1. Start with `logicchart --help`, then use `logicchart <command> --help` for the specific
+1. Start with `codedebrief --help`, then use `codedebrief <command> --help` for the specific
    command you plan to run or recommend.
-2. Use `logicchart doctor` when install, dependency, or parser capability issues are
+2. Use `codedebrief doctor` when install, dependency, or parser capability issues are
    unclear.
 3. Do not ask for LLM provider keys for the primary workflow. Language-friendly labels
    are a presentation layer derived from deterministic workflow facts.
-4. `logicchart setup-agent <target>` updates only that target's instruction file. Run the
+4. `codedebrief setup-agent <target>` updates only that target's instruction file. Run the
    command separately for each agent surface you want to configure, preserving any
    target-specific frontmatter and local notes.
 
 After a substantial code change:
 
-1. Use LogicChart MCP `agent_context` to inspect affected entry points and callers.
+1. Use CodeDebrief MCP `agent_context` to inspect affected entry points and callers.
 2. Ground the explanation in the returned `workflow_slice`; expand it through MCP only
    when the initial slice omits relevant callers, callees, domain states, or paths.
-3. Run `logicchart update`; use `logicchart update --full` after analyzer upgrades or
+3. Run `codedebrief update`; use `codedebrief update --full` after analyzer upgrades or
    when cached file models should be ignored.
 4. Commit synchronized changes to:
-   - `logicchart-out/logic-flow.json`
-   - `logicchart-out/logic-flow.md`
+   - `codedebrief-out/codedebrief.json`
+   - `codedebrief-out/codedebrief.md`
 
 For viewer/UI changes:
 
 1. Run `npm run viewer:typecheck`, `npm run viewer:test`, and `npm run viewer:build`.
-2. Regenerate HTML artifacts with `logicchart update` and
-   `logicchart view examples/demo --render-only --no-open`.
-3. Check the generated demo viewer with a cache-buster URL.
+2. Regenerate HTML artifacts with `codedebrief update` and
+   `codedebrief view --render-only --no-open`.
+3. Check the generated viewer with a cache-buster URL.
 
-<!-- logicchart:local-notes:start -->
+<!-- codedebrief:local-notes:start -->
 For local real-world regression checks:
 
 1. Keep `examples/Certifexp/` private and untracked.
 2. If `examples/Certifexp/` exists locally, run
-   `UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest tests/test_certifexp_local.py`
-   in addition to tracked demo/shop checks.
+   `UV_CACHE_DIR=/tmp/codedebrief-uv-cache uv run pytest tests/test_certifexp_local.py`
+   as an opt-in local check.
 3. Do not commit Certifexp source, generated artifacts, caches, nested repository data, or
    analysis output.
-<!-- logicchart:local-notes:end -->
+<!-- codedebrief:local-notes:end -->
 
-LogicChart is a comprehension and navigation tool for source-grounded workflows. Use it
+CodeDebrief is a comprehension and navigation tool for source-grounded workflows. Use it
 to explain modeled logic, not to present possible defects.
-<!-- logicchart:instructions:end -->
+<!-- codedebrief:instructions:end -->

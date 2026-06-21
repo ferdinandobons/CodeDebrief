@@ -1,0 +1,13 @@
+[codedebrief]
+source_roots = ["src/codedebrief"]
+exclude = ["src/codedebrief/render/assets/generated/**"]
+include_public_functions = true
+max_call_depth = 4
+output_dir = "codedebrief-out"
+# The committed dogfood artifact maps CodeDebrief itself. Local examples are ignored
+# by Git and can be analyzed separately from their own folder when present.
+self_exclude = false
+
+[codedebrief.entrypoints]
+include = []
+exclude = []

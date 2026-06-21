@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from logicchart.doctor import doctor_report, render_doctor
+from codedebrief.doctor import doctor_report, render_doctor
 
 
 def _missing_parser(monkeypatch, import_name: str) -> None:
-    import logicchart.doctor as doctor_module
+    import codedebrief.doctor as doctor_module
 
     real_find_spec = doctor_module.importlib.util.find_spec
 
@@ -30,7 +30,7 @@ def test_doctor_reports_missing_lazy_parser_dependency(tmp_path: Path, monkeypat
     assert report.language_capabilities.limitation_note_count > 0
     assert "pip install" in report.repair_command
     rendered = render_doctor(report)
-    assert "LogicChart doctor FAILED" in rendered
+    assert "CodeDebrief doctor FAILED" in rendered
     assert "tree-sitter-go" in rendered
     assert "Language capabilities:" in rendered
     assert "Capability contract:" in rendered

@@ -2,13 +2,13 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  mountStandaloneLogicChartViewer,
+  mountStandaloneCodeDebriefViewer,
   propsFromLocation,
-  type LogicChartPayload,
-  type MountedStandaloneLogicChartViewer,
+  type CodeDebriefPayload,
+  type MountedStandaloneCodeDebriefViewer,
 } from "../src";
 
-const payload: LogicChartPayload = {
+const payload: CodeDebriefPayload = {
   flows: [
     {
       id: "orders-route",
@@ -65,7 +65,7 @@ const payload: LogicChartPayload = {
   ],
 };
 
-const crossScopePayload: LogicChartPayload = {
+const crossScopePayload: CodeDebriefPayload = {
   flows: [
     {
       id: "client-entry",
@@ -243,14 +243,14 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    let mounted: MountedStandaloneLogicChartViewer | undefined;
+    let mounted: MountedStandaloneCodeDebriefViewer | undefined;
     await act(async () => {
-      mounted = mountStandaloneLogicChartViewer(container, payload, {
+      mounted = mountStandaloneCodeDebriefViewer(container, payload, {
         location: { hash: "#scope=frontend" },
       });
     });
 
-    expect(container.querySelector(".logicchart-viewer")).not.toBeNull();
+    expect(container.querySelector(".codedebrief-viewer")).not.toBeNull();
     expect(container.querySelectorAll("[data-scope]")).toHaveLength(2);
     expect(container.querySelector('[data-flow-id="orders-route"]')).not.toBeNull();
 
@@ -264,7 +264,7 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload, {
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload, {
       location: {
         hash: `#edge=${encodeURIComponent(
           JSON.stringify({ scope: "frontend", target: "orders-route" }),
@@ -272,7 +272,7 @@ describe("standalone viewer bridge", () => {
       },
     });
 
-    expect(container.querySelector(".logicchart-viewer")?.getAttribute("data-selected-kind")).toBe(
+    expect(container.querySelector(".codedebrief-viewer")?.getAttribute("data-selected-kind")).toBe(
       "scope-entry",
     );
     expect(container.querySelectorAll(".scope-entry-link.selected-link")).toHaveLength(1);
@@ -307,11 +307,11 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, crossScopePayload, {
+    const mounted = mountStandaloneCodeDebriefViewer(container, crossScopePayload, {
       location: { hash: edgeHash },
     });
 
-    expect(container.querySelector(".logicchart-viewer")?.getAttribute("data-selected-kind")).toBe(
+    expect(container.querySelector(".codedebrief-viewer")?.getAttribute("data-selected-kind")).toBe(
       "flow-call",
     );
     expect(container.querySelector('[data-scope="client-app"]')).not.toBeNull();
@@ -339,14 +339,14 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    let mounted: MountedStandaloneLogicChartViewer | undefined;
+    let mounted: MountedStandaloneCodeDebriefViewer | undefined;
     await act(async () => {
-      mounted = mountStandaloneLogicChartViewer(container, crossScopePayload, {
+      mounted = mountStandaloneCodeDebriefViewer(container, crossScopePayload, {
         location: { hash: "#flow=service-gateway" },
       });
     });
 
-    expect(container.querySelector(".logicchart-viewer")?.getAttribute("data-selected-kind")).toBe(
+    expect(container.querySelector(".codedebrief-viewer")?.getAttribute("data-selected-kind")).toBe(
       "flow",
     );
     expect(container.querySelector('[data-scope="client-app"]')?.getAttribute("class")).toContain(
@@ -389,9 +389,9 @@ describe("standalone viewer bridge", () => {
     document.body.appendChild(container);
     const select = vi.fn();
     const openDetails = vi.fn();
-    (window as typeof window & { LC?: unknown }).LC = { openDetails, select };
+    (window as typeof window & { CodeDebrief?: unknown }).CodeDebrief = { openDetails, select };
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     const rootEdge = container.querySelector(".root-scope-link[data-target-scope='frontend']");
     expect(rootEdge).not.toBeNull();
@@ -402,7 +402,7 @@ describe("standalone viewer bridge", () => {
     });
 
     expect(window.location.hash).toContain("#edge=");
-    expect(container.querySelector(".logicchart-viewer")?.getAttribute("data-selected-kind")).toBe(
+    expect(container.querySelector(".codedebrief-viewer")?.getAttribute("data-selected-kind")).toBe(
       "root-scope",
     );
     expect(container.querySelectorAll(".root-scope-link.selected-link")).toHaveLength(1);
@@ -434,9 +434,9 @@ describe("standalone viewer bridge", () => {
     document.body.appendChild(container);
     const select = vi.fn();
     const openDetails = vi.fn();
-    (window as typeof window & { LC?: unknown }).LC = { openDetails, select };
+    (window as typeof window & { CodeDebrief?: unknown }).CodeDebrief = { openDetails, select };
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     await act(async () => {
       container
@@ -471,7 +471,7 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     expect(container.querySelectorAll(".flow-node")).toHaveLength(0);
     expect(container.querySelectorAll(".scope-node.expanded")).toHaveLength(0);
@@ -484,7 +484,7 @@ describe("standalone viewer bridge", () => {
     });
 
     expect(window.location.hash).toBe("#node=codebase");
-    expect(container.querySelector(".logicchart-viewer")?.getAttribute("data-selected-kind")).toBe(
+    expect(container.querySelector(".codedebrief-viewer")?.getAttribute("data-selected-kind")).toBe(
       "root",
     );
     expect(container.querySelectorAll(".flow-node")).toHaveLength(0);
@@ -500,7 +500,7 @@ describe("standalone viewer bridge", () => {
     window.history.replaceState(null, "", "/#scope=frontend");
     const seedContainer = document.createElement("div");
     document.body.appendChild(seedContainer);
-    const seeded = mountStandaloneLogicChartViewer(seedContainer, payload);
+    const seeded = mountStandaloneCodeDebriefViewer(seedContainer, payload);
 
     expect(seedContainer.querySelectorAll(".flow-node").length).toBeGreaterThan(0);
 
@@ -511,7 +511,7 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     expect(container.querySelectorAll(".flow-node")).toHaveLength(0);
     expect(container.querySelectorAll(".scope-node.expanded")).toHaveLength(0);
@@ -525,7 +525,7 @@ describe("standalone viewer bridge", () => {
 
     expect(window.location.hash).toContain("#edge=");
     expect(decodeURIComponent(window.location.hash)).toContain('"rootOnly":true');
-    expect(container.querySelector(".logicchart-viewer")?.getAttribute("data-selected-kind")).toBe(
+    expect(container.querySelector(".codedebrief-viewer")?.getAttribute("data-selected-kind")).toBe(
       "root-scope",
     );
     expect(container.querySelectorAll(".root-scope-link.selected-link")).toHaveLength(1);
@@ -547,7 +547,7 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     await act(async () => {
       container
@@ -556,11 +556,11 @@ describe("standalone viewer bridge", () => {
     });
 
     expect(window.location.hash).toContain("#edge=");
-    expect(container.querySelector(".logicchart-viewer")?.getAttribute("data-selected-kind")).toBe(
+    expect(container.querySelector(".codedebrief-viewer")?.getAttribute("data-selected-kind")).toBe(
       "scope-entry",
     );
 
-    const svg = container.querySelector(".logicchart-viewer");
+    const svg = container.querySelector(".codedebrief-viewer");
     const hitZone = container.querySelector(".canvas-hit-zone");
     if (!svg || !hitZone) throw new Error("expected viewer hit zone");
 
@@ -570,7 +570,7 @@ describe("standalone viewer bridge", () => {
     });
 
     expect(window.location.hash).toBe("#scope=frontend");
-    expect(container.querySelector(".logicchart-viewer")?.getAttribute("data-selected-kind")).toBe(
+    expect(container.querySelector(".codedebrief-viewer")?.getAttribute("data-selected-kind")).toBe(
       "none",
     );
 
@@ -583,7 +583,7 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     await act(async () => {
       container
@@ -600,7 +600,7 @@ describe("standalone viewer bridge", () => {
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
 
-    const svg = container.querySelector<SVGSVGElement>(".logicchart-viewer");
+    const svg = container.querySelector<SVGSVGElement>(".codedebrief-viewer");
     const hitZone = container.querySelector(".canvas-hit-zone");
     if (!svg || !hitZone) throw new Error("expected viewer hit zone");
     Object.defineProperty(svg, "clientWidth", { configurable: true, value: 1000 });
@@ -663,9 +663,9 @@ describe("standalone viewer bridge", () => {
     document.body.appendChild(container);
     const select = vi.fn();
     const openDetails = vi.fn();
-    (window as typeof window & { LC?: unknown }).LC = { openDetails, select };
+    (window as typeof window & { CodeDebrief?: unknown }).CodeDebrief = { openDetails, select };
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     await act(async () => {
       container
@@ -683,7 +683,7 @@ describe("standalone viewer bridge", () => {
     });
 
     expect(window.location.hash).toContain("#edge=");
-    expect(container.querySelector(".logicchart-viewer")?.getAttribute("data-selected-kind")).toBe(
+    expect(container.querySelector(".codedebrief-viewer")?.getAttribute("data-selected-kind")).toBe(
       "flow-call",
     );
     expect(container.querySelectorAll(".flow-call-link.selected-link")).toHaveLength(1);
@@ -712,7 +712,7 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     await act(async () => {
       container
@@ -735,9 +735,9 @@ describe("standalone viewer bridge", () => {
     document.body.appendChild(container);
     const select = vi.fn();
     const openDetails = vi.fn();
-    (window as typeof window & { LC?: unknown }).LC = { openDetails, select };
+    (window as typeof window & { CodeDebrief?: unknown }).CodeDebrief = { openDetails, select };
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
     await act(async () => {});
 
     expect(container.querySelector('[data-flow-id="orders-route"]')?.getAttribute("class")).toContain(
@@ -762,7 +762,7 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     await act(async () => {
       mounted.selectFlow("load-order");
@@ -795,9 +795,9 @@ describe("standalone viewer bridge", () => {
     document.body.appendChild(container);
     const select = vi.fn();
     const openDetails = vi.fn();
-    (window as typeof window & { LC?: unknown }).LC = { openDetails, select };
+    (window as typeof window & { CodeDebrief?: unknown }).CodeDebrief = { openDetails, select };
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     await act(async () => {
       container
@@ -836,9 +836,9 @@ describe("standalone viewer bridge", () => {
     document.body.appendChild(container);
     const select = vi.fn();
     const openDetails = vi.fn();
-    (window as typeof window & { LC?: unknown }).LC = { openDetails, select };
+    (window as typeof window & { CodeDebrief?: unknown }).CodeDebrief = { openDetails, select };
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     await act(async () => {
       container
@@ -863,7 +863,7 @@ describe("standalone viewer bridge", () => {
       path: "frontend/app/api/orders/route.ts",
     });
     expect(openDetails).toHaveBeenCalled();
-    expect(container.querySelector(".logicchart-viewer")?.getAttribute("data-selected-kind")).toBe(
+    expect(container.querySelector(".codedebrief-viewer")?.getAttribute("data-selected-kind")).toBe(
       "detail-node",
     );
     expect(container.querySelectorAll(".detail-node.selected").length).toBeGreaterThan(1);
@@ -882,9 +882,9 @@ describe("standalone viewer bridge", () => {
     document.body.appendChild(container);
     const select = vi.fn();
     const openDetails = vi.fn();
-    (window as typeof window & { LC?: unknown }).LC = { openDetails, select };
+    (window as typeof window & { CodeDebrief?: unknown }).CodeDebrief = { openDetails, select };
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     await act(async () => {
       container
@@ -907,7 +907,7 @@ describe("standalone viewer bridge", () => {
     });
 
     expect(startEdge?.getAttribute("class")).toContain("selected-link");
-    expect(container.querySelector(".logicchart-viewer")?.getAttribute("data-selected-kind")).toBe(
+    expect(container.querySelector(".codedebrief-viewer")?.getAttribute("data-selected-kind")).toBe(
       "detail-edge",
     );
     expect(container.querySelector('[data-detail-node-id="orders-route:n2"]')?.getAttribute("class")).toContain(
@@ -935,7 +935,7 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     await act(async () => {
       container
@@ -947,7 +947,7 @@ describe("standalone viewer bridge", () => {
     expect(window.location.hash).toBe("#flow=orders-route");
     expect(container.querySelector(".flow-detail")).not.toBeNull();
 
-    const svg = container.querySelector(".logicchart-viewer");
+    const svg = container.querySelector(".codedebrief-viewer");
     const hitZone = container.querySelector(".canvas-hit-zone");
     if (!svg || !hitZone) throw new Error("expected viewer hit zone");
 
@@ -958,7 +958,7 @@ describe("standalone viewer bridge", () => {
     });
 
     expect(window.location.hash).toBe("#scope=frontend");
-    expect(container.querySelector(".logicchart-viewer")?.getAttribute("data-selected-kind")).toBe(
+    expect(container.querySelector(".codedebrief-viewer")?.getAttribute("data-selected-kind")).toBe(
       "none",
     );
     expect(container.querySelector(".flow-detail")).not.toBeNull();
@@ -988,7 +988,7 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     expect(container.querySelectorAll(".flow-node")).toHaveLength(0);
 
@@ -997,7 +997,7 @@ describe("standalone viewer bridge", () => {
       await flushAsyncTimers(2);
     });
 
-    const progress = container.querySelector<HTMLElement>(".logicchart-expand-progress");
+    const progress = container.querySelector<HTMLElement>(".codedebrief-expand-progress");
     expect(progress).not.toBeNull();
     expect(progress?.hidden).toBe(false);
     expect(progress?.textContent).toContain("Expanding canvas");
@@ -1050,14 +1050,14 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, largePayload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, largePayload);
 
     await act(async () => {
       mounted.expandAll();
       await flushAsyncTimers(2);
     });
 
-    const progress = container.querySelector<HTMLElement>(".logicchart-expand-progress");
+    const progress = container.querySelector<HTMLElement>(".codedebrief-expand-progress");
     expect(progress).not.toBeNull();
     expect(progress?.hidden).toBe(false);
     expect(progress?.textContent).toContain("Expanding canvas");
@@ -1081,9 +1081,9 @@ describe("standalone viewer bridge", () => {
     document.body.appendChild(container);
     const select = vi.fn();
     const openDetails = vi.fn();
-    (window as typeof window & { LC?: unknown }).LC = { openDetails, select };
+    (window as typeof window & { CodeDebrief?: unknown }).CodeDebrief = { openDetails, select };
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     expect(container.querySelector('[data-flow-id="orders-route"]')).not.toBeNull();
     expect(container.querySelector('[data-flow-id="backend-auth"]')).toBeNull();
@@ -1144,7 +1144,7 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
 
     await act(async () => {
       container
@@ -1190,9 +1190,9 @@ describe("standalone viewer bridge", () => {
     container.replaceChildren();
     window.history.replaceState(null, "", "/viewer.html#scope=frontend");
 
-    let remounted: MountedStandaloneLogicChartViewer | undefined;
+    let remounted: MountedStandaloneCodeDebriefViewer | undefined;
     await act(async () => {
-      remounted = mountStandaloneLogicChartViewer(container, payload);
+      remounted = mountStandaloneCodeDebriefViewer(container, payload);
     });
     expect(container.querySelector(".flow-detail")).not.toBeNull();
     expect(container.querySelector('[data-flow-id="orders-route"]')?.getAttribute("transform")).toBe(
@@ -1215,9 +1215,9 @@ describe("standalone viewer bridge", () => {
     container.replaceChildren();
     window.history.replaceState(null, "", "/viewer.html#scope=frontend");
 
-    let cleanMount: MountedStandaloneLogicChartViewer | undefined;
+    let cleanMount: MountedStandaloneCodeDebriefViewer | undefined;
     await act(async () => {
-      cleanMount = mountStandaloneLogicChartViewer(container, payload);
+      cleanMount = mountStandaloneCodeDebriefViewer(container, payload);
     });
     expect(container.querySelector(".flow-detail")).toBeNull();
     expect(container.querySelector('[data-flow-id="orders-route"]')?.getAttribute("transform")).toBe(
@@ -1266,7 +1266,7 @@ describe("standalone viewer bridge", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
-    const mounted = mountStandaloneLogicChartViewer(container, payload);
+    const mounted = mountStandaloneCodeDebriefViewer(container, payload);
     const flowNode = container.querySelector('[data-flow-id="orders-route"]');
     const flowShape = container.querySelector('[data-flow-id="orders-route"] .shape');
     if (!flowNode || !flowShape) throw new Error("expected flow node shape");
@@ -1324,7 +1324,7 @@ function pointerEvent(
   return event;
 }
 
-function largeExpansionPayload(flowCount: number): LogicChartPayload {
+function largeExpansionPayload(flowCount: number): CodeDebriefPayload {
   return {
     flows: Array.from({ length: flowCount }, (_, index) => {
       const scope = index % 2 === 0 ? "backend" : "frontend";

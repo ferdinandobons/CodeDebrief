@@ -6,15 +6,15 @@ from pathlib import Path
 
 import pytest
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.analysis.registry import (
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.analysis.registry import (
     language_capability_matrix,
     language_for,
     spec_for_language,
     spec_for_path,
     supported_suffixes,
 )
-from logicchart.model import NodeKind
+from codedebrief.model import NodeKind
 
 _CAPABILITY_SMOKE_FIXTURES = {
     "python": (
@@ -393,6 +393,6 @@ def test_project_analyzer_dispatches_and_caches(tmp_path: Path) -> None:
 
 
 def _config(root: Path):
-    from logicchart.config import LogicChartConfig
+    from codedebrief.config import CodeDebriefConfig
 
-    return LogicChartConfig.load(root)
+    return CodeDebriefConfig.load(root)

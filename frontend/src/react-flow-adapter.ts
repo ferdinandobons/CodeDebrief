@@ -10,8 +10,8 @@ import {
 import {
   buildProgressiveModel,
   flowLabel,
-  type LogicChartPayload,
-} from "./logicchart-model";
+  type CodeDebriefPayload,
+} from "./codedebrief-model";
 
 export interface ReactFlowModel {
   nodes: Node[];
@@ -54,7 +54,7 @@ export function toReactFlowModel(
 }
 
 export function payloadToReactFlowModel(
-  payload: LogicChartPayload,
+  payload: CodeDebriefPayload,
   scopeNode: ScopeNodePosition,
   options: ProgressiveLayoutOptions,
   routeFlowIds: readonly string[] = [],

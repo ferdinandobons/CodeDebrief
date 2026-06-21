@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from logicchart.analysis.typescript import TypeScriptAnalyzer
-from logicchart.config import LogicChartConfig
-from logicchart.model import NodeKind
+from codedebrief.analysis.typescript import TypeScriptAnalyzer
+from codedebrief.config import CodeDebriefConfig
+from codedebrief.model import NodeKind
 
 
 def test_next_route_and_switch_are_detected(tmp_path: Path) -> None:
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
         encoding="utf-8",
     )
 
-    analysis = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = TypeScriptAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
 
     assert len(analysis.flows) == 1
     flow = analysis.flows[0]
@@ -67,7 +67,7 @@ def test_empty_case_falls_through_to_next_case(tmp_path: Path) -> None:
         "}\n",
         encoding="utf-8",
     )
-    analysis = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = TypeScriptAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = analysis.flows[0]
     switch = next(n for n in flow.nodes if n.label.startswith("Switch"))
     case_a = next(e.target for e in flow.edges if e.source == switch.id and e.label == "'a'")
@@ -94,7 +94,7 @@ export function UserPanel({ user }: Props) {
         encoding="utf-8",
     )
 
-    analysis = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = TypeScriptAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = analysis.flows[0]
 
     assert flow.is_entrypoint
@@ -112,7 +112,7 @@ export const UserBadge = ({ user }: Props) =>
         encoding="utf-8",
     )
 
-    analysis = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = TypeScriptAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = analysis.flows[0]
 
     assert flow.is_entrypoint
@@ -146,7 +146,7 @@ export function processOrders(orders: Order[]) {
         encoding="utf-8",
     )
 
-    analysis = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = TypeScriptAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = next(item for item in analysis.flows if item.name == "processOrders")
     labels = [node.label for node in flow.nodes]
 
@@ -189,7 +189,7 @@ export function processOrders(orders: Order[]) {
         encoding="utf-8",
     )
 
-    analysis = TypeScriptAnalyzer(tmp_path, LogicChartConfig()).analyze(source)
+    analysis = TypeScriptAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
     flow = next(item for item in analysis.flows if item.name == "processOrders")
     labels = [node.label for node in flow.nodes]
 

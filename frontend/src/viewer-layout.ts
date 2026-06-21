@@ -18,9 +18,9 @@ import {
   buildProgressiveModel,
   scopeNamesForFlow,
   scopeSummaries,
-  type LogicChartFlow,
-  type LogicChartPayload,
-} from "./logicchart-model";
+  type CodeDebriefFlow,
+  type CodeDebriefPayload,
+} from "./codedebrief-model";
 
 export const DEFAULT_PROGRESSIVE_LAYOUT_OPTIONS: ProgressiveLayoutOptions = {
   flowWidth: 238,
@@ -56,7 +56,7 @@ const ROOT_NODE_ID = "codebase";
 
 export interface ViewerLayoutInput {
   scope: string;
-  payload?: LogicChartPayload;
+  payload?: CodeDebriefPayload;
   layers?: ProgressiveFlowNode[][];
   routeFlowIds?: readonly string[];
   contextFlowIds?: readonly string[];
@@ -560,7 +560,7 @@ function progressiveSectionSeeds(
         scope,
       );
       const model = buildProgressiveModel(
-        input.payload as LogicChartPayload,
+        input.payload as CodeDebriefPayload,
         scope,
         routeFlowIds,
         contextFlowIdsForScope(input.contextFlowIds ?? [], flowIndex, scope),
@@ -598,7 +598,7 @@ function progressiveSectionSeeds(
 
 function contextFlowIdsForScope(
   contextFlowIds: readonly string[],
-  flowIndex: ReadonlyMap<string, LogicChartFlow>,
+  flowIndex: ReadonlyMap<string, CodeDebriefFlow>,
   scope: string,
 ): string[] {
   return contextFlowIds.filter(flowId => {
@@ -609,7 +609,7 @@ function contextFlowIdsForScope(
 
 function routeFlowIdsForScope(
   routeFlowIds: readonly string[],
-  flowIndex: ReadonlyMap<string, LogicChartFlow>,
+  flowIndex: ReadonlyMap<string, CodeDebriefFlow>,
   scope: string,
 ): string[] {
   return routeFlowIds.filter(flowId => {
@@ -970,7 +970,7 @@ function progressiveFlowCallEdges(
   const pairs: FlowCallPair[] = [];
   const visibleTargetsByCaller = visibleCallTargetsByCaller(flowById);
   flowById.forEach(flow => {
-    if (!isLogicChartFlow(flow)) return;
+    if (!isCodeDebriefFlow(flow)) return;
     const source = positions.get(flow.id);
     if (!source) return;
     visibleCallTargetIds(flow, flowById, visibleTargetsByCaller).forEach(targetId => {
@@ -1050,7 +1050,7 @@ function routeOverviewFlowCallEdge(pair: FlowCallPair): FlowCallEdge {
 }
 
 function visibleCallTargetIds(
-  flow: LogicChartFlow,
+  flow: CodeDebriefFlow,
   visibleFlowById: ReadonlyMap<string, ProgressiveFlowNode>,
   visibleTargetsByCaller: ReadonlyMap<string, ReadonlySet<string>>,
 ): string[] {
@@ -1067,7 +1067,7 @@ function visibleCallTargetsByCaller(
 ): Map<string, Set<string>> {
   const targetsByCaller = new Map<string, Set<string>>();
   visibleFlowById.forEach(candidate => {
-    if (!isLogicChartFlow(candidate)) return;
+    if (!isCodeDebriefFlow(candidate)) return;
     (candidate.called_by || []).forEach(callerId => {
       if (callerId === candidate.id || !visibleFlowById.has(callerId)) return;
       const targets = targetsByCaller.get(callerId) || new Set<string>();
@@ -1089,7 +1089,7 @@ function openedCallChildGroups(
   return routeFlowIds
     .map(parentId => {
       const parent = flowById.get(parentId);
-      if (!parent || !isLogicChartFlow(parent)) return null;
+      if (!parent || !isCodeDebriefFlow(parent)) return null;
       const parentLayer = layerById.get(parentId) ?? 0;
       const children = (parent.calls || []).filter(childId => {
         const child = flowById.get(childId);
@@ -2571,7 +2571,7 @@ function reachableLayoutNodeIds(layout: ViewerLayout): Set<string> {
   return reachable;
 }
 
-export function isLogicChartFlow(flow: ProgressiveFlowNode): flow is LogicChartFlow {
+export function isCodeDebriefFlow(flow: ProgressiveFlowNode): flow is CodeDebriefFlow {
   return "location" in flow || "entry_kind" in flow || "language" in flow;
 }
 

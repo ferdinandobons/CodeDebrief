@@ -8,10 +8,10 @@ from types import SimpleNamespace
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from logicchart.analysis.project import ProjectAnalyzer
-from logicchart.artifacts import write_artifacts
-from logicchart.config import LogicChartConfig
-from logicchart.mcp_server import (
+from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.artifacts import write_artifacts
+from codedebrief.config import CodeDebriefConfig
+from codedebrief.mcp_server import (
     MCP_INSTRUCTIONS,
     _agent_action_terms,
     _context_navigation_pack,
@@ -25,7 +25,7 @@ from logicchart.mcp_server import (
     _workflow_slice_payload,
     flow_in_agent_scope,
 )
-from logicchart.model import (
+from codedebrief.model import (
     Flow,
     FlowEdge,
     FlowNode,
@@ -33,7 +33,7 @@ from logicchart.model import (
     ProjectModel,
     SourceLocation,
 )
-from logicchart.query import impact_model
+from codedebrief.query import impact_model
 
 PUBLIC_MCP_TOOLS = {
     "agent_context",
@@ -44,7 +44,7 @@ PUBLIC_MCP_TOOLS = {
     "explain_node",
     "explain_edge",
     "validate_artifacts",
-    "update_logicchart",
+    "update_codedebrief",
 }
 
 
@@ -134,7 +134,7 @@ def test_selection_context_treats_unknown_scope_as_query_hint(tmp_path: Path) ->
 
     payload = _selection_context_payload(
         tmp_path,
-        LogicChartConfig(),
+        CodeDebriefConfig(),
         model,
         question="spiegami come funziona",
         scope="certificate upload",
@@ -208,7 +208,7 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
     model.flows = [upload_flow, start_flow]
     pack = _selection_context_payload(
         tmp_path,
-        LogicChartConfig(),
+        CodeDebriefConfig(),
         model,
         question="OCR upload certificati",
         token_budget=600,
@@ -287,7 +287,7 @@ def authorize(user):
     async def exercise_server() -> None:
         parameters = StdioServerParameters(
             command=sys.executable,
-            args=["-m", "logicchart.cli", "mcp", str(tmp_path)],
+            args=["-m", "codedebrief.cli", "mcp", str(tmp_path)],
         )
         async with stdio_client(parameters) as streams:
             read_stream, write_stream = streams
@@ -310,7 +310,7 @@ def authorize(user):
                 ):
                     assert "token_budget" in schema_by_name[budget_tool].get("properties", {})
                 assert "include_svg" in schema_by_name["snapshot_slice"].get("properties", {})
-                assert "full" in schema_by_name["update_logicchart"].get("properties", {})
+                assert "full" in schema_by_name["update_codedebrief"].get("properties", {})
                 assert "max_parse_warnings" in schema_by_name["validate_artifacts"].get(
                     "properties", {}
                 )
@@ -340,7 +340,7 @@ def authorize(user):
                 assert workflow_slice["primary_flows"][0]["id"] == flow.id
                 assert workflow_slice["ordered_steps"]
                 assert workflow_slice["source_ranges"]
-                assert workflow_slice["viewer_targets"]["command"] == "logicchart view"
+                assert workflow_slice["viewer_targets"]["command"] == "codedebrief view"
                 assert workflow_slice["next_tools"]["expand_slice"]["tool"] == "expand_slice"
                 assert (
                     workflow_slice["next_tools"]["snapshot_slice"]["arguments"]["include_svg"]
@@ -557,7 +557,7 @@ def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> 
     async def call_with_missing_artifact() -> None:
         parameters = StdioServerParameters(
             command=sys.executable,
-            args=["-m", "logicchart.cli", "mcp", str(tmp_path)],
+            args=["-m", "codedebrief.cli", "mcp", str(tmp_path)],
         )
         async with stdio_client(parameters) as streams:
             read_stream, write_stream = streams
@@ -569,19 +569,19 @@ def test_mcp_model_load_errors_are_structured_and_actionable(tmp_path: Path) -> 
                 assert payload["error_code"] == "artifact_missing"  # type: ignore[index]
                 assert payload["recoverable"] is True  # type: ignore[index]
                 assert "generated artifacts" in payload["guardrail"]  # type: ignore[index]
-                assert payload["next_tools"]["update_model"]["tool"] == "update_logicchart"  # type: ignore[index]
-                assert "logicchart update --full" in payload["next_cli"]  # type: ignore[index]
+                assert payload["next_tools"]["update_model"]["tool"] == "update_codedebrief"  # type: ignore[index]
+                assert "codedebrief update --full" in payload["next_cli"]  # type: ignore[index]
 
     asyncio.run(call_with_missing_artifact())
 
-    artifact = tmp_path / "logicchart-out" / "logic-flow.json"
+    artifact = tmp_path / "codedebrief-out" / "codedebrief.json"
     artifact.parent.mkdir(parents=True)
     artifact.write_text("{", encoding="utf-8")
 
     async def call_with_malformed_artifact() -> None:
         parameters = StdioServerParameters(
             command=sys.executable,
-            args=["-m", "logicchart.cli", "mcp", str(tmp_path)],
+            args=["-m", "codedebrief.cli", "mcp", str(tmp_path)],
         )
         async with stdio_client(parameters) as streams:
             read_stream, write_stream = streams
@@ -625,7 +625,7 @@ def test_mcp_update_validate_sequence_after_source_change(tmp_path: Path) -> Non
     async def exercise_update_validate() -> None:
         parameters = StdioServerParameters(
             command=sys.executable,
-            args=["-m", "logicchart.cli", "mcp", str(tmp_path)],
+            args=["-m", "codedebrief.cli", "mcp", str(tmp_path)],
         )
         async with stdio_client(parameters) as streams:
             read_stream, write_stream = streams
@@ -636,9 +636,9 @@ def test_mcp_update_validate_sequence_after_source_change(tmp_path: Path) -> Non
                 stale_payload = stale.structuredContent
                 assert stale_payload["ok"] is False  # type: ignore[index]
                 assert "stale" in stale_payload["errors"][0]  # type: ignore[index]
-                assert stale_payload["next_tools"]["update_model"]["tool"] == "update_logicchart"  # type: ignore[index]
+                assert stale_payload["next_tools"]["update_model"]["tool"] == "update_codedebrief"  # type: ignore[index]
 
-                update = await session.call_tool("update_logicchart", {"full": True})
+                update = await session.call_tool("update_codedebrief", {"full": True})
                 assert not update.isError
                 update_payload = update.structuredContent
                 assert "app.py" in update_payload["changed_files"]  # type: ignore[index]
@@ -756,14 +756,14 @@ def test_mcp_context_navigation_pack_direct_contracts(tmp_path: Path) -> None:
 
 
 def test_mcp_recovery_payload_helpers_are_actionable(tmp_path: Path) -> None:
-    config = LogicChartConfig()
+    config = CodeDebriefConfig()
 
     missing = _model_load_error(tmp_path, config, FileNotFoundError("missing artifact"))
     assert missing["error_code"] == "artifact_missing"
     assert missing["recoverable"] is True
-    assert missing["artifact"].endswith("logicchart-out/logic-flow.json")
-    assert missing["next_tools"]["update_model"]["tool"] == "update_logicchart"
-    assert "logicchart update --full" in missing["next_cli"]
+    assert missing["artifact"].endswith("codedebrief-out/codedebrief.json")
+    assert missing["next_tools"]["update_model"]["tool"] == "update_codedebrief"
+    assert "codedebrief update --full" in missing["next_cli"]
 
     malformed = _model_load_error(tmp_path, config, ValueError("invalid JSON in artifact"))
     assert malformed["error_code"] == "artifact_malformed_json"
@@ -774,22 +774,22 @@ def test_mcp_recovery_payload_helpers_are_actionable(tmp_path: Path) -> None:
     assert unknown_flow["next_tools"]["agent_context"]["arguments"]["question"] == "missing-flow"
 
     stale = _validation_payload({"ok": False, "errors": ["stale"], "warnings": []})
-    assert stale["next_tools"]["update_model"]["tool"] == "update_logicchart"
+    assert stale["next_tools"]["update_model"]["tool"] == "update_codedebrief"
     assert stale["next_cli"] == [
-        "logicchart update --full",
-        "logicchart validate --check-sync --json",
+        "codedebrief update --full",
+        "codedebrief validate --check-sync --json",
     ]
 
     fresh = _validation_payload({"ok": True, "errors": [], "warnings": []})
     assert "update_model" not in fresh["next_tools"]
     assert fresh["next_cli"] == [
-        "logicchart validate --quality --json",
-        "logicchart view",
+        "codedebrief validate --quality --json",
+        "codedebrief view",
     ]
 
     update_payload = _update_workflow_payload(
-        tmp_path / "logicchart-out" / "logic-flow.json",
-        tmp_path / "logicchart-out" / "logic-flow.md",
+        tmp_path / "codedebrief-out" / "codedebrief.json",
+        tmp_path / "codedebrief-out" / "codedebrief.md",
         None,
     )
     assert update_payload["next_tools"]["validate_artifacts"]["tool"] == "validate_artifacts"

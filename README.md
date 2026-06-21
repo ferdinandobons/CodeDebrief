@@ -1,11 +1,11 @@
-# LogicChart
+# CodeDebrief
 
-LogicChart is a local-first workflow navigator for code logic.
+CodeDebrief is a local-first workflow navigator for code logic.
 
 It builds a deterministic workflow flowchart model of a local codebase and exposes that
 model in two ways:
 
-- `logicchart view` for manual exploration of the complete graph.
+- `codedebrief view` for manual exploration of the complete graph.
 - MCP `agent_context` for coding agents that need a bounded, source-grounded
   `workflow_slice`.
 
@@ -14,13 +14,13 @@ logic selected from a question, changed file, symbol, state, flow id, or depende
 Agents can render that slice visually, explain it, expand it, or trace a path without
 inventing steps that are not in the graph.
 
-LogicChart is not a bug finder, a generic graph database, or an LLM enrichment service.
+CodeDebrief is not a bug finder, a generic graph database, or an LLM enrichment service.
 The core workflow is deterministic, local, and offline. No LLM provider key is required.
 
 > Status: pre-1.0 alpha. The model is versioned, but schema and MCP payloads may evolve
 > before 1.0.
 >
-> Latest release: [v0.10.0](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.10.0)
+> Latest release: [v0.10.0](https://github.com/ferdinandobons/CodeDebrief/releases/tag/v0.10.0)
 > · [Changelog](CHANGELOG.md)
 
 ## Why It Exists
@@ -29,7 +29,7 @@ Coding agents are useful only when they understand the logic they are about to e
 change. Reading files one by one is slow and inconsistent; asking an LLM to reconstruct a
 workflow from source often produces different diagrams for the same prompt.
 
-LogicChart gives agents a deterministic navigation layer:
+CodeDebrief gives agents a deterministic navigation layer:
 
 - entrypoints, decisions, branches, calls, outcomes, and source ranges;
 - domain concepts such as statuses, roles, permissions, enums, and feature flags;
@@ -42,25 +42,25 @@ LogicChart gives agents a deterministic navigation layer:
 Install the release from GitHub. MCP support is included by default:
 
 ```bash
-uv tool install "git+https://github.com/ferdinandobons/LogicChart.git@v0.10.0"
+uv tool install "git+https://github.com/ferdinandobons/CodeDebrief.git@v0.10.0"
 ```
 
 Or install from a source checkout:
 
 ```bash
-git clone https://github.com/ferdinandobons/LogicChart.git logicchart
-cd logicchart
+git clone https://github.com/ferdinandobons/CodeDebrief.git codedebrief
+cd codedebrief
 uv tool install .
 ```
 
 From the codebase you want to analyze:
 
 ```bash
-logicchart setup-agent codex
+codedebrief setup-agent codex
 ```
 
-`setup-agent` creates `logicchart.toml` when needed, installs the selected agent
-instruction file, installs a provider-native LogicChart skill where supported, registers
+`setup-agent` creates `codedebrief.toml` when needed, installs the selected agent
+instruction file, installs a provider-native CodeDebrief skill where supported, registers
 project-scoped MCP where supported, generates initial artifacts, runs `doctor`, and
 validates the result.
 
@@ -77,14 +77,14 @@ What should I test after editing this file?
 For manual exploration:
 
 ```bash
-logicchart view
+codedebrief view
 ```
 
 For explicit refresh during development:
 
 ```bash
-logicchart update
-logicchart validate --check-sync
+codedebrief update
+codedebrief validate --check-sync
 ```
 
 ## Setup-Agent
@@ -92,27 +92,27 @@ logicchart validate --check-sync
 Supported targets:
 
 ```bash
-logicchart setup-agent codex
-logicchart setup-agent claude ../my-app
-logicchart setup-agent gemini
-logicchart setup-agent cursor --full
+codedebrief setup-agent codex
+codedebrief setup-agent claude ../my-app
+codedebrief setup-agent gemini
+codedebrief setup-agent cursor --full
 ```
 
 The selected target controls which files are written:
 
 | Target | Files |
 | --- | --- |
-| `codex` | `AGENTS.md`, `.agents/skills/logicchart/SKILL.md`, project MCP config |
-| `claude` | `CLAUDE.md`, `.claude/skills/logicchart/SKILL.md`, project MCP config |
-| `gemini` | `GEMINI.md`, `.gemini/skills/logicchart/SKILL.md`, `.gemini/settings.json` MCP config |
-| `cursor` | `.cursor/rules/logicchart.mdc`, project MCP config |
+| `codex` | `AGENTS.md`, `.agents/skills/codedebrief/SKILL.md`, project MCP config |
+| `claude` | `CLAUDE.md`, `.claude/skills/codedebrief/SKILL.md`, project MCP config |
+| `gemini` | `GEMINI.md`, `.gemini/skills/codedebrief/SKILL.md`, `.gemini/settings.json` MCP config |
+| `cursor` | `.cursor/rules/codedebrief.mdc`, project MCP config |
 
 `setup-agent <target>` writes only that target's files. Run it separately for each agent
 surface you want to configure.
 
 The `gemini` target follows Gemini CLI / Antigravity conventions: `GEMINI.md` provides
-project context, `.gemini/skills/logicchart/SKILL.md` provides provider-native workflow
-guidance, and `.gemini/settings.json` registers the project-scoped LogicChart MCP server.
+project context, `.gemini/skills/codedebrief/SKILL.md` provides provider-native workflow
+guidance, and `.gemini/settings.json` registers the project-scoped CodeDebrief MCP server.
 
 ## Agent Workflow
 
@@ -127,12 +127,12 @@ For natural-language questions, agents should start with MCP `agent_context`.
 - calls, callers, callees, and unresolved call context;
 - domain logic for relevant state-like concepts;
 - source ranges the agent can cite;
-- visual handles for `snapshot_slice` and `logicchart view`;
+- visual handles for `snapshot_slice` and `codedebrief view`;
 - omissions caused by token budget, ambiguity, stale artifacts, or unsupported capability;
 - follow-up tools for expansion, path tracing, focused explanation, and snapshots.
 
 When a user asks for a visual workflow, the agent should first render the deterministic
-Mermaid visual returned by LogicChart:
+Mermaid visual returned by CodeDebrief:
 
 1. Render `workflow_slice.presentation.canonical_visual.diagram` exactly as returned only
    when the client renders Mermaid inline.
@@ -146,7 +146,7 @@ Mermaid visual returned by LogicChart:
    inspection; they are not the canonical chat visual.
 
 The model may choose the first visible depth, but the text inside shown blocks must come
-from LogicChart payloads. The answer should say that the diagram is a bounded summary and
+from CodeDebrief payloads. The answer should say that the diagram is a bounded summary and
 can be expanded. If the user wants a more language-friendly view, the agent may rewrite
 labels in the user's language as a separate presentation layer, preserving ids or source
 anchors and without adding facts.
@@ -165,33 +165,32 @@ Primary MCP tools:
 | `explain_node` | Explain one flowchart node with local edge and source context. |
 | `explain_edge` | Explain one modeled edge with source context. |
 | `validate_artifacts` | Check generated model validity and optional sync. |
-| `update_logicchart` | Refresh JSON, Markdown, and HTML artifacts from local source. |
+| `update_codedebrief` | Refresh JSON, Markdown, and HTML artifacts from local source. |
 
-Use `logicchart view` for the manual UI. The CLI intentionally stays small:
+Use `codedebrief view` for the manual UI. The CLI intentionally stays small:
 `setup-agent`, `update`, `view`, `validate`, `doctor`, and `mcp`.
 
 ## Generated Artifacts
 
-LogicChart writes deterministic artifacts under `logicchart-out/`:
+CodeDebrief writes deterministic artifacts under `codedebrief-out/`:
 
 | File | Commit? | Purpose |
 | --- | --- | --- |
-| `logic-flow.json` | Yes | Canonical model consumed by MCP, CI, scripts, and the viewer. |
-| `logic-flow.md` | Yes | Human-readable Markdown summary with Mermaid flowcharts. |
-| `logic-flow.html` | Usually no | Local interactive viewer generated from the model. |
+| `codedebrief.json` | Yes | Canonical model consumed by MCP, CI, scripts, and the viewer. |
+| `codedebrief.md` | Yes | Human-readable Markdown summary with Mermaid flowcharts. |
+| `codedebrief.html` | Usually no | Local interactive viewer generated from the model. |
 
-Commit `logic-flow.json` and `logic-flow.md` when LogicChart is part of the project
+Commit `codedebrief.json` and `codedebrief.md` when CodeDebrief is part of the project
 workflow. Regenerate HTML locally when a human needs the viewer.
 
 ## Manual Viewer
 
-`logicchart view` opens the complete interactive flowchart for a human. It is the official
+`codedebrief view` opens the complete interactive flowchart for a human. It is the official
 manual experience for broad exploration:
 
 ```bash
-logicchart view
-logicchart view examples/demo
-logicchart view --render-only --no-open
+codedebrief view
+codedebrief view --render-only --no-open
 ```
 
 Use the viewer when you need to inspect the whole project graph, navigate scopes, compare
@@ -200,7 +199,7 @@ answer a bounded question with a focused `workflow_slice`.
 
 ## Domain Logic
 
-LogicChart extracts and aggregates domain concepts such as:
+CodeDebrief extracts and aggregates domain concepts such as:
 
 - enum members;
 - status and lifecycle states;
@@ -215,7 +214,7 @@ uses modeled code facts, including enum-style suffix matches such as `PAID` for
 
 ## Supported Code
 
-LogicChart currently extracts control flow for 11 language ids:
+CodeDebrief currently extracts control flow for 11 language ids:
 
 | Language | Current coverage |
 | --- | --- |
@@ -237,23 +236,23 @@ depth.
 
 ## Configuration
 
-LogicChart works without config. Add `logicchart.toml` only when defaults are not enough:
+CodeDebrief works without config. Add `codedebrief.toml` only when defaults are not enough:
 
 ```toml
-[logicchart]
+[codedebrief]
 source_roots = ["."]
 exclude = []
 exclude_dirs = []
 include_public_functions = true
 max_call_depth = 4
-output_dir = "logicchart-out"
+output_dir = "codedebrief-out"
 self_exclude = true
 
-[logicchart.entrypoints]
+[codedebrief.entrypoints]
 include = []
 exclude = []
 
-[logicchart.scopes]
+[codedebrief.scopes]
 backend = ["backend/**", "services/**"]
 frontend = ["frontend/**", "web/**"]
 edge = ["edge/**", "workers/**"]
@@ -262,11 +261,11 @@ edge = ["edge/**", "workers/**"]
 Defaults prune common VCS, dependency, cache, temporary, generated, and output
 directories, including `.git`, `node_modules`, virtualenv folders, `.next`, `.turbo`,
 `.svelte-kit`, `dist`, `build`, `out`, `target`, `coverage`, `vendor`, `Pods`, and
-`logicchart-out`.
+`codedebrief-out`.
 
 ## Limitations
 
-LogicChart does not run code, observe runtime state, perform full symbolic execution,
+CodeDebrief does not run code, observe runtime state, perform full symbolic execution,
 prove business correctness, or reconstruct deep framework state. It statically models
 source files, control flow, selected framework conventions, and resolvable internal calls.
 
@@ -284,17 +283,17 @@ For local development in this repository:
 
 ```bash
 uv sync --extra dev
-uv run logicchart --help
+uv run codedebrief --help
 ```
 
 Standard gates:
 
 ```bash
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run ruff check .
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run ruff format --check .
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run mypy
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run pytest --cov
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run logicchart validate . --check-sync --json
+UV_CACHE_DIR=/tmp/codedebrief-uv-cache uv run ruff check .
+UV_CACHE_DIR=/tmp/codedebrief-uv-cache uv run ruff format --check .
+UV_CACHE_DIR=/tmp/codedebrief-uv-cache uv run mypy
+UV_CACHE_DIR=/tmp/codedebrief-uv-cache uv run pytest --cov
+UV_CACHE_DIR=/tmp/codedebrief-uv-cache uv run codedebrief validate . --check-sync --json
 ```
 
 Viewer gates:
@@ -303,11 +302,11 @@ Viewer gates:
 npm run viewer:typecheck
 npm run viewer:test
 npm run viewer:build
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run logicchart update
-UV_CACHE_DIR=/tmp/logicchart-uv-cache uv run logicchart view examples/demo --render-only --no-open
+UV_CACHE_DIR=/tmp/codedebrief-uv-cache uv run codedebrief update
+UV_CACHE_DIR=/tmp/codedebrief-uv-cache uv run codedebrief view --render-only --no-open
 ```
 
 Schemas:
 
-- [schema/logic-flow.schema.json](schema/logic-flow.schema.json) documents the canonical
+- [schema/codedebrief.schema.json](schema/codedebrief.schema.json) documents the canonical
   artifact model.
