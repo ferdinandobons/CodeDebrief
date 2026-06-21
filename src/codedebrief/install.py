@@ -101,27 +101,33 @@ flusso, or similar code path:
 9. If neither exact canonical Mermaid nor a returned Mermaid artifact can be used, say
    that the deterministic visual cannot be shown in this client and provide `viewer_targets`;
    never create a replacement Mermaid diagram from prose or source reads.
-10. Say that the displayed diagram is a bounded summary of the selected logic and can be
-   expanded. If the user asks for a more language-friendly version, rewrite the technical
-   block labels in simple wording using the language of the user's request. Present that
-   as a human-friendly translation derived only from returned node, edge, decision, and
-   source fields.
-11. End with concise follow-up choices in the user's language: simplify the labels into
-   language-friendly wording, expand omitted nodes/branches/adjacent flows, or explore a
-   related area or deeper path.
-12. Also provide the `viewer_targets` command and hash
+10. After the visual, include a short "High-level flow" section in the user's language.
+   Derive it only from `ordered_steps`, primary/supporting flows, decisions,
+   domain logic, source ranges, and focused follow-up payloads. Keep it to a compact
+   happy-path walkthrough with only the branches needed by the question.
+11. Say that the displayed diagram is a bounded summary of the selected logic and can be
+   expanded.
+12. If the user asks for a more language-friendly version, rewrite both the technical
+   block labels and the high-level written flow in simple wording using the language of
+   the user's request. Present that as a human-friendly translation derived only from
+   returned node, edge, decision, step, and source fields.
+13. End with concise follow-up choices in the user's language: simplify the labels and
+   written flow into language-friendly wording, expand omitted nodes/branches/adjacent
+   flows, or explore a related area or deeper path.
+14. Also provide the `viewer_targets` command and hash
    target so the user can open the same visual in `codedebrief view`.
-13. Treat `workflow_slice.presentation` as supporting context for this request, not as the
+15. Treat `workflow_slice.presentation` as supporting context for this request, not as the
    primary output.
-14. Keep the textual summary short and secondary. Do not answer with raw JSON or YAML unless
+16. Keep the written flow short and secondary to the deterministic visual. Do not answer
+   with raw JSON or YAML unless
    the user explicitly asks for it.
 
 ## Guardrails
 
 - MCP is local-first and deterministic; do not ask for provider keys for the primary
   workflow.
-- Treat language-friendly labels as a presentation layer derived from deterministic
-  workflow facts.
+- Treat language-friendly labels and high-level written flows as presentation layers
+  derived from deterministic workflow facts.
 - Use CodeDebrief to explain modeled code logic, not to present possible defects.
 - Use `codedebrief view` only for the human manual UI.
 """
@@ -156,6 +162,10 @@ For codebase questions about behavior, decisions, workflow structure, or changed
    Inspect the full returned `workflow_slice` before deciding what to show. Choose the
    first visible depth yourself: show the clearest useful subset, then say that the
    displayed diagram is a bounded summary and can be expanded.
+   After the visual, include a short high-level written flow in the user's language,
+   derived only from returned ordered steps, primary/supporting flows, decisions, domain
+   logic, source ranges, and focused follow-up payloads. Keep it compact and explain the
+   happy path first, adding only the branches needed by the request.
    If the CodeDebrief result is too large, saved externally, truncated, or missing the exact
    canonical visual, retry with a smaller `token_budget` and narrower `flow_id`, `symbol`,
    `current_file`, or `scope`; do not recover by listing flows and hand-building a
@@ -166,12 +176,13 @@ For codebase questions about behavior, decisions, workflow structure, or changed
    explanation after the deterministic visual is shown and must not change displayed
    nodes, edges, labels, or branches. If neither exact canonical Mermaid nor a returned
    Mermaid artifact can be used, say so and provide `viewer_targets` instead of creating
-   a replacement Mermaid diagram. If the user asks for a more language-friendly version, rewrite the
-   technical block labels in simple wording using the language of the user's request. This
-   is allowed only as a separate presentation layer derived from returned node, edge,
-   decision, and source fields. End visual answers with concise options in the user's
-   language: simplify labels, expand omitted nodes/branches/adjacent flows, or explore a
-   related area. Show raw JSON or YAML only when explicitly requested.
+   a replacement Mermaid diagram. If the user asks for a more language-friendly version,
+   rewrite the technical block labels and the high-level written flow in simple wording
+   using the language of the user's request. This is allowed only as a separate
+   presentation layer derived from returned node, edge, decision, step, and source fields.
+   End visual answers with concise options in the user's language: simplify labels and
+   written flow, expand omitted nodes/branches/adjacent flows, or explore a related area.
+   Show raw JSON or YAML only when explicitly requested.
 4. Use `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`, `explain_node`,
    or `explain_edge` only when the first slice needs more precise context.
 5. Use `codedebrief view ...` only when a human wants the manual UI flowchart.
@@ -182,8 +193,9 @@ When helping a user set up or learn CodeDebrief:
    command you plan to run or recommend.
 2. Use `codedebrief doctor` when install, dependency, or parser capability issues are
    unclear.
-3. Do not ask for LLM provider keys for the primary workflow. Language-friendly labels
-   are a presentation layer derived from deterministic workflow facts.
+3. Do not ask for LLM provider keys for the primary workflow. Language-friendly labels and
+   high-level written flows are presentation layers derived from deterministic workflow
+   facts.
 4. `codedebrief setup-agent <target>` updates only that target's files. Run the command
    separately for each agent surface you want to configure, preserving any target-specific
    frontmatter and local notes.

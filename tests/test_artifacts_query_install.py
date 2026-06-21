@@ -63,9 +63,13 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "hand-building a\n   diagram" in content
     assert "bounded summary" in content
     assert "can be expanded" in content
+    assert "short high-level written flow" in content
+    assert "happy path first" in content
+    assert "only the branches needed by the request" in content
     assert "language-friendly" in content
+    assert "technical block labels and the high-level written flow" in content
     assert "language of the user's request" in content
-    assert "simplify labels" in content
+    assert "simplify labels and\n   written flow" in content
     assert "omitted nodes/branches/adjacent flows" in content
     assert "related area" in content
     assert "synthesize a new Mermaid" in content
@@ -115,10 +119,13 @@ def _assert_codedebrief_skill(content: str) -> None:
     assert "hand-building a diagram" in content
     assert "low-signal implementation node" in content
     assert "bounded summary" in content
+    assert 'short "High-level flow" section' in content
+    assert "compact\n   happy-path walkthrough" in content
     assert "human-friendly" in content
     assert "language-friendly" in content
-    assert "language of the user's request" in content
-    assert "simplify the labels" in content
+    assert "block labels and the high-level written flow" in content
+    assert "language of\n   the user's request" in content
+    assert "simplify the labels and\n   written flow" in content
     assert "expand omitted" in content
     assert "related area or deeper path" in content
     assert "synthesize a new Mermaid" in content
@@ -130,7 +137,7 @@ def _assert_codedebrief_skill(content: str) -> None:
     assert "workflow_slice.handle.flow_ids" in content
     assert "`viewer_targets` command" in content
     assert "`workflow_slice.presentation` as supporting context" in content
-    assert "Do not answer with raw JSON or YAML" in content
+    assert "Do not answer\n   with raw JSON or YAML" in content
     assert "POTENTIAL_GAP" not in content
 
 
