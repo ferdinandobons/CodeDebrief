@@ -245,10 +245,19 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
     assert "start-flow" in {flow["id"] for flow in workflow_slice["supporting_flows"]}
     assert workflow_slice["presentation"]["schema_version"] == "workflow_slice.presentation.v1"
     assert "bounded summary" in " ".join(workflow_slice["presentation"]["agent_guidance"])
+    assert "high-level written flow" in " ".join(workflow_slice["presentation"]["agent_guidance"])
+    assert "High-Level Flow" in {
+        section["label"] for section in workflow_slice["presentation"]["default_sections"]
+    }
+    written_flow_policy = workflow_slice["presentation"]["display_policy"]["written_flow"]
+    assert written_flow_policy["placement"] == "After the visual and before follow-up choices."
+    assert "ordered_steps" in written_flow_policy["source_fields"]
+    assert "same simplified wording" in written_flow_policy["language_friendly_rewrite"]
     assert "language-friendly rewrite" in " ".join(
         workflow_slice["presentation"]["display_policy"]["closing_options"]
     )
     assert "human-friendly" in workflow_slice["presentation"]["label_policy"]["human_friendly"]
+    assert "high-level written flow" in workflow_slice["presentation"]["visual_guidance"]
 
     canonical_visual = workflow_slice["presentation"]["canonical_visual"]
     assert canonical_visual["schema_version"] == "workflow_slice.canonical_visual.v1"

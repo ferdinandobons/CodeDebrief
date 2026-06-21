@@ -753,6 +753,17 @@ def _workflow_presentation_contract(
                 "label": "Canonical Visual",
                 "source_fields": ["presentation.canonical_visual"],
             },
+            {
+                "label": "High-Level Flow",
+                "source_fields": [
+                    "ordered_steps",
+                    "primary_flows",
+                    "supporting_flows",
+                    "decisions",
+                    "domain_logic",
+                    "source_ranges",
+                ],
+            },
             {"label": "Primary Flows", "source_fields": ["primary_flows"]},
             {"label": "Supporting Flows", "source_fields": ["supporting_flows"]},
             {"label": "Ordered Steps", "source_fields": ["ordered_steps"]},
@@ -767,11 +778,17 @@ def _workflow_presentation_contract(
             "this payload.",
             "Tell the user the shown diagram is a bounded summary of the selected "
             "logic and can be expanded.",
+            "After the visual, add a short high-level written flow in the user's "
+            "language. Derive it from ordered_steps, primary/supporting flows, "
+            "decisions, domain_logic, source_ranges, and focused follow-up tool "
+            "payloads; keep the happy path first and include only branches needed "
+            "by the request.",
             "End visual answers with concise follow-up choices: simplify labels in "
             "the user's language, expand omitted nodes or branches, or explore a "
             "related area.",
-            "A separate human-friendly translation may rewrite labels in the user's "
-            "language only from returned node, edge, source, and decision fields.",
+            "A separate human-friendly translation may rewrite labels and the "
+            "high-level written flow in the user's language only from returned "
+            "node, edge, source, step, and decision fields.",
             "Use ordered_steps as the canonical walkthrough and keep source anchors visible.",
             "Keep flow_id and node_id values visible so the slice can be expanded.",
             "Do not invent steps, constants, limits, error codes, or branches outside "
@@ -803,8 +820,29 @@ def _workflow_presentation_contract(
                 "but it must preserve all displayed facts exactly from the selected "
                 "workflow_slice or focused follow-up tool payloads."
             ),
+            "written_flow": {
+                "placement": "After the visual and before follow-up choices.",
+                "language": "Use the language of the user's request.",
+                "source_fields": [
+                    "ordered_steps",
+                    "primary_flows",
+                    "supporting_flows",
+                    "decisions",
+                    "domain_logic",
+                    "source_ranges",
+                ],
+                "style": (
+                    "Keep it compact, high-level, and source-grounded. Explain the "
+                    "happy path first, then only the branches needed by the user's "
+                    "question. Do not introduce facts absent from the payload."
+                ),
+                "language_friendly_rewrite": (
+                    "When simplifying diagram labels, rewrite this written flow with "
+                    "the same simplified wording and language."
+                ),
+            },
             "closing_options": [
-                "Offer a language-friendly rewrite of the graph labels in the user's language.",
+                "Offer a language-friendly rewrite of the graph labels and written flow.",
                 "Offer to expand the diagram with omitted nodes, branches, or adjacent flows.",
                 "Offer to explore another related area or deepen a specific path.",
             ],
@@ -817,8 +855,9 @@ def _workflow_presentation_contract(
             "human_friendly": (
                 "A human-friendly translation may replace technical labels with "
                 "clearer wording in the language used by the user, only as a separate "
-                "presentation layer. Preserve ids or source anchors and do not add "
-                "facts absent from the workflow_slice payload."
+                "presentation layer. Rewrite the high-level written flow with the "
+                "same simplified terminology. Preserve ids or source anchors and do "
+                "not add facts absent from the workflow_slice payload."
             ),
         },
         "media_policy": {
@@ -851,10 +890,12 @@ def _workflow_presentation_contract(
             "block as the primary visual unless the user asks for raw or copyable Mermaid. "
             "Do not render snapshot.svg inline by default; use SVG only when explicitly "
             "requested or for local inspection. Do not synthesize a new Mermaid diagram. "
-            "Explain that the diagram is a bounded summary and can be expanded. End with "
-            "options to simplify labels in the user's language, expand the graph with "
-            "omitted details, or explore a related area. Open viewer_targets with "
-            "codedebrief view for manual inspection."
+            "Explain that the diagram is a bounded summary and can be expanded. Add a "
+            "short high-level written flow in the user's language after the visual and "
+            "before follow-up options. End with options to simplify labels and the "
+            "written flow in the user's language, expand the graph with omitted details, "
+            "or explore a related area. Open viewer_targets with codedebrief view for "
+            "manual inspection."
         ),
         "canonical_visual": canonical_visual,
         "recommended_next_tools": {

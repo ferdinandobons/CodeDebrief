@@ -151,10 +151,14 @@ Mermaid visual returned by CodeDebrief:
    inspection; they are not the canonical chat visual.
 
 The model may choose the first visible depth, but the text inside shown blocks must come
-from CodeDebrief payloads. The answer should say that the diagram is a bounded summary and
-can be expanded. If the user wants a more language-friendly view, the agent may rewrite
-labels in the user's language as a separate presentation layer, preserving ids or source
-anchors and without adding facts.
+from CodeDebrief payloads. After the visual, the answer should include a short
+high-level written flow in the user's language, derived from ordered steps, selected
+flows, decisions, domain logic, and source ranges. That written flow should explain the
+happy path first and include only the branches needed by the request. The answer should
+also say that the diagram is a bounded summary and can be expanded. If the user wants a
+more language-friendly view, the agent may rewrite both labels and the written flow in
+the user's language as a separate presentation layer, preserving ids or source anchors
+and without adding facts.
 
 ## MCP Surface
 
