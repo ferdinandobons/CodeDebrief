@@ -18,10 +18,11 @@ inventing steps that are not in the graph.
 CodeDebrief is not a bug finder, a generic graph database, or an LLM enrichment service.
 The core workflow is deterministic, local, and offline. No LLM provider key is required.
 
-![Example source-backed workflow visual generated from a CodeDebrief slice](docs/assets/codedebrief-workflow-preview.png)
+![Compact source-backed workflow visual generated from a CodeDebrief slice](docs/assets/codedebrief-workflow-preview.png)
 
-Example output: a bounded source-backed workflow diagram that a coding agent can show
-from local artifacts.
+Example output: a compact presentation layer generated from local CodeDebrief artifacts.
+Canonical workflow visuals are vertical by default; horizontal diagrams are used when the
+user explicitly asks for a compact overview.
 
 > Status: pre-1.0 alpha. The model is versioned, but schema and MCP payloads may evolve
 > before 1.0.
