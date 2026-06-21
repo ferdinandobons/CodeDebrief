@@ -127,9 +127,12 @@ For natural-language questions, agents should start with MCP `agent_context`.
 When a user asks for a visual workflow, the agent should first render the deterministic
 Mermaid visual returned by LogicChart:
 
-1. Render `workflow_slice.presentation.canonical_visual.diagram` exactly as returned.
+1. Render `workflow_slice.presentation.canonical_visual.diagram` exactly as returned only
+   when the client renders Mermaid inline.
 2. If the client cannot render Mermaid inline, use `snapshot_slice` with
-   `include_svg=false` and provide the returned `.mmd` or Mermaid Markdown artifact.
+   `include_svg=false` and provide the returned `.mmd` or Mermaid Markdown artifact
+   before prose. Do not paste a long Mermaid code block as the primary visual unless the
+   user asks for raw or copyable Mermaid.
 3. Use SVG snapshot artifacts only when the user explicitly asks for SVG or local
    inspection; they are not the canonical chat visual.
 

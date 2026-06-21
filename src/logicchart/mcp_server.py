@@ -1347,9 +1347,11 @@ def _workflow_presentation_contract(
             "mermaid_canonical": (
                 "Use canonical_visual.diagram as the default chat visual. It is the "
                 "top-to-bottom Mermaid source of truth for repeated workflow answers. "
-                "When the client cannot render Mermaid inline, call snapshot_slice with "
-                "include_svg=false and provide artifact.mermaid_path, "
-                "artifact.mermaid_markdown_path, or artifact.mermaid_open_command."
+                "When the client cannot render Mermaid inline, or Mermaid would appear as "
+                "a raw code block, call snapshot_slice with include_svg=false and provide "
+                "artifact.mermaid_path, artifact.mermaid_markdown_path, or "
+                "artifact.mermaid_open_command instead of pasting the Mermaid source as "
+                "the primary visual."
             ),
             "svg_snapshot": (
                 "Use snapshot SVG artifacts only for explicit SVG requests or local "
@@ -1363,16 +1365,18 @@ def _workflow_presentation_contract(
         },
         "visual_guidance": (
             "If the user asks to visualize the slice, render "
-            "presentation.canonical_visual.diagram exactly as the first chat visual. Call "
-            "snapshot_slice with include_svg=false to persist Mermaid artifacts for clients "
-            "that cannot render Mermaid inline, then provide artifact.mermaid_path, "
-            "artifact.mermaid_markdown_path, or artifact.mermaid_open_command. Do not "
-            "render snapshot.svg inline by default; use SVG only when explicitly requested "
-            "or for local inspection. Do not synthesize a new Mermaid diagram. Explain "
-            "that the diagram is a bounded summary and can be expanded. End with options "
-            "to simplify labels in the user's language, expand the graph with omitted "
-            "details, or explore a related area. Open viewer_targets with logicchart view "
-            "for manual inspection."
+            "presentation.canonical_visual.diagram exactly only when the client renders "
+            "Mermaid inline. If Mermaid would appear as raw code, call snapshot_slice with "
+            "include_svg=false to persist Mermaid artifacts, then provide "
+            "artifact.mermaid_path, artifact.mermaid_markdown_path, or "
+            "artifact.mermaid_open_command before prose. Do not paste a long Mermaid code "
+            "block as the primary visual unless the user asks for raw or copyable Mermaid. "
+            "Do not render snapshot.svg inline by default; use SVG only when explicitly "
+            "requested or for local inspection. Do not synthesize a new Mermaid diagram. "
+            "Explain that the diagram is a bounded summary and can be expanded. End with "
+            "options to simplify labels in the user's language, expand the graph with "
+            "omitted details, or explore a related area. Open viewer_targets with "
+            "logicchart view for manual inspection."
         ),
         "canonical_visual": canonical_visual,
         "recommended_next_tools": {
@@ -1843,7 +1847,10 @@ def _workflow_next_actions(
     if supporting_flow_ids:
         actions.append("Inspect supporting_flows when caller/callee context changes the answer.")
     if primary_flow_ids:
-        actions.append("Use snapshot_slice when visual flowchart context would clarify the answer.")
+        actions.append(
+            "Use snapshot_slice with include_svg=false when visual flowchart context "
+            "would clarify the answer."
+        )
     return actions
 
 
@@ -1868,7 +1875,7 @@ def _workflow_slice_next_tools(
             "arguments": {
                 "flow_ids": flow_ids,
                 "format": "svg",
-                "include_svg": True,
+                "include_svg": False,
                 "token_budget": token_budget,
             },
         },
@@ -2160,7 +2167,7 @@ def _focused_flow_explanation(model: ProjectModel, flow: Any, token_budget: int)
                 "arguments": {
                     "flow_ids": [flow.id],
                     "format": "svg",
-                    "include_svg": True,
+                    "include_svg": False,
                     "token_budget": token_budget,
                 },
             },
@@ -2209,7 +2216,7 @@ def _focused_node_explanation(
                 "arguments": {
                     "flow_ids": [flow.id],
                     "format": "svg",
-                    "include_svg": True,
+                    "include_svg": False,
                     "token_budget": token_budget,
                 },
             },
@@ -2253,7 +2260,7 @@ def _focused_edge_explanation(
                 "arguments": {
                     "flow_ids": [flow.id],
                     "format": "svg",
-                    "include_svg": True,
+                    "include_svg": False,
                     "token_budget": token_budget,
                 },
             },

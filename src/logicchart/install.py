@@ -76,13 +76,17 @@ flusso, or similar code path:
    selected workflow, not every low-signal implementation node, but do not remove facts
    needed to understand the logical path.
 5. Render `workflow_slice.presentation.canonical_visual.diagram` exactly as the default
-   chat visual. It is the canonical top-to-bottom Mermaid graph and should be preferred
-   over SVG snapshots for repeated chat answers.
+   chat visual only when the client renders Mermaid blocks inline. It is the canonical
+   top-to-bottom Mermaid graph and should be preferred over SVG snapshots for repeated
+   chat answers.
 6. Call `snapshot_slice` using `workflow_slice.id`, `workflow_slice.handle.flow_ids`, and
    any `workflow_slice` handles returned by LogicChart to persist local artifacts. In
-   clients that cannot render Mermaid inline, call `snapshot_slice` with
-   `include_svg=false` and provide `artifact.mermaid_path`,
-   `artifact.mermaid_markdown_path`, or `artifact.mermaid_open_command`.
+   clients that cannot render Mermaid inline, or when Mermaid would appear as a raw code
+   block, call `snapshot_slice` with `include_svg=false` and provide
+   `artifact.mermaid_path`, `artifact.mermaid_markdown_path`, or
+   `artifact.mermaid_open_command` as the visual result before prose. Do not paste a long
+   Mermaid code block as the primary visual unless the user explicitly asks for raw or
+   copyable Mermaid.
 7. Do not render `snapshot.svg` inline by default. SVG/HTML snapshot artifacts are for
    explicit SVG requests or local inspection only, because their layout may differ from
    Mermaid and can overlap text in some clients. Keep the returned `diagram_hash` visible
@@ -136,12 +140,15 @@ For codebase questions about behavior, decisions, workflow structure, or change 
    its returned `workflow_slice` before answering.
 3. When the user asks to show a workflow, flusso, visual flow, canvas, or
    `workflow_slice`, prefer the canonical Mermaid visual: render
-   `workflow_slice.presentation.canonical_visual.diagram` exactly as returned. If the
-   client cannot render Mermaid inline, call `snapshot_slice` with `include_svg=false` and
-   provide `artifact.mermaid_path`, `artifact.mermaid_markdown_path`, or
-   `artifact.mermaid_open_command`. Do not render `snapshot.svg` inline by default; SVG
-   artifacts are for explicit SVG requests or local inspection because their layout can
-   differ from Mermaid.
+   `workflow_slice.presentation.canonical_visual.diagram` exactly as returned only when
+   the client renders Mermaid inline. If the client cannot render Mermaid inline, or if
+   Mermaid would appear as a raw code block, call `snapshot_slice` with
+   `include_svg=false` and provide `artifact.mermaid_path`,
+   `artifact.mermaid_markdown_path`, or `artifact.mermaid_open_command` as the visual
+   result before prose. Do not paste a long Mermaid code block as the primary visual
+   unless the user explicitly asks for raw or copyable Mermaid. Do not render
+   `snapshot.svg` inline by default; SVG artifacts are for explicit SVG requests or local
+   inspection because their layout can differ from Mermaid.
    Keep LogicChart visuals vertical/top-to-bottom; do not redraw them as horizontal
    summaries.
    Inspect the full returned `workflow_slice` before deciding what to show. Choose the

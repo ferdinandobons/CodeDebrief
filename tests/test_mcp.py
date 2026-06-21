@@ -266,6 +266,7 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
     media_policy = workflow_slice["presentation"]["media_policy"]
     assert "canonical_visual.diagram" in media_policy["mermaid_canonical"]
     assert "artifact.mermaid_path" in media_policy["mermaid_canonical"]
+    assert "raw code block" in media_policy["mermaid_canonical"]
     assert "explicit SVG requests" in media_policy["svg_snapshot"]
     assert "logicchart view" in workflow_slice["presentation"]["media_policy"]["manual_viewer"]
     assert "explore a related area" in workflow_slice["presentation"]["visual_guidance"]
@@ -535,7 +536,7 @@ def authorize(user):
                 assert workflow_slice["next_tools"]["expand_slice"]["tool"] == "expand_slice"
                 assert (
                     workflow_slice["next_tools"]["snapshot_slice"]["arguments"]["include_svg"]
-                    is True
+                    is False
                 )
                 expanded_slice = await session.call_tool(
                     "expand_slice",

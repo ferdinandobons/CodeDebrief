@@ -46,7 +46,10 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "`artifact.mermaid_path`" in content
     assert "`artifact.mermaid_markdown_path`" in content
     assert "`artifact.mermaid_open_command`" in content
-    assert "Do not render `snapshot.svg` inline by default" in content
+    assert "Mermaid would appear as a raw code block" in content
+    assert "Do not paste a long Mermaid code block as the primary visual" in content
+    assert "raw or copyable Mermaid" in content
+    assert "Do not render\n   `snapshot.svg` inline by default" in content
     assert "`workflow_slice.presentation.canonical_visual.diagram` exactly" in content
     assert "top-to-bottom" in content
     assert "vertical/top-to-bottom" in content
@@ -96,6 +99,9 @@ def _assert_logicchart_skill(content: str) -> None:
     assert "`artifact.mermaid_path`" in content
     assert "`artifact.mermaid_markdown_path`" in content
     assert "`artifact.mermaid_open_command`" in content
+    assert "Mermaid would appear as a raw code\n   block" in content
+    assert "Do not paste a long\n   Mermaid code block as the primary visual" in content
+    assert "raw or\n   copyable Mermaid" in content
     assert "Do not render `snapshot.svg` inline by default" in content
     assert "`workflow_slice.presentation.canonical_visual.diagram` exactly" in content
     assert "top-to-bottom" in content

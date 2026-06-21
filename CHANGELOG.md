@@ -19,8 +19,9 @@ The project follows Semantic Versioning.
   guidance where supported.
 - Updated agent guidance so visual workflow answers use the deterministic
   `workflow_slice.presentation.canonical_visual.diagram` first, persist Mermaid `.mmd` /
-  Markdown artifacts for clients without inline Mermaid rendering, and reserve SVG
-  snapshots for explicit SVG or local-inspection requests.
+  Markdown artifacts for clients without inline Mermaid rendering, avoid long raw Mermaid
+  code blocks as the primary visual, and reserve SVG snapshots for explicit SVG or
+  local-inspection requests.
 - Replaced standalone LLM/viewer docs with the README, generated agent instructions, and
   `CONTRIBUTING.md` as the maintained public guidance surfaces.
 
