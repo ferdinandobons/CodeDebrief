@@ -263,7 +263,10 @@ def test_workflow_slice_anchors_natural_query_to_one_primary_flow(tmp_path: Path
         "language used by the user"
         in workflow_slice["presentation"]["label_policy"]["human_friendly"]
     )
-    assert "snapshot_slice" in workflow_slice["presentation"]["media_policy"]["svg_snapshot"]
+    media_policy = workflow_slice["presentation"]["media_policy"]
+    assert "canonical_visual.diagram" in media_policy["mermaid_canonical"]
+    assert "artifact.mermaid_path" in media_policy["mermaid_canonical"]
+    assert "explicit SVG requests" in media_policy["svg_snapshot"]
     assert "logicchart view" in workflow_slice["presentation"]["media_policy"]["manual_viewer"]
     assert "explore a related area" in workflow_slice["presentation"]["visual_guidance"]
     canonical_visual = workflow_slice["presentation"]["canonical_visual"]
@@ -557,12 +560,21 @@ def authorize(user):
                 )
                 assert not slice_snapshot.isError
                 assert slice_snapshot.structuredContent["snapshot"]["format"] == "svg"  # type: ignore[index]
+                assert slice_snapshot.structuredContent["canonical_visual"]["format"] == "mermaid"  # type: ignore[index]
                 artifact = slice_snapshot.structuredContent["artifact"]  # type: ignore[index]
                 assert artifact["written"] is True  # type: ignore[index]
+                assert artifact["schema_version"] == "snapshot_artifact.v2"  # type: ignore[index]
+                assert artifact["preferred_format"] == "mermaid"  # type: ignore[index]
+                assert artifact["mermaid_path"].endswith(".mmd")  # type: ignore[index]
+                assert artifact["mermaid_markdown_path"].endswith(".md")  # type: ignore[index]
                 assert artifact["html_path"].endswith(".html")  # type: ignore[index]
                 assert artifact["svg_path"].endswith(".svg")  # type: ignore[index]
+                assert Path(artifact["mermaid_path"]).exists()  # type: ignore[index]
+                assert Path(artifact["mermaid_markdown_path"]).exists()  # type: ignore[index]
                 assert Path(artifact["html_path"]).exists()  # type: ignore[index]
                 assert Path(artifact["svg_path"]).exists()  # type: ignore[index]
+                mermaid_text = Path(artifact["mermaid_path"]).read_text(encoding="utf-8")  # type: ignore[index]
+                assert mermaid_text.startswith("flowchart TD")
                 assert "<svg" in Path(artifact["svg_path"]).read_text(encoding="utf-8")  # type: ignore[index]
                 assert "open" in artifact["open_command"] or "xdg-open" in artifact["open_command"]  # type: ignore[index]
                 assert (  # type: ignore[index]
@@ -584,6 +596,9 @@ def authorize(user):
                 assert light_payload["snapshot"]["svg_omitted"] is True  # type: ignore[index]
                 assert light_payload["snapshot"]["svg_byte_size"] > 0  # type: ignore[index]
                 assert light_payload["artifact"]["written"] is True  # type: ignore[index]
+                assert light_payload["artifact"]["preferred_format"] == "mermaid"  # type: ignore[index]
+                assert light_payload["artifact"]["mermaid_path"].endswith(".mmd")  # type: ignore[index]
+                assert light_payload["artifact"]["mermaid_markdown_path"].endswith(".md")  # type: ignore[index]
                 path_response = await session.call_tool(
                     "workflow_path",
                     {"source": flow.id, "target": flow.id, "token_budget": 480},

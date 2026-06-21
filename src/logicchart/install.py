@@ -75,27 +75,26 @@ flusso, or similar code path:
 4. Choose the first visible depth yourself: show the clearest useful subset of the
    selected workflow, not every low-signal implementation node, but do not remove facts
    needed to understand the logical path.
-5. Call `snapshot_slice` using `workflow_slice.id`, `workflow_slice.handle.flow_ids`, and
-   any `workflow_slice` handles returned by LogicChart.
-6. Show the SVG snapshot or rendered visual first when the client supports it. If the
-   client has an SVG/HTML visualization widget, render `snapshot.svg` with that widget
-   instead of pasting the SVG or Mermaid as text.
-   LogicChart snapshots and Mermaid fallbacks are vertical/top-to-bottom visuals; do not
-   rotate them into horizontal summaries.
-7. If inline SVG rendering is not possible but a local snapshot artifact was returned,
-   provide that artifact path or open command as the visual result before any text
-   fallback. In terminal clients with no SVG widget, call `snapshot_slice` with
-   `include_svg=false` and use the returned `artifact.html_path`, `artifact.svg_path`, or
-   `artifact.open_command`. If no local artifact can be opened, render
-   `workflow_slice.presentation.canonical_visual.diagram` exactly as the top-to-bottom
-   Mermaid fallback. Keep the returned `diagram_hash` visible when useful. Do not
-   synthesize a new Mermaid diagram and do not add limits, error codes, branches, or
-   service steps that are absent from the `workflow_slice` payload.
+5. Render `workflow_slice.presentation.canonical_visual.diagram` exactly as the default
+   chat visual. It is the canonical top-to-bottom Mermaid graph and should be preferred
+   over SVG snapshots for repeated chat answers.
+6. Call `snapshot_slice` using `workflow_slice.id`, `workflow_slice.handle.flow_ids`, and
+   any `workflow_slice` handles returned by LogicChart to persist local artifacts. In
+   clients that cannot render Mermaid inline, call `snapshot_slice` with
+   `include_svg=false` and provide `artifact.mermaid_path`,
+   `artifact.mermaid_markdown_path`, or `artifact.mermaid_open_command`.
+7. Do not render `snapshot.svg` inline by default. SVG/HTML snapshot artifacts are for
+   explicit SVG requests or local inspection only, because their layout may differ from
+   Mermaid and can overlap text in some clients. Keep the returned `diagram_hash` visible
+   when useful. Do not synthesize a new Mermaid diagram and do not add limits, error
+   codes, branches, or service steps that are absent from the `workflow_slice` payload.
+   LogicChart Mermaid visuals are vertical/top-to-bottom; do not rotate them into
+   horizontal summaries.
 8. Do not read source files to rebuild, relabel, or extend the diagram. Source reads are
    allowed only as follow-up explanation after the deterministic LogicChart visual is
    shown, and they must not change the displayed nodes, edges, labels, or branches.
-9. If neither inline SVG nor exact canonical Mermaid can be rendered, say that the
-   deterministic visual cannot be shown in this client and provide `viewer_targets`;
+9. If neither exact canonical Mermaid nor a returned Mermaid artifact can be used, say
+   that the deterministic visual cannot be shown in this client and provide `viewer_targets`;
    never create a replacement Mermaid diagram from prose or source reads.
 10. Say that the displayed diagram is a bounded summary of the selected logic and can be
    expanded. If the user asks for a more language-friendly version, rewrite the technical
@@ -136,13 +135,13 @@ For codebase questions about behavior, decisions, workflow structure, or change 
    current file, flow id, symbol, or dependency path when available; inspect
    its returned `workflow_slice` before answering.
 3. When the user asks to show a workflow, flusso, visual flow, canvas, or
-   `workflow_slice`, prefer a visual answer: use `snapshot_slice` when available and render
-   `snapshot.svg` through the client's SVG/HTML visualization widget when one exists. If
-   the client cannot render SVG inline, call `snapshot_slice` with `include_svg=false` and
-   provide the returned local `artifact.html_path`, `artifact.svg_path`, or
-   `artifact.open_command` before any text fallback. If no local artifact can be opened,
-   render `workflow_slice.presentation.canonical_visual.diagram` exactly as the
-   top-to-bottom Mermaid fallback.
+   `workflow_slice`, prefer the canonical Mermaid visual: render
+   `workflow_slice.presentation.canonical_visual.diagram` exactly as returned. If the
+   client cannot render Mermaid inline, call `snapshot_slice` with `include_svg=false` and
+   provide `artifact.mermaid_path`, `artifact.mermaid_markdown_path`, or
+   `artifact.mermaid_open_command`. Do not render `snapshot.svg` inline by default; SVG
+   artifacts are for explicit SVG requests or local inspection because their layout can
+   differ from Mermaid.
    Keep LogicChart visuals vertical/top-to-bottom; do not redraw them as horizontal
    summaries.
    Inspect the full returned `workflow_slice` before deciding what to show. Choose the
@@ -156,9 +155,9 @@ For codebase questions about behavior, decisions, workflow structure, or change 
    or service steps that are absent from the `workflow_slice` payload. Do not read source
    files to rebuild, relabel, or extend the diagram; source reads are only follow-up
    explanation after the deterministic visual is shown and must not change displayed
-   nodes, edges, labels, or branches. If neither inline SVG nor exact canonical Mermaid can
-   be rendered, say so and provide `viewer_targets` instead of creating a replacement
-   Mermaid diagram. If the user asks for a more language-friendly version, rewrite the
+   nodes, edges, labels, or branches. If neither exact canonical Mermaid nor a returned
+   Mermaid artifact can be used, say so and provide `viewer_targets` instead of creating
+   a replacement Mermaid diagram. If the user asks for a more language-friendly version, rewrite the
    technical block labels in simple wording using the language of the user's request. This
    is allowed only as a separate presentation layer derived from returned node, edge,
    decision, and source fields. End visual answers with concise options in the user's

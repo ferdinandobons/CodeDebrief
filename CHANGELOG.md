@@ -18,8 +18,9 @@ The project follows Semantic Versioning.
   requested target's instruction file and installs provider-native LogicChart skill
   guidance where supported.
 - Updated agent guidance so visual workflow answers use the deterministic
-  `workflow_slice.presentation.canonical_visual.diagram` or MCP snapshot artifacts instead
-  of hand-building divergent Mermaid diagrams.
+  `workflow_slice.presentation.canonical_visual.diagram` first, persist Mermaid `.mmd` /
+  Markdown artifacts for clients without inline Mermaid rendering, and reserve SVG
+  snapshots for explicit SVG or local-inspection requests.
 - Replaced standalone LLM/viewer docs with the README, generated agent instructions, and
   `CONTRIBUTING.md` as the maintained public guidance surfaces.
 
@@ -32,8 +33,8 @@ The project follows Semantic Versioning.
   `explain_node`, and `explain_edge` for progressive workflow-slice navigation and focused
   source-grounded inspection.
 - Added deterministic visual presentation metadata for workflow slices, including stable
-  top-to-bottom Mermaid fallback, `diagram_hash`, viewer targets, and local SVG/HTML
-  snapshot artifacts for clients that can render inline widgets.
+  top-to-bottom Mermaid output, `diagram_hash`, viewer targets, local `.mmd` / Markdown
+  snapshot artifacts, and legacy SVG/HTML artifacts for local inspection.
 - Added optional local annotation sidecars and MCP annotation tools for agent-authored
   enrichment without requiring provider keys.
 - Added analyzer quality, skipped-file, language-capability, and parse-warning metadata for

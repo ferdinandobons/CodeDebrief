@@ -882,11 +882,17 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             max_flows=_snapshot_flow_budget(token_budget),
             max_nodes=_snapshot_node_budget(token_budget),
         )
+        canonical_visual = _workflow_canonical_visual(
+            model,
+            normalized_flow_ids,
+            token_budget,
+        )
         artifact = _write_snapshot_artifact(
             project_root,
             snapshot,
             slice_id=slice_id,
             flow_ids=normalized_flow_ids,
+            canonical_visual=canonical_visual,
         )
         snapshot_payload = dict(snapshot)
         if not include_svg and "svg" in snapshot_payload:
@@ -900,6 +906,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             "format": format,
             "flow_ids": normalized_flow_ids,
             "snapshot": snapshot_payload,
+            "canonical_visual": canonical_visual,
             "artifact": artifact,
             "viewer_targets": _workflow_viewer_targets(
                 model,
@@ -908,8 +915,9 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             "guardrail": (
                 "Snapshots are deterministic visual context for the selected slice. "
                 "Omission counts must be preserved when explaining large slices. "
-                "If the client cannot render inline SVG or Mermaid, open the returned "
-                "artifact html_path/svg_path instead of rebuilding the diagram."
+                "For chat answers, prefer the returned canonical_visual Mermaid or "
+                "artifact mermaid_path/mermaid_markdown_path. Use SVG paths only when "
+                "the user explicitly asks for the SVG snapshot or for local inspection."
             ),
         }
 
@@ -1335,18 +1343,17 @@ def _workflow_presentation_contract(
             ),
         },
         "media_policy": {
-            "svg_snapshot": (
-                "Prefer snapshot_slice when the client can render inline SVG, SVG/HTML "
-                "visualization widgets, or local image artifacts; it is the closest static "
-                "visual to the modeled graph. In terminal clients with no SVG widget, call "
-                "snapshot_slice with include_svg=false and open the returned artifact "
-                "html_path/svg_path."
+            "mermaid_canonical": (
+                "Use canonical_visual.diagram as the default chat visual. It is the "
+                "top-to-bottom Mermaid source of truth for repeated workflow answers. "
+                "When the client cannot render Mermaid inline, call snapshot_slice with "
+                "include_svg=false and provide artifact.mermaid_path, "
+                "artifact.mermaid_markdown_path, or artifact.mermaid_open_command."
             ),
-            "mermaid_fallback": (
-                "Use canonical_visual.diagram as the top-to-bottom universal text "
-                "fallback when images are unavailable or the user wants copyable output; "
-                "do not treat a code block as a rendered graph in clients that only show "
-                "plain text."
+            "svg_snapshot": (
+                "Use snapshot SVG artifacts only for explicit SVG requests or local "
+                "inspection. The SVG renderer is deterministic but is not the canonical "
+                "chat visual and may lay out text differently from Mermaid."
             ),
             "manual_viewer": (
                 "Keep logicchart view as the interactive manual UI; do not replace it "
@@ -1354,17 +1361,17 @@ def _workflow_presentation_contract(
             ),
         },
         "visual_guidance": (
-            "If the user asks to visualize the slice, call snapshot_slice with "
-            "handle.flow_ids. If the client has an SVG/HTML "
-            "visualization widget, render snapshot.svg through that widget. If inline SVG "
-            "is unavailable in the client, call snapshot_slice with include_svg=false and "
-            "provide the returned artifact html_path/svg_path or open_command before any "
-            "text fallback. If no local artifact can be opened, render "
-            "presentation.canonical_visual.diagram exactly; do not synthesize a new Mermaid "
-            "diagram. Explain that the diagram is a bounded summary and can be expanded. "
-            "End with options to simplify labels in the user's language, expand the graph "
-            "with omitted details, or explore a related area. Open viewer_targets with "
-            "logicchart view for manual inspection."
+            "If the user asks to visualize the slice, render "
+            "presentation.canonical_visual.diagram exactly as the first chat visual. Call "
+            "snapshot_slice with include_svg=false to persist Mermaid artifacts for clients "
+            "that cannot render Mermaid inline, then provide artifact.mermaid_path, "
+            "artifact.mermaid_markdown_path, or artifact.mermaid_open_command. Do not "
+            "render snapshot.svg inline by default; use SVG only when explicitly requested "
+            "or for local inspection. Do not synthesize a new Mermaid diagram. Explain "
+            "that the diagram is a bounded summary and can be expanded. End with options "
+            "to simplify labels in the user's language, expand the graph with omitted "
+            "details, or explore a related area. Open viewer_targets with logicchart view "
+            "for manual inspection."
         ),
         "canonical_visual": canonical_visual,
         "recommended_next_tools": {
@@ -2655,47 +2662,87 @@ def _write_snapshot_artifact(
     *,
     slice_id: str | None,
     flow_ids: list[str],
+    canonical_visual: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     svg = snapshot.get("svg")
-    if not isinstance(svg, str) or not svg.startswith("<svg"):
+    mermaid = canonical_visual.get("diagram") if isinstance(canonical_visual, dict) else None
+    if not isinstance(mermaid, str) or not mermaid.strip():
+        mermaid = None
+    if not mermaid and (not isinstance(svg, str) or not svg.startswith("<svg")):
         return {
             "written": False,
-            "reason": "snapshot_svg_unavailable",
+            "reason": "snapshot_visual_unavailable",
         }
-    digest = hashlib.sha256(svg.encode("utf-8")).hexdigest()[:16]
+    digest_parts = (mermaid, svg if isinstance(svg, str) else None)
+    digest_input = "\n".join(part for part in digest_parts if part)
+    digest = hashlib.sha256(digest_input.encode("utf-8")).hexdigest()[:16]
     stem = _snapshot_artifact_stem(slice_id, flow_ids, digest)
     snapshot_dir = project_root / ".logicchart" / "snapshots"
     svg_path = snapshot_dir / f"{stem}.svg"
     html_path = snapshot_dir / f"{stem}.html"
+    mermaid_path = snapshot_dir / f"{stem}.mmd"
+    mermaid_markdown_path = snapshot_dir / f"{stem}.md"
     try:
         snapshot_dir.mkdir(parents=True, exist_ok=True)
-        svg_path.write_text(svg, encoding="utf-8")
-        html_path.write_text(_snapshot_artifact_html(svg, stem), encoding="utf-8")
+        if mermaid:
+            mermaid_path.write_text(mermaid + "\n", encoding="utf-8")
+            mermaid_markdown_path.write_text(
+                _snapshot_mermaid_markdown(mermaid, stem, canonical_visual),
+                encoding="utf-8",
+            )
+        if isinstance(svg, str) and svg.startswith("<svg"):
+            svg_path.write_text(svg, encoding="utf-8")
+            html_path.write_text(_snapshot_artifact_html(svg, stem), encoding="utf-8")
     except OSError as exc:
         return {
             "written": False,
             "reason": "write_failed",
             "error": str(exc),
         }
-    relative_svg = svg_path.relative_to(project_root).as_posix()
-    relative_html = html_path.relative_to(project_root).as_posix()
-    return {
+    artifact: dict[str, Any] = {
         "written": True,
-        "schema_version": "snapshot_artifact.v1",
-        "format": "svg",
+        "schema_version": "snapshot_artifact.v2",
+        "format": "mermaid",
+        "formats": [],
+        "preferred_format": "mermaid" if mermaid else "svg",
         "digest": digest,
         "directory": str(snapshot_dir),
-        "svg_path": str(svg_path),
-        "html_path": str(html_path),
-        "relative_svg_path": relative_svg,
-        "relative_html_path": relative_html,
-        "open_command": _open_file_command(html_path),
-        "markdown_image": f"![LogicChart snapshot]({svg_path})",
         "guardrail": (
-            "Use this local artifact when the chat client cannot render inline SVG or "
-            "Mermaid. The file is generated under .logicchart/ and is local-only."
+            "Mermaid artifacts are the source of truth for chat visuals because they use "
+            "the canonical workflow_slice diagram. SVG artifacts are local inspection "
+            "snapshots and may not match Mermaid layout exactly."
         ),
     }
+    if mermaid:
+        artifact.update(
+            {
+                "formats": [*artifact["formats"], "mermaid"],
+                "mermaid_path": str(mermaid_path),
+                "mermaid_markdown_path": str(mermaid_markdown_path),
+                "relative_mermaid_path": mermaid_path.relative_to(project_root).as_posix(),
+                "relative_mermaid_markdown_path": mermaid_markdown_path.relative_to(
+                    project_root
+                ).as_posix(),
+                "mermaid_open_command": _open_file_command(mermaid_markdown_path),
+                "open_command": _open_file_command(mermaid_markdown_path),
+            }
+        )
+    if isinstance(svg, str) and svg.startswith("<svg"):
+        relative_svg = svg_path.relative_to(project_root).as_posix()
+        relative_html = html_path.relative_to(project_root).as_posix()
+        artifact.update(
+            {
+                "formats": [*artifact["formats"], "svg"],
+                "svg_path": str(svg_path),
+                "html_path": str(html_path),
+                "relative_svg_path": relative_svg,
+                "relative_html_path": relative_html,
+                "svg_open_command": _open_file_command(html_path),
+                "markdown_image": f"![LogicChart snapshot]({svg_path})",
+            }
+        )
+        artifact.setdefault("open_command", _open_file_command(html_path))
+    return artifact
 
 
 def _snapshot_artifact_stem(
@@ -2734,6 +2781,29 @@ def _snapshot_artifact_html(svg: str, title: str) -> str:
             "  </main>",
             "</body>",
             "</html>",
+        ]
+    )
+
+
+def _snapshot_mermaid_markdown(
+    mermaid: str,
+    title: str,
+    canonical_visual: dict[str, Any] | None,
+) -> str:
+    diagram_hash = ""
+    if isinstance(canonical_visual, dict):
+        diagram_hash = str(canonical_visual.get("diagram_hash") or "")
+    header = ["# LogicChart Mermaid Snapshot", "", f"Source: `{title}`"]
+    if diagram_hash:
+        header.append(f"Diagram hash: `{diagram_hash}`")
+    return "\n".join(
+        [
+            *header,
+            "",
+            "```mermaid",
+            mermaid,
+            "```",
+            "",
         ]
     )
 

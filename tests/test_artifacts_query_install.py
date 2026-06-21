@@ -40,12 +40,13 @@ REMOVED_AGENT_COMMAND_SNIPPETS = (
 def _assert_current_agent_instructions(content: str) -> None:
     assert "Prefer the LogicChart MCP `agent_context` tool" in content
     assert "When the user asks to show a workflow, flusso, visual flow, canvas" in content
-    assert "SVG/HTML visualization widget" in content
+    assert "canonical Mermaid visual" in content
     assert "`snapshot.svg`" in content
     assert "`include_svg=false`" in content
-    assert "`artifact.html_path`" in content
-    assert "`artifact.svg_path`" in content
-    assert "`artifact.open_command`" in content
+    assert "`artifact.mermaid_path`" in content
+    assert "`artifact.mermaid_markdown_path`" in content
+    assert "`artifact.mermaid_open_command`" in content
+    assert "Do not render `snapshot.svg` inline by default" in content
     assert "`workflow_slice.presentation.canonical_visual.diagram` exactly" in content
     assert "top-to-bottom" in content
     assert "vertical/top-to-bottom" in content
@@ -67,7 +68,7 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "synthesize a new Mermaid" in content
     assert "Do not read source\n   files to rebuild" in content
     assert "must not change displayed\n   nodes, edges, labels, or branches" in content
-    assert "creating a replacement\n   Mermaid diagram" in content
+    assert "instead of creating\n   a replacement Mermaid diagram" in content
     assert "absent" in content
     assert "`workflow_slice` payload" in content
     assert "raw JSON" in content
@@ -92,8 +93,10 @@ def _assert_logicchart_skill(content: str) -> None:
     assert "include_visual=true" in content
     assert "`snapshot_slice`" in content
     assert "`include_svg=false`" in content
-    assert "`artifact.html_path`" in content
-    assert "`artifact.open_command`" in content
+    assert "`artifact.mermaid_path`" in content
+    assert "`artifact.mermaid_markdown_path`" in content
+    assert "`artifact.mermaid_open_command`" in content
+    assert "Do not render `snapshot.svg` inline by default" in content
     assert "`workflow_slice.presentation.canonical_visual.diagram` exactly" in content
     assert "top-to-bottom" in content
     assert "vertical/top-to-bottom" in content

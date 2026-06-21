@@ -10,13 +10,13 @@ For codebase questions about behavior, decisions, workflow structure, or change 
    current file, flow id, symbol, or dependency path when available; inspect
    its returned `workflow_slice` before answering.
 3. When the user asks to show a workflow, flusso, visual flow, canvas, or
-   `workflow_slice`, prefer a visual answer: use `snapshot_slice` when available and render
-   `snapshot.svg` through the client's SVG/HTML visualization widget when one exists. If
-   the client cannot render SVG inline, call `snapshot_slice` with `include_svg=false` and
-   provide the returned local `artifact.html_path`, `artifact.svg_path`, or
-   `artifact.open_command` before any text fallback. If no local artifact can be opened,
-   render `workflow_slice.presentation.canonical_visual.diagram` exactly as the
-   top-to-bottom Mermaid fallback.
+   `workflow_slice`, prefer the canonical Mermaid visual: render
+   `workflow_slice.presentation.canonical_visual.diagram` exactly as returned. If the
+   client cannot render Mermaid inline, call `snapshot_slice` with `include_svg=false` and
+   provide `artifact.mermaid_path`, `artifact.mermaid_markdown_path`, or
+   `artifact.mermaid_open_command`. Do not render `snapshot.svg` inline by default; SVG
+   artifacts are for explicit SVG requests or local inspection because their layout can
+   differ from Mermaid.
    Keep LogicChart visuals vertical/top-to-bottom; do not redraw them as horizontal
    summaries.
    Inspect the full returned `workflow_slice` before deciding what to show. Choose the
@@ -30,14 +30,14 @@ For codebase questions about behavior, decisions, workflow structure, or change 
    or service steps that are absent from the `workflow_slice` payload. Do not read source
    files to rebuild, relabel, or extend the diagram; source reads are only follow-up
    explanation after the deterministic visual is shown and must not change displayed
-   nodes, edges, labels, or branches. If neither inline SVG nor exact canonical Mermaid can
-   be rendered, say so and provide `viewer_targets` instead of creating a replacement
-   Mermaid diagram. If the user asks for a more language-friendly version, rewrite the
-   technical block labels in simple wording using the language of the user's request. This
-   is allowed only as a separate presentation layer derived from returned node, edge,
-   decision, and source fields. End visual answers with concise options in the user's
-   language: simplify labels, expand omitted nodes/branches/adjacent flows, or explore a
-   related area. Show raw JSON or YAML only when explicitly requested.
+   nodes, edges, labels, or branches. If neither exact canonical Mermaid nor a returned
+   Mermaid artifact can be used, say so and provide `viewer_targets` instead of creating a
+   replacement Mermaid diagram. If the user asks for a more language-friendly version,
+   rewrite the technical block labels in simple wording using the language of the user's
+   request. This is allowed only as a separate presentation layer derived from returned
+   node, edge, decision, and source fields. End visual answers with concise options in the
+   user's language: simplify labels, expand omitted nodes/branches/adjacent flows, or
+   explore a related area. Show raw JSON or YAML only when explicitly requested.
 4. Use `expand_slice`, `workflow_path`, `snapshot_slice`, `explain_flow`, `explain_node`,
    or `explain_edge` only when the first slice needs more precise context.
 5. Use `logicchart view ...` only when a human wants the manual UI flowchart.

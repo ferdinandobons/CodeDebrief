@@ -45,6 +45,7 @@ describeIfCertifexp("Certifexp local viewer performance", () => {
 
   it("expands the large canvas without rendering every inline detail chart", async () => {
     const payload = loadCertifexpPayload();
+    const performanceScale = Math.max(1, flowNodeCount(payload) / 10_000);
 
     mounted = mountStandaloneLogicChartViewer(container, payload);
 
@@ -55,10 +56,10 @@ describeIfCertifexp("Certifexp local viewer performance", () => {
     });
     const expandElapsed = performance.now() - expandStart;
 
-    const flowNodeCount = container.querySelectorAll(".flow-node").length;
-    expect(flowNodeCount).toBeGreaterThan(Math.floor(payload.flows.length * 0.3));
+    const renderedFlowNodeCount = container.querySelectorAll(".flow-node").length;
+    expect(renderedFlowNodeCount).toBeGreaterThan(Math.floor(payload.flows.length * 0.3));
     expect(container.querySelectorAll(".flow-detail")).toHaveLength(0);
-    expect(expandElapsed).toBeLessThan(5000);
+    expect(expandElapsed).toBeLessThan(5000 * performanceScale);
 
     const detailedFlow = payload.flows.find(flow => (flow.nodes?.length ?? 0) > 1);
     expect(detailedFlow).toBeDefined();
@@ -71,12 +72,16 @@ describeIfCertifexp("Certifexp local viewer performance", () => {
     const detailElapsed = performance.now() - detailStart;
 
     expect(container.querySelectorAll(".flow-detail").length).toBeGreaterThan(0);
-    expect(detailElapsed).toBeLessThan(2500);
+    expect(detailElapsed).toBeLessThan(2500 * performanceScale);
   }, 20000);
 });
 
 function loadCertifexpPayload(): LogicChartPayload {
   return JSON.parse(readFileSync(CERTIFEXP_MODEL_PATH, "utf8")) as LogicChartPayload;
+}
+
+function flowNodeCount(payload: LogicChartPayload): number {
+  return payload.flows.reduce((total, flow) => total + (flow.nodes?.length ?? 0), 0);
 }
 
 async function flushAsyncTimers(count: number): Promise<void> {

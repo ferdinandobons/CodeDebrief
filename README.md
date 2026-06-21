@@ -125,12 +125,13 @@ For natural-language questions, agents should start with MCP `agent_context`.
 - follow-up tools for expansion, path tracing, focused explanation, and snapshots.
 
 When a user asks for a visual workflow, the agent should first render the deterministic
-visual returned by LogicChart:
+Mermaid visual returned by LogicChart:
 
-1. Use `snapshot_slice` when the client can show inline SVG or an HTML/SVG widget.
-2. If inline SVG is unavailable, use the returned local artifact path.
-3. If a text fallback is needed, render `workflow_slice.presentation.canonical_visual.diagram`
-   exactly as returned.
+1. Render `workflow_slice.presentation.canonical_visual.diagram` exactly as returned.
+2. If the client cannot render Mermaid inline, use `snapshot_slice` with
+   `include_svg=false` and provide the returned `.mmd` or Mermaid Markdown artifact.
+3. Use SVG snapshot artifacts only when the user explicitly asks for SVG or local
+   inspection; they are not the canonical chat visual.
 
 The model may choose the first visible depth, but the text inside shown blocks must come
 from LogicChart payloads. The answer should say that the diagram is a bounded summary and
