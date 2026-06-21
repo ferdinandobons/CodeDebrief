@@ -132,7 +132,9 @@ Mermaid visual returned by LogicChart:
 2. If the client cannot render Mermaid inline, use `snapshot_slice` with
    `include_svg=false` and provide the returned `.mmd` or Mermaid Markdown artifact
    before prose. Do not paste a long Mermaid code block as the primary visual unless the
-   user asks for raw or copyable Mermaid.
+   user asks for raw or copyable Mermaid. These generated files are meant to be opened
+   with the best available local preview path, for example opening the Markdown artifact
+   in VS Code and using Markdown/Mermaid preview support.
 3. Use SVG snapshot artifacts only when the user explicitly asks for SVG or local
    inspection; they are not the canonical chat visual.
 
