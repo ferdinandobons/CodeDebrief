@@ -65,7 +65,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ferdinandobons/CodeDebrief"
+Homepage = "https://ferdinandobons.github.io/CodeDebrief/"
 Documentation = "https://github.com/ferdinandobons/CodeDebrief#readme"
 Issues = "https://github.com/ferdinandobons/CodeDebrief/issues"
 Source = "https://github.com/ferdinandobons/CodeDebrief"

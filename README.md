@@ -28,6 +28,7 @@ user explicitly asks for a compact overview.
 > before 1.0.
 >
 > Latest release: [v0.12.0](https://github.com/ferdinandobons/CodeDebrief/releases/tag/v0.12.0)
+> · [Website](https://ferdinandobons.github.io/CodeDebrief/)
 > · [Changelog](CHANGELOG.md)
 
 ## Why It Exists

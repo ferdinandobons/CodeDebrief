@@ -6,6 +6,10 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+### Added
+
+- Added a small GitHub Pages landing page for the repository website link.
+
 ## 0.12.0 - 2026-06-21
 
 ### Added
