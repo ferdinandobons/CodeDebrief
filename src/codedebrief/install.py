@@ -55,9 +55,12 @@ configured.
    primary/supporting flows, ordered steps, decisions, source ranges, calls, and visuals.
 3. Use `expand_slice`, `workflow_path`, `explain_flow`, `explain_node`, or `explain_edge`
    only when the first slice is too narrow.
-4. After substantial source changes, run `update_codedebrief` and `validate_artifacts`;
-   keep `codedebrief-out/codedebrief.json` and `codedebrief-out/codedebrief.md`
-   synchronized when they change.
+4. Treat CodeDebrief artifacts as part of done for workflow-relevant changes. After each
+   meaningful source, route, config, or agent-instruction change, refresh the graph before
+   finalizing: run MCP `update_codedebrief` when available, otherwise run
+   `codedebrief update`, then run `validate_artifacts` or
+   `codedebrief validate --check-sync`. Keep `codedebrief-out/codedebrief.json` and
+   `codedebrief-out/codedebrief.md` synchronized when they change.
 
 ## Visual Workflow Requests
 
@@ -93,8 +96,8 @@ flusso, or similar code path:
    Mermaid and can overlap text in some clients. Keep the returned `diagram_hash` visible
    when useful. Do not synthesize a new Mermaid diagram and do not add limits, error
    codes, branches, or service steps that are absent from the `workflow_slice` payload.
-   CodeDebrief Mermaid visuals are vertical/top-to-bottom; do not rotate them into
-   horizontal summaries.
+   CodeDebrief Mermaid visuals are vertical/top-to-bottom by default. Use a horizontal
+   layout only when the user explicitly asks for a compact horizontal overview.
 8. Do not read source files to rebuild, relabel, or extend the diagram. Source reads are
    allowed only as follow-up explanation after the deterministic CodeDebrief visual is
    shown, and they must not change the displayed nodes, edges, labels, or branches.
@@ -157,8 +160,8 @@ For codebase questions about behavior, decisions, workflow structure, or changed
    unless the user explicitly asks for raw or copyable Mermaid. Do not render
    `snapshot.svg` inline by default; SVG artifacts are for explicit SVG requests or local
    inspection because their layout can differ from Mermaid.
-   Keep CodeDebrief visuals vertical/top-to-bottom; do not redraw them as horizontal
-   summaries.
+   Keep CodeDebrief visuals vertical/top-to-bottom by default. Use a horizontal layout
+   only when the user explicitly asks for a compact horizontal overview.
    Inspect the full returned `workflow_slice` before deciding what to show. Choose the
    first visible depth yourself: show the clearest useful subset, then say that the
    displayed diagram is a bounded summary and can be expanded.
@@ -200,16 +203,22 @@ When helping a user set up or learn CodeDebrief:
    separately for each agent surface you want to configure, preserving any target-specific
    frontmatter and local notes.
 
-After a substantial code change:
+After code or workflow-relevant changes:
 
-1. Use CodeDebrief MCP `agent_context` to inspect affected entry points and callers.
-2. Ground the explanation in the returned `workflow_slice`; expand it through MCP only
-   when the initial slice omits relevant callers, callees, domain states, or paths.
-3. Run `codedebrief update`; use `codedebrief update --full` after analyzer upgrades or
-   when cached file models should be ignored.
+1. Treat CodeDebrief artifacts as part of done. After every meaningful source, route,
+   config, or agent-instruction change, run `codedebrief update` before finalizing or
+   committing so MCP answers and `codedebrief view` use current graphs. Skip only changes
+   that cannot affect the modeled code logic, such as unrelated copy edits or images.
+2. Use `codedebrief update --full` after analyzer upgrades, parser/dependency changes,
+   large refactors, or when cached file models should be ignored.
+3. Run `codedebrief validate --check-sync`.
 4. Commit synchronized changes to:
    - `codedebrief-out/codedebrief.json`
    - `codedebrief-out/codedebrief.md`
+5. Use CodeDebrief MCP `agent_context` to inspect affected entry points and callers when
+   explaining or reviewing the change.
+6. Ground the explanation in the returned `workflow_slice`; expand it through MCP only
+   when the initial slice omits relevant callers, callees, domain states, or paths.
 
 For viewer/UI changes:
 

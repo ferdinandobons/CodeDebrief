@@ -6,6 +6,12 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+### Added
+
+- Published the `codedebrief` package on PyPI and made `uv tool install codedebrief` the
+  primary README install path.
+- Added a README screenshot for the manual `codedebrief view` canvas.
+
 ## 0.11.0 - 2026-06-21
 
 ### Added

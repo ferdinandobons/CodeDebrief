@@ -1,9 +1,10 @@
 # CodeDebrief
 
-CodeDebrief is a local-first workflow navigator for code logic.
+CodeDebrief turns source code into deterministic, source-grounded workflow flowcharts for
+humans and coding agents.
 
-It builds a deterministic workflow flowchart model of a local codebase and exposes that
-model in two ways:
+It is a local-first code comprehension tool that builds a source-grounded workflow model
+of a codebase and exposes that model in two ways:
 
 - `codedebrief view` for manual exploration of the complete graph.
 - MCP `agent_context` for coding agents that need a bounded, source-grounded
@@ -17,10 +18,11 @@ inventing steps that are not in the graph.
 CodeDebrief is not a bug finder, a generic graph database, or an LLM enrichment service.
 The core workflow is deterministic, local, and offline. No LLM provider key is required.
 
-![Example source-backed workflow visual generated from a CodeDebrief slice](docs/assets/codedebrief-workflow-preview.png)
+![Compact source-backed workflow visual generated from a CodeDebrief slice](docs/assets/codedebrief-workflow-preview.png)
 
-Example output: a bounded visual workflow that a coding agent can show from local,
-source-backed artifacts.
+Example output: a compact presentation layer generated from local CodeDebrief artifacts.
+Canonical workflow visuals are vertical by default; horizontal diagrams are used when the
+user explicitly asks for a compact overview.
 
 > Status: pre-1.0 alpha. The model is versioned, but schema and MCP payloads may evolve
 > before 1.0.
@@ -44,7 +46,13 @@ CodeDebrief gives agents a deterministic navigation layer:
 
 ## Quick Start
 
-Install the release from GitHub. MCP support is included by default:
+Install from PyPI. MCP support is included by default:
+
+```bash
+uv tool install codedebrief
+```
+
+To install a pinned GitHub release instead:
 
 ```bash
 uv tool install "git+https://github.com/ferdinandobons/CodeDebrief.git@v0.11.0"
@@ -91,6 +99,28 @@ For explicit refresh during development:
 codedebrief update
 codedebrief validate --check-sync
 ```
+
+The generated agent instructions treat CodeDebrief artifacts as part of done for
+workflow-relevant changes: after meaningful source, route, config, or agent-instruction
+edits, run `codedebrief update` and `codedebrief validate --check-sync` before finalizing
+or committing so MCP answers and `codedebrief view` use current graphs.
+
+## Ask Your Agent
+
+Once `setup-agent` has configured the project MCP server and agent instructions, ask
+ordinary code-logic questions:
+
+```text
+Show me a visual workflow for the invitation system.
+Explain this code path with a source-grounded flowchart.
+Which workflows are affected by this change?
+Where is this status handled?
+Expand the omitted branches in this workflow_slice.
+Rewrite the diagram labels in plain English.
+```
+
+The agent should use CodeDebrief first, then decide how much of the deterministic graph to
+show for the specific question.
 
 ## Setup-Agent
 
@@ -202,6 +232,11 @@ codedebrief view
 codedebrief view --render-only --no-open
 ```
 
+![CodeDebrief manual viewer showing the interactive project flowchart](docs/assets/codedebrief-view-preview.png)
+
+Example manual view: the interactive browser canvas for exploring scopes, files, entry
+points, and connected workflow flows.
+
 Use the viewer when you need to inspect the whole project graph, navigate scopes, compare
 neighboring flows, or visually follow callers and callees. Use MCP when an agent should
 answer a bounded question with a focused `workflow_slice`.
@@ -285,6 +320,37 @@ Important practical limits:
 - generated or unsupported files may be skipped;
 - large slices are token-budgeted and report omissions;
 - the displayed first slice is a bounded summary and can be expanded with MCP tools.
+
+## FAQ
+
+### Is CodeDebrief an AI code review tool?
+
+No. CodeDebrief is for code comprehension and workflow navigation. It helps humans and
+coding agents understand modeled logic; it does not present possible defects as product
+output.
+
+### Does CodeDebrief require an LLM API key?
+
+No. The analyzer, artifacts, Mermaid diagrams, manual viewer, and MCP server are
+local-first and deterministic. Coding agents can use the MCP tools without any required
+provider key.
+
+### How is CodeDebrief different from a call graph?
+
+A call graph shows relationships between symbols. CodeDebrief models workflow slices with
+entrypoints, decisions, branches, ordered steps, source ranges, domain concepts, visual
+targets, and expansion tools for coding agents.
+
+### Can CodeDebrief generate Mermaid workflow diagrams from code?
+
+Yes. `agent_context` returns a canonical top-to-bottom Mermaid visual for the selected
+`workflow_slice`, and `snapshot_slice` can persist Mermaid files for clients that cannot
+render Mermaid inline.
+
+### Can I use CodeDebrief only as a manual visual explorer?
+
+Yes. Run `codedebrief view` to open the interactive local viewer. MCP is the primary agent
+surface, but the viewer remains the official manual exploration surface.
 
 ## Development
 

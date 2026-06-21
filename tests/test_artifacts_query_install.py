@@ -54,7 +54,7 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "top-to-bottom" in content
     assert "vertical/top-to-bottom" in content
     assert "horizontal" in content
-    assert "summaries" in content
+    assert "compact horizontal overview" in content
     assert "full returned `workflow_slice`" in content
     assert "clearest useful subset" in content
     assert "too large, saved externally, truncated" in content
@@ -85,6 +85,10 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "codedebrief view ..." in content
     assert "provider keys" in content
     assert "`codedebrief setup-agent <target>` updates only that target's files" in content
+    assert "After code or workflow-relevant changes" in content
+    assert "artifacts as part of done" in content
+    assert "run `codedebrief update` before finalizing or\n   committing" in content
+    assert "codedebrief validate --check-sync" in content
     for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
         assert snippet not in content
 
@@ -95,6 +99,10 @@ def _assert_codedebrief_skill(content: str) -> None:
     assert "workflow/flusso" in content
     assert "`agent_context`" in content
     assert "`workflow_slice`" in content
+    assert "artifacts as part of done for workflow-relevant changes" in content
+    assert "MCP `update_codedebrief`" in content
+    assert "`codedebrief update`" in content
+    assert "`codedebrief validate --check-sync`" in content
     assert "include_visual=true" in content
     assert "`snapshot_slice`" in content
     assert "`include_svg=false`" in content
@@ -109,7 +117,7 @@ def _assert_codedebrief_skill(content: str) -> None:
     assert "top-to-bottom" in content
     assert "vertical/top-to-bottom" in content
     assert "horizontal" in content
-    assert "summaries" in content
+    assert "compact horizontal overview" in content
     assert "`diagram_hash`" in content
     assert "stable token" in content
     assert "full returned `workflow_slice`" in content
