@@ -28,8 +28,8 @@
       <circle cx="80" cy="31" r="7" fill="#24d7e6"/>
     </g>
     <text x="0" y="126" fill="#edf2fb" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="86" font-weight="850">CodeDebrief</text>
-    <text x="4" y="184" fill="#c8d1e1" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="32" font-weight="700">Source-grounded workflow diagrams</text>
-    <text x="4" y="226" fill="#8f9bb0" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="26" font-weight="560">for coding agents and codebase exploration.</text>
+    <text x="4" y="184" fill="#c8d1e1" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="30" font-weight="700">Source-grounded workflow diagrams</text>
+    <text x="4" y="226" fill="#c8d1e1" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="30" font-weight="700">for coding agents and codebase exploration.</text>
 
     <g transform="translate(4 284)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="800">
       <rect x="0" y="0" width="162" height="42" rx="21" fill="#202637" stroke="#344057"/>
