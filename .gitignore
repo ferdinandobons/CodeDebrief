@@ -1,27 +1,72 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+.envrc
+.env.codedebrief
+
+# Python environments, caches, and build output
 .venv/
+venv/
+env/
+ENV/
 __pycache__/
 *.py[cod]
+*$py.class
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+.pyre/
+.pytype/
 .coverage
+.coverage.*
 htmlcov/
 dist/
 build/
 *.egg-info/
-.DS_Store
+pip-wheel-metadata/
+
+# Node/frontend dependencies and build output
+node_modules/
+.next/
+.nuxt/
+.svelte-kit/
+.vite/
+.turbo/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Logs
 *.log
 
 # Local agent/client configuration
 .claude/
-.codex/config.toml
+.codex/
+.agents/skills/
+.gemini/settings.json
+.gemini/skills/
 .mcp.json
 .cursor/mcp.json
-.env.codedebrief
 
 # Local analysis state and generated browser view
 .codedebrief/
+.logicchart/
 **/codedebrief-out/codedebrief.html
+**/codedebrief-out/*/
+**/logicchart-out/
+**/logic-flow.html
 
 # Local examples and real-world fixtures
 examples/
@@ -29,8 +74,3 @@ examples/
 # Private local real-world fixture. Keep it available for local smoke tests, but
 # never publish its source, generated artifacts, caches, or nested repository data.
 examples/Certifexp/
-
-# Common project artifacts that CodeDebrief should not analyze
-node_modules/
-.next/
-coverage/
