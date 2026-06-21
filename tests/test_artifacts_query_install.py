@@ -80,9 +80,7 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "requested" in content
     assert "logicchart view ..." in content
     assert "provider keys" in content
-    assert (
-        "`logicchart setup-agent <target>` updates only that target's instruction file" in content
-    )
+    assert "`logicchart setup-agent <target>` updates only that target's files" in content
     for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
         assert snippet not in content
 
@@ -278,6 +276,7 @@ def test_install_agent_skill_all_writes_supported_skill_files_only(tmp_path: Pat
     expected_targets = [
         tmp_path / ".agents" / "skills" / "logicchart" / "SKILL.md",
         tmp_path / ".claude" / "skills" / "logicchart" / "SKILL.md",
+        tmp_path / ".gemini" / "skills" / "logicchart" / "SKILL.md",
     ]
 
     changed = install_agent_skill(tmp_path, "all")
@@ -285,15 +284,12 @@ def test_install_agent_skill_all_writes_supported_skill_files_only(tmp_path: Pat
     assert changed == expected_targets
     for target in expected_targets:
         _assert_logicchart_skill(target.read_text(encoding="utf-8"))
-    assert not (tmp_path / ".gemini" / "skills" / "logicchart" / "SKILL.md").exists()
     assert not (tmp_path / ".cursor" / "skills" / "logicchart" / "SKILL.md").exists()
     assert install_agent_skill(tmp_path, "all") == []
 
 
 def test_install_agent_skill_noops_for_agents_without_native_skill_path(tmp_path: Path) -> None:
-    assert install_agent_skill(tmp_path, "gemini") == []
     assert install_agent_skill(tmp_path, "cursor") == []
-    assert not (tmp_path / ".gemini").exists()
     assert not (tmp_path / ".cursor" / "skills").exists()
 
 
@@ -415,6 +411,7 @@ def test_install_mcp_config_writes_project_scoped_files(tmp_path: Path) -> None:
     assert changed == [
         tmp_path / ".codex" / "config.toml",
         tmp_path / ".mcp.json",
+        tmp_path / ".gemini" / "settings.json",
         tmp_path / ".cursor" / "mcp.json",
     ]
     codex = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
@@ -424,8 +421,9 @@ def test_install_mcp_config_writes_project_scoped_files(tmp_path: Path) -> None:
     assert 'default_tools_approval_mode = "approve"' in codex
 
     claude = json.loads((tmp_path / ".mcp.json").read_text(encoding="utf-8"))
+    gemini = json.loads((tmp_path / ".gemini" / "settings.json").read_text(encoding="utf-8"))
     cursor = json.loads((tmp_path / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
-    for payload in (claude, cursor):
+    for payload in (claude, gemini, cursor):
         server = payload["mcpServers"]["logicchart"]
         assert server["command"] == "logicchart"
         assert server["args"] == ["mcp", str(tmp_path)]

@@ -63,9 +63,7 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "logicchart view ..." in content
     assert "logicchart <command> --help" in content
     assert "provider keys" in content
-    assert (
-        "`logicchart setup-agent <target>` updates only that target's instruction file" in content
-    )
+    assert "`logicchart setup-agent <target>` updates only that target's files" in content
     for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
         assert snippet not in content
 
@@ -287,7 +285,13 @@ def test_cli_validate_and_profiles(tmp_path: Path, capsys: pytest.CaptureFixture
             Path(".mcp.json"),
             "Claude",
         ),
-        ("gemini", Path("GEMINI.md"), None, None, "Gemini"),
+        (
+            "gemini",
+            Path("GEMINI.md"),
+            Path(".gemini/skills/logicchart/SKILL.md"),
+            Path(".gemini/settings.json"),
+            "Gemini",
+        ),
         (
             "cursor",
             Path(".cursor/rules/logicchart.mdc"),
@@ -316,6 +320,7 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
     skill_paths = [
         Path(".agents/skills/logicchart/SKILL.md"),
         Path(".claude/skills/logicchart/SKILL.md"),
+        Path(".gemini/skills/logicchart/SKILL.md"),
     ]
 
     assert main(["setup-agent", agent, str(tmp_path), "--no-html"]) == 0

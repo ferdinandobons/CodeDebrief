@@ -104,14 +104,15 @@ The selected target controls which files are written:
 | --- | --- |
 | `codex` | `AGENTS.md`, `.agents/skills/logicchart/SKILL.md`, project MCP config |
 | `claude` | `CLAUDE.md`, `.claude/skills/logicchart/SKILL.md`, project MCP config |
-| `gemini` | `GEMINI.md` |
+| `gemini` | `GEMINI.md`, `.gemini/skills/logicchart/SKILL.md`, `.gemini/settings.json` MCP config |
 | `cursor` | `.cursor/rules/logicchart.mdc`, project MCP config |
 
-`setup-agent <target>` writes only that target's agent file. Run it separately for each
-agent surface you want to configure.
+`setup-agent <target>` writes only that target's files. Run it separately for each agent
+surface you want to configure.
 
-Codex, Claude, and Cursor receive project-scoped MCP setup. Gemini is currently
-instruction-only; use an agent with project-scoped MCP support for runtime integration.
+The `gemini` target follows Gemini CLI / Antigravity conventions: `GEMINI.md` provides
+project context, `.gemini/skills/logicchart/SKILL.md` provides provider-native workflow
+guidance, and `.gemini/settings.json` registers the project-scoped LogicChart MCP server.
 
 ## Agent Workflow
 

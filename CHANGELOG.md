@@ -17,8 +17,11 @@ The project follows Semantic Versioning.
 - Moved MCP into the default runtime install so release and source-checkout installs include
   the primary agent surface without requiring an optional extra.
 - Updated `logicchart setup-agent codex|claude|gemini|cursor` so setup writes only the
-  requested target's instruction file and installs provider-native LogicChart skill
-  guidance where supported.
+  requested target's instruction, skill, and MCP files.
+- Added Gemini CLI / Antigravity parity for `setup-agent gemini`: it now writes the
+  provider-native LogicChart skill and project-scoped `.gemini/settings.json` MCP config,
+  including the same Mermaid artifact guidance used by Claude when inline rendering is not
+  available.
 - Updated agent guidance so visual workflow answers use the deterministic
   `workflow_slice.presentation.canonical_visual.diagram` first, persist Mermaid `.mmd` /
   Markdown artifacts for clients without inline Mermaid rendering, avoid long raw Mermaid

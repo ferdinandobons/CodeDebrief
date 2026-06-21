@@ -21,8 +21,9 @@ AGENT_INSTRUCTION_TARGETS = {
 AGENT_SKILL_TARGETS = {
     "codex": Path(".agents/skills/logicchart/SKILL.md"),
     "claude": Path(".claude/skills/logicchart/SKILL.md"),
+    "gemini": Path(".gemini/skills/logicchart/SKILL.md"),
 }
-MCP_CONFIG_TARGETS = ("codex", "claude", "cursor")
+MCP_CONFIG_TARGETS = ("codex", "claude", "gemini", "cursor")
 CODEX_MCP_START = "# logicchart:mcp-config:start"
 CODEX_MCP_END = "# logicchart:mcp-config:end"
 
@@ -183,9 +184,9 @@ When helping a user set up or learn LogicChart:
    unclear.
 3. Do not ask for LLM provider keys for the primary workflow. Language-friendly labels
    are a presentation layer derived from deterministic workflow facts.
-4. `logicchart setup-agent <target>` updates only that target's instruction file. Run the
-   command separately for each agent surface you want to configure, preserving any
-   target-specific frontmatter and local notes.
+4. `logicchart setup-agent <target>` updates only that target's files. Run the command
+   separately for each agent surface you want to configure, preserving any target-specific
+   frontmatter and local notes.
 
 After a substantial code change:
 
@@ -285,6 +286,8 @@ def install_mcp_config(root: Path, target: str = "all") -> list[Path]:
             path = _install_codex_mcp_config(root)
         elif item == "claude":
             path = _install_json_mcp_config(root / ".mcp.json", root)
+        elif item == "gemini":
+            path = _install_json_mcp_config(root / ".gemini" / "settings.json", root)
         else:
             path = _install_json_mcp_config(root / ".cursor" / "mcp.json", root)
         if path is not None:
