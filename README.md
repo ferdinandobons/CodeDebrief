@@ -20,7 +20,7 @@ The core workflow is deterministic, local, and offline. No LLM provider key is r
 > Status: pre-1.0 alpha. The model is versioned, but schema and MCP payloads may evolve
 > before 1.0.
 >
-> Latest release: [v0.9.0](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.9.0)
+> Latest release: [v0.10.0](https://github.com/ferdinandobons/LogicChart/releases/tag/v0.10.0)
 > · [Changelog](CHANGELOG.md)
 
 ## Why It Exists
@@ -42,7 +42,7 @@ LogicChart gives agents a deterministic navigation layer:
 Install the release from GitHub. MCP support is included by default:
 
 ```bash
-uv tool install "git+https://github.com/ferdinandobons/LogicChart.git@v0.9.0"
+uv tool install "git+https://github.com/ferdinandobons/LogicChart.git@v0.10.0"
 ```
 
 Or install from a source checkout:
