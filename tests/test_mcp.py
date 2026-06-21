@@ -563,8 +563,10 @@ def authorize(user):
                 assert slice_snapshot.structuredContent["canonical_visual"]["format"] == "mermaid"  # type: ignore[index]
                 artifact = slice_snapshot.structuredContent["artifact"]  # type: ignore[index]
                 assert artifact["written"] is True  # type: ignore[index]
-                assert artifact["schema_version"] == "snapshot_artifact.v2"  # type: ignore[index]
+                assert artifact["schema_version"] == "snapshot_artifact.v1"  # type: ignore[index]
+                assert artifact["format"] == "svg"  # type: ignore[index]
                 assert artifact["preferred_format"] == "mermaid"  # type: ignore[index]
+                assert artifact["formats"] == ["mermaid", "svg"]  # type: ignore[index]
                 assert artifact["mermaid_path"].endswith(".mmd")  # type: ignore[index]
                 assert artifact["mermaid_markdown_path"].endswith(".md")  # type: ignore[index]
                 assert artifact["html_path"].endswith(".html")  # type: ignore[index]
@@ -596,9 +598,13 @@ def authorize(user):
                 assert light_payload["snapshot"]["svg_omitted"] is True  # type: ignore[index]
                 assert light_payload["snapshot"]["svg_byte_size"] > 0  # type: ignore[index]
                 assert light_payload["artifact"]["written"] is True  # type: ignore[index]
+                assert light_payload["artifact"]["format"] == "mermaid"  # type: ignore[index]
                 assert light_payload["artifact"]["preferred_format"] == "mermaid"  # type: ignore[index]
+                assert light_payload["artifact"]["formats"] == ["mermaid"]  # type: ignore[index]
                 assert light_payload["artifact"]["mermaid_path"].endswith(".mmd")  # type: ignore[index]
                 assert light_payload["artifact"]["mermaid_markdown_path"].endswith(".md")  # type: ignore[index]
+                assert "svg_path" not in light_payload["artifact"]  # type: ignore[index]
+                assert "html_path" not in light_payload["artifact"]  # type: ignore[index]
                 path_response = await session.call_tool(
                     "workflow_path",
                     {"source": flow.id, "target": flow.id, "token_budget": 480},

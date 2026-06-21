@@ -893,6 +893,7 @@ def run_mcp(root: Path, config: LogicChartConfig | None = None) -> None:
             slice_id=slice_id,
             flow_ids=normalized_flow_ids,
             canonical_visual=canonical_visual,
+            write_svg=include_svg,
         )
         snapshot_payload = dict(snapshot)
         if not include_svg and "svg" in snapshot_payload:
@@ -2663,17 +2664,19 @@ def _write_snapshot_artifact(
     slice_id: str | None,
     flow_ids: list[str],
     canonical_visual: dict[str, Any] | None = None,
+    write_svg: bool = True,
 ) -> dict[str, Any]:
     svg = snapshot.get("svg")
+    has_svg = write_svg and isinstance(svg, str) and svg.startswith("<svg")
     mermaid = canonical_visual.get("diagram") if isinstance(canonical_visual, dict) else None
     if not isinstance(mermaid, str) or not mermaid.strip():
         mermaid = None
-    if not mermaid and (not isinstance(svg, str) or not svg.startswith("<svg")):
+    if not mermaid and not has_svg:
         return {
             "written": False,
             "reason": "snapshot_visual_unavailable",
         }
-    digest_parts = (mermaid, svg if isinstance(svg, str) else None)
+    digest_parts = (mermaid, svg if has_svg and isinstance(svg, str) else None)
     digest_input = "\n".join(part for part in digest_parts if part)
     digest = hashlib.sha256(digest_input.encode("utf-8")).hexdigest()[:16]
     stem = _snapshot_artifact_stem(slice_id, flow_ids, digest)
@@ -2690,7 +2693,7 @@ def _write_snapshot_artifact(
                 _snapshot_mermaid_markdown(mermaid, stem, canonical_visual),
                 encoding="utf-8",
             )
-        if isinstance(svg, str) and svg.startswith("<svg"):
+        if has_svg and isinstance(svg, str):
             svg_path.write_text(svg, encoding="utf-8")
             html_path.write_text(_snapshot_artifact_html(svg, stem), encoding="utf-8")
     except OSError as exc:
@@ -2699,12 +2702,13 @@ def _write_snapshot_artifact(
             "reason": "write_failed",
             "error": str(exc),
         }
+    preferred_format = "mermaid" if mermaid else "svg"
     artifact: dict[str, Any] = {
         "written": True,
-        "schema_version": "snapshot_artifact.v2",
-        "format": "mermaid",
+        "schema_version": "snapshot_artifact.v1",
+        "format": "svg" if has_svg else preferred_format,
         "formats": [],
-        "preferred_format": "mermaid" if mermaid else "svg",
+        "preferred_format": preferred_format,
         "digest": digest,
         "directory": str(snapshot_dir),
         "guardrail": (
@@ -2724,10 +2728,10 @@ def _write_snapshot_artifact(
                     project_root
                 ).as_posix(),
                 "mermaid_open_command": _open_file_command(mermaid_markdown_path),
-                "open_command": _open_file_command(mermaid_markdown_path),
+                "preferred_open_command": _open_file_command(mermaid_markdown_path),
             }
         )
-    if isinstance(svg, str) and svg.startswith("<svg"):
+    if has_svg and isinstance(svg, str):
         relative_svg = svg_path.relative_to(project_root).as_posix()
         relative_html = html_path.relative_to(project_root).as_posix()
         artifact.update(
@@ -2738,10 +2742,12 @@ def _write_snapshot_artifact(
                 "relative_svg_path": relative_svg,
                 "relative_html_path": relative_html,
                 "svg_open_command": _open_file_command(html_path),
+                "open_command": _open_file_command(html_path),
                 "markdown_image": f"![LogicChart snapshot]({svg_path})",
             }
         )
-        artifact.setdefault("open_command", _open_file_command(html_path))
+    elif mermaid:
+        artifact["open_command"] = _open_file_command(mermaid_markdown_path)
     return artifact
 
 
