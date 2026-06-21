@@ -94,6 +94,11 @@ codedebrief update
 codedebrief validate --check-sync
 ```
 
+The generated agent instructions treat CodeDebrief artifacts as part of done for
+workflow-relevant changes: after meaningful source, route, config, or agent-instruction
+edits, run `codedebrief update` and `codedebrief validate --check-sync` before finalizing
+or committing so MCP answers and `codedebrief view` use current graphs.
+
 ## Ask Your Agent
 
 Once `setup-agent` has configured the project MCP server and agent instructions, ask

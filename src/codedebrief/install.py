@@ -55,9 +55,12 @@ configured.
    primary/supporting flows, ordered steps, decisions, source ranges, calls, and visuals.
 3. Use `expand_slice`, `workflow_path`, `explain_flow`, `explain_node`, or `explain_edge`
    only when the first slice is too narrow.
-4. After substantial source changes, run `update_codedebrief` and `validate_artifacts`;
-   keep `codedebrief-out/codedebrief.json` and `codedebrief-out/codedebrief.md`
-   synchronized when they change.
+4. Treat CodeDebrief artifacts as part of done for workflow-relevant changes. After each
+   meaningful source, route, config, or agent-instruction change, refresh the graph before
+   finalizing: run MCP `update_codedebrief` when available, otherwise run
+   `codedebrief update`, then run `validate_artifacts` or
+   `codedebrief validate --check-sync`. Keep `codedebrief-out/codedebrief.json` and
+   `codedebrief-out/codedebrief.md` synchronized when they change.
 
 ## Visual Workflow Requests
 
@@ -188,16 +191,22 @@ When helping a user set up or learn CodeDebrief:
    separately for each agent surface you want to configure, preserving any target-specific
    frontmatter and local notes.
 
-After a substantial code change:
+After code or workflow-relevant changes:
 
-1. Use CodeDebrief MCP `agent_context` to inspect affected entry points and callers.
-2. Ground the explanation in the returned `workflow_slice`; expand it through MCP only
-   when the initial slice omits relevant callers, callees, domain states, or paths.
-3. Run `codedebrief update`; use `codedebrief update --full` after analyzer upgrades or
-   when cached file models should be ignored.
+1. Treat CodeDebrief artifacts as part of done. After every meaningful source, route,
+   config, or agent-instruction change, run `codedebrief update` before finalizing or
+   committing so MCP answers and `codedebrief view` use current graphs. Skip only changes
+   that cannot affect the modeled code logic, such as unrelated copy edits or images.
+2. Use `codedebrief update --full` after analyzer upgrades, parser/dependency changes,
+   large refactors, or when cached file models should be ignored.
+3. Run `codedebrief validate --check-sync`.
 4. Commit synchronized changes to:
    - `codedebrief-out/codedebrief.json`
    - `codedebrief-out/codedebrief.md`
+5. Use CodeDebrief MCP `agent_context` to inspect affected entry points and callers when
+   explaining or reviewing the change.
+6. Ground the explanation in the returned `workflow_slice`; expand it through MCP only
+   when the initial slice omits relevant callers, callees, domain states, or paths.
 
 For viewer/UI changes:
 
