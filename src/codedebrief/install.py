@@ -93,8 +93,8 @@ flusso, or similar code path:
    Mermaid and can overlap text in some clients. Keep the returned `diagram_hash` visible
    when useful. Do not synthesize a new Mermaid diagram and do not add limits, error
    codes, branches, or service steps that are absent from the `workflow_slice` payload.
-   CodeDebrief Mermaid visuals are vertical/top-to-bottom; do not rotate them into
-   horizontal summaries.
+   CodeDebrief Mermaid visuals are vertical/top-to-bottom by default. Use a horizontal
+   layout only when the user explicitly asks for a compact horizontal overview.
 8. Do not read source files to rebuild, relabel, or extend the diagram. Source reads are
    allowed only as follow-up explanation after the deterministic CodeDebrief visual is
    shown, and they must not change the displayed nodes, edges, labels, or branches.
@@ -151,8 +151,8 @@ For codebase questions about behavior, decisions, workflow structure, or changed
    unless the user explicitly asks for raw or copyable Mermaid. Do not render
    `snapshot.svg` inline by default; SVG artifacts are for explicit SVG requests or local
    inspection because their layout can differ from Mermaid.
-   Keep CodeDebrief visuals vertical/top-to-bottom; do not redraw them as horizontal
-   summaries.
+   Keep CodeDebrief visuals vertical/top-to-bottom by default. Use a horizontal layout
+   only when the user explicitly asks for a compact horizontal overview.
    Inspect the full returned `workflow_slice` before deciding what to show. Choose the
    first visible depth yourself: show the clearest useful subset, then say that the
    displayed diagram is a bounded summary and can be expanded.

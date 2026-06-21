@@ -208,8 +208,7 @@ def test_render_html_emits_quality_and_source_panels(tmp_path: Path) -> None:
     ) in html
     assert 'id="errorsPanelToggle"' not in html
     assert "[hidden] { display: none !important; }" in html
-    assert 'classList.toggle("panel-quality-expanded", !flow)' in html
-    assert ".panel-quality.panel-quality-expanded" in html
+    assert "panel-quality-expanded" not in html
     assert 'id="detailsCollapseAll"' in html
     assert 'id="detailsExpandAll"' in html
     assert 'aria-controls="quality"' in html

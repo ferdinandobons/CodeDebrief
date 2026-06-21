@@ -54,7 +54,7 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "top-to-bottom" in content
     assert "vertical/top-to-bottom" in content
     assert "horizontal" in content
-    assert "summaries" in content
+    assert "compact horizontal overview" in content
     assert "full returned `workflow_slice`" in content
     assert "clearest useful subset" in content
     assert "too large, saved externally, truncated" in content
@@ -105,7 +105,7 @@ def _assert_codedebrief_skill(content: str) -> None:
     assert "top-to-bottom" in content
     assert "vertical/top-to-bottom" in content
     assert "horizontal" in content
-    assert "summaries" in content
+    assert "compact horizontal overview" in content
     assert "`diagram_hash`" in content
     assert "stable token" in content
     assert "full returned `workflow_slice`" in content

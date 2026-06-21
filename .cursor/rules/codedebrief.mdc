@@ -25,8 +25,8 @@ For codebase questions about behavior, decisions, workflow structure, or changed
    unless the user explicitly asks for raw or copyable Mermaid. Do not render
    `snapshot.svg` inline by default; SVG artifacts are for explicit SVG requests or local
    inspection because their layout can differ from Mermaid.
-   Keep CodeDebrief visuals vertical/top-to-bottom; do not redraw them as horizontal
-   summaries.
+   Keep CodeDebrief visuals vertical/top-to-bottom by default. Use a horizontal layout
+   only when the user explicitly asks for a compact horizontal overview.
    Inspect the full returned `workflow_slice` before deciding what to show. Choose the
    first visible depth yourself: show the clearest useful subset, then say that the
    displayed diagram is a bounded summary and can be expanded.
