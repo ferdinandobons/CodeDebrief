@@ -46,7 +46,13 @@ CodeDebrief gives agents a deterministic navigation layer:
 
 ## Quick Start
 
-Install the release from GitHub. MCP support is included by default:
+Install from PyPI. MCP support is included by default:
+
+```bash
+uv tool install codedebrief
+```
+
+To install a pinned GitHub release instead:
 
 ```bash
 uv tool install "git+https://github.com/ferdinandobons/CodeDebrief.git@v0.11.0"
