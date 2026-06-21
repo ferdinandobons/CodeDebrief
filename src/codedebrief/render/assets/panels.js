@@ -17,6 +17,7 @@
       const sourcePanel = document.getElementById("sourcePanel");
       const sourceBody = document.getElementById("source");
       const sourceFileEl = document.getElementById("sourceFile");
+      const rightRail = document.getElementById("rightRail");
       const qualityPanel = document.getElementById("qualityPanel");
       const qualityBody = document.getElementById("quality");
       const qualityCountEl = document.getElementById("qualityCount");
@@ -34,6 +35,11 @@
 
       function clear(node) {
         if (node) node.replaceChildren();
+      }
+
+      function setSourcePanelVisible(visible) {
+        if (sourcePanel) sourcePanel.hidden = !visible;
+        if (rightRail) rightRail.toggleAttribute("data-source-hidden", !visible);
       }
 
       function metricValue(value) {
@@ -265,7 +271,7 @@
         const flow = sourceFlowFor(sel || {});
         clear(sourceBody);
         if (sourceFileEl) sourceFileEl.textContent = "";
-        if (sourcePanel) sourcePanel.hidden = !flow;
+        setSourcePanelVisible(!!flow);
 
         if (!flow) {
           sourceBody.appendChild(el("p", "panel-empty", "Select a flow or node to view its source."));

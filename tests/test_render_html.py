@@ -278,7 +278,10 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     # The Source panel is meaningful only when a file/flow is selected; scope/root views
     # keep the details rail focused on analysis health instead of placeholder source
     # content.
-    assert "sourcePanel.hidden = !flow" in html
+    assert "sourcePanel.hidden = !visible" in html
+    assert 'rightRail.toggleAttribute("data-source-hidden", !visible)' in html
+    assert ".right-rail[data-source-hidden] .panel-quality" in html
+    assert "max-height: none" in html
 
     # Analysis-health metrics are surfaced in the details rail from generated metadata,
     # giving large-codebase exploration a visible analyzer coverage and precision snapshot.
