@@ -1,9 +1,10 @@
 # CodeDebrief
 
-CodeDebrief is a local-first workflow navigator for code logic.
+CodeDebrief turns source code into deterministic, source-grounded workflow flowcharts for
+humans and coding agents.
 
-It builds a deterministic workflow flowchart model of a local codebase and exposes that
-model in two ways:
+It is a local-first code comprehension tool that builds a source-grounded workflow model
+of a codebase and exposes that model in two ways:
 
 - `codedebrief view` for manual exploration of the complete graph.
 - MCP `agent_context` for coding agents that need a bounded, source-grounded
@@ -19,8 +20,8 @@ The core workflow is deterministic, local, and offline. No LLM provider key is r
 
 ![Example source-backed workflow visual generated from a CodeDebrief slice](docs/assets/codedebrief-workflow-preview.png)
 
-Example output: a bounded visual workflow that a coding agent can show from local,
-source-backed artifacts.
+Example output: a bounded source-backed workflow diagram that a coding agent can show
+from local artifacts.
 
 > Status: pre-1.0 alpha. The model is versioned, but schema and MCP payloads may evolve
 > before 1.0.
@@ -91,6 +92,23 @@ For explicit refresh during development:
 codedebrief update
 codedebrief validate --check-sync
 ```
+
+## Ask Your Agent
+
+Once `setup-agent` has configured the project MCP server and agent instructions, ask
+ordinary code-logic questions:
+
+```text
+Show me a visual workflow for the invitation system.
+Explain this code path with a source-grounded flowchart.
+Which workflows are affected by this change?
+Where is this status handled?
+Expand the omitted branches in this workflow_slice.
+Rewrite the diagram labels in plain English.
+```
+
+The agent should use CodeDebrief first, then decide how much of the deterministic graph to
+show for the specific question.
 
 ## Setup-Agent
 
@@ -281,6 +299,37 @@ Important practical limits:
 - generated or unsupported files may be skipped;
 - large slices are token-budgeted and report omissions;
 - the displayed first slice is a bounded summary and can be expanded with MCP tools.
+
+## FAQ
+
+### Is CodeDebrief an AI code review tool?
+
+No. CodeDebrief is for code comprehension and workflow navigation. It helps humans and
+coding agents understand modeled logic; it does not present possible defects as product
+output.
+
+### Does CodeDebrief require an LLM API key?
+
+No. The analyzer, artifacts, Mermaid diagrams, manual viewer, and MCP server are
+local-first and deterministic. Coding agents can use the MCP tools without any required
+provider key.
+
+### How is CodeDebrief different from a call graph?
+
+A call graph shows relationships between symbols. CodeDebrief models workflow slices with
+entrypoints, decisions, branches, ordered steps, source ranges, domain concepts, visual
+targets, and expansion tools for coding agents.
+
+### Can CodeDebrief generate Mermaid workflow diagrams from code?
+
+Yes. `agent_context` returns a canonical top-to-bottom Mermaid visual for the selected
+`workflow_slice`, and `snapshot_slice` can persist Mermaid files for clients that cannot
+render Mermaid inline.
+
+### Can I use CodeDebrief only as a manual visual explorer?
+
+Yes. Run `codedebrief view` to open the interactive local viewer. MCP is the primary agent
+surface, but the viewer remains the official manual exploration surface.
 
 ## Development
 
