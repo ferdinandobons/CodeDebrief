@@ -228,6 +228,11 @@ codedebrief view
 codedebrief view --render-only --no-open
 ```
 
+![CodeDebrief manual viewer showing the interactive project flowchart](docs/assets/codedebrief-view-preview.png)
+
+Example manual view: the interactive browser canvas for exploring scopes, files, entry
+points, and connected workflow flows.
+
 Use the viewer when you need to inspect the whole project graph, navigate scopes, compare
 neighboring flows, or visually follow callers and callees. Use MCP when an agent should
 answer a bounded question with a focused `workflow_slice`.
