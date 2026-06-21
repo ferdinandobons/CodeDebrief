@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codedebrief"
-version = "0.10.0"
+version = "0.11.0"
 description = "Local-first workflow navigator that turns code into visual, source-grounded flowcharts for humans and coding agents. Deterministic, MCP-first, no API key."
 readme = "README.md"
 requires-python = ">=3.10"

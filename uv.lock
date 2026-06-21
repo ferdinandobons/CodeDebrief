@@ -183,6 +183,58 @@ wheels = [
 ]
 
 [[package]]
+name = "codedebrief"
+version = "0.11.0"
+source = { editable = "." }
+dependencies = [
+    { name = "jsonschema" },
+    { name = "mcp" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tree-sitter" },
+    { name = "tree-sitter-c" },
+    { name = "tree-sitter-c-sharp" },
+    { name = "tree-sitter-cpp" },
+    { name = "tree-sitter-go" },
+    { name = "tree-sitter-java" },
+    { name = "tree-sitter-php" },
+    { name = "tree-sitter-ruby" },
+    { name = "tree-sitter-rust" },
+    { name = "tree-sitter-typescript" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+    { name = "tomli" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jsonschema", specifier = ">=4.23" },
+    { name = "mcp", specifier = ">=1.27,<2" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.15" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.11" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
+    { name = "tomli", marker = "extra == 'dev'", specifier = ">=2.0" },
+    { name = "tree-sitter", specifier = ">=0.25.2,<0.26" },
+    { name = "tree-sitter-c", specifier = ">=0.23,<0.24" },
+    { name = "tree-sitter-c-sharp", specifier = ">=0.23,<0.24" },
+    { name = "tree-sitter-cpp", specifier = ">=0.23,<0.24" },
+    { name = "tree-sitter-go", specifier = ">=0.23,<0.24" },
+    { name = "tree-sitter-java", specifier = ">=0.23,<0.24" },
+    { name = "tree-sitter-php", specifier = ">=0.23,<0.24" },
+    { name = "tree-sitter-ruby", specifier = ">=0.23,<0.24" },
+    { name = "tree-sitter-rust", specifier = ">=0.23,<0.24" },
+    { name = "tree-sitter-typescript", specifier = ">=0.23.2,<0.24" },
+]
+provides-extras = ["mcp", "dev"]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -554,58 +606,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/62/4a/7d1415567027286a75ba1093ec4aca11f073e0f559c530cf3e0a757ad55c/librt-0.11.0-cp314-cp314t-win_amd64.whl", hash = "sha256:28edb433edde181112a908c78907af28f964eabc15f4dd16c9d66c834302677c", size = 124327, upload-time = "2026-05-10T18:17:05.465Z" },
     { url = "https://files.pythonhosted.org/packages/ce/62/b40b382fa0c66fee1478073eb8db352a4a6beda4a1adccf1df911d8c289c/librt-0.11.0-cp314-cp314t-win_arm64.whl", hash = "sha256:dee008f20b542e3cd162ba338a7f9ec0f6d23d395f66fe8aeeec3c9d067ea253", size = 102572, upload-time = "2026-05-10T18:17:06.809Z" },
 ]
-
-[[package]]
-name = "codedebrief"
-version = "0.10.0"
-source = { editable = "." }
-dependencies = [
-    { name = "jsonschema" },
-    { name = "mcp" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
-    { name = "tree-sitter" },
-    { name = "tree-sitter-c" },
-    { name = "tree-sitter-c-sharp" },
-    { name = "tree-sitter-cpp" },
-    { name = "tree-sitter-go" },
-    { name = "tree-sitter-java" },
-    { name = "tree-sitter-php" },
-    { name = "tree-sitter-ruby" },
-    { name = "tree-sitter-rust" },
-    { name = "tree-sitter-typescript" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-    { name = "tomli" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "jsonschema", specifier = ">=4.23" },
-    { name = "mcp", specifier = ">=1.27,<2" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.15" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.11" },
-    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
-    { name = "tomli", marker = "extra == 'dev'", specifier = ">=2.0" },
-    { name = "tree-sitter", specifier = ">=0.25.2,<0.26" },
-    { name = "tree-sitter-c", specifier = ">=0.23,<0.24" },
-    { name = "tree-sitter-c-sharp", specifier = ">=0.23,<0.24" },
-    { name = "tree-sitter-cpp", specifier = ">=0.23,<0.24" },
-    { name = "tree-sitter-go", specifier = ">=0.23,<0.24" },
-    { name = "tree-sitter-java", specifier = ">=0.23,<0.24" },
-    { name = "tree-sitter-php", specifier = ">=0.23,<0.24" },
-    { name = "tree-sitter-ruby", specifier = ">=0.23,<0.24" },
-    { name = "tree-sitter-rust", specifier = ">=0.23,<0.24" },
-    { name = "tree-sitter-typescript", specifier = ">=0.23.2,<0.24" },
-]
-provides-extras = ["mcp", "dev"]
 
 [[package]]
 name = "mcp"

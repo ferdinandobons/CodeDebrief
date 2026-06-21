@@ -25,7 +25,7 @@ source-backed artifacts.
 > Status: pre-1.0 alpha. The model is versioned, but schema and MCP payloads may evolve
 > before 1.0.
 >
-> Latest release: [v0.10.0](https://github.com/ferdinandobons/CodeDebrief/releases/tag/v0.10.0)
+> Latest release: [v0.11.0](https://github.com/ferdinandobons/CodeDebrief/releases/tag/v0.11.0)
 > · [Changelog](CHANGELOG.md)
 
 ## Why It Exists
@@ -47,7 +47,7 @@ CodeDebrief gives agents a deterministic navigation layer:
 Install the release from GitHub. MCP support is included by default:
 
 ```bash
-uv tool install "git+https://github.com/ferdinandobons/CodeDebrief.git@v0.10.0"
+uv tool install "git+https://github.com/ferdinandobons/CodeDebrief.git@v0.11.0"
 ```
 
 Or install from a source checkout:

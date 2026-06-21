@@ -6,6 +6,13 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.11.0 - 2026-06-21
+
+### Added
+
+- Added a README preview image that shows the kind of source-backed visual workflow a
+  coding agent can present from CodeDebrief artifacts.
+
 ### Changed
 
 - Renamed the project, Python package, CLI, MCP server, generated artifacts, viewer runtime,
