@@ -13,6 +13,7 @@ from codedebrief.install import (
     LOCAL_NOTES_END,
     LOCAL_NOTES_START,
     START,
+    _json_mcp_server_config,
     install_agent_instructions,
     install_agent_skill,
     install_mcp_config,
@@ -460,6 +461,36 @@ def test_install_mcp_config_writes_project_scoped_files(tmp_path: Path) -> None:
         assert server["args"] == ["mcp", str(tmp_path)]
 
     assert install_mcp_config(tmp_path, "all") == []
+
+
+def test_install_mcp_config_keeps_paths_with_spaces_as_json_args(tmp_path: Path) -> None:
+    project = tmp_path / "NTT DATA" / "Bid Agent"
+    project.mkdir(parents=True)
+
+    install_mcp_config(project, "claude")
+
+    payload = json.loads((project / ".mcp.json").read_text(encoding="utf-8"))
+    server = payload["mcpServers"]["codedebrief"]
+    assert server == {"command": "codedebrief", "args": ["mcp", str(project)]}
+
+
+def test_json_mcp_config_uses_wsl_bridge_for_windows_mounts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("WSL_DISTRO_NAME", "Ubuntu")
+
+    server = _json_mcp_server_config(Path("/mnt/c/Users/User/Desktop/WORK/NTT DATA/App"))
+
+    assert server == {
+        "command": "wsl.exe",
+        "args": [
+            "--cd",
+            "/mnt/c/Users/User/Desktop/WORK/NTT DATA/App",
+            "bash",
+            "-lc",
+            "codedebrief mcp .",
+        ],
+    }
 
 
 def test_install_mcp_config_removes_legacy_logicchart_servers(tmp_path: Path) -> None:

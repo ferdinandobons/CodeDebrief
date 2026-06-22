@@ -187,6 +187,12 @@ surface you want to configure.
 file, installs a provider-native CodeDebrief skill where supported, registers project-scoped
 MCP where supported, generates initial artifacts, runs `doctor`, and validates the result.
 
+On Windows, run `setup-agent` in the same environment that will run the coding agent when
+possible. If you run `setup-agent` from WSL inside a `/mnt/c/...` project, CodeDebrief writes
+JSON MCP configs that launch the server through `wsl.exe` with `--cd <project>` and
+`bash -lc "codedebrief mcp ."`,
+so Windows-native agent clients do not receive a raw WSL path as their command target.
+
 The `gemini` target follows Gemini CLI / Antigravity conventions: `GEMINI.md` provides
 project context, `.gemini/skills/codedebrief/SKILL.md` provides provider-native workflow
 guidance, and `.gemini/settings.json` registers the project-scoped CodeDebrief MCP server.

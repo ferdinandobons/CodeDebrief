@@ -6,6 +6,13 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+### Fixed
+
+- Suppressed non-fatal Python `SyntaxWarning` messages from analyzed project files during
+  `setup-agent` and `update`; valid files with legacy string escapes are still analyzed.
+- Wrote JSON MCP configs from WSL `/mnt/<drive>/...` projects through `wsl.exe --cd` so
+  Windows-native agent clients do not receive raw WSL paths as command targets.
+
 ## 0.14.1 - 2026-06-22
 
 ### Fixed

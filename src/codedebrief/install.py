@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -428,7 +429,7 @@ def _install_json_mcp_config(target: Path, root: Path) -> Path | None:
     if existing_server is not None and not isinstance(existing_server, dict):
         raise ValueError(f"{target} has non-object mcpServers.codedebrief")
     server = dict(existing_server or {})
-    server.update({"command": "codedebrief", "args": ["mcp", str(root)]})
+    server.update(_json_mcp_server_config(root))
     servers["codedebrief"] = server
 
     updated = json.dumps(data, indent=2) + "\n"
@@ -436,6 +437,32 @@ def _install_json_mcp_config(target: Path, root: Path) -> Path | None:
         atomic_write_text(target, updated, encoding="utf-8")
         return target
     return None
+
+
+def _json_mcp_server_config(root: Path) -> dict[str, object]:
+    if _should_use_wsl_bridge(root):
+        return {
+            "command": "wsl.exe",
+            "args": ["--cd", str(root), "bash", "-lc", "codedebrief mcp ."],
+        }
+    return {"command": "codedebrief", "args": ["mcp", str(root)]}
+
+
+def _should_use_wsl_bridge(root: Path) -> bool:
+    return _running_in_wsl() and _is_wsl_windows_mount(root)
+
+
+def _running_in_wsl() -> bool:
+    if os.environ.get("WSL_DISTRO_NAME") or os.environ.get("WSL_INTEROP"):
+        return True
+    try:
+        return "microsoft" in Path("/proc/version").read_text(encoding="utf-8").lower()
+    except OSError:
+        return False
+
+
+def _is_wsl_windows_mount(root: Path) -> bool:
+    return re.match(r"^/mnt/[a-zA-Z](?:/|$)", root.as_posix()) is not None
 
 
 def _without_managed_block(existing: str, start: str, end: str) -> str:

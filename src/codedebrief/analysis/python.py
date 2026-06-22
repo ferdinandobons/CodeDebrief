@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import copy
 import re
+import warnings
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, cast
@@ -93,7 +94,11 @@ class PythonAnalyzer:
         # UTF-8-with-BOM), so it parses instead of choking on a stray ﻿ token.
         source = _SourceText(path.read_text(encoding="utf-8-sig"))
         relative = relpath(path, self.root)
-        tree = ast.parse(source.text, filename=relative)
+        with warnings.catch_warnings():
+            # Project code can contain legacy string escapes such as "\s". Python emits a
+            # SyntaxWarning while still producing an AST; keep setup/update output clean.
+            warnings.filterwarnings("ignore", category=SyntaxWarning)
+            tree = ast.parse(source.text, filename=relative)
         module_name = _module_name(relative)
         constants = _harvest_constants(tree)
         constant_names = set(constants)
