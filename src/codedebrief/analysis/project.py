@@ -64,10 +64,18 @@ class AnalysisResult:
 
 
 class ProjectAnalyzer:
-    def __init__(self, root: Path, config: CodeDebriefConfig | None = None) -> None:
+    def __init__(
+        self,
+        root: Path,
+        config: CodeDebriefConfig | None = None,
+        *,
+        cache_dir: Path | None = None,
+    ) -> None:
         self.root = root.resolve()
         self.config = config or CodeDebriefConfig.load(self.root)
-        self.cache_dir = self.root / ".codedebrief" / "cache"
+        self.cache_dir = (
+            cache_dir.resolve() if cache_dir is not None else self.root / ".codedebrief" / "cache"
+        )
         self.index_path = self.cache_dir / "index.json"
         self.previous_generated_at: str | None = None
         self.previous_config_hash: str | None = None

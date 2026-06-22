@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
@@ -84,8 +85,19 @@ def validate_codedebrief(
 
     if check_sync:
         try:
-            with project_update_lock(root):
-                fresh = ProjectAnalyzer(root, active_config).analyze(full=True).model
+            with (
+                project_update_lock(root),
+                tempfile.TemporaryDirectory(prefix="codedebrief-validate-") as cache_dir,
+            ):
+                fresh = (
+                    ProjectAnalyzer(
+                        root,
+                        active_config,
+                        cache_dir=Path(cache_dir),
+                    )
+                    .analyze(full=True)
+                    .model
+                )
         except (OSError, TimeoutError, ValueError, SyntaxError) as error:
             report.add_error(f"Could not re-analyze sources for sync check: {error}")
         else:

@@ -14,6 +14,12 @@ The project follows Semantic Versioning.
 - Made CLI progress output clearer during `setup`, `update`, `view`, and non-JSON
   `validate`, including mode, source roots, artifact targets, and long-running steps.
 
+### Fixed
+
+- Kept `validate --check-sync` and MCP `validate_artifacts(check_sync=true)` from priming
+  the normal incremental cache, so a following `update_codedebrief` still detects changed
+  files and refreshes stale artifacts correctly.
+
 ## 0.15.0 - 2026-06-22
 
 ### Added

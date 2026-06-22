@@ -663,6 +663,8 @@ def test_mcp_update_validate_sequence_after_source_change(tmp_path: Path) -> Non
         "def primary(flag):\n    if flag:\n        return 'yes'\n    return 'no'\n",
         encoding="utf-8",
     )
+    helper = tmp_path / "helper.py"
+    helper.write_text("def unchanged():\n    return 'stable'\n", encoding="utf-8")
     result = ProjectAnalyzer(tmp_path).analyze(full=True)
     write_artifacts(tmp_path, result.model)
     source.write_text(
@@ -693,10 +695,12 @@ def test_mcp_update_validate_sequence_after_source_change(tmp_path: Path) -> Non
                 assert "stale" in stale_payload["errors"][0]  # type: ignore[index]
                 assert stale_payload["next_tools"]["update_model"]["tool"] == "update_codedebrief"  # type: ignore[index]
 
-                update = await session.call_tool("update_codedebrief", {"full": True})
+                update = await session.call_tool("update_codedebrief", {})
                 assert not update.isError
                 update_payload = update.structuredContent
                 assert "app.py" in update_payload["changed_files"]  # type: ignore[index]
+                assert "helper.py" not in update_payload["changed_files"]  # type: ignore[index]
+                assert update_payload["cache_hits"] >= 1  # type: ignore[index]
                 assert update_payload["flows"] >= 2  # type: ignore[index]
                 assert update_payload["next_tools"]["validate_artifacts"]["arguments"] == {  # type: ignore[index]
                     "check_sync": True,
