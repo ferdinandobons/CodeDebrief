@@ -46,7 +46,7 @@ body:
     attributes:
       label: CodeDebrief version
       description: Paste the output of `codedebrief --version`.
-      placeholder: "codedebrief 0.13.0"
+      placeholder: "codedebrief 0.x.y"
     validations:
       required: false
   - type: textarea

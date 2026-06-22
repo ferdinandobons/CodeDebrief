@@ -6,6 +6,29 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.14.0 - 2026-06-22
+
+### Added
+
+- Added GitHub issue forms and a pull request template so reports and contributions collect
+  the CodeDebrief context needed for triage.
+
+### Changed
+
+- Strengthened artifact updates with batch rollback across generated files and a local
+  update lock shared by CLI, validation, and MCP refresh paths.
+- Tightened `codedebrief.toml` parsing so malformed config values fail with explicit,
+  field-level errors instead of being coerced silently.
+- Expanded CI release parity to validate synchronized artifacts, build the viewer, build
+  package distributions, check distribution metadata, and smoke-test an installed wheel.
+
+### Fixed
+
+- Made MCP artifact refresh failures return structured, recoverable errors with a clear
+  validation follow-up instead of surfacing raw local exceptions.
+- Compacted long labels and paths in generated SVG snapshots to reduce text overflow in
+  rendered workflow diagrams.
+
 ## 0.13.0 - 2026-06-22
 
 ### Added
