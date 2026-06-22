@@ -95,6 +95,15 @@ class _DecisionFilterRecord:
 
 
 @dataclass(slots=True)
+class _TermBucketMatches:
+    term: str
+    identity_flow_ids: frozenset[str]
+    node_flow_ids: frozenset[str]
+    structure_flow_ids: frozenset[str]
+    metadata_flow_ids: frozenset[str]
+
+
+@dataclass(slots=True)
 class _FlowSearchRecord:
     flow: Flow
     scope_names: frozenset[str]
@@ -201,11 +210,16 @@ def query_model(
     # inflate a flow's rank. dict.fromkeys preserves order for stable reason text.
     unique_terms = list(dict.fromkeys(terms))
 
+    has_scoring_filter = any(item is not None for item in (source_path, symbol, domain, value))
     index = _query_index(model)
+    term_bucket_matches = (
+        _term_bucket_matches(index, unique_terms) if unique_terms and not has_scoring_filter else ()
+    )
     matches: list[QueryMatch] = []
     for record in _query_candidate_records(
         index,
         unique_terms,
+        term_bucket_matches=term_bucket_matches,
         source_path=source_path,
         symbol=symbol,
         domain=domain,
@@ -227,7 +241,23 @@ def query_model(
             continue
         score = 0
         reasons: list[str] = []
-        if unique_terms:
+        flow_id = flow.id
+        if term_bucket_matches:
+            for term_matches in term_bucket_matches:
+                term = term_matches.term
+                if flow_id in term_matches.identity_flow_ids:
+                    score += IDENTITY_WEIGHT
+                    reasons.append(f"`{term}` matches the flow identity")
+                if flow_id in term_matches.node_flow_ids:
+                    score += NODE_WEIGHT
+                    reasons.append(f"`{term}` appears in a decision or action")
+                if flow_id in term_matches.structure_flow_ids:
+                    score += STRUCTURE_WEIGHT
+                    reasons.append(f"`{term}` matches flow structure")
+                if flow_id in term_matches.metadata_flow_ids:
+                    score += METADATA_WEIGHT
+                    reasons.append(f"`{term}` appears in decision metadata")
+        elif unique_terms:
             name_tokens = record.name_tokens
             node_tokens = record.node_tokens
             structure_tokens = record.structure_tokens
@@ -640,6 +670,7 @@ def _query_candidate_records(
     index: _QueryIndex,
     unique_terms: list[str],
     *,
+    term_bucket_matches: tuple[_TermBucketMatches, ...],
     source_path: str | None,
     symbol: str | None,
     domain: str | None,
@@ -656,20 +687,48 @@ def _query_candidate_records(
     if scoring_candidate_ids is not None:
         candidate_ids.update(scoring_candidate_ids)
     elif unique_terms:
-        candidate_ids.update(_term_candidate_flow_ids(index, unique_terms))
+        candidate_ids.update(_term_candidate_flow_ids(term_bucket_matches))
     if not candidate_ids:
         return ()
     return tuple(record for record in index.records if record.flow.id in candidate_ids)
 
 
-def _term_candidate_flow_ids(index: _QueryIndex, unique_terms: list[str]) -> set[str]:
+def _term_candidate_flow_ids(term_bucket_matches: tuple[_TermBucketMatches, ...]) -> set[str]:
     candidate_ids: set[str] = set()
-    maps = _query_token_maps(index)
-    for term in unique_terms:
-        for variant in _term_variants(term):
-            for flow_ids_by_token in maps:
-                candidate_ids.update(flow_ids_by_token.get(variant, frozenset()))
+    for term_matches in term_bucket_matches:
+        candidate_ids.update(term_matches.identity_flow_ids)
+        candidate_ids.update(term_matches.node_flow_ids)
+        candidate_ids.update(term_matches.structure_flow_ids)
+        candidate_ids.update(term_matches.metadata_flow_ids)
     return candidate_ids
+
+
+def _term_bucket_matches(
+    index: _QueryIndex,
+    unique_terms: list[str],
+) -> tuple[_TermBucketMatches, ...]:
+    identity_map, node_map, structure_map, metadata_map = _query_token_maps(index)
+    matches: list[_TermBucketMatches] = []
+    for term in unique_terms:
+        identity_flow_ids: set[str] = set()
+        node_flow_ids: set[str] = set()
+        structure_flow_ids: set[str] = set()
+        metadata_flow_ids: set[str] = set()
+        for variant in _term_variants(term):
+            identity_flow_ids.update(identity_map.get(variant, frozenset()))
+            node_flow_ids.update(node_map.get(variant, frozenset()))
+            structure_flow_ids.update(structure_map.get(variant, frozenset()))
+            metadata_flow_ids.update(metadata_map.get(variant, frozenset()))
+        matches.append(
+            _TermBucketMatches(
+                term=term,
+                identity_flow_ids=frozenset(identity_flow_ids),
+                node_flow_ids=frozenset(node_flow_ids),
+                structure_flow_ids=frozenset(structure_flow_ids),
+                metadata_flow_ids=frozenset(metadata_flow_ids),
+            )
+        )
+    return tuple(matches)
 
 
 def _query_token_maps(
