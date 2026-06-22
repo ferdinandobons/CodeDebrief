@@ -3,14 +3,15 @@
   <desc id="desc">CodeDebrief logo with icon and wordmark.</desc>
   <style>
     .wordmark {
-      fill: #0f172a;
+      fill: #edf2fb;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 72px;
       font-weight: 780;
       letter-spacing: -1px;
-    }
-    @media (prefers-color-scheme: dark) {
-      .wordmark { fill: #edf2fb; }
+      paint-order: stroke fill;
+      stroke: #020817;
+      stroke-linejoin: round;
+      stroke-width: 4px;
     }
   </style>
   <g aria-hidden="true" transform="translate(34 18)">
