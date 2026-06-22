@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="docs/assets/codedebrief-logo.svg" alt="CodeDebrief logo" width="72">
+  <img src="docs/assets/codedebrief-wordmark.svg" alt="CodeDebrief" width="420">
 </p>
-
-<h1 align="center">CodeDebrief</h1>
 
 <p align="center">
   <strong>Source-grounded workflow diagrams for coding agents and codebase exploration.</strong>
