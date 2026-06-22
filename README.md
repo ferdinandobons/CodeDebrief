@@ -361,6 +361,8 @@ CodeDebrief works without config. Add `codedebrief.toml` only when defaults are 
 
 ```toml
 [codedebrief]
+# Analyze only these project-relative folders or files. Artifacts still write under
+# output_dir relative to the project root where you run CodeDebrief.
 source_roots = ["."]
 exclude = []
 exclude_dirs = []
@@ -382,6 +384,39 @@ edge = ["edge/**", "workers/**"]
 Defaults prune common VCS, dependency, cache, temporary, generated, and output directories,
 including `.git`, `node_modules`, virtualenv folders, `.next`, `.turbo`, `.svelte-kit`,
 `dist`, `build`, `out`, `target`, `coverage`, `vendor`, `Pods`, and `codedebrief-out`.
+
+### Analyze Only Selected Folders
+
+Yes, this is supported. Run CodeDebrief from the directory where you want the project
+configuration and `codedebrief-out` folder to live, then limit analysis with
+`source_roots`.
+
+For example, from the repository root:
+
+```bash
+cd path/to/my-project
+codedebrief setup-agent claude
+```
+
+Then edit `codedebrief.toml`:
+
+```toml
+[codedebrief]
+source_roots = ["backend-api", "frontend/src"]
+output_dir = "codedebrief-out"
+```
+
+With that configuration:
+
+- CodeDebrief analyzes only `backend-api/` and `frontend/src/`;
+- `codedebrief-out/codedebrief.json`, `codedebrief-out/codedebrief.md`, and the local
+  viewer HTML are still created in the current project root;
+- MCP and the manual viewer keep using the root project context, but the modeled workflows
+  come only from the selected folders.
+
+`source_roots` entries are project-relative paths and may point to folders or individual
+source files. If you want separate models for different parts of a monorepo, use different
+project roots or profiles with different `output_dir` values.
 
 ## Limitations
 

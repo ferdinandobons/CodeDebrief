@@ -13,6 +13,11 @@ The project follows Semantic Versioning.
 - Wrote JSON MCP configs from WSL `/mnt/<drive>/...` projects through `wsl.exe --cd` so
   Windows-native agent clients do not receive raw WSL paths as command targets.
 
+### Documentation
+
+- Documented how to analyze only selected folders with `source_roots` while keeping
+  `codedebrief-out` in the current project root.
+
 ## 0.14.1 - 2026-06-22
 
 ### Fixed

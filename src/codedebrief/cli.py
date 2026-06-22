@@ -559,6 +559,8 @@ def _print_next_steps(steps: Sequence[str]) -> None:
 
 def _starter_config_text() -> str:
     return """[codedebrief]
+# Analyze only these project-relative folders or files. Artifacts still write under
+# output_dir relative to the project root where you run CodeDebrief.
 source_roots = ["."]
 exclude = []
 exclude_dirs = []
