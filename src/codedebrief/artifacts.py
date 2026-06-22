@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from codedebrief.config import CodeDebriefConfig
 from codedebrief.model import ProjectModel
 from codedebrief.render.html import render_html
 from codedebrief.render.markdown import render_markdown
-from codedebrief.util import atomic_write_text, read_json, write_json
+from codedebrief.util import atomic_write_text_batch, read_json
 
 
 def output_paths(root: Path, config: CodeDebriefConfig | None = None) -> tuple[Path, Path, Path]:
@@ -32,12 +33,15 @@ def write_artifacts(
     config: CodeDebriefConfig | None = None,
 ) -> tuple[Path, Path, Path | None]:
     json_path, markdown_path, html_path = output_paths(root, config)
-    write_json(json_path, model.to_dict())
-    atomic_write_text(markdown_path, render_markdown(model), encoding="utf-8")
+    payloads = {
+        json_path: json.dumps(model.to_dict(), indent=2, ensure_ascii=False, sort_keys=False)
+        + "\n",
+        markdown_path: render_markdown(model),
+    }
     if include_html:
-        atomic_write_text(
-            html_path, render_html(model, source_root=root.resolve()), encoding="utf-8"
-        )
+        payloads[html_path] = render_html(model, source_root=root.resolve())
+    atomic_write_text_batch(payloads, encoding="utf-8")
+    if include_html:
         return json_path, markdown_path, html_path
     return json_path, markdown_path, None
 

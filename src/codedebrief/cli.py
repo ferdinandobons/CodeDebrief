@@ -24,7 +24,7 @@ from codedebrief.install import (
 )
 from codedebrief.quality import render_quality
 from codedebrief.render.html import render_html
-from codedebrief.util import atomic_write_text
+from codedebrief.util import atomic_write_text, project_update_lock
 from codedebrief.validation import validate_codedebrief
 
 
@@ -268,7 +268,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = CodeDebriefConfig.load(Path(args.path).resolve(), profile=args.profile)
             run_mcp(Path(args.path), config)
             return 0
-    except (OSError, RuntimeError, ValueError, SyntaxError) as error:
+    except (OSError, RuntimeError, TimeoutError, ValueError, SyntaxError) as error:
         # OSError subsumes FileNotFoundError/PermissionError, so a missing path or a
         # permission-denied write surfaces as a clean message instead of a raw traceback.
         print("CodeDebrief command FAILED", file=sys.stderr)
@@ -380,13 +380,14 @@ def _analyze(
         raise FileNotFoundError(f"path does not exist: {root}")
     root = root.resolve()
     config = CodeDebriefConfig.load(root, profile=profile)
-    result = ProjectAnalyzer(root, config).analyze(full=full)
-    json_path, markdown_path, html_path = write_artifacts(
-        root,
-        result.model,
-        include_html=include_html,
-        config=config,
-    )
+    with project_update_lock(root):
+        result = ProjectAnalyzer(root, config).analyze(full=full)
+        json_path, markdown_path, html_path = write_artifacts(
+            root,
+            result.model,
+            include_html=include_html,
+            config=config,
+        )
     print("CodeDebrief update")
     print("Status: OK - artifacts refreshed.")
     print(f"Project: {root}")

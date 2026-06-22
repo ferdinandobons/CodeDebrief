@@ -13,7 +13,7 @@ from codedebrief.config import CodeDebriefConfig
 from codedebrief.model import ProjectModel
 from codedebrief.quality import model_quality
 from codedebrief.render.markdown import render_markdown
-from codedebrief.util import read_json
+from codedebrief.util import project_update_lock, read_json
 
 
 @dataclass(slots=True)
@@ -84,8 +84,9 @@ def validate_codedebrief(
 
     if check_sync:
         try:
-            fresh = ProjectAnalyzer(root, active_config).analyze(full=True).model
-        except (OSError, ValueError, SyntaxError) as error:
+            with project_update_lock(root):
+                fresh = ProjectAnalyzer(root, active_config).analyze(full=True).model
+        except (OSError, TimeoutError, ValueError, SyntaxError) as error:
             report.add_error(f"Could not re-analyze sources for sync check: {error}")
         else:
             if _without_generated_at(fresh.to_dict()) != _without_generated_at(model.to_dict()):

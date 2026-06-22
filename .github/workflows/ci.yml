@@ -26,6 +26,16 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
       - run: uv run pytest --cov
+      - run: uv run codedebrief validate . --check-sync --quality --max-skipped-files 0 --max-parse-warnings 0 --min-call-resolution 0.90 --max-generic-label-ratio 0.05
+      - run: uv run codedebrief view . --render-only --no-open
+      - if: matrix.python-version == '3.13'
+        run: |
+          uv build --out-dir /tmp/codedebrief-dist
+          UV_TOOL_DIR=/tmp/codedebrief-uv-tools uvx twine check /tmp/codedebrief-dist/*
+          uv venv /tmp/codedebrief-wheel-smoke
+          uv pip install --python /tmp/codedebrief-wheel-smoke/bin/python /tmp/codedebrief-dist/*.whl
+          /tmp/codedebrief-wheel-smoke/bin/codedebrief --version
+          /tmp/codedebrief-wheel-smoke/bin/codedebrief doctor --json
 
   viewer:
     runs-on: ubuntu-latest

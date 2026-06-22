@@ -29,7 +29,7 @@ from codedebrief.render.snapshot import (
     render_subgraph_snapshot,
     unsupported_snapshot_format,
 )
-from codedebrief.util import atomic_write_text, metadata_scope_names
+from codedebrief.util import atomic_write_text, metadata_scope_names, project_update_lock
 from codedebrief.validation import validate_codedebrief
 
 # Rough tokens per returned list item, used to honor an agent's token_budget cap.
@@ -481,12 +481,31 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
     @server.tool()
     def update_codedebrief(full: bool = False) -> dict[str, Any]:
         """Refresh CodeDebrief after source changes and write JSON, Markdown, and HTML."""
-        result = ProjectAnalyzer(project_root, active_config).analyze(full=full)
-        json_path, markdown_path, html_path = write_artifacts(
-            project_root,
-            result.model,
-            config=active_config,
-        )
+        try:
+            with project_update_lock(project_root):
+                result = ProjectAnalyzer(project_root, active_config).analyze(full=full)
+                json_path, markdown_path, html_path = write_artifacts(
+                    project_root,
+                    result.model,
+                    config=active_config,
+                )
+        except (OSError, RuntimeError, SyntaxError, TimeoutError, ValueError) as error:
+            return {
+                "error": "Could not update CodeDebrief artifacts.",
+                "error_code": "update_failed",
+                "detail": str(error),
+                "recoverable": True,
+                "guardrail": (
+                    "This reports a failed local artifact refresh. Check filesystem "
+                    "permissions and rerun update_codedebrief or `codedebrief update`."
+                ),
+                "next_tools": {
+                    "validate_artifacts": {
+                        "tool": "validate_artifacts",
+                        "arguments": {"check_sync": True, "include_quality": True},
+                    }
+                },
+            }
         return {
             "changed_files": result.changed_files,
             "deleted_files": result.deleted_files,

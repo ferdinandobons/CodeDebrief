@@ -7,8 +7,9 @@ from pathlib import Path
 import pytest
 
 from codedebrief.analysis.project import ProjectAnalyzer
+from codedebrief.config import CodeDebriefConfig
 from codedebrief.model import Evidence, ProjectModel
-from codedebrief.util import read_json
+from codedebrief.util import atomic_write_text_batch, project_update_lock, read_json
 
 
 def _write(path: Path, content: str) -> None:
@@ -99,6 +100,54 @@ def test_read_json_names_the_offending_file(tmp_path: Path) -> None:
     bad.write_text("{ not json", encoding="utf-8")
     with pytest.raises(ValueError, match=r"invalid JSON in .*broken\.json"):
         read_json(bad)
+
+
+def test_atomic_write_text_batch_restores_previous_files_on_replace_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    first.write_text("old first\n", encoding="utf-8")
+    second.write_text("old second\n", encoding="utf-8")
+    real_replace = Path.replace
+
+    def flaky_replace(self: Path, target: Path) -> Path:
+        if target == second and self.name.startswith(".second.txt.") and self.suffix == ".tmp":
+            raise OSError("simulated replace failure")
+        return real_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", flaky_replace)
+
+    with pytest.raises(OSError, match="simulated replace failure"):
+        atomic_write_text_batch({first: "new first\n", second: "new second\n"})
+
+    assert first.read_text(encoding="utf-8") == "old first\n"
+    assert second.read_text(encoding="utf-8") == "old second\n"
+
+
+def test_project_update_lock_rejects_concurrent_update(tmp_path: Path) -> None:
+    with (
+        project_update_lock(tmp_path),
+        pytest.raises(TimeoutError, match="Timed out waiting"),
+        project_update_lock(tmp_path, timeout=0.01),
+    ):
+        pass
+
+
+@pytest.mark.parametrize(
+    ("config_text", "message"),
+    [
+        ('[codedebrief]\nsource_roots = "src"\n', "codedebrief.source_roots"),
+        ('[codedebrief]\ninclude_public_functions = "false"\n', "include_public_functions"),
+        ("[codedebrief]\nmax_call_depth = -1\n", "max_call_depth"),
+        ('[codedebrief.scopes]\nbackend = "backend/**"\n', "codedebrief.scopes.backend"),
+    ],
+)
+def test_config_rejects_malformed_types(tmp_path: Path, config_text: str, message: str) -> None:
+    (tmp_path / "codedebrief.toml").write_text(config_text, encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        CodeDebriefConfig.load(tmp_path)
 
 
 def test_corrupt_index_forces_a_clean_full_reanalyze(tmp_path: Path) -> None:
