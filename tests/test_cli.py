@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from codedebrief.analysis import project as project_module
 from codedebrief.cli import build_parser, main
 
 REMOVED_AGENT_COMMAND_SNIPPETS = (
@@ -266,6 +267,30 @@ def test_cli_update_does_not_rewrite_unchanged_artifacts(
 
     assert json_path.stat().st_mtime_ns == old_time
     assert markdown_path.stat().st_mtime_ns == old_time
+    assert "Cache: 1 hits, 0 changed, 0 deleted." in capsys.readouterr().out
+
+
+def test_cli_update_rewrites_when_artifact_format_changes(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "main.py"
+    source.write_text("def f():\n    return 1\n", encoding="utf-8")
+
+    assert main(["update", str(tmp_path), "--full", "--no-html"]) == 0
+    capsys.readouterr()
+    json_path = tmp_path / "codedebrief-out" / "codedebrief.json"
+    markdown_path = tmp_path / "codedebrief-out" / "codedebrief.md"
+    old_time = 1_700_000_000_000_000_000
+    os.utime(json_path, ns=(old_time, old_time))
+    os.utime(markdown_path, ns=(old_time, old_time))
+    monkeypatch.setattr(project_module, "ARTIFACT_FORMAT_VERSION", "test-next")
+
+    assert main(["update", str(tmp_path), "--no-html"]) == 0
+
+    assert json_path.stat().st_mtime_ns != old_time
+    assert markdown_path.stat().st_mtime_ns != old_time
     assert "Cache: 1 hits, 0 changed, 0 deleted." in capsys.readouterr().out
 
 

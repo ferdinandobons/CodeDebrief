@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from collections import deque
-from collections.abc import Iterable
+from collections.abc import Container, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -20,6 +20,7 @@ METADATA_WEIGHT = 2
 # only when the term-overlap score is already > 0, so it never manufactures a match.
 ENTRYPOINT_BONUS = 1
 NAVIGATION_TOKENS_PER_ITEM = 60
+_QUERY_INDEX_CACHE_LIMIT = 8
 
 
 @dataclass(slots=True)
@@ -87,6 +88,38 @@ class ImpactResult:
         return [flow.id for flow in self.all_flows]
 
 
+@dataclass(slots=True)
+class _DecisionFilterRecord:
+    domains: frozenset[str]
+    values: frozenset[str]
+
+
+@dataclass(slots=True)
+class _FlowSearchRecord:
+    flow: Flow
+    scope_names: frozenset[str]
+    normalized_path: str
+    name_tokens: frozenset[str]
+    node_tokens: frozenset[str]
+    structure_tokens: frozenset[str]
+    metadata_tokens: frozenset[str]
+    identity_values: frozenset[str]
+    decision_filters: tuple[_DecisionFilterRecord, ...]
+
+
+@dataclass(slots=True)
+class _QueryIndex:
+    model: ProjectModel
+    records: tuple[_FlowSearchRecord, ...]
+    flows_by_id: dict[str, Flow]
+    flows_by_symbol: dict[str, list[Flow]]
+    flows_by_name: dict[str, list[Flow]]
+    file_dependency_records: tuple[tuple[tuple[str, ...], frozenset[str]], ...]
+
+
+_QUERY_INDEX_CACHE: dict[int, _QueryIndex] = {}
+
+
 def query_model(
     model: ProjectModel,
     question: str,
@@ -120,13 +153,14 @@ def query_model(
     unique_terms = list(dict.fromkeys(terms))
 
     matches: list[QueryMatch] = []
-    for flow in model.flows:
-        if not flow_in_scope(flow, scope):
+    for record in _query_index(model).records:
+        flow = record.flow
+        if not _record_in_scope(record, scope):
             continue
         if language is not None and flow.language != language:
             continue
-        filter_reasons = _structured_query_filter_reasons(
-            flow,
+        filter_reasons = _structured_record_filter_reasons(
+            record,
             source_path=source_path,
             symbol=symbol,
             domain=domain,
@@ -134,32 +168,19 @@ def query_model(
         )
         if filter_reasons is None:
             continue
-        # Match on tokens, not substrings: "order" must not match inside "reordering".
-        name_tokens = _tokenize(f"{flow.name} {flow.symbol}")
-        node_tokens = _tokenize(" ".join(node.label for node in flow.nodes))
-        structure_tokens = _tokenize(
-            " ".join(
-                [
-                    flow.location.path,
-                    flow.language,
-                    " ".join(metadata_scope_names(flow.metadata)),
-                ]
-            )
-        )
-        metadata_tokens = _flow_metadata_tokens(flow)
         score = 0
         reasons: list[str] = []
         for term in unique_terms:
-            if _term_matches(term, name_tokens):
+            if _term_matches(term, record.name_tokens):
                 score += IDENTITY_WEIGHT
                 reasons.append(f"`{term}` matches the flow identity")
-            if _term_matches(term, node_tokens):
+            if _term_matches(term, record.node_tokens):
                 score += NODE_WEIGHT
                 reasons.append(f"`{term}` appears in a decision or action")
-            if _term_matches(term, structure_tokens):
+            if _term_matches(term, record.structure_tokens):
                 score += STRUCTURE_WEIGHT
                 reasons.append(f"`{term}` matches flow structure")
-            if _term_matches(term, metadata_tokens):
+            if _term_matches(term, record.metadata_tokens):
                 score += METADATA_WEIGHT
                 reasons.append(f"`{term}` appears in decision metadata")
         if filter_reasons:
@@ -179,6 +200,17 @@ def query_model(
     return matches
 
 
+def warm_query_index(model: ProjectModel) -> None:
+    """Build the deterministic query/impact index for a loaded model.
+
+    MCP servers call this once after loading artifacts so later query_model and
+    impact_model calls reuse tokenized fields and lookup maps without changing
+    ranking, filtering, or payload semantics.
+    """
+
+    _query_index(model)
+
+
 def impact_model(
     model: ProjectModel,
     changed_files: list[str],
@@ -189,9 +221,11 @@ def impact_model(
     dependency_paths: list[str] | None = None,
 ) -> ImpactResult:
     normalized = {_normalize_path(item) for item in changed_files}
-    flows = [flow for flow in model.flows if flow_in_scope(flow, scope)]
-    direct = [flow for flow in flows if _normalize_path(flow.location.path) in normalized]
-    by_id = {flow.id: flow for flow in model.flows}
+    index = _query_index(model)
+    scoped_records = [record for record in index.records if _record_in_scope(record, scope)]
+    flows = [record.flow for record in scoped_records]
+    direct = [record.flow for record in scoped_records if record.normalized_path in normalized]
+    by_id = index.flows_by_id
     scoped_ids = {flow.id for flow in flows}
     target_flow_ids = _unique(flow_ids or [])
     target_symbols = _unique(symbols or [])
@@ -209,21 +243,20 @@ def impact_model(
         direct_by_id[flow.id] = flow
         add_reason(flow, f"source file changed `{_normalize_path(flow.location.path)}`")
 
-    for file_record in model.files:
-        dependency_matches = sorted(
-            dependency
-            for dependency in {_normalize_path(item) for item in file_record.dependencies}
-            if dependency in normalized
-        )
-        if not dependency_matches:
-            continue
-        for flow_id in file_record.flow_ids:
-            dependent_flow = by_id.get(flow_id)
-            if dependent_flow is None or dependent_flow.id not in scoped_ids:
+    if normalized:
+        for flow_ids_for_file, dependencies in index.file_dependency_records:
+            dependency_matches = sorted(
+                dependency for dependency in dependencies if dependency in normalized
+            )
+            if not dependency_matches:
                 continue
-            direct_by_id[dependent_flow.id] = dependent_flow
-            for dependency in dependency_matches:
-                add_reason(dependent_flow, f"depends on changed file `{dependency}`")
+            for flow_id in flow_ids_for_file:
+                dependent_flow = by_id.get(flow_id)
+                if dependent_flow is None or dependent_flow.id not in scoped_ids:
+                    continue
+                direct_by_id[dependent_flow.id] = dependent_flow
+                for dependency in dependency_matches:
+                    add_reason(dependent_flow, f"depends on changed file `{dependency}`")
 
     def add_flow(flow: Flow, target_type: str, value: str, reason: str) -> None:
         if flow.id not in scoped_ids:
@@ -242,7 +275,12 @@ def impact_model(
         add_flow(target_flow, "flow", flow_id, f"explicit flow target `{flow_id}`")
 
     for symbol in target_symbols:
-        matches = [flow for flow in model.flows if symbol in (flow.symbol, flow.name)]
+        matches = _unique_flows(
+            [
+                *index.flows_by_symbol.get(symbol, []),
+                *index.flows_by_name.get(symbol, []),
+            ]
+        )
         if not matches:
             unresolved_targets.append({"type": "symbol", "value": symbol, "reason": "not_found"})
             continue
@@ -251,9 +289,9 @@ def impact_model(
 
     for dependency_path in target_dependency_paths:
         matches = [
-            flow
-            for flow in model.flows
-            if _path_matches_dependency(_normalize_path(flow.location.path), dependency_path)
+            record.flow
+            for record in index.records
+            if _path_matches_dependency(record.normalized_path, dependency_path)
         ]
         if not matches:
             unresolved_targets.append(
@@ -321,7 +359,7 @@ def flow_navigation(
     if error is not None:
         return error
     assert flow is not None
-    by_id = {item.id: item for item in model.flows}
+    by_id = _query_index(model).flows_by_id
     scope = metadata_scope_names(flow.metadata)
     primary_scope = scope[0] if scope else None
     return {
@@ -373,17 +411,14 @@ def flow_navigation(
 def _resolve_flow_target(
     model: ProjectModel, target: str
 ) -> tuple[Flow | None, dict[str, Any] | None]:
-    symbol_match: Flow | None = None
-    name_matches: list[Flow] = []
-    for flow in model.flows:
-        if flow.id == target:
-            return flow, None
-        if symbol_match is None and flow.symbol == target:
-            symbol_match = flow
-        if flow.name == target:
-            name_matches.append(flow)
-    if symbol_match is not None:
-        return symbol_match, None
+    index = _query_index(model)
+    exact = index.flows_by_id.get(target)
+    if exact is not None:
+        return exact, None
+    symbol_matches = index.flows_by_symbol.get(target, [])
+    if symbol_matches:
+        return symbol_matches[0], None
+    name_matches = index.flows_by_name.get(target, [])
     if len(name_matches) == 1:
         return name_matches[0], None
     if len(name_matches) > 1:
@@ -467,8 +502,87 @@ def flow_in_scope(flow: Flow, scope: str | None) -> bool:
     return scope is None or scope in metadata_scope_names(flow.metadata)
 
 
-def _structured_query_filter_reasons(
-    flow: Flow,
+def _query_index(model: ProjectModel) -> _QueryIndex:
+    cache_key = id(model)
+    cached = _QUERY_INDEX_CACHE.get(cache_key)
+    if cached is not None and cached.model is model:
+        return cached
+    flows_by_id = {flow.id: flow for flow in model.flows}
+    flows_by_symbol: dict[str, list[Flow]] = {}
+    flows_by_name: dict[str, list[Flow]] = {}
+    records: list[_FlowSearchRecord] = []
+    for flow in model.flows:
+        scope_names = frozenset(metadata_scope_names(flow.metadata))
+        flows_by_symbol.setdefault(flow.symbol, []).append(flow)
+        flows_by_name.setdefault(flow.name, []).append(flow)
+        records.append(
+            _FlowSearchRecord(
+                flow=flow,
+                scope_names=scope_names,
+                normalized_path=_normalize_path(flow.location.path),
+                name_tokens=frozenset(_tokenize(f"{flow.name} {flow.symbol}")),
+                node_tokens=frozenset(_tokenize(" ".join(node.label for node in flow.nodes))),
+                structure_tokens=frozenset(
+                    _tokenize(
+                        " ".join(
+                            [
+                                flow.location.path,
+                                flow.language,
+                                " ".join(scope_names),
+                            ]
+                        )
+                    )
+                ),
+                metadata_tokens=frozenset(_flow_metadata_tokens(flow)),
+                identity_values=frozenset({flow.symbol, flow.name, flow.id}),
+                decision_filters=_decision_filter_records(flow),
+            )
+        )
+    index = _QueryIndex(
+        model=model,
+        records=tuple(records),
+        flows_by_id=flows_by_id,
+        flows_by_symbol=flows_by_symbol,
+        flows_by_name=flows_by_name,
+        file_dependency_records=tuple(
+            (
+                tuple(file_record.flow_ids),
+                frozenset(_normalize_path(item) for item in file_record.dependencies),
+            )
+            for file_record in model.files
+        ),
+    )
+    if len(_QUERY_INDEX_CACHE) >= _QUERY_INDEX_CACHE_LIMIT:
+        _QUERY_INDEX_CACHE.pop(next(iter(_QUERY_INDEX_CACHE)))
+    _QUERY_INDEX_CACHE[cache_key] = index
+    return index
+
+
+def _record_in_scope(record: _FlowSearchRecord, scope: str | None) -> bool:
+    return scope is None or scope in record.scope_names
+
+
+def _decision_filter_records(flow: Flow) -> tuple[_DecisionFilterRecord, ...]:
+    records: list[_DecisionFilterRecord] = []
+    for node in flow.nodes:
+        if node.kind is not NodeKind.DECISION:
+            continue
+        records.append(
+            _DecisionFilterRecord(
+                domains=frozenset(
+                    {
+                        str(node.metadata.get("domain", "")),
+                        str(node.metadata.get("value_namespace", "")),
+                    }
+                ),
+                values=frozenset(_decision_values(node)),
+            )
+        )
+    return tuple(records)
+
+
+def _structured_record_filter_reasons(
+    record: _FlowSearchRecord,
     *,
     source_path: str | None,
     symbol: str | None,
@@ -478,17 +592,15 @@ def _structured_query_filter_reasons(
     reasons: list[str] = []
     if source_path is not None:
         needle = _normalize_path(source_path)
-        haystack = _normalize_path(flow.location.path)
-        if needle not in haystack:
+        if needle not in record.normalized_path:
             return None
         reasons.append(f"source path matches `{needle}`")
     if symbol is not None:
-        if symbol not in {flow.symbol, flow.name, flow.id}:
+        if symbol not in record.identity_values:
             return None
         reasons.append(f"symbol/name matches `{symbol}`")
     if domain is not None or value is not None:
-        decision = _flow_has_decision_filter(flow, domain=domain, value=value)
-        if decision is None:
+        if not _record_has_decision_filter(record, domain=domain, value=value):
             return None
         if domain is not None:
             reasons.append(f"decision domain matches `{domain}`")
@@ -497,22 +609,23 @@ def _structured_query_filter_reasons(
     return reasons
 
 
-def _flow_has_decision_filter(
-    flow: Flow, *, domain: str | None, value: str | None
-) -> FlowNode | None:
-    for node in flow.nodes:
-        if node.kind is not NodeKind.DECISION:
+def _record_has_decision_filter(
+    record: _FlowSearchRecord, *, domain: str | None, value: str | None
+) -> bool:
+    for decision in record.decision_filters:
+        if domain is not None and domain not in decision.domains:
             continue
-        domains = {
-            str(node.metadata.get("domain", "")),
-            str(node.metadata.get("value_namespace", "")),
-        }
-        if domain is not None and domain not in domains:
+        if value is not None and value not in decision.values:
             continue
-        if value is not None and value not in _decision_values(node):
-            continue
-        return node
-    return None
+        return True
+    return False
+
+
+def _unique_flows(flows: Iterable[Flow]) -> list[Flow]:
+    seen: dict[str, Flow] = {}
+    for flow in flows:
+        seen.setdefault(flow.id, flow)
+    return list(seen.values())
 
 
 def _decision_values(node: FlowNode) -> set[str]:
@@ -595,7 +708,7 @@ def _word_tokens(text: str) -> list[str]:
     return tokens
 
 
-def _term_matches(term: str, tokens: set[str]) -> bool:
+def _term_matches(term: str, tokens: Container[str]) -> bool:
     return any(variant in tokens for variant in _term_variants(term))
 
 

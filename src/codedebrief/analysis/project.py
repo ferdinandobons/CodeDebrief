@@ -41,6 +41,10 @@ from codedebrief.util import (
 )
 
 CACHE_VERSION = "7"
+# Bump when the persisted artifact contract changes without requiring a different
+# file-analysis cache format. This keeps no-op updates fast while still forcing
+# Markdown/HTML/JSON regeneration after renderer or presentation-schema changes.
+ARTIFACT_FORMAT_VERSION = "1"
 
 # One bad file (mid-edit syntax error, non-UTF-8 bytes, a merge-conflict marker,
 # or a missing lazy language grammar in the current Python environment) must never
@@ -67,6 +71,7 @@ class ProjectAnalyzer:
         self.index_path = self.cache_dir / "index.json"
         self.previous_generated_at: str | None = None
         self.previous_config_hash: str | None = None
+        self.previous_artifact_format_version: str | None = None
         # Language analyzers are built lazily from the registry, so a grammar is loaded
         # only when a file of that language is actually present.
         self._analyzers: dict[str, LanguageAnalyzer] = {}
@@ -87,6 +92,7 @@ class ProjectAnalyzer:
             not full
             and bool(previous_index)
             and self.previous_config_hash == config_hash
+            and self.previous_artifact_format_version == ARTIFACT_FORMAT_VERSION
             and not deleted_files
         )
 
@@ -164,6 +170,7 @@ class ProjectAnalyzer:
             self.index_path,
             {
                 "cache_version": CACHE_VERSION,
+                "artifact_format_version": ARTIFACT_FORMAT_VERSION,
                 "config_hash": config_hash,
                 "generated_at": model.generated_at,
                 "files": new_index,
@@ -233,6 +240,10 @@ class ProjectAnalyzer:
             data = read_json(self.index_path)
             if data.get("cache_version") != CACHE_VERSION:
                 return {}
+            artifact_format_version = data.get("artifact_format_version")
+            self.previous_artifact_format_version = (
+                str(artifact_format_version) if artifact_format_version else None
+            )
             config_hash = data.get("config_hash")
             self.previous_config_hash = str(config_hash) if config_hash else None
             generated_at = data.get("generated_at")
@@ -253,6 +264,7 @@ class ProjectAnalyzer:
             # full re-analyze, exactly as a corrupt per-file cache entry already does.
             self.previous_generated_at = None
             self.previous_config_hash = None
+            self.previous_artifact_format_version = None
             return {}
 
     def _load_existing_model(self) -> ProjectModel | None:

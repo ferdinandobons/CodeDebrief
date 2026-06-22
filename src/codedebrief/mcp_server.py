@@ -24,6 +24,7 @@ from codedebrief.query import (
     git_changed_files,
     impact_model,
     query_model,
+    warm_query_index,
 )
 from codedebrief.render.snapshot import (
     SNAPSHOT_FORMATS,
@@ -59,6 +60,13 @@ def _cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]
 
 
 def model_hash(model: ProjectModel) -> str:
+    cached = _MODEL_INDEX_CACHE.get(id(model))
+    if cached is not None and cached.model is model:
+        return cached.model_hash
+    return _compute_model_hash(model)
+
+
+def _compute_model_hash(model: ProjectModel) -> str:
     payload = model.to_dict()
     payload.pop("generated_at", None)
     raw = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))
@@ -1537,6 +1545,7 @@ def _slice_neighbor_flow_ids(model: ProjectModel, flow_id: str, direction: str) 
     flow = _flow_by_id(model, flow_id)
     if flow is None:
         return set()
+    index = _model_index(model)
     neighbors: set[str] = set()
     if direction in {"neighbors", "callees", "all"}:
         neighbors.update(flow.calls)
@@ -1545,13 +1554,12 @@ def _slice_neighbor_flow_ids(model: ProjectModel, flow_id: str, direction: str) 
     if direction in {"neighbors", "tests", "all"}:
         neighbors.update(flow.tests)
     if direction in {"domain", "all"}:
-        domains = _flow_domain_keys(flow)
+        domains = index.domain_keys_by_flow.get(flow.id, frozenset())
         if domains:
-            for candidate in model.flows:
-                if candidate.id != flow.id and domains.intersection(_flow_domain_keys(candidate)):
-                    neighbors.add(candidate.id)
-    known = {item.id for item in model.flows}
-    return {item for item in neighbors if item in known}
+            for domain in domains:
+                neighbors.update(index.domain_flow_ids_by_key.get(domain, frozenset()))
+            neighbors.discard(flow.id)
+    return {item for item in neighbors if item in index.flows_by_id}
 
 
 def _flow_domain_keys(flow: Any) -> set[str]:
@@ -1866,12 +1874,26 @@ def _slice_target_error(
 
 
 @dataclass(slots=True)
+class _DomainDecisionRecord:
+    flow: Flow
+    node: FlowNode
+    keys: tuple[str, ...]
+    values: tuple[str, ...]
+    scope_names: frozenset[str]
+
+
+@dataclass(slots=True)
 class _RuntimeModelIndex:
     model: ProjectModel
+    model_hash: str
     flows_by_id: dict[str, Flow]
     nodes_by_flow: dict[str, dict[str, FlowNode]]
     edges_by_flow: dict[str, dict[str, FlowEdge]]
     call_graph: dict[str, list[str]]
+    domain_decisions: tuple[_DomainDecisionRecord, ...]
+    domain_flow_ids_by_key: dict[str, frozenset[str]]
+    domain_keys_by_flow: dict[str, frozenset[str]]
+    scope_names: frozenset[str]
 
 
 _MODEL_INDEX_CACHE: dict[int, _RuntimeModelIndex] = {}
@@ -1885,15 +1907,60 @@ def _model_index(model: ProjectModel) -> _RuntimeModelIndex:
     flows_by_id = {flow.id: flow for flow in model.flows}
     index = _RuntimeModelIndex(
         model=model,
+        model_hash=_compute_model_hash(model),
         flows_by_id=flows_by_id,
         nodes_by_flow={flow.id: {node.id: node for node in flow.nodes} for flow in model.flows},
         edges_by_flow={flow.id: {edge.id: edge for edge in flow.edges} for flow in model.flows},
         call_graph=_build_workflow_call_graph(model, set(flows_by_id)),
+        domain_decisions=_domain_decision_records(model),
+        domain_flow_ids_by_key=_domain_flow_ids_by_key(model),
+        domain_keys_by_flow={flow.id: frozenset(_flow_domain_keys(flow)) for flow in model.flows},
+        scope_names=_scope_names_for_model(model),
     )
     if len(_MODEL_INDEX_CACHE) >= _MODEL_INDEX_CACHE_LIMIT:
         _MODEL_INDEX_CACHE.pop(next(iter(_MODEL_INDEX_CACHE)))
     _MODEL_INDEX_CACHE[cache_key] = index
     return index
+
+
+def _domain_decision_records(model: ProjectModel) -> tuple[_DomainDecisionRecord, ...]:
+    records: list[_DomainDecisionRecord] = []
+    for flow in model.flows:
+        scope_names = frozenset(metadata_scope_names(flow.metadata))
+        for node in flow.nodes:
+            if node.kind is not NodeKind.DECISION:
+                continue
+            keys = tuple(_domain_keys(node.metadata))
+            if not keys:
+                continue
+            records.append(
+                _DomainDecisionRecord(
+                    flow=flow,
+                    node=node,
+                    keys=keys,
+                    values=tuple(_metadata_string_values(node.metadata.get("values"))),
+                    scope_names=scope_names,
+                )
+            )
+    return tuple(records)
+
+
+def _domain_flow_ids_by_key(model: ProjectModel) -> dict[str, frozenset[str]]:
+    flow_ids_by_key: dict[str, set[str]] = {}
+    for flow in model.flows:
+        for key in _flow_domain_keys(flow):
+            flow_ids_by_key.setdefault(key, set()).add(flow.id)
+    return {key: frozenset(flow_ids) for key, flow_ids in flow_ids_by_key.items()}
+
+
+def _scope_names_for_model(model: ProjectModel) -> frozenset[str]:
+    names: set[str] = set()
+    scopes = model.metadata.get("scopes", {})
+    if isinstance(scopes, Mapping):
+        names.update(str(name) for name in scopes)
+    for flow in model.flows:
+        names.update(metadata_scope_names(flow.metadata))
+    return frozenset(names)
 
 
 class _McpModelStore:
@@ -1912,6 +1979,7 @@ class _McpModelStore:
             self._model = model
             self._signature = signature
             _model_index(model)
+            warm_query_index(model)
             return model, None
         except _LOAD_ERRORS as error:
             self._model = None
@@ -1925,6 +1993,7 @@ class _McpModelStore:
             self._signature = None
         self._model = model
         _model_index(model)
+        warm_query_index(model)
 
     def _artifact_signature(self) -> tuple[int, int, int]:
         json_path, _, _ = output_paths(self.project_root, self.config)
@@ -2431,13 +2500,7 @@ def _agent_scope_filter(model: ProjectModel, scope: str | None) -> tuple[str | N
 
 
 def _known_scope_names(model: ProjectModel) -> set[str]:
-    names: set[str] = set()
-    scopes = model.metadata.get("scopes", {})
-    if isinstance(scopes, Mapping):
-        names.update(str(name) for name in scopes)
-    for flow in model.flows:
-        names.update(metadata_scope_names(flow.metadata))
-    return names
+    return set(_model_index(model).scope_names)
 
 
 def _question_with_scope_hint(question: str | None, scope_query_hint: str | None) -> str | None:
@@ -2507,39 +2570,35 @@ def _domain_logic_map(
     normalized_value = value.strip() if value and value.strip() else None
     concepts: dict[str, dict[str, Any]] = {}
 
-    for flow in model.flows:
-        if not flow_in_agent_scope(flow, scope):
+    for record in _model_index(model).domain_decisions:
+        if scope is not None and scope not in record.scope_names:
             continue
-        for node in flow.nodes:
-            if node.kind is not NodeKind.DECISION:
-                continue
-            keys = _domain_keys(node.metadata)
-            if normalized_domain is not None:
-                keys = [key for key in keys if key == normalized_domain]
-            if not keys:
-                continue
-            values = _metadata_string_values(node.metadata.get("values"))
-            for key in keys:
-                concept = concepts.setdefault(key, _empty_domain_concept(key))
-                concept["subjects"].update(_metadata_string_values(node.metadata.get("subject")))
-                concept["value_namespaces"].update(
-                    _metadata_string_values(node.metadata.get("value_namespace"))
-                )
-                concept["handled_values"].update(values)
-                concept["flow_ids"].add(flow.id)
-                concept["node_ids"].add(node.id)
-                concept["decision_nodes"].append(
-                    {
-                        "flow_id": flow.id,
-                        "flow": flow.name,
-                        "node_id": node.id,
-                        "subject": node.metadata.get("subject"),
-                        "value_namespace": node.metadata.get("value_namespace"),
-                        "values": values,
-                        "source": f"{node.location.path}:{node.location.start_line}",
-                        "source_range": _source_anchor(node.location),
-                    }
-                )
+        keys = list(record.keys)
+        if normalized_domain is not None:
+            keys = [key for key in keys if key == normalized_domain]
+        if not keys:
+            continue
+        for key in keys:
+            concept = concepts.setdefault(key, _empty_domain_concept(key))
+            concept["subjects"].update(_metadata_string_values(record.node.metadata.get("subject")))
+            concept["value_namespaces"].update(
+                _metadata_string_values(record.node.metadata.get("value_namespace"))
+            )
+            concept["handled_values"].update(record.values)
+            concept["flow_ids"].add(record.flow.id)
+            concept["node_ids"].add(record.node.id)
+            concept["decision_nodes"].append(
+                {
+                    "flow_id": record.flow.id,
+                    "flow": record.flow.name,
+                    "node_id": record.node.id,
+                    "subject": record.node.metadata.get("subject"),
+                    "value_namespace": record.node.metadata.get("value_namespace"),
+                    "values": list(record.values),
+                    "source": (f"{record.node.location.path}:{record.node.location.start_line}"),
+                    "source_range": _source_anchor(record.node.location),
+                }
+            )
 
     if normalized_value is not None:
         concepts = {
