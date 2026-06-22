@@ -30,7 +30,6 @@ from codedebrief.query import (
     git_changed_files,
     impact_model,
     query_model,
-    warm_query_index,
 )
 from codedebrief.render.snapshot import (
     SNAPSHOT_FORMATS,
@@ -1909,19 +1908,77 @@ class _RuntimeModelIndex:
     model: ProjectModel
     model_hash: str | None
     flows_by_id: dict[str, Flow]
-    nodes_by_flow: dict[str, dict[str, FlowNode]]
-    edges_by_flow: dict[str, dict[str, FlowEdge]]
-    call_graph: dict[str, list[str]]
-    domain_decisions: tuple[_DomainDecisionRecord, ...]
-    domain_flow_ids_by_key: dict[str, frozenset[str]]
-    domain_keys_by_flow: dict[str, frozenset[str]]
-    scope_names: frozenset[str]
     domain_logic_cache: dict[tuple[str | None, str | None, str | None, int], dict[str, Any]] = (
         field(default_factory=dict)
     )
     canonical_visual_cache: dict[tuple[tuple[str, ...], int], dict[str, Any]] = field(
         default_factory=dict
     )
+    _nodes_by_flow: dict[str, dict[str, FlowNode]] | None = field(
+        default=None, init=False, repr=False
+    )
+    _edges_by_flow: dict[str, dict[str, FlowEdge]] | None = field(
+        default=None, init=False, repr=False
+    )
+    _call_graph: dict[str, list[str]] | None = field(default=None, init=False, repr=False)
+    _domain_decisions: tuple[_DomainDecisionRecord, ...] | None = field(
+        default=None, init=False, repr=False
+    )
+    _domain_flow_ids_by_key: dict[str, frozenset[str]] | None = field(
+        default=None, init=False, repr=False
+    )
+    _domain_keys_by_flow: dict[str, frozenset[str]] | None = field(
+        default=None, init=False, repr=False
+    )
+    _scope_names: frozenset[str] | None = field(default=None, init=False, repr=False)
+
+    @property
+    def nodes_by_flow(self) -> dict[str, dict[str, FlowNode]]:
+        if self._nodes_by_flow is None:
+            self._nodes_by_flow = {
+                flow.id: {node.id: node for node in flow.nodes} for flow in self.model.flows
+            }
+        return self._nodes_by_flow
+
+    @property
+    def edges_by_flow(self) -> dict[str, dict[str, FlowEdge]]:
+        if self._edges_by_flow is None:
+            self._edges_by_flow = {
+                flow.id: {edge.id: edge for edge in flow.edges} for flow in self.model.flows
+            }
+        return self._edges_by_flow
+
+    @property
+    def call_graph(self) -> dict[str, list[str]]:
+        if self._call_graph is None:
+            self._call_graph = _build_workflow_call_graph(self.model, set(self.flows_by_id))
+        return self._call_graph
+
+    @property
+    def domain_decisions(self) -> tuple[_DomainDecisionRecord, ...]:
+        if self._domain_decisions is None:
+            self._domain_decisions = _domain_decision_records(self.model)
+        return self._domain_decisions
+
+    @property
+    def domain_flow_ids_by_key(self) -> dict[str, frozenset[str]]:
+        if self._domain_flow_ids_by_key is None:
+            self._domain_flow_ids_by_key = _domain_flow_ids_by_key(self.model)
+        return self._domain_flow_ids_by_key
+
+    @property
+    def domain_keys_by_flow(self) -> dict[str, frozenset[str]]:
+        if self._domain_keys_by_flow is None:
+            self._domain_keys_by_flow = {
+                flow.id: frozenset(_flow_domain_keys(flow)) for flow in self.model.flows
+            }
+        return self._domain_keys_by_flow
+
+    @property
+    def scope_names(self) -> frozenset[str]:
+        if self._scope_names is None:
+            self._scope_names = _scope_names_for_model(self.model)
+        return self._scope_names
 
 
 _MODEL_INDEX_CACHE: dict[int, _RuntimeModelIndex] = {}
@@ -1937,13 +1994,6 @@ def _model_index(model: ProjectModel) -> _RuntimeModelIndex:
         model=model,
         model_hash=None,
         flows_by_id=flows_by_id,
-        nodes_by_flow={flow.id: {node.id: node for node in flow.nodes} for flow in model.flows},
-        edges_by_flow={flow.id: {edge.id: edge for edge in flow.edges} for flow in model.flows},
-        call_graph=_build_workflow_call_graph(model, set(flows_by_id)),
-        domain_decisions=_domain_decision_records(model),
-        domain_flow_ids_by_key=_domain_flow_ids_by_key(model),
-        domain_keys_by_flow={flow.id: frozenset(_flow_domain_keys(flow)) for flow in model.flows},
-        scope_names=_scope_names_for_model(model),
     )
     if len(_MODEL_INDEX_CACHE) >= _MODEL_INDEX_CACHE_LIMIT:
         _MODEL_INDEX_CACHE.pop(next(iter(_MODEL_INDEX_CACHE)))
@@ -2017,7 +2067,6 @@ class _McpModelStore:
             index = _model_index(model)
             if artifact_hash is not None:
                 index.model_hash = artifact_hash
-            warm_query_index(model)
             return model, None
         except _LOAD_ERRORS as error:
             self._model = None
@@ -2031,7 +2080,6 @@ class _McpModelStore:
             self._signature = None
         self._model = model
         _model_index(model)
-        warm_query_index(model)
 
     def _artifact_signature(self) -> tuple[int, int, int]:
         json_path, _, _ = output_paths(self.project_root, self.config)

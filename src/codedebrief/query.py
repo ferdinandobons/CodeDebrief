@@ -95,15 +95,6 @@ class _DecisionFilterRecord:
 
 
 @dataclass(slots=True)
-class _TermBucketMatches:
-    term: str
-    identity_flow_ids: frozenset[str]
-    node_flow_ids: frozenset[str]
-    structure_flow_ids: frozenset[str]
-    metadata_flow_ids: frozenset[str]
-
-
-@dataclass(slots=True)
 class _FlowSearchRecord:
     flow: Flow
     scope_names: frozenset[str]
@@ -169,10 +160,6 @@ class _QueryIndex:
     flows_by_symbol: dict[str, list[Flow]]
     flows_by_name: dict[str, list[Flow]]
     file_dependency_records: tuple[tuple[tuple[str, ...], frozenset[str]], ...]
-    identity_flow_ids_by_token: dict[str, frozenset[str]] | None = None
-    node_flow_ids_by_token: dict[str, frozenset[str]] | None = None
-    structure_flow_ids_by_token: dict[str, frozenset[str]] | None = None
-    metadata_flow_ids_by_token: dict[str, frozenset[str]] | None = None
 
 
 _QUERY_INDEX_CACHE: dict[int, _QueryIndex] = {}
@@ -210,16 +197,11 @@ def query_model(
     # inflate a flow's rank. dict.fromkeys preserves order for stable reason text.
     unique_terms = list(dict.fromkeys(terms))
 
-    has_scoring_filter = any(item is not None for item in (source_path, symbol, domain, value))
     index = _query_index(model)
-    term_bucket_matches = (
-        _term_bucket_matches(index, unique_terms) if unique_terms and not has_scoring_filter else ()
-    )
     matches: list[QueryMatch] = []
     for record in _query_candidate_records(
         index,
         unique_terms,
-        term_bucket_matches=term_bucket_matches,
         source_path=source_path,
         symbol=symbol,
         domain=domain,
@@ -241,23 +223,7 @@ def query_model(
             continue
         score = 0
         reasons: list[str] = []
-        flow_id = flow.id
-        if term_bucket_matches:
-            for term_matches in term_bucket_matches:
-                term = term_matches.term
-                if flow_id in term_matches.identity_flow_ids:
-                    score += IDENTITY_WEIGHT
-                    reasons.append(f"`{term}` matches the flow identity")
-                if flow_id in term_matches.node_flow_ids:
-                    score += NODE_WEIGHT
-                    reasons.append(f"`{term}` appears in a decision or action")
-                if flow_id in term_matches.structure_flow_ids:
-                    score += STRUCTURE_WEIGHT
-                    reasons.append(f"`{term}` matches flow structure")
-                if flow_id in term_matches.metadata_flow_ids:
-                    score += METADATA_WEIGHT
-                    reasons.append(f"`{term}` appears in decision metadata")
-        elif unique_terms:
+        if unique_terms:
             name_tokens = record.name_tokens
             node_tokens = record.node_tokens
             structure_tokens = record.structure_tokens
@@ -295,10 +261,9 @@ def query_model(
 def warm_query_index(model: ProjectModel) -> None:
     """Build the deterministic query/impact lookup shell for a loaded model.
 
-    MCP servers call this once after loading artifacts so later query_model and
-    impact_model calls reuse identity maps. Expensive token maps are intentionally
-    lazy: targeted MCP calls with current_file, symbol, domain, or value do not need a
-    full natural-language inverted index.
+    Callers may use this when they know query/impact tools are about to run. MCP model
+    loading stays lazy by default, and natural-language scoring remains on-demand so the
+    first broad MCP query does not build a full-project inverted index.
     """
 
     _query_index(model)
@@ -653,24 +618,10 @@ def _query_index(model: ProjectModel) -> _QueryIndex:
     return index
 
 
-def _add_token_index_entries(
-    flow_ids_by_token: dict[str, set[str]],
-    flow_id: str,
-    tokens: Iterable[str],
-) -> None:
-    for token in tokens:
-        flow_ids_by_token.setdefault(token, set()).add(flow_id)
-
-
-def _freeze_token_index(flow_ids_by_token: dict[str, set[str]]) -> dict[str, frozenset[str]]:
-    return {token: frozenset(flow_ids) for token, flow_ids in flow_ids_by_token.items()}
-
-
 def _query_candidate_records(
     index: _QueryIndex,
     unique_terms: list[str],
     *,
-    term_bucket_matches: tuple[_TermBucketMatches, ...],
     source_path: str | None,
     symbol: str | None,
     domain: str | None,
@@ -687,88 +638,10 @@ def _query_candidate_records(
     if scoring_candidate_ids is not None:
         candidate_ids.update(scoring_candidate_ids)
     elif unique_terms:
-        candidate_ids.update(_term_candidate_flow_ids(term_bucket_matches))
+        return index.records
     if not candidate_ids:
         return ()
     return tuple(record for record in index.records if record.flow.id in candidate_ids)
-
-
-def _term_candidate_flow_ids(term_bucket_matches: tuple[_TermBucketMatches, ...]) -> set[str]:
-    candidate_ids: set[str] = set()
-    for term_matches in term_bucket_matches:
-        candidate_ids.update(term_matches.identity_flow_ids)
-        candidate_ids.update(term_matches.node_flow_ids)
-        candidate_ids.update(term_matches.structure_flow_ids)
-        candidate_ids.update(term_matches.metadata_flow_ids)
-    return candidate_ids
-
-
-def _term_bucket_matches(
-    index: _QueryIndex,
-    unique_terms: list[str],
-) -> tuple[_TermBucketMatches, ...]:
-    identity_map, node_map, structure_map, metadata_map = _query_token_maps(index)
-    matches: list[_TermBucketMatches] = []
-    for term in unique_terms:
-        identity_flow_ids: set[str] = set()
-        node_flow_ids: set[str] = set()
-        structure_flow_ids: set[str] = set()
-        metadata_flow_ids: set[str] = set()
-        for variant in _term_variants(term):
-            identity_flow_ids.update(identity_map.get(variant, frozenset()))
-            node_flow_ids.update(node_map.get(variant, frozenset()))
-            structure_flow_ids.update(structure_map.get(variant, frozenset()))
-            metadata_flow_ids.update(metadata_map.get(variant, frozenset()))
-        matches.append(
-            _TermBucketMatches(
-                term=term,
-                identity_flow_ids=frozenset(identity_flow_ids),
-                node_flow_ids=frozenset(node_flow_ids),
-                structure_flow_ids=frozenset(structure_flow_ids),
-                metadata_flow_ids=frozenset(metadata_flow_ids),
-            )
-        )
-    return tuple(matches)
-
-
-def _query_token_maps(
-    index: _QueryIndex,
-) -> tuple[
-    dict[str, frozenset[str]],
-    dict[str, frozenset[str]],
-    dict[str, frozenset[str]],
-    dict[str, frozenset[str]],
-]:
-    if (
-        index.identity_flow_ids_by_token is None
-        or index.node_flow_ids_by_token is None
-        or index.structure_flow_ids_by_token is None
-        or index.metadata_flow_ids_by_token is None
-    ):
-        identity_flow_ids_by_token: dict[str, set[str]] = {}
-        node_flow_ids_by_token: dict[str, set[str]] = {}
-        structure_flow_ids_by_token: dict[str, set[str]] = {}
-        metadata_flow_ids_by_token: dict[str, set[str]] = {}
-        for record in index.records:
-            flow_id = record.flow.id
-            _add_token_index_entries(identity_flow_ids_by_token, flow_id, record.name_tokens)
-            _add_token_index_entries(node_flow_ids_by_token, flow_id, record.node_tokens)
-            _add_token_index_entries(structure_flow_ids_by_token, flow_id, record.structure_tokens)
-            _add_token_index_entries(metadata_flow_ids_by_token, flow_id, record.metadata_tokens)
-        index.identity_flow_ids_by_token = _freeze_token_index(identity_flow_ids_by_token)
-        index.node_flow_ids_by_token = _freeze_token_index(node_flow_ids_by_token)
-        index.structure_flow_ids_by_token = _freeze_token_index(structure_flow_ids_by_token)
-        index.metadata_flow_ids_by_token = _freeze_token_index(metadata_flow_ids_by_token)
-    assert index.identity_flow_ids_by_token is not None
-    assert index.node_flow_ids_by_token is not None
-    assert index.structure_flow_ids_by_token is not None
-    assert index.metadata_flow_ids_by_token is not None
-    return (
-        index.identity_flow_ids_by_token,
-        index.node_flow_ids_by_token,
-        index.structure_flow_ids_by_token,
-        index.metadata_flow_ids_by_token,
-    )
 
 
 def _scoring_filter_candidate_flow_ids(
