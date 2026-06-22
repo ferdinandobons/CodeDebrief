@@ -96,6 +96,16 @@ codedebrief update
 codedebrief validate --check-sync
 ```
 
+To remove CodeDebrief from the current project folder:
+
+```bash
+codedebrief clear
+```
+
+`clear` removes `codedebrief.toml`, `.codedebriefignore`, generated artifacts, installed
+CodeDebrief skills, MCP server entries, and managed instruction blocks. It asks for
+confirmation by default; use `codedebrief clear --yes` in scripts.
+
 To install a pinned GitHub release instead:
 
 ```bash
@@ -278,7 +288,7 @@ Primary MCP tools:
 | `update_codedebrief` | Refresh JSON, Markdown, and HTML artifacts from local source. |
 
 Use `codedebrief view` for the manual UI. The CLI intentionally stays small:
-`setup`, `update`, `view`, `validate`, `doctor`, and `mcp`.
+`setup`, `update`, `view`, `validate`, `doctor`, `clear`, and `mcp`.
 
 ## Generated Artifacts
 

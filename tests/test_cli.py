@@ -136,7 +136,8 @@ def test_top_level_help_prioritizes_flag_light_quickstart() -> None:
     assert "codedebrief setup codex" in help_text
     assert "codedebrief update\n  codedebrief view" in help_text
     assert "codedebrief doctor" in help_text
-    assert "{setup,update,view,validate,doctor,mcp}" in help_text
+    assert "codedebrief clear" in help_text
+    assert "{setup,update,view,validate,doctor,clear,mcp}" in help_text
     assert "setup-agent" not in help_text
     for removed in (
         "analyze",
@@ -327,6 +328,154 @@ def test_removed_agent_commands_are_not_public_cli(command: str) -> None:
         build_parser().parse_args([command])
 
     assert exc_info.value.code == 2
+
+
+def test_cli_clear_removes_codedebrief_files_and_preserves_user_content(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "codedebrief.toml").write_text(
+        '[codedebrief]\noutput_dir = "custom-codedebrief-out"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / ".codedebriefignore").write_text("scratch/**\n", encoding="utf-8")
+    (tmp_path / "codedebrief-out").mkdir()
+    (tmp_path / "codedebrief-out" / "codedebrief.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "custom-codedebrief-out").mkdir()
+    (tmp_path / "custom-codedebrief-out" / "codedebrief.json").write_text("{}", encoding="utf-8")
+    (tmp_path / ".agents" / "skills" / "codedebrief").mkdir(parents=True)
+    (tmp_path / ".agents" / "skills" / "codedebrief" / "SKILL.md").write_text(
+        "managed skill\n", encoding="utf-8"
+    )
+    (tmp_path / ".claude" / "skills" / "codedebrief").mkdir(parents=True)
+    (tmp_path / ".claude" / "skills" / "codedebrief" / "SKILL.md").write_text(
+        "managed skill\n", encoding="utf-8"
+    )
+    (tmp_path / ".gemini" / "skills" / "codedebrief").mkdir(parents=True)
+    (tmp_path / ".gemini" / "skills" / "codedebrief" / "SKILL.md").write_text(
+        "managed skill\n", encoding="utf-8"
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        (
+            "Project notes\n\n"
+            "<!-- codedebrief:instructions:start -->\nmanaged\n"
+            "<!-- codedebrief:instructions:end -->\n\n"
+            "Keep this note\n"
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "CLAUDE.md").write_text(
+        "<!-- codedebrief:instructions:start -->\nmanaged\n<!-- codedebrief:instructions:end -->\n",
+        encoding="utf-8",
+    )
+    (tmp_path / ".cursor" / "rules").mkdir(parents=True)
+    (tmp_path / ".cursor" / "rules" / "codedebrief.mdc").write_text(
+        "managed cursor rule\n", encoding="utf-8"
+    )
+    (tmp_path / ".codex").mkdir()
+    (tmp_path / ".codex" / "config.toml").write_text(
+        (
+            "user = true\n\n"
+            "# codedebrief:mcp-config:start\n"
+            "[mcp_servers.codedebrief]\n"
+            'command = "codedebrief"\n'
+            "# codedebrief:mcp-config:end\n"
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / ".mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "codedebrief": {"command": "codedebrief"},
+                    "other": {"command": "other"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / ".cursor" / "mcp.json").write_text(
+        json.dumps({"mcpServers": {"codedebrief": {"command": "codedebrief"}}}),
+        encoding="utf-8",
+    )
+    (tmp_path / ".gemini" / "settings.json").write_text(
+        json.dumps(
+            {
+                "theme": "dark",
+                "mcpServers": {
+                    "codedebrief": {"command": "codedebrief"},
+                    "other": {"command": "other"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert main(["clear", str(tmp_path), "--yes"]) == 0
+
+    output = capsys.readouterr().out
+    assert "CodeDebrief clear" in output
+    assert "Status: OK - CodeDebrief files removed from this folder." in output
+    assert not (tmp_path / "codedebrief.toml").exists()
+    assert not (tmp_path / ".codedebriefignore").exists()
+    assert not (tmp_path / "codedebrief-out").exists()
+    assert not (tmp_path / "custom-codedebrief-out").exists()
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / ".claude").exists()
+    assert not (tmp_path / ".cursor" / "rules" / "codedebrief.mdc").exists()
+    assert not (tmp_path / ".cursor" / "mcp.json").exists()
+    assert not (tmp_path / "CLAUDE.md").exists()
+    assert (tmp_path / "AGENTS.md").read_text(encoding="utf-8") == (
+        "Project notes\n\nKeep this note\n"
+    )
+    assert (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8") == ("user = true\n")
+    claude_payload = json.loads((tmp_path / ".mcp.json").read_text(encoding="utf-8"))
+    gemini_payload = json.loads((tmp_path / ".gemini" / "settings.json").read_text())
+    assert "codedebrief" not in claude_payload["mcpServers"]
+    assert claude_payload["mcpServers"]["other"]["command"] == "other"
+    assert gemini_payload["theme"] == "dark"
+    assert "codedebrief" not in gemini_payload["mcpServers"]
+
+
+def test_cli_clear_does_not_delete_project_root_when_output_dir_is_root(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "codedebrief.toml").write_text('[codedebrief]\noutput_dir = "."\n')
+    (tmp_path / "app.py").write_text("def keep():\n    return 1\n", encoding="utf-8")
+    for artifact_name in (
+        "codedebrief.json",
+        "codedebrief.md",
+        "codedebrief.hash.json",
+        "codedebrief.html",
+    ):
+        (tmp_path / artifact_name).write_text("managed\n", encoding="utf-8")
+
+    assert main(["clear", str(tmp_path), "--yes"]) == 0
+
+    assert tmp_path.exists()
+    assert (tmp_path / "app.py").exists()
+    assert not (tmp_path / "codedebrief.toml").exists()
+    for artifact_name in (
+        "codedebrief.json",
+        "codedebrief.md",
+        "codedebrief.hash.json",
+        "codedebrief.html",
+    ):
+        assert not (tmp_path / artifact_name).exists()
+
+
+def test_cli_clear_requires_confirmation_without_yes_in_noninteractive_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = tmp_path / "codedebrief.toml"
+    config.write_text("[codedebrief]\n", encoding="utf-8")
+    monkeypatch.setattr("builtins.input", lambda _prompt: (_ for _ in ()).throw(EOFError))
+
+    assert main(["clear", str(tmp_path)]) == 1
+
+    assert config.exists()
+    assert "confirmation required" in capsys.readouterr().out
 
 
 def test_cli_validate_and_profiles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

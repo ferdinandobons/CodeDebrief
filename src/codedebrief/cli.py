@@ -3,9 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 import webbrowser
 from collections.abc import Sequence
+from contextlib import suppress
+from dataclasses import dataclass
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -18,7 +21,15 @@ from codedebrief.artifacts import load_model, model_hash_path, output_paths, wri
 from codedebrief.config import BUILTIN_PROFILES, CodeDebriefConfig
 from codedebrief.doctor import doctor_report, render_doctor, render_doctor_json
 from codedebrief.install import (
+    AGENT_INSTRUCTION_TARGETS,
+    AGENT_SKILL_TARGETS,
+    CODEX_MCP_END,
+    CODEX_MCP_START,
+    END,
+    LEGACY_CODEX_MCP_END,
+    LEGACY_CODEX_MCP_START,
     MCP_CONFIG_TARGETS,
+    START,
     install_agent_instructions,
     install_agent_skill,
     install_mcp_config,
@@ -51,6 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
               codedebrief view
               codedebrief validate
               codedebrief doctor
+              codedebrief clear
 
             Add --help after any command for focused examples and advanced options.
             """
@@ -60,7 +72,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(
         dest="command",
         required=True,
-        metavar="{setup,update,view,validate,doctor,mcp}",
+        metavar="{setup,update,view,validate,doctor,clear,mcp}",
         parser_class=CodeDebriefArgumentParser,
     )
 
@@ -183,6 +195,33 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("path", nargs="?", default=".", help="Project folder to inspect.")
     doctor.add_argument("--json", action="store_true", dest="json_output", help="Emit JSON output.")
 
+    clear = subparsers.add_parser(
+        "clear",
+        help="Remove CodeDebrief files from a project folder.",
+        description=(
+            "Remove CodeDebrief config, generated artifacts, installed skills, MCP config "
+            "entries, and managed instruction blocks from a project folder."
+        ),
+        epilog=dedent(
+            """\
+            Examples:
+              codedebrief clear
+              codedebrief clear --yes
+              codedebrief clear ../my-app --yes
+
+            Without --yes, CodeDebrief asks for confirmation before deleting anything.
+            User-authored content outside CodeDebrief managed blocks is preserved.
+            """
+        ),
+    )
+    clear.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project folder to clean. Defaults to the current directory.",
+    )
+    clear.add_argument("--yes", action="store_true", help="Skip the confirmation prompt.")
+
     mcp = subparsers.add_parser("mcp", help="Start the CodeDebrief MCP server over stdio.")
     mcp.add_argument("path", nargs="?", default=".", help="Project folder served over MCP.")
     _add_profile_argument(mcp)
@@ -290,6 +329,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.command == "doctor":
             return _doctor(Path(args.path), args.json_output)
+        if args.command == "clear":
+            return _clear(Path(args.path), assume_yes=args.yes)
         if args.command == "mcp":
             from codedebrief.mcp_server import run_mcp
 
@@ -633,6 +674,210 @@ def _doctor(root: Path, json_output: bool, show_next_steps: bool = True) -> int:
                 ]
             )
     return 0 if report.ok else 1
+
+
+@dataclass(frozen=True, slots=True)
+class _ClearAction:
+    path: Path
+    description: str
+    kind: str
+    replacement: str | None = None
+
+
+def _clear(root: Path, *, assume_yes: bool) -> int:
+    if not root.exists():
+        raise FileNotFoundError(f"path does not exist: {root}")
+    root = root.resolve()
+    actions = _collect_clear_actions(root)
+    print("CodeDebrief clear")
+    print(f"Project: {root}")
+    if not actions:
+        print("Status: OK - no CodeDebrief files or managed sections found.")
+        return 0
+
+    print("Will remove:")
+    for action in actions:
+        print(f"- {action.description}: {action.path}")
+    if not assume_yes:
+        try:
+            answer = input("Remove these CodeDebrief files and managed sections? [y/N] ")
+        except EOFError:
+            print("Status: cancelled - confirmation required; rerun with `--yes`.")
+            return 1
+        if answer.strip().lower() not in {"y", "yes"}:
+            print("Status: cancelled - no files changed.")
+            return 1
+
+    _print_progress("Removing CodeDebrief files and managed sections")
+    for action in actions:
+        if action.kind == "delete_dir":
+            shutil.rmtree(action.path)
+        elif action.kind == "delete_file":
+            action.path.unlink()
+        elif action.kind == "write_file" and action.replacement is not None:
+            atomic_write_text(action.path, action.replacement, encoding="utf-8")
+        else:  # pragma: no cover - defensive guard for future action kinds.
+            raise RuntimeError(f"unknown clear action: {action.kind}")
+    _prune_empty_dirs(root)
+    print("")
+    print("Status: OK - CodeDebrief files removed from this folder.")
+    _print_next_steps(
+        [
+            "Run `codedebrief setup <agent>` if you want to configure this project again.",
+            "Run `codedebrief update` after setup to regenerate artifacts.",
+        ]
+    )
+    return 0
+
+
+def _collect_clear_actions(root: Path) -> list[_ClearAction]:
+    actions: list[_ClearAction] = []
+    output_dirs = _configured_output_dirs(root)
+    for directory in sorted(output_dirs):
+        if not directory.exists() or not _is_inside_root(root, directory):
+            continue
+        if directory.resolve() == root:
+            for artifact_name in (
+                "codedebrief.json",
+                "codedebrief.md",
+                "codedebrief.hash.json",
+                "codedebrief.html",
+            ):
+                artifact_path = root / artifact_name
+                if artifact_path.exists():
+                    actions.append(_ClearAction(artifact_path, "artifact file", "delete_file"))
+            continue
+        actions.append(_ClearAction(directory, "artifact directory", "delete_dir"))
+
+    for config_relative in ("codedebrief.toml", ".codedebriefignore"):
+        config_path = root / config_relative
+        if config_path.exists():
+            actions.append(_ClearAction(config_path, "config file", "delete_file"))
+
+    for skill_relative in AGENT_SKILL_TARGETS.values():
+        skill_dir = root / skill_relative.parent
+        if skill_dir.exists():
+            actions.append(_ClearAction(skill_dir, "agent skill directory", "delete_dir"))
+
+    for instruction_relative in AGENT_INSTRUCTION_TARGETS.values():
+        instruction_path = root / instruction_relative
+        if not instruction_path.exists():
+            continue
+        if instruction_path == root / ".cursor" / "rules" / "codedebrief.mdc":
+            actions.append(_ClearAction(instruction_path, "Cursor rule file", "delete_file"))
+            continue
+        replacement = _remove_instruction_block(instruction_path.read_text(encoding="utf-8"))
+        _append_text_file_action(actions, instruction_path, replacement, "agent instruction block")
+
+    codex_config = root / ".codex" / "config.toml"
+    if codex_config.exists():
+        replacement = _remove_managed_block(
+            codex_config.read_text(encoding="utf-8"),
+            LEGACY_CODEX_MCP_START,
+            LEGACY_CODEX_MCP_END,
+        )
+        replacement = _remove_managed_block(replacement, CODEX_MCP_START, CODEX_MCP_END)
+        _append_text_file_action(actions, codex_config, replacement, "Codex MCP config block")
+
+    for mcp_config_path in (
+        root / ".mcp.json",
+        root / ".cursor" / "mcp.json",
+        root / ".gemini" / "settings.json",
+    ):
+        if not mcp_config_path.exists():
+            continue
+        json_replacement = _remove_json_mcp_server(mcp_config_path)
+        if json_replacement is not None:
+            _append_text_file_action(actions, mcp_config_path, json_replacement, "MCP server entry")
+    return _dedupe_clear_actions(actions)
+
+
+def _configured_output_dirs(root: Path) -> set[Path]:
+    output_dirs = {root / "codedebrief-out"}
+    try:
+        config = CodeDebriefConfig.load(root)
+    except (OSError, ValueError, SyntaxError):
+        return output_dirs
+    output_dirs.add((root / config.output_dir).resolve())
+    return output_dirs
+
+
+def _remove_instruction_block(existing: str) -> str:
+    return _remove_managed_block(existing, START, END)
+
+
+def _remove_managed_block(existing: str, start: str, end: str) -> str:
+    if start not in existing or end not in existing:
+        return existing
+    before, remainder = existing.split(start, 1)
+    _, after = remainder.split(end, 1)
+    separator = "\n\n" if before.strip() and after.strip() else ""
+    combined = before.rstrip() + separator + after.lstrip()
+    return combined.rstrip() + ("\n" if combined.strip() else "")
+
+
+def _remove_json_mcp_server(path: Path) -> str | None:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return None
+    servers = data.get("mcpServers")
+    if not isinstance(servers, dict) or "codedebrief" not in servers:
+        return None
+    servers.pop("codedebrief", None)
+    if not servers:
+        data.pop("mcpServers", None)
+    return json.dumps(data, indent=2) + "\n" if data else ""
+
+
+def _append_text_file_action(
+    actions: list[_ClearAction],
+    path: Path,
+    replacement: str,
+    description: str,
+) -> None:
+    if replacement == path.read_text(encoding="utf-8"):
+        return
+    stripped = replacement.strip()
+    if stripped:
+        actions.append(_ClearAction(path, description, "write_file", replacement))
+    else:
+        actions.append(_ClearAction(path, description, "delete_file"))
+
+
+def _dedupe_clear_actions(actions: Sequence[_ClearAction]) -> list[_ClearAction]:
+    unique: list[_ClearAction] = []
+    seen: set[Path] = set()
+    for action in actions:
+        if action.path in seen:
+            continue
+        unique.append(action)
+        seen.add(action.path)
+    return unique
+
+
+def _prune_empty_dirs(root: Path) -> None:
+    candidates = [
+        root / ".agents" / "skills",
+        root / ".agents",
+        root / ".claude" / "skills",
+        root / ".claude",
+        root / ".gemini" / "skills",
+        root / ".gemini",
+        root / ".cursor" / "rules",
+        root / ".cursor",
+        root / ".codex",
+    ]
+    for directory in candidates:
+        with suppress(OSError):
+            directory.rmdir()
+
+
+def _is_inside_root(root: Path, path: Path) -> bool:
+    try:
+        path.resolve().relative_to(root)
+        return True
+    except ValueError:
+        return False
 
 
 def _print_next_steps(steps: Sequence[str]) -> None:

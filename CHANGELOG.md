@@ -6,6 +6,12 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+### Added
+
+- Added `codedebrief clear` to remove CodeDebrief config, generated artifacts, installed
+  skills, MCP server entries, and managed instruction blocks from the current project
+  folder.
+
 ## 0.16.0 - 2026-06-22
 
 ### Added
