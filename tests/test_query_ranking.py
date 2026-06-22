@@ -279,6 +279,19 @@ def test_repeated_query_term_does_not_inflate_rank() -> None:
     assert [m.score for m in once] == [m.score for m in thrice] == [IDENTITY_WEIGHT]
 
 
+def test_cached_query_results_are_defensive_copies() -> None:
+    model = _model([_flow(f"f{idx}", "widget", symbol=f"widget:{idx}") for idx in range(3)])
+
+    first = query_model(model, "widget")
+    first[0].reasons.append("caller mutation")
+    first.pop()
+
+    second = query_model(model, "widget")
+
+    assert [match.flow.id for match in second] == ["f0", "f1", "f2"]
+    assert "caller mutation" not in second[0].reasons
+
+
 def test_unicode_terms_survive_tokenization() -> None:
     """Unicode \\w words (café, 日本語) must not be dropped or corrupted by the ASCII-only
     tokenizer they replaced; they tokenize to standalone matchable terms."""
@@ -364,6 +377,40 @@ def test_impact_model_accepts_flow_and_symbol_targets() -> None:
     assert {item["value"]: item["reason"] for item in result.unresolved_targets} == {
         "missing-flow": "not_found",
         "missing-symbol": "not_found",
+    }
+
+
+def test_impact_model_fast_path_for_flow_targets_keeps_transitive_callers() -> None:
+    target = _flow("target", "target", symbol="pkg:target")
+    caller = _flow("caller", "caller", symbol="pkg:caller")
+    caller.calls = ["target"]
+    target.called_by = ["caller"]
+    model = _model([target, caller])
+
+    result = impact_model(model, [], flow_ids=["target"])
+
+    assert [flow.id for flow in result.directly_impacted] == ["target"]
+    assert [flow.id for flow in result.transitively_impacted] == ["caller"]
+    assert result.impact_reasons == {
+        "caller": ["calls impacted flow `target`"],
+        "target": ["explicit flow target `target`"],
+    }
+
+
+def test_impact_model_fast_path_for_symbol_targets_keeps_transitive_callers() -> None:
+    target = _flow("target", "target", symbol="pkg:target")
+    caller = _flow("caller", "caller", symbol="pkg:caller")
+    caller.calls = ["target"]
+    target.called_by = ["caller"]
+    model = _model([target, caller])
+
+    result = impact_model(model, [], symbols=["pkg:target"])
+
+    assert [flow.id for flow in result.directly_impacted] == ["target"]
+    assert [flow.id for flow in result.transitively_impacted] == ["caller"]
+    assert result.impact_reasons == {
+        "caller": ["calls impacted flow `target`"],
+        "target": ["explicit symbol/name target `pkg:target`"],
     }
 
 

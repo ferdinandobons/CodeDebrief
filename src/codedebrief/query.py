@@ -21,6 +21,7 @@ METADATA_WEIGHT = 2
 ENTRYPOINT_BONUS = 1
 NAVIGATION_TOKENS_PER_ITEM = 60
 _QUERY_INDEX_CACHE_LIMIT = 8
+_QUERY_RESULT_CACHE_LIMIT = 128
 
 
 @dataclass(slots=True)
@@ -156,10 +157,12 @@ class _QueryIndex:
     model: ProjectModel
     records: tuple[_FlowSearchRecord, ...]
     records_by_flow_id: dict[str, _FlowSearchRecord]
+    record_order_by_flow_id: dict[str, int]
     flows_by_id: dict[str, Flow]
     flows_by_symbol: dict[str, list[Flow]]
     flows_by_name: dict[str, list[Flow]]
     file_dependency_records: tuple[tuple[tuple[str, ...], frozenset[str]], ...]
+    query_result_cache: dict[tuple[Any, ...], tuple[QueryMatch, ...]] = field(default_factory=dict)
 
 
 _QUERY_INDEX_CACHE: dict[int, _QueryIndex] = {}
@@ -198,6 +201,20 @@ def query_model(
     unique_terms = list(dict.fromkeys(terms))
 
     index = _query_index(model)
+    cache_key = (
+        question,
+        limit,
+        scope,
+        language,
+        source_path,
+        symbol,
+        domain,
+        value,
+    )
+    cached = index.query_result_cache.get(cache_key)
+    if cached is not None:
+        return _copy_query_matches(cached)
+
     matches: list[QueryMatch] = []
     for record in _query_candidate_records(
         index,
@@ -255,7 +272,24 @@ def query_model(
     matches.sort(key=lambda item: (-item.score, item.flow.name, item.flow.id))
     if limit and limit > 0:
         matches = matches[:limit]
+    _cache_query_matches(index, cache_key, matches)
     return matches
+
+
+def _cache_query_matches(
+    index: _QueryIndex,
+    cache_key: tuple[Any, ...],
+    matches: list[QueryMatch],
+) -> None:
+    if len(index.query_result_cache) >= _QUERY_RESULT_CACHE_LIMIT:
+        index.query_result_cache.pop(next(iter(index.query_result_cache)))
+    index.query_result_cache[cache_key] = tuple(
+        QueryMatch(match.flow, match.score, list(match.reasons)) for match in matches
+    )
+
+
+def _copy_query_matches(matches: tuple[QueryMatch, ...]) -> list[QueryMatch]:
+    return [QueryMatch(match.flow, match.score, list(match.reasons)) for match in matches]
 
 
 def warm_query_index(model: ProjectModel) -> None:
@@ -302,6 +336,23 @@ def impact_model(
         )
 
     index = _query_index(model)
+    if (
+        not normalized
+        and target_flow_ids
+        and not target_symbols
+        and not target_dependency_paths
+        and scope is None
+    ):
+        return _target_flow_impact(index, target_flow_ids)
+    if (
+        not normalized
+        and not target_flow_ids
+        and target_symbols
+        and not target_dependency_paths
+        and scope is None
+    ):
+        return _target_symbol_impact(index, target_symbols)
+
     scoped_records = [record for record in index.records if _record_in_scope(record, scope)]
     flows = [record.flow for record in scoped_records]
     direct = [record.flow for record in scoped_records if record.normalized_path in normalized]
@@ -420,6 +471,93 @@ def impact_model(
         target_symbols=target_symbols,
         target_dependency_paths=target_dependency_paths,
         unresolved_targets=unresolved_targets,
+    )
+
+
+def _target_flow_impact(index: _QueryIndex, target_flow_ids: list[str]) -> ImpactResult:
+    direct_by_id: dict[str, Flow] = {}
+    impact_reasons: dict[str, list[str]] = {}
+    unresolved_targets: list[dict[str, str]] = []
+    for flow_id in target_flow_ids:
+        target_flow = index.flows_by_id.get(flow_id)
+        if target_flow is None:
+            unresolved_targets.append({"type": "flow", "value": flow_id, "reason": "not_found"})
+            continue
+        direct_by_id[target_flow.id] = target_flow
+        impact_reasons[target_flow.id] = [f"explicit flow target `{flow_id}`"]
+    direct, transitive, impact_reasons = _transitive_impact(index, direct_by_id, impact_reasons)
+    return ImpactResult(
+        changed_files=[],
+        directly_impacted=direct,
+        transitively_impacted=transitive,
+        impact_reasons=impact_reasons,
+        target_flow_ids=target_flow_ids,
+        unresolved_targets=unresolved_targets,
+    )
+
+
+def _target_symbol_impact(index: _QueryIndex, target_symbols: list[str]) -> ImpactResult:
+    direct_by_id: dict[str, Flow] = {}
+    impact_reasons: dict[str, list[str]] = {}
+    unresolved_targets: list[dict[str, str]] = []
+    for symbol in target_symbols:
+        matches = _unique_flows(
+            [
+                *index.flows_by_symbol.get(symbol, []),
+                *index.flows_by_name.get(symbol, []),
+            ]
+        )
+        if not matches:
+            unresolved_targets.append({"type": "symbol", "value": symbol, "reason": "not_found"})
+            continue
+        for flow in matches:
+            direct_by_id[flow.id] = flow
+            impact_reasons.setdefault(flow.id, []).append(f"explicit symbol/name target `{symbol}`")
+    direct, transitive, impact_reasons = _transitive_impact(index, direct_by_id, impact_reasons)
+    return ImpactResult(
+        changed_files=[],
+        directly_impacted=direct,
+        transitively_impacted=transitive,
+        impact_reasons=impact_reasons,
+        target_symbols=target_symbols,
+        unresolved_targets=unresolved_targets,
+    )
+
+
+def _transitive_impact(
+    index: _QueryIndex,
+    direct_by_id: dict[str, Flow],
+    impact_reasons: dict[str, list[str]],
+) -> tuple[list[Flow], list[Flow], dict[str, list[str]]]:
+    impacted_ids = set(direct_by_id)
+    queue: deque[str] = deque(impacted_ids)
+    transitive: list[Flow] = []
+    while queue:
+        current = index.flows_by_id.get(queue.popleft())
+        if current is None:
+            continue
+        for caller_id in current.called_by:
+            if caller_id in impacted_ids:
+                continue
+            impacted_ids.add(caller_id)
+            queue.append(caller_id)
+            caller = index.flows_by_id.get(caller_id)
+            if caller:
+                transitive.append(caller)
+                impact_reasons.setdefault(caller.id, []).append(
+                    f"calls impacted flow `{current.name}`"
+                )
+    direct = list(direct_by_id.values())
+    impacted_ids = {flow.id for flow in direct} | {flow.id for flow in transitive}
+    scoped_impact_reasons = {
+        flow_id: reasons
+        for flow_id, reasons in sorted(impact_reasons.items())
+        if flow_id in impacted_ids
+    }
+    return (
+        sorted(direct, key=lambda item: item.name),
+        sorted(transitive, key=lambda item: item.name),
+        scoped_impact_reasons,
     )
 
 
@@ -601,6 +739,9 @@ def _query_index(model: ProjectModel) -> _QueryIndex:
         model=model,
         records=tuple(records),
         records_by_flow_id=records_by_flow_id,
+        record_order_by_flow_id={
+            record.flow.id: position for position, record in enumerate(records)
+        },
         flows_by_id=flows_by_id,
         flows_by_symbol=flows_by_symbol,
         flows_by_name=flows_by_name,
@@ -641,7 +782,14 @@ def _query_candidate_records(
         return index.records
     if not candidate_ids:
         return ()
-    return tuple(record for record in index.records if record.flow.id in candidate_ids)
+    return tuple(
+        index.records_by_flow_id[flow_id]
+        for flow_id in sorted(
+            candidate_ids,
+            key=lambda item: index.record_order_by_flow_id.get(item, len(index.records)),
+        )
+        if flow_id in index.records_by_flow_id
+    )
 
 
 def _scoring_filter_candidate_flow_ids(
