@@ -202,7 +202,7 @@ def _subgraph_svg(
                     _compact(
                         f"{flow.entry_kind} - {flow.language} - "
                         f"{flow.location.path}:{flow.location.start_line}",
-                        100,
+                        72,
                     ),
                     "meta",
                 ),
@@ -640,7 +640,7 @@ def _flow_node(
         classes.append("highlight")
     shape = _node_shape(node.kind, x, y, width, height, " ".join(classes))
     label_lines = _wrap(node.label, 34, 2)
-    meta = f"{node.location.path}:{node.location.start_line}"
+    meta = _compact(f"{node.location.path}:{node.location.start_line}", 52)
     text_lines = [
         _text(x + width / 2, y + 28, line, "node-label", anchor="middle") for line in label_lines
     ]
@@ -742,7 +742,7 @@ def _text(
 
 
 def _wrap(value: str, width: int, max_lines: int) -> list[str]:
-    words = value.split()
+    words = [_compact(word, width) for word in value.split()]
     if not words:
         return [""]
     lines: list[str] = []

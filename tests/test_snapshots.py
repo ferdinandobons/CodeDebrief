@@ -79,6 +79,41 @@ def test_subgraph_snapshot_reports_unresolved_targets() -> None:
     assert "No valid flows matched the requested subgraph." in snapshot["svg"]
 
 
+def test_subgraph_snapshot_compacts_long_node_text() -> None:
+    long_token = "VeryLongUnbrokenIdentifierThatWouldOverflowTheSnapshotNodeWithoutCompaction"
+    long_path = "backend/api/modules/very/deep/path/with/a/long/source/file/name/service.py"
+    flow = Flow(
+        id="flow-long",
+        name="long",
+        symbol="long",
+        language="python",
+        framework="generic",
+        entry_kind="function",
+        is_entrypoint=True,
+        location=SourceLocation(path=long_path, start_line=1, end_line=1),
+        nodes=[
+            FlowNode(
+                id="node-long",
+                kind=NodeKind.ACTION,
+                label=long_token,
+                location=SourceLocation(path=long_path, start_line=42, end_line=42),
+            )
+        ],
+    )
+    model = ProjectModel(
+        schema_version="2.0",
+        generated_at="2026-06-18T00:00:00+00:00",
+        root=".",
+        flows=[flow],
+    )
+
+    snapshot = render_subgraph_snapshot(model, flow_ids=[flow.id])
+
+    assert long_token not in snapshot["svg"]
+    assert long_path not in snapshot["svg"]
+    assert "..." in snapshot["svg"]
+
+
 def test_subgraph_snapshot_requires_flow_ids() -> None:
     model = ProjectModel(
         schema_version="2.0",

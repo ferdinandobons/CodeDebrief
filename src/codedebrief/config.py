@@ -98,22 +98,45 @@ class CodeDebriefConfig:
         if config_path.exists():
             payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
             section = payload.get("codedebrief", {})
-            config.source_roots = list(section.get("source_roots", config.source_roots))
-            config.exclude.extend(section.get("exclude", []))
-            config.exclude_dirs.extend(section.get("exclude_dirs", []))
-            config.include_public_functions = bool(
-                section.get("include_public_functions", config.include_public_functions)
+            if not isinstance(section, dict):
+                raise ValueError(f"{config_path} [codedebrief] must be a table")
+            config.source_roots = _string_list(
+                section.get("source_roots", config.source_roots),
+                "codedebrief.source_roots",
+                non_empty=True,
             )
-            config.max_call_depth = int(section.get("max_call_depth", config.max_call_depth))
-            config.output_dir = str(section.get("output_dir", config.output_dir))
-            config.self_exclude = bool(section.get("self_exclude", config.self_exclude))
-            entrypoints = section.get("entrypoints", {})
-            config.entrypoint_include = list(entrypoints.get("include", []))
-            config.entrypoint_exclude = list(entrypoints.get("exclude", []))
-            config.scopes = {
-                str(name): [str(pattern) for pattern in patterns]
-                for name, patterns in section.get("scopes", {}).items()
-            }
+            config.exclude.extend(_string_list(section.get("exclude", []), "codedebrief.exclude"))
+            config.exclude_dirs.extend(
+                _string_list(section.get("exclude_dirs", []), "codedebrief.exclude_dirs")
+            )
+            config.include_public_functions = _bool_value(
+                section.get("include_public_functions", config.include_public_functions),
+                "codedebrief.include_public_functions",
+            )
+            config.max_call_depth = _int_value(
+                section.get("max_call_depth", config.max_call_depth),
+                "codedebrief.max_call_depth",
+                minimum=0,
+            )
+            config.output_dir = _string_value(
+                section.get("output_dir", config.output_dir),
+                "codedebrief.output_dir",
+                non_empty=True,
+            )
+            config.self_exclude = _bool_value(
+                section.get("self_exclude", config.self_exclude),
+                "codedebrief.self_exclude",
+            )
+            entrypoints = _table(section.get("entrypoints", {}), "codedebrief.entrypoints")
+            config.entrypoint_include = _string_list(
+                entrypoints.get("include", []),
+                "codedebrief.entrypoints.include",
+            )
+            config.entrypoint_exclude = _string_list(
+                entrypoints.get("exclude", []),
+                "codedebrief.entrypoints.exclude",
+            )
+            config.scopes = _scope_table(section.get("scopes", {}), "codedebrief.scopes")
 
         if profile is not None:
             config = _apply_profile(config, profile)
@@ -190,6 +213,63 @@ def _apply_profile(config: CodeDebriefConfig, profile: str) -> CodeDebriefConfig
         config.self_exclude = False
         config.output_dir = "codedebrief-out/project"
     return config
+
+
+def _table(value: object, field_name: str) -> dict[object, object]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{field_name} must be a table")
+    return value
+
+
+def _string_value(value: object, field_name: str, *, non_empty: bool = False) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a string")
+    if non_empty and not value.strip():
+        raise ValueError(f"{field_name} must not be empty")
+    return value
+
+
+def _string_list(
+    value: object,
+    field_name: str,
+    *,
+    non_empty: bool = False,
+) -> list[str]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field_name} must be a list of strings")
+    if non_empty and not value:
+        raise ValueError(f"{field_name} must not be empty")
+    result = []
+    for index, item in enumerate(value):
+        if not isinstance(item, str):
+            raise ValueError(f"{field_name}[{index}] must be a string")
+        result.append(item)
+    return result
+
+
+def _bool_value(value: object, field_name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a boolean")
+    return value
+
+
+def _int_value(value: object, field_name: str, *, minimum: int | None = None) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{field_name} must be an integer")
+    if minimum is not None and value < minimum:
+        raise ValueError(f"{field_name} must be >= {minimum}")
+    return value
+
+
+def _scope_table(value: object, field_name: str) -> dict[str, list[str]]:
+    table = _table(value, field_name)
+    return {
+        _string_value(name, f"{field_name} key", non_empty=True): _string_list(
+            patterns,
+            f"{field_name}.{name}",
+        )
+        for name, patterns in table.items()
+    }
 
 
 def _normalize_pattern(pattern: str) -> str:
