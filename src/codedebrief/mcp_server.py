@@ -15,7 +15,7 @@ from typing import Any, cast
 from urllib.parse import quote
 
 from codedebrief.analysis import ProjectAnalyzer
-from codedebrief.artifacts import load_model, output_paths, write_artifacts
+from codedebrief.artifacts import load_model, load_model_with_hash, output_paths, write_artifacts
 from codedebrief.config import CodeDebriefConfig
 from codedebrief.model import Flow, FlowEdge, FlowNode, NodeKind, ProjectModel
 from codedebrief.query import (
@@ -138,7 +138,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
         """
         effective_question = _agent_context_question(question, selected_code)
         source_path = current_file.strip() if current_file and current_file.strip() else None
-        model, error = model_store.try_load()
+        model, error = model_store.try_load(include_hash=True)
         if error is not None:
             return error
         assert model is not None
@@ -224,7 +224,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
         token_budget: int = 900,
     ) -> dict[str, Any]:
         """Widen or deepen a workflow slice from stable flow handles."""
-        model, error = model_store.try_load()
+        model, error = model_store.try_load(include_hash=True)
         if error is not None:
             return error
         assert model is not None
@@ -292,7 +292,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
         token_budget: int = 900,
     ) -> dict[str, Any]:
         """Trace a deterministic workflow path between two flows, symbols, or concepts."""
-        model, error = model_store.try_load()
+        model, error = model_store.try_load(include_hash=True)
         if error is not None:
             return error
         assert model is not None
@@ -1985,15 +1985,25 @@ class _McpModelStore:
         self._model: ProjectModel | None = None
         self._signature: tuple[int, int, int] | None = None
 
-    def try_load(self) -> tuple[ProjectModel | None, dict[str, Any] | None]:
+    def try_load(
+        self, *, include_hash: bool = False
+    ) -> tuple[ProjectModel | None, dict[str, Any] | None]:
         try:
             signature = self._artifact_signature()
             if self._model is not None and self._signature == signature:
+                if include_hash:
+                    model_hash(self._model)
                 return self._model, None
-            model = load_model(self.project_root, self.config)
+            artifact_hash: str | None = None
+            if include_hash:
+                model, artifact_hash = load_model_with_hash(self.project_root, self.config)
+            else:
+                model = load_model(self.project_root, self.config)
             self._model = model
             self._signature = signature
-            _model_index(model)
+            index = _model_index(model)
+            if artifact_hash is not None:
+                index.model_hash = artifact_hash
             warm_query_index(model)
             return model, None
         except _LOAD_ERRORS as error:

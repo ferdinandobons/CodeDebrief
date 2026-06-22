@@ -6,7 +6,7 @@ from jsonschema import Draft202012Validator
 
 from codedebrief.analysis.project import ProjectAnalyzer
 from codedebrief.analysis.registry import supported_language_ids
-from codedebrief.artifacts import load_model, output_paths, write_artifacts
+from codedebrief.artifacts import load_model, load_model_with_hash, output_paths, write_artifacts
 from codedebrief.config import CodeDebriefConfig
 from codedebrief.install import (
     END,
@@ -18,6 +18,7 @@ from codedebrief.install import (
     install_agent_skill,
     install_mcp_config,
 )
+from codedebrief.mcp_server import model_hash
 from codedebrief.query import impact_model, query_model
 from codedebrief.util import read_json
 from codedebrief.validation import (
@@ -173,7 +174,11 @@ def get_user(user_id: str):
     assert "<title>CodeDebrief</title>" in html
     assert 'id="typedViewerHost"' in html
     assert "Decision flow index" not in html
-    assert load_model(tmp_path).flows
+    loaded_model = load_model(tmp_path)
+    assert loaded_model.flows
+    loaded_with_hash, artifact_hash = load_model_with_hash(tmp_path)
+    assert [flow.id for flow in loaded_with_hash.flows] == [flow.id for flow in loaded_model.flows]
+    assert artifact_hash == model_hash(loaded_with_hash)
     schema = read_json(Path(__file__).parents[1] / "schema" / "codedebrief.schema.json")
     artifact = read_json(json_path)
     Draft202012Validator(schema).validate(artifact)

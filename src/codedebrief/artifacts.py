@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -47,9 +48,27 @@ def write_artifacts(
 
 
 def load_model(root: Path, config: CodeDebriefConfig | None = None) -> ProjectModel:
+    return ProjectModel.from_dict(_read_model_payload(root, config))
+
+
+def load_model_with_hash(
+    root: Path, config: CodeDebriefConfig | None = None
+) -> tuple[ProjectModel, str]:
+    payload = _read_model_payload(root, config)
+    return ProjectModel.from_dict(payload), artifact_model_hash(payload)
+
+
+def _read_model_payload(root: Path, config: CodeDebriefConfig | None = None) -> dict[str, object]:
     json_path, _, _ = output_paths(root, config)
     if not json_path.exists():
         raise FileNotFoundError(
             f"No CodeDebrief model found at {json_path}. Run `codedebrief update` first."
         )
-    return ProjectModel.from_dict(read_json(json_path))
+    return read_json(json_path)
+
+
+def artifact_model_hash(payload: dict[str, object]) -> str:
+    normalized = dict(payload)
+    normalized.pop("generated_at", None)
+    raw = json.dumps(normalized, sort_keys=True, default=str, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
