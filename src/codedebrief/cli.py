@@ -424,12 +424,20 @@ def _analyze(
     config = CodeDebriefConfig.load(root, profile=profile)
     with project_update_lock(root):
         result = ProjectAnalyzer(root, config).analyze(full=full)
-        json_path, markdown_path, html_path = write_artifacts(
-            root,
-            result.model,
-            include_html=include_html,
-            config=config,
-        )
+        json_path, markdown_path, configured_html_path = output_paths(root, config)
+        if result.artifacts_unchanged and _artifacts_available(
+            json_path,
+            markdown_path,
+            configured_html_path if include_html else None,
+        ):
+            html_path = configured_html_path if include_html else None
+        else:
+            json_path, markdown_path, html_path = write_artifacts(
+                root,
+                result.model,
+                include_html=include_html,
+                config=config,
+            )
     print("CodeDebrief update")
     print("Status: OK - artifacts refreshed.")
     print(f"Project: {root}")
@@ -597,6 +605,16 @@ def _print_next_steps(steps: Sequence[str]) -> None:
     print("Next steps:")
     for step in steps:
         print(f"- {step}")
+
+
+def _artifacts_available(
+    json_path: Path,
+    markdown_path: Path,
+    html_path: Path | None,
+) -> bool:
+    return (
+        json_path.exists() and markdown_path.exists() and (html_path is None or html_path.exists())
+    )
 
 
 def _normalize_source_roots(root: Path, source_roots: Sequence[str] | None) -> list[str] | None:

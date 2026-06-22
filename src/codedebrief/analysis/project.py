@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import json
 from collections import Counter
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -55,6 +56,7 @@ class AnalysisResult:
     deleted_files: list[str]
     cache_hits: int
     skipped_files: list[tuple[str, str]] = field(default_factory=list)
+    artifacts_unchanged: bool = False
 
 
 class ProjectAnalyzer:
@@ -64,6 +66,7 @@ class ProjectAnalyzer:
         self.cache_dir = self.root / ".codedebrief" / "cache"
         self.index_path = self.cache_dir / "index.json"
         self.previous_generated_at: str | None = None
+        self.previous_config_hash: str | None = None
         # Language analyzers are built lazily from the registry, so a grammar is loaded
         # only when a file of that language is actually present.
         self._analyzers: dict[str, LanguageAnalyzer] = {}
@@ -78,6 +81,14 @@ class ProjectAnalyzer:
         skipped_files: list[tuple[str, str]] = []
         cache_hits = 0
         new_index: dict[str, dict[str, str]] = {}
+        digest_records: list[tuple[Path, str, Path, str, str | None, dict[str, str] | None]] = []
+        config_hash = _config_fingerprint(self.config)
+        fast_path = (
+            not full
+            and bool(previous_index)
+            and self.previous_config_hash == config_hash
+            and not deleted_files
+        )
 
         for path in files:
             relative = relpath(path, self.root)
@@ -86,6 +97,33 @@ class ProjectAnalyzer:
             # OSError. Keep the digest inside the guarded unit: one vanishing file must
             # degrade to a skipped record, never abort the whole run.
             digest, reason = self._safe_digest(path)
+            cached = previous_index.get(relative)
+            digest_records.append((path, relative, cache_file, digest, reason, cached))
+            if (
+                reason is not None
+                or cached is None
+                or cached.get("sha256") != digest
+                or not cache_file.exists()
+            ):
+                fast_path = False
+
+        if fast_path:
+            existing_model = self._load_existing_model()
+            if existing_model is not None:
+                return AnalysisResult(
+                    model=existing_model,
+                    changed_files=[],
+                    deleted_files=[],
+                    cache_hits=len(files),
+                    skipped_files=[
+                        (relative, str(cached["skip_reason"]))
+                        for _, relative, _, _, _, cached in digest_records
+                        if cached is not None and cached.get("skip_reason")
+                    ],
+                    artifacts_unchanged=True,
+                )
+
+        for path, relative, cache_file, digest, reason, cached in digest_records:
             if reason is not None:
                 skipped_files.append((relative, reason))
                 analysis = self._degraded_file(path, relative, digest)
@@ -94,7 +132,6 @@ class ProjectAnalyzer:
                 analyses.append(analysis)
                 new_index[relative] = _index_entry(cache_file.name, digest, reason)
                 continue
-            cached = previous_index.get(relative)
             reused = (
                 not full
                 and cached is not None
@@ -127,6 +164,7 @@ class ProjectAnalyzer:
             self.index_path,
             {
                 "cache_version": CACHE_VERSION,
+                "config_hash": config_hash,
                 "generated_at": model.generated_at,
                 "files": new_index,
             },
@@ -195,6 +233,8 @@ class ProjectAnalyzer:
             data = read_json(self.index_path)
             if data.get("cache_version") != CACHE_VERSION:
                 return {}
+            config_hash = data.get("config_hash")
+            self.previous_config_hash = str(config_hash) if config_hash else None
             generated_at = data.get("generated_at")
             self.previous_generated_at = str(generated_at) if generated_at else None
             file_data = data.get("files", {})
@@ -212,7 +252,16 @@ class ProjectAnalyzer:
             # A corrupt or unreadable index is never fatal - discard it and force a clean
             # full re-analyze, exactly as a corrupt per-file cache entry already does.
             self.previous_generated_at = None
+            self.previous_config_hash = None
             return {}
+
+    def _load_existing_model(self) -> ProjectModel | None:
+        try:
+            from codedebrief.artifacts import load_model
+
+            return load_model(self.root, self.config)
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
 
     def _combine(
         self, analyses: list[FileAnalysis], skipped_files: list[tuple[str, str]]
@@ -458,3 +507,8 @@ def _skipped_file_records(skipped_files: list[tuple[str, str]]) -> list[dict[str
         }
         for path, reason in sorted(skipped_files)
     ]
+
+
+def _config_fingerprint(config: CodeDebriefConfig) -> str:
+    payload = json.dumps(asdict(config), sort_keys=True, separators=(",", ":"))
+    return stable_id(payload, length=32)

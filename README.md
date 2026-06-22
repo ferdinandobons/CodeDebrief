@@ -49,6 +49,11 @@ root, pass them during setup:
 codedebrief setup claude --source backend/ frontend/
 ```
 
+Scope size matters. Pointing CodeDebrief at the whole repository or at many large folders
+can materially increase `setup`, `update`, and MCP response times because there are more
+files to hash, parse, link, and search. Prefer the smallest source roots that still contain
+the workflows you want agents to explain.
+
 After setup, ask ordinary questions:
 
 ```text

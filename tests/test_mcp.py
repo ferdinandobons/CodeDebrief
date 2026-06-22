@@ -17,6 +17,7 @@ from codedebrief.mcp_server import (
     _context_navigation_pack,
     _context_visual_pack,
     _domain_logic_map,
+    _McpModelStore,
     _model_load_error,
     _selection_context_payload,
     _unknown_target_error,
@@ -60,6 +61,51 @@ def test_agent_action_terms_include_common_italian_aliases() -> None:
         "save",
         "upload",
     }
+
+
+def test_mcp_model_store_reuses_model_until_artifact_changes(tmp_path: Path) -> None:
+    first_model = ProjectModel.empty(tmp_path)
+    first_model.flows = [
+        Flow(
+            id="flow-one",
+            name="one",
+            symbol="app:one",
+            language="python",
+            framework="generic",
+            entry_kind="function",
+            is_entrypoint=True,
+            location=SourceLocation(path="app.py", start_line=1, end_line=2),
+        )
+    ]
+    write_artifacts(tmp_path, first_model, include_html=False)
+    store = _McpModelStore(tmp_path, CodeDebriefConfig())
+
+    loaded_once, error = store.try_load()
+    assert error is None
+    loaded_twice, error = store.try_load()
+    assert error is None
+    assert loaded_twice is loaded_once
+
+    second_model = ProjectModel.empty(tmp_path)
+    second_model.flows = [
+        Flow(
+            id="flow-two-with-longer-id",
+            name="two with longer label",
+            symbol="app:two_with_longer_label",
+            language="python",
+            framework="generic",
+            entry_kind="function",
+            is_entrypoint=True,
+            location=SourceLocation(path="app.py", start_line=3, end_line=4),
+        )
+    ]
+    write_artifacts(tmp_path, second_model, include_html=False)
+
+    loaded_after_change, error = store.try_load()
+    assert error is None
+    assert loaded_after_change is not loaded_once
+    assert loaded_after_change is not None
+    assert [flow.id for flow in loaded_after_change.flows] == ["flow-two-with-longer-id"]
 
 
 def test_selection_context_treats_unknown_scope_as_query_hint(tmp_path: Path) -> None:

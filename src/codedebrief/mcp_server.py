@@ -8,6 +8,7 @@ import shlex
 import sys
 from collections import deque
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from itertools import pairwise
 from pathlib import Path
 from typing import Any, cast
@@ -40,6 +41,7 @@ _DEFAULT_CONTEXT_VISUAL_BYTE_BUDGET = 120_000
 # unexpected schema). Surfaced to the agent as a clean {"error": ...} instead of a raw
 # traceback, so a stale or never-built model is recoverable advice, not a crash.
 _LOAD_ERRORS = (OSError, ValueError, KeyError, TypeError)
+_MODEL_INDEX_CACHE_LIMIT = 8
 
 MCP_INSTRUCTIONS = """Use CodeDebrief as an agent-first code-logic understanding layer.
 Prefer agent_context for ordinary user questions before broad file-by-file search.
@@ -99,6 +101,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
 
     project_root = root.resolve()
     active_config = config or CodeDebriefConfig.load(project_root)
+    model_store = _McpModelStore(project_root, active_config)
     server = FastMCP("CodeDebrief", instructions=MCP_INSTRUCTIONS, json_response=True)
 
     @server.tool()
@@ -125,7 +128,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
         """
         effective_question = _agent_context_question(question, selected_code)
         source_path = current_file.strip() if current_file and current_file.strip() else None
-        model, error = _try_load(project_root, active_config)
+        model, error = model_store.try_load()
         if error is not None:
             return error
         assert model is not None
@@ -211,7 +214,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
         token_budget: int = 900,
     ) -> dict[str, Any]:
         """Widen or deepen a workflow slice from stable flow handles."""
-        model, error = _try_load(project_root, active_config)
+        model, error = model_store.try_load()
         if error is not None:
             return error
         assert model is not None
@@ -279,7 +282,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
         token_budget: int = 900,
     ) -> dict[str, Any]:
         """Trace a deterministic workflow path between two flows, symbols, or concepts."""
-        model, error = _try_load(project_root, active_config)
+        model, error = model_store.try_load()
         if error is not None:
             return error
         assert model is not None
@@ -345,7 +348,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
         """Render a deterministic visual snapshot for a workflow slice."""
         if format not in SNAPSHOT_FORMATS:
             return unsupported_snapshot_format(format)
-        model, error = _try_load(project_root, active_config)
+        model, error = model_store.try_load()
         if error is not None:
             return error
         assert model is not None
@@ -407,7 +410,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
     @server.tool()
     def explain_flow(flow_id: str, token_budget: int = 900) -> dict[str, Any]:
         """Explain one flow with source anchors, decisions, calls, and next tools."""
-        model, error = _try_load(project_root, active_config)
+        model, error = model_store.try_load()
         if error is not None:
             return error
         assert model is not None
@@ -423,7 +426,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
         token_budget: int = 900,
     ) -> dict[str, Any]:
         """Explain one flowchart node with local edge and source context."""
-        model, error = _try_load(project_root, active_config)
+        model, error = model_store.try_load()
         if error is not None:
             return error
         assert model is not None
@@ -440,7 +443,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
         token_budget: int = 900,
     ) -> dict[str, Any]:
         """Explain one flowchart edge or modeled call edge with source context."""
-        model, error = _try_load(project_root, active_config)
+        model, error = model_store.try_load()
         if error is not None:
             return error
         assert model is not None
@@ -484,11 +487,22 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
         try:
             with project_update_lock(project_root):
                 result = ProjectAnalyzer(project_root, active_config).analyze(full=full)
-                json_path, markdown_path, html_path = write_artifacts(
-                    project_root,
-                    result.model,
-                    config=active_config,
+                json_path, markdown_path, configured_html_path = output_paths(
+                    project_root, active_config
                 )
+                if result.artifacts_unchanged and _artifacts_available(
+                    json_path,
+                    markdown_path,
+                    configured_html_path,
+                ):
+                    html_path: Path | None = configured_html_path
+                else:
+                    json_path, markdown_path, html_path = write_artifacts(
+                        project_root,
+                        result.model,
+                        config=active_config,
+                    )
+                model_store.replace(result.model)
         except (OSError, RuntimeError, SyntaxError, TimeoutError, ValueError) as error:
             return {
                 "error": "Could not update CodeDebrief artifacts.",
@@ -527,6 +541,16 @@ def _impact_flow_summary(flow: Any, impact_reasons: dict[str, list[str]]) -> dic
         **flow_summary(flow),
         "reasons": impact_reasons.get(flow.id, []),
     }
+
+
+def _artifacts_available(
+    json_path: Path,
+    markdown_path: Path,
+    html_path: Path | None,
+) -> bool:
+    return (
+        json_path.exists() and markdown_path.exists() and (html_path is None or html_path.exists())
+    )
 
 
 def _selection_context_payload(
@@ -1136,7 +1160,7 @@ def _workflow_selection(
 
 
 def _workflow_flow_rows(model: ProjectModel, flow_ids: list[str]) -> list[dict[str, Any]]:
-    flows = {flow.id: flow for flow in model.flows}
+    flows = _model_index(model).flows_by_id
     rows = []
     for flow_id in flow_ids:
         flow = flows.get(flow_id)
@@ -1214,7 +1238,7 @@ def _workflow_calls(
     flow_ids: list[str],
     token_budget: int,
 ) -> list[dict[str, Any]]:
-    flows = {flow.id: flow for flow in model.flows}
+    flows = _model_index(model).flows_by_id
     calls: list[dict[str, Any]] = []
     for flow in _flows_by_ids(model, flow_ids):
         for target_id in flow.calls:
@@ -1621,8 +1645,14 @@ def _find_workflow_path(
 
 
 def _workflow_call_graph(model: ProjectModel) -> dict[str, list[str]]:
+    return _model_index(model).call_graph
+
+
+def _build_workflow_call_graph(
+    model: ProjectModel, known: set[str] | None = None
+) -> dict[str, list[str]]:
     graph: dict[str, set[str]] = {flow.id: set() for flow in model.flows}
-    known = set(graph)
+    known = known or set(graph)
     for flow in model.flows:
         for target in flow.calls:
             if target in known:
@@ -1636,7 +1666,7 @@ def _workflow_call_graph(model: ProjectModel) -> dict[str, list[str]]:
 
 
 def _workflow_path_edges(model: ProjectModel, path: list[str]) -> list[dict[str, Any]]:
-    flows = {flow.id: flow for flow in model.flows}
+    flows = _model_index(model).flows_by_id
     edges = []
     for source_id, target_id in pairwise(path):
         source = flows.get(source_id)
@@ -1835,35 +1865,104 @@ def _slice_target_error(
     }
 
 
+@dataclass(slots=True)
+class _RuntimeModelIndex:
+    model: ProjectModel
+    flows_by_id: dict[str, Flow]
+    nodes_by_flow: dict[str, dict[str, FlowNode]]
+    edges_by_flow: dict[str, dict[str, FlowEdge]]
+    call_graph: dict[str, list[str]]
+
+
+_MODEL_INDEX_CACHE: dict[int, _RuntimeModelIndex] = {}
+
+
+def _model_index(model: ProjectModel) -> _RuntimeModelIndex:
+    cache_key = id(model)
+    cached = _MODEL_INDEX_CACHE.get(cache_key)
+    if cached is not None and cached.model is model:
+        return cached
+    flows_by_id = {flow.id: flow for flow in model.flows}
+    index = _RuntimeModelIndex(
+        model=model,
+        flows_by_id=flows_by_id,
+        nodes_by_flow={flow.id: {node.id: node for node in flow.nodes} for flow in model.flows},
+        edges_by_flow={flow.id: {edge.id: edge for edge in flow.edges} for flow in model.flows},
+        call_graph=_build_workflow_call_graph(model, set(flows_by_id)),
+    )
+    if len(_MODEL_INDEX_CACHE) >= _MODEL_INDEX_CACHE_LIMIT:
+        _MODEL_INDEX_CACHE.pop(next(iter(_MODEL_INDEX_CACHE)))
+    _MODEL_INDEX_CACHE[cache_key] = index
+    return index
+
+
+class _McpModelStore:
+    def __init__(self, project_root: Path, config: CodeDebriefConfig) -> None:
+        self.project_root = project_root
+        self.config = config
+        self._model: ProjectModel | None = None
+        self._signature: tuple[int, int, int] | None = None
+
+    def try_load(self) -> tuple[ProjectModel | None, dict[str, Any] | None]:
+        try:
+            signature = self._artifact_signature()
+            if self._model is not None and self._signature == signature:
+                return self._model, None
+            model = load_model(self.project_root, self.config)
+            self._model = model
+            self._signature = signature
+            _model_index(model)
+            return model, None
+        except _LOAD_ERRORS as error:
+            self._model = None
+            self._signature = None
+            return None, _model_load_error(self.project_root, self.config, error)
+
+    def replace(self, model: ProjectModel) -> None:
+        try:
+            self._signature = self._artifact_signature()
+        except OSError:
+            self._signature = None
+        self._model = model
+        _model_index(model)
+
+    def _artifact_signature(self) -> tuple[int, int, int]:
+        json_path, _, _ = output_paths(self.project_root, self.config)
+        stat = json_path.stat()
+        return stat.st_mtime_ns, stat.st_size, stat.st_ino
+
+
 def _known_flow_ids(model: ProjectModel, flow_ids: list[str] | None) -> list[str]:
-    known = {flow.id for flow in model.flows}
+    known = _model_index(model).flows_by_id
     return _unique_preserve_order(flow_id for flow_id in flow_ids or [] if flow_id in known)
 
 
 def _flows_by_ids(model: ProjectModel, flow_ids: list[str]) -> list[Any]:
-    flows = {flow.id: flow for flow in model.flows}
+    flows = _model_index(model).flows_by_id
     return [flows[flow_id] for flow_id in flow_ids if flow_id in flows]
 
 
 def _flow_by_id(model: ProjectModel, flow_id: str) -> Any | None:
-    return next((flow for flow in model.flows if flow.id == flow_id), None)
+    return _model_index(model).flows_by_id.get(flow_id)
 
 
 def _resolve_node(model: ProjectModel, node_id: str, flow_id: str | None) -> tuple[Any, Any] | None:
+    index = _model_index(model)
     flows = _flows_by_ids(model, [flow_id]) if flow_id else model.flows
     for flow in flows:
-        for node in flow.nodes:
-            if node.id == node_id:
-                return flow, node
+        node = index.nodes_by_flow.get(flow.id, {}).get(node_id)
+        if node is not None:
+            return flow, node
     return None
 
 
 def _resolve_edge(model: ProjectModel, edge_id: str, flow_id: str | None) -> tuple[Any, Any] | None:
+    index = _model_index(model)
     flows = _flows_by_ids(model, [flow_id]) if flow_id else model.flows
     for flow in flows:
-        for edge in flow.edges:
-            if edge.id == edge_id:
-                return flow, edge
+        edge = index.edges_by_flow.get(flow.id, {}).get(edge_id)
+        if edge is not None:
+            return flow, edge
     return None
 
 
@@ -1873,7 +1972,7 @@ def _order_expanded_flow_ids(
     expanded: set[str],
 ) -> list[str]:
     seed = _unique_preserve_order(seed_flow_ids)
-    by_id = {flow.id: flow for flow in model.flows}
+    by_id = _model_index(model).flows_by_id
     rest = sorted(
         (flow_id for flow_id in expanded if flow_id not in set(seed)),
         key=lambda flow_id: (
