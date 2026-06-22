@@ -18,7 +18,14 @@ from typing import Any, cast
 from codedebrief import __version__
 from codedebrief.analysis import ProjectAnalyzer
 from codedebrief.artifacts import load_model, model_hash_path, output_paths, write_artifacts
-from codedebrief.config import BUILTIN_PROFILES, CodeDebriefConfig
+from codedebrief.config import (
+    BUILTIN_PROFILES,
+    DEFAULT_OUTPUT_DIR,
+    CodeDebriefConfig,
+    default_config_path,
+    find_config_path,
+    legacy_config_path,
+)
 from codedebrief.doctor import doctor_report, render_doctor, render_doctor_json
 from codedebrief.install import (
     AGENT_INSTRUCTION_TARGETS,
@@ -445,8 +452,8 @@ def _setup_agent(
 def _ensure_config(
     root: Path, source_roots: Sequence[str] | None = None
 ) -> tuple[Path, bool, bool]:
-    config_path = root / "codedebrief.toml"
-    if config_path.exists():
+    config_path = find_config_path(root)
+    if config_path is not None:
         if source_roots is None:
             return config_path, False, False
         original = config_path.read_text(encoding="utf-8")
@@ -455,6 +462,8 @@ def _ensure_config(
             atomic_write_text(config_path, updated, encoding="utf-8")
             return config_path, False, True
         return config_path, False, False
+    config_path = default_config_path(root)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(config_path, _starter_config_text(source_roots), encoding="utf-8")
     return config_path, True, bool(source_roots)
 
@@ -711,9 +720,9 @@ def _clear(root: Path, *, assume_yes: bool) -> int:
     _print_progress("Removing CodeDebrief files and managed sections")
     for action in actions:
         if action.kind == "delete_dir":
-            shutil.rmtree(action.path)
+            shutil.rmtree(action.path, ignore_errors=True)
         elif action.kind == "delete_file":
-            action.path.unlink()
+            action.path.unlink(missing_ok=True)
         elif action.kind == "write_file" and action.replacement is not None:
             atomic_write_text(action.path, action.replacement, encoding="utf-8")
         else:  # pragma: no cover - defensive guard for future action kinds.
@@ -749,9 +758,14 @@ def _collect_clear_actions(root: Path) -> list[_ClearAction]:
             continue
         actions.append(_ClearAction(directory, "artifact directory", "delete_dir"))
 
-    for config_relative in ("codedebrief.toml", ".codedebriefignore"):
-        config_path = root / config_relative
+    for config_path in (
+        legacy_config_path(root),
+        default_config_path(root),
+        root / ".codedebriefignore",
+    ):
         if config_path.exists():
+            if _is_deleted_by_directory_action(config_path, actions):
+                continue
             actions.append(_ClearAction(config_path, "config file", "delete_file"))
 
     for skill_relative in AGENT_SKILL_TARGETS.values():
@@ -793,7 +807,7 @@ def _collect_clear_actions(root: Path) -> list[_ClearAction]:
 
 
 def _configured_output_dirs(root: Path) -> set[Path]:
-    output_dirs = {root / "codedebrief-out"}
+    output_dirs = {root / DEFAULT_OUTPUT_DIR}
     try:
         config = CodeDebriefConfig.load(root)
     except (OSError, ValueError, SyntaxError):
@@ -853,6 +867,16 @@ def _dedupe_clear_actions(actions: Sequence[_ClearAction]) -> list[_ClearAction]
         unique.append(action)
         seen.add(action.path)
     return unique
+
+
+def _is_deleted_by_directory_action(path: Path, actions: Sequence[_ClearAction]) -> bool:
+    for action in actions:
+        if action.kind != "delete_dir":
+            continue
+        with suppress(ValueError):
+            path.resolve().relative_to(action.path.resolve())
+            return True
+    return False
 
 
 def _prune_empty_dirs(root: Path) -> None:
@@ -981,7 +1005,8 @@ exclude = []
 exclude_dirs = []
 # Defaults always prune dependency, VCS, cache, temp, and generated directories such as
 # .git, node_modules, venv/.venv, dist/build/out/target, coverage, .next, .turbo,
-# .svelte-kit, vendor, and codedebrief-out. Add project-specific directories above.
+# .nx, .svelte-kit, .pytest_cache, .mypy_cache, .ruff_cache, vendor, and codedebrief-out.
+# Add project-specific directories above.
 include_public_functions = true
 max_call_depth = 4
 output_dir = "codedebrief-out"

@@ -463,6 +463,23 @@ def test_cli_clear_does_not_delete_project_root_when_output_dir_is_root(
         assert not (tmp_path / artifact_name).exists()
 
 
+def test_cli_clear_removes_default_output_dir_without_listing_nested_config_twice(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    output_dir = tmp_path / "codedebrief-out"
+    output_dir.mkdir()
+    (output_dir / "codedebrief.toml").write_text("[codedebrief]\n", encoding="utf-8")
+    (output_dir / "codedebrief.json").write_text("{}", encoding="utf-8")
+
+    assert main(["clear", str(tmp_path), "--yes"]) == 0
+
+    output = capsys.readouterr().out
+    assert not output_dir.exists()
+    assert "- artifact directory:" in output
+    assert f"- config file: {output_dir / 'codedebrief.toml'}" not in output
+
+
 def test_cli_clear_requires_confirmation_without_yes_in_noninteractive_mode(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -549,7 +566,8 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
     ]
 
     assert main(["setup", agent, str(tmp_path), "--no-html"]) == 0
-    assert (tmp_path / "codedebrief.toml").exists()
+    assert (tmp_path / "codedebrief-out" / "codedebrief.toml").exists()
+    assert not (tmp_path / "codedebrief.toml").exists()
     assert (tmp_path / instruction_path).exists()
     for path in instruction_paths:
         if path == instruction_path:
@@ -608,7 +626,7 @@ def test_cli_setup_source_roots_limit_initial_analysis(
         == 0
     )
 
-    config_text = (tmp_path / "codedebrief.toml").read_text(encoding="utf-8")
+    config_text = (tmp_path / "codedebrief-out" / "codedebrief.toml").read_text(encoding="utf-8")
     artifact = json.loads((tmp_path / "codedebrief-out" / "codedebrief.json").read_text())
     analyzed_paths = {item["path"] for item in artifact["files"]}
     output = capsys.readouterr().out
@@ -646,7 +664,7 @@ def test_cli_setup_accepts_sibling_repo_source_roots(
         == 0
     )
 
-    config_text = (workspace / "codedebrief.toml").read_text(encoding="utf-8")
+    config_text = (workspace / "codedebrief-out" / "codedebrief.toml").read_text(encoding="utf-8")
     artifact = json.loads((workspace / "codedebrief-out" / "codedebrief.json").read_text())
     analyzed_paths = {item["path"] for item in artifact["files"]}
     output = capsys.readouterr().out

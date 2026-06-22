@@ -14,6 +14,7 @@ from codedebrief.config import CodeDebriefConfig
 from codedebrief.mcp_server import (
     MCP_INSTRUCTIONS,
     _agent_action_terms,
+    _agent_context_effective_token_budget,
     _context_navigation_pack,
     _context_visual_pack,
     _domain_logic_map,
@@ -27,6 +28,7 @@ from codedebrief.mcp_server import (
     flow_in_agent_scope,
 )
 from codedebrief.model import (
+    FileRecord,
     Flow,
     FlowEdge,
     FlowNode,
@@ -61,6 +63,49 @@ def test_agent_action_terms_include_common_italian_aliases() -> None:
         "save",
         "upload",
     }
+
+
+def test_agent_context_token_budget_auto_scales_only_default_broad_requests(
+    tmp_path: Path,
+) -> None:
+    model = ProjectModel.empty(tmp_path)
+    model.files = [
+        FileRecord(path=f"src/file_{index}.py", language="python", sha256="0")
+        for index in range(1000)
+    ]
+
+    assert (
+        _agent_context_effective_token_budget(
+            model,
+            900,
+            has_explicit_context=False,
+        )
+        == 1500
+    )
+    assert (
+        _agent_context_effective_token_budget(
+            model,
+            900,
+            has_explicit_context=True,
+        )
+        == 900
+    )
+    assert (
+        _agent_context_effective_token_budget(
+            model,
+            480,
+            has_explicit_context=False,
+        )
+        == 480
+    )
+    assert (
+        _agent_context_effective_token_budget(
+            model,
+            0,
+            has_explicit_context=False,
+        )
+        == 0
+    )
 
 
 def test_mcp_model_store_reuses_model_until_artifact_changes(tmp_path: Path) -> None:

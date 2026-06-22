@@ -41,6 +41,9 @@ from codedebrief.validation import validate_codedebrief
 
 # Rough tokens per returned list item, used to honor an agent's token_budget cap.
 _TOKENS_PER_ITEM = 60
+_DEFAULT_AGENT_CONTEXT_TOKEN_BUDGET = 900
+_LARGE_AGENT_CONTEXT_TOKEN_BUDGET = 1200
+_HUGE_AGENT_CONTEXT_TOKEN_BUDGET = 1500
 _DEFAULT_CONTEXT_VISUAL_BYTE_BUDGET = 120_000
 
 # Errors raised while loading the on-disk model (missing file, corrupt/garbled JSON,
@@ -147,6 +150,26 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
         if error is not None:
             return error
         assert model is not None
+        requested_token_budget = token_budget
+        token_budget = _agent_context_effective_token_budget(
+            model,
+            requested_token_budget,
+            has_explicit_context=any(
+                item
+                for item in (
+                    changed_files,
+                    selected_code,
+                    source_path,
+                    flow_id,
+                    symbol,
+                    dependency_path,
+                    domain,
+                    value,
+                    scope,
+                )
+            ),
+        )
+        budget_inputs = _token_budget_inputs(requested_token_budget, token_budget)
         domain_scope, _scope_query_hint = _agent_scope_filter(model, scope)
         pack = _selection_context_payload(
             project_root,
@@ -186,7 +209,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
                 "value": value,
                 "scope": scope,
                 "include_visual": include_visual,
-                "token_budget": token_budget,
+                **budget_inputs,
             },
             domain_logic_payload=domain_payload,
             token_budget=token_budget,
@@ -212,7 +235,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
                 "value": value,
                 "scope": scope,
                 "include_visual": include_visual,
-                "token_budget": token_budget,
+                **budget_inputs,
             },
             "workflow_slice": workflow_slice,
             "context": pack,
@@ -2137,6 +2160,35 @@ def _order_expanded_flow_ids(
         ),
     )
     return [*seed, *rest]
+
+
+def _agent_context_effective_token_budget(
+    model: ProjectModel,
+    requested_token_budget: int,
+    *,
+    has_explicit_context: bool,
+) -> int:
+    if requested_token_budget <= 0:
+        return requested_token_budget
+    if requested_token_budget != _DEFAULT_AGENT_CONTEXT_TOKEN_BUDGET:
+        return requested_token_budget
+    if has_explicit_context:
+        return requested_token_budget
+    flow_count = len(model.flows)
+    file_count = len(model.files)
+    if flow_count >= 2000 or file_count >= 1000:
+        return _HUGE_AGENT_CONTEXT_TOKEN_BUDGET
+    if flow_count >= 500 or file_count >= 250:
+        return _LARGE_AGENT_CONTEXT_TOKEN_BUDGET
+    return requested_token_budget
+
+
+def _token_budget_inputs(requested_token_budget: int, token_budget: int) -> dict[str, Any]:
+    payload: dict[str, Any] = {"token_budget": token_budget}
+    if token_budget != requested_token_budget:
+        payload["requested_token_budget"] = requested_token_budget
+        payload["token_budget_policy"] = "auto_scaled_for_project_size"
+    return payload
 
 
 def _slice_primary_budget(token_budget: int) -> int:

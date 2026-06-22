@@ -67,6 +67,12 @@ def test_large_codebase_default_excludes_skip_generated_trees(tmp_path: Path) ->
     nested_cache = project / "backend" / ".pytest_cache"
     nested_cache.mkdir(parents=True)
     (nested_cache / "cached.py").write_text("def cached():\n    return 1\n", encoding="utf-8")
+    nested_frontend_cache = project / "frontend" / ".nx" / "cache"
+    nested_frontend_cache.mkdir(parents=True)
+    (nested_frontend_cache / "cached.ts").write_text("export function cached() { return 1; }\n")
+    nested_dotnet_build = project / "services" / "api" / "obj"
+    nested_dotnet_build.mkdir(parents=True)
+    (nested_dotnet_build / "generated.cs").write_text("class Generated {}\n", encoding="utf-8")
     generated_dir = project / "__generated__"
     generated_dir.mkdir()
     (generated_dir / "client.ts").write_text("export function generated() { return 1; }\n")
@@ -107,6 +113,28 @@ def test_config_exclude_dirs_prunes_project_specific_directories(tmp_path: Path)
     }
 
     assert files == {"src/real.py"}
+
+
+def test_config_can_load_from_codedebrief_out_for_new_setups(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    config_dir = project / "codedebrief-out"
+    config_dir.mkdir()
+    (config_dir / "codedebrief.toml").write_text(
+        '[codedebrief]\nsource_roots = ["backend"]\n',
+        encoding="utf-8",
+    )
+    (project / "backend").mkdir()
+    (project / "backend" / "api.py").write_text("def api():\n    return 1\n", encoding="utf-8")
+    (project / "frontend").mkdir()
+    (project / "frontend" / "app.ts").write_text("export function app() { return 1; }\n")
+
+    config = CodeDebriefConfig.load(project)
+    files = {
+        path.relative_to(project).as_posix() for path in discover_source_files(project, config)
+    }
+
+    assert files == {"backend/api.py"}
 
 
 def test_source_roots_limit_analysis_but_output_stays_in_project_root(tmp_path: Path) -> None:

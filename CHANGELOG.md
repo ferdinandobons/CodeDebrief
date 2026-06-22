@@ -12,6 +12,17 @@ The project follows Semantic Versioning.
   skills, MCP server entries, and managed instruction blocks from the current project
   folder.
 
+### Changed
+
+- New `codedebrief setup` runs keep project config in `codedebrief-out/codedebrief.toml`
+  while preserving compatibility with legacy root `codedebrief.toml` files.
+- Expanded default pruning for common cache, build, IDE, and binary output paths before
+  analysis starts.
+- Auto-scale the default `agent_context` token budget on large broad requests while still
+  honoring explicit `token_budget` values exactly.
+- Reworked the README opening with a clearer project summary, badge row, navigation links,
+  and managed-file layout guidance.
+
 ## 0.16.0 - 2026-06-22
 
 ### Added

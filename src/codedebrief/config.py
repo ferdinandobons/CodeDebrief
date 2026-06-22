@@ -10,9 +10,21 @@ if sys.version_info >= (3, 11):
 else:  # pragma: no cover - Python 3.10
     import tomli as tomllib
 
+CONFIG_FILENAME = "codedebrief.toml"
+DEFAULT_OUTPUT_DIR = "codedebrief-out"
+
 DEFAULT_EXCLUDES = [
+    "**/.DS_Store",
+    "**/.coverage*",
     "**/__generated__/**",
+    "**/*.class",
+    "**/*.dll",
+    "**/*.dylib",
     "**/*.min.js",
+    "**/*.o",
+    "**/*.pyc",
+    "**/*.pyo",
+    "**/*.so",
     "**/*.gen.*",
     "**/*.generated.*",
     "**/*.pb.*",
@@ -29,15 +41,24 @@ DEFAULT_EXCLUDE_DIRS = [
     ".gradle",
     ".hg",
     ".codedebrief",
+    ".dart_tool",
+    ".devenv",
+    ".direnv",
+    ".eggs",
     ".mypy_cache",
     ".next",
     ".nox",
     ".nuxt",
+    ".nx",
     ".parcel-cache",
     ".pnpm-store",
     ".pytest_cache",
+    ".pyre",
+    ".pytype",
     ".ruff_cache",
+    ".sass-cache",
     ".serverless",
+    ".storybook-static",
     ".svn",
     ".svelte-kit",
     ".terraform",
@@ -48,9 +69,12 @@ DEFAULT_EXCLUDE_DIRS = [
     ".venv",
     ".venv-*",
     ".vite",
+    ".vs",
+    ".vscode",
     ".yarn",
     "__generated__",
     "__pycache__",
+    ".build",
     "bower_components",
     "build",
     "cdk.out",
@@ -64,6 +88,7 @@ DEFAULT_EXCLUDE_DIRS = [
     "codedebrief-out",
     "logs",
     "node_modules",
+    "obj",
     "out",
     "Pods",
     "target",
@@ -84,7 +109,7 @@ class CodeDebriefConfig:
     exclude_dirs: list[str] = field(default_factory=lambda: list(DEFAULT_EXCLUDE_DIRS))
     include_public_functions: bool = True
     max_call_depth: int = 4
-    output_dir: str = "codedebrief-out"
+    output_dir: str = DEFAULT_OUTPUT_DIR
     self_exclude: bool = True
     entrypoint_include: list[str] = field(default_factory=list)
     entrypoint_exclude: list[str] = field(default_factory=list)
@@ -94,8 +119,8 @@ class CodeDebriefConfig:
     @classmethod
     def load(cls, root: Path, profile: str | None = None) -> CodeDebriefConfig:
         config = cls()
-        config_path = root / "codedebrief.toml"
-        if config_path.exists():
+        config_path = find_config_path(root)
+        if config_path is not None:
             payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
             section = payload.get("codedebrief", {})
             if not isinstance(section, dict):
@@ -213,6 +238,25 @@ def _apply_profile(config: CodeDebriefConfig, profile: str) -> CodeDebriefConfig
         config.self_exclude = False
         config.output_dir = "codedebrief-out/project"
     return config
+
+
+def legacy_config_path(root: Path) -> Path:
+    return root / CONFIG_FILENAME
+
+
+def default_config_path(root: Path) -> Path:
+    return root / DEFAULT_OUTPUT_DIR / CONFIG_FILENAME
+
+
+def config_path_candidates(root: Path) -> tuple[Path, Path]:
+    return legacy_config_path(root), default_config_path(root)
+
+
+def find_config_path(root: Path) -> Path | None:
+    for candidate in config_path_candidates(root):
+        if candidate.exists():
+            return candidate
+    return None
 
 
 def _table(value: object, field_name: str) -> dict[object, object]:

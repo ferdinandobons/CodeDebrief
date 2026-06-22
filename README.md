@@ -1,23 +1,38 @@
-# CodeDebrief
+<p align="center">
+  <img src="docs/assets/codedebrief-logo.svg" alt="CodeDebrief logo" width="72">
+</p>
 
-**Turn source code into deterministic, source-grounded workflow flowcharts on demand.**
+<h1 align="center">CodeDebrief</h1>
 
-Months into a project, asking a coding agent how a workflow works often starts a fresh
-reconstruction from searches, grep commands, and targeted file reads. The answer may be
-useful, but the process takes time, can miss less obvious paths, and is difficult to verify
-as a complete source-level view.
+<p align="center">
+  <strong>Source-grounded workflow diagrams for coding agents and codebase exploration.</strong>
+</p>
 
-CodeDebrief builds the map before the explanation.
+<p align="center">
+  <a href="https://pypi.org/project/codedebrief/"><img alt="PyPI" src="https://img.shields.io/pypi/v/codedebrief"></a>
+  <a href="https://pypi.org/project/codedebrief/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/codedebrief"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/ferdinandobons/CodeDebrief"></a>
+  <img alt="MCP first" src="https://img.shields.io/badge/MCP--first-local--first-6b8cff">
+</p>
 
-It statically analyzes the current source and generates persistent flowcharts of entrypoints,
-decisions, branches, internal calls, returns, exceptions, and outcomes. A coding agent can
-select, render, expand, translate, and explain a focused slice, but it does not generate the
-underlying map.
+<p align="center">
+  <a href="https://ferdinandobons.github.io/CodeDebrief/">Website</a>
+  · <a href="#quick-start">Quick Start</a>
+  · <a href="#coding-agent-workflow">Agent Workflow</a>
+  · <a href="#manual-viewer">Manual Viewer</a>
+  · <a href="CHANGELOG.md">Changelog</a>
+</p>
 
-CodeDebrief is not a documentation generator, a bug finder, a generic graph database, or an
-LLM enrichment service. It complements maintained documentation with faster, on-demand
-workflow inspection. The analyzer, artifacts, viewer, and MCP server are local-first and do
-not require an LLM provider key.
+CodeDebrief turns a local codebase into deterministic workflow flowcharts that coding
+agents can inspect, render, expand, translate, and explain. It statically maps entrypoints,
+decisions, branches, internal calls, returns, exceptions, and outcomes before the agent
+answers, so the visual explanation is grounded in reusable artifacts instead of a fresh
+best-effort reconstruction.
+
+The analyzer, artifacts, viewer, and MCP server are local-first and do not require an LLM
+provider key. CodeDebrief is not a documentation generator, a bug finder, a generic graph
+database, or an LLM enrichment service; it is a workflow navigation layer for understanding
+how code paths actually connect.
 
 ![Compact source-backed workflow visual generated from a CodeDebrief slice](docs/assets/codedebrief-workflow-preview.png)
 
@@ -26,11 +41,8 @@ Canonical workflow visuals are vertical by default; horizontal diagrams are used
 user explicitly asks for a compact overview.
 
 > Status: pre-1.0 alpha. The model is versioned, but schema and MCP payloads may evolve
-> before 1.0.
->
-> Latest release: [v0.16.0](https://github.com/ferdinandobons/CodeDebrief/releases/tag/v0.16.0)
-> · [Website](https://ferdinandobons.github.io/CodeDebrief/)
-> · [Changelog](CHANGELOG.md)
+> before 1.0. Latest release:
+> [v0.16.0](https://github.com/ferdinandobons/CodeDebrief/releases/tag/v0.16.0).
 
 ## Quick Start
 
@@ -63,6 +75,11 @@ can materially increase `setup`, `update`, and MCP response times because there 
 files to hash, parse, link, and search. Prefer the smallest source roots that still contain
 the workflows you want agents to explain.
 
+MCP responses are bounded by `token_budget`. If an agent passes an explicit budget,
+CodeDebrief honors it. For broad `agent_context` requests that use the default budget,
+CodeDebrief automatically raises the effective budget on large projects so the first slice
+has enough room without forcing the agent to retry with a bigger request.
+
 After setup, ask ordinary questions:
 
 ```text
@@ -79,15 +96,20 @@ For manual exploration:
 codedebrief view
 ```
 
-CodeDebrief writes four deterministic artifacts:
+`setup` keeps CodeDebrief-owned config and artifacts in `codedebrief-out/` by default:
 
 ```text
 codedebrief-out/
+├── codedebrief.toml       optional project config created by setup
 ├── codedebrief.html        local interactive full-project viewer
 ├── codedebrief.md          reviewable Mermaid flowcharts
 ├── codedebrief.json        canonical model for MCP, CI, scripts, and the viewer
 └── codedebrief.hash.json   model hash sidecar for faster MCP cold starts
 ```
+
+Provider-required files still live where the client expects them, for example `.mcp.json`,
+`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.cursor/rules/codedebrief.mdc`, and agent skill
+directories.
 
 For explicit refresh during development:
 
@@ -102,9 +124,9 @@ To remove CodeDebrief from the current project folder:
 codedebrief clear
 ```
 
-`clear` removes `codedebrief.toml`, `.codedebriefignore`, generated artifacts, installed
-CodeDebrief skills, MCP server entries, and managed instruction blocks. It asks for
-confirmation by default; use `codedebrief clear --yes` in scripts.
+`clear` removes `codedebrief-out/`, legacy root `codedebrief.toml`, `.codedebriefignore`,
+installed CodeDebrief skills, MCP server entries, and managed instruction blocks. It asks
+for confirmation by default; use `codedebrief clear --yes` in scripts.
 
 To install a pinned GitHub release instead:
 
@@ -216,10 +238,11 @@ The selected target controls which files are written:
 `setup <target>` writes only that target's files. Run it separately for each agent
 surface you want to configure.
 
-`setup` creates `codedebrief.toml` when needed, installs the selected agent instruction
-file, installs a provider-native CodeDebrief skill where supported, registers project-scoped
-MCP where supported, generates initial artifacts, runs `doctor`, and validates the result.
-Use `--source` to set `source_roots` before that initial artifact generation starts.
+`setup` creates `codedebrief-out/codedebrief.toml` when needed, installs the selected
+agent instruction file, installs a provider-native CodeDebrief skill where supported,
+registers project-scoped MCP where supported, generates initial artifacts, runs `doctor`,
+and validates the result. Use `--source` to set `source_roots` before that initial artifact
+generation starts.
 
 On Windows, run `setup` in the same environment that will run the coding agent when
 possible. If you run `setup` from WSL inside a `/mnt/c/...` project, CodeDebrief writes
@@ -391,7 +414,9 @@ agent and provider you use.
 
 ## Configuration
 
-CodeDebrief works without config. Add `codedebrief.toml` only when defaults are not enough:
+CodeDebrief works without config. New `setup` runs create
+`codedebrief-out/codedebrief.toml` only when defaults are not enough; legacy root
+`codedebrief.toml` files are still read and preserved.
 
 ```toml
 [codedebrief]
@@ -418,7 +443,8 @@ edge = ["edge/**", "workers/**"]
 
 Defaults prune common VCS, dependency, cache, temporary, generated, and output directories,
 including `.git`, `node_modules`, virtualenv folders, `.next`, `.turbo`, `.svelte-kit`,
-`dist`, `build`, `out`, `target`, `coverage`, `vendor`, `Pods`, and `codedebrief-out`.
+`.nx`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `.pyre`, `.dart_tool`, `dist`,
+`build`, `out`, `target`, `obj`, `coverage`, `vendor`, `Pods`, and `codedebrief-out`.
 
 ### Analyze Selected Folders Or Repos
 
@@ -449,13 +475,14 @@ cd pipeline-map
 codedebrief setup claude --source ../repo-ingest ../repo-transform ../repo-app
 ```
 
-With that configuration, CodeDebrief writes `codedebrief.toml` and `codedebrief-out/` under
-`pipeline-map/`, while model paths stay relative to that workspace, for example
-`../repo-ingest/src/pipeline.py`. Inferred scopes use the repo folder name (`repo-ingest`,
-`repo-transform`, `repo-app`) unless you define `[codedebrief.scopes]` manually.
+With that configuration, CodeDebrief writes its config and artifacts under
+`pipeline-map/codedebrief-out/`, while model paths stay relative to the workspace, for
+example `../repo-ingest/src/pipeline.py`. Inferred scopes use the repo folder name
+(`repo-ingest`, `repo-transform`, `repo-app`) unless you define `[codedebrief.scopes]`
+manually.
 
 `--source` values may point to folders or individual source files. CodeDebrief writes them
-into `codedebrief.toml` as `source_roots` before the initial analysis starts. If you want
+into the active config as `source_roots` before the initial analysis starts. If you want
 separate models for different parts of a monorepo or multi-repo workspace, use different
 workspace roots or profiles with different `output_dir` values.
 
