@@ -239,6 +239,9 @@ def authorize(user):
     assert (tmp_path / "codedebrief-out" / "codedebrief.hash.json").exists()
     output = capsys.readouterr().out
     assert "CodeDebrief update" in output
+    assert "Mode: full refresh" in output
+    assert "Progress:" in output
+    assert "- Analyzing source files and linking workflows..." in output
     assert "Status: OK" in output
     assert "Summary:" in output
     assert "Artifacts:" in output
@@ -423,6 +426,11 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
     _assert_current_agent_instructions(agents_text)
     output = capsys.readouterr().out
     assert "Created" in output
+    assert "- Preparing config and selected source roots..." in output
+    assert "- Installing agent instructions, skills, and MCP config..." in output
+    assert "- Generating CodeDebrief artifacts..." in output
+    assert "- Checking local installation and runtime support..." in output
+    assert "- Validating generated artifacts..." in output
     assert "Status: OK - CodeDebrief is ready for your coding agent." in output
     assert "Next steps:" in output
     assert "CodeDebrief doctor OK" in output

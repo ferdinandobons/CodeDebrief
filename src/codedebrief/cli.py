@@ -328,6 +328,8 @@ def _setup_agent(
     }[agent]
     print(f"CodeDebrief setup for {display}")
     print(f"Project: {root}")
+    print("Progress:")
+    _print_progress("Preparing config and selected source roots")
 
     normalized_source_roots = _normalize_source_roots(root, source_roots)
     config_path, created_config, updated_config = _ensure_config(root, normalized_source_roots)
@@ -340,6 +342,7 @@ def _setup_agent(
     if normalized_source_roots:
         print(f"- Source roots: {', '.join(normalized_source_roots)}")
 
+    _print_progress("Installing agent instructions, skills, and MCP config")
     changed = install_agent_instructions(root, agent)
     changed.extend(install_agent_skill(root, agent))
     if agent in MCP_CONFIG_TARGETS:
@@ -352,6 +355,7 @@ def _setup_agent(
         print("- Agent files: already up to date")
 
     print("")
+    _print_progress("Generating CodeDebrief artifacts")
     analyze_status = _analyze(
         root,
         full=full,
@@ -363,11 +367,13 @@ def _setup_agent(
         return analyze_status
 
     print("")
+    _print_progress("Checking local installation and runtime support")
     doctor_status = _doctor(root, json_output=False, show_next_steps=False)
     if doctor_status != 0:
         return doctor_status
 
     print("")
+    _print_progress("Validating generated artifacts")
     validate_status = _validate(
         root,
         check_sync=False,
@@ -424,27 +430,40 @@ def _analyze(
         raise FileNotFoundError(f"path does not exist: {root}")
     root = root.resolve()
     config = CodeDebriefConfig.load(root, profile=profile)
+    json_path, markdown_path, configured_html_path = output_paths(root, config)
+    hash_path = model_hash_path(root, config)
+    print("CodeDebrief update")
+    print(f"Project: {root}")
+    print(f"Mode: {'full refresh' if full else 'incremental update with cache'}")
+    print(f"Source roots: {_format_source_roots(config.source_roots)}")
+    print(f"Output dir: {json_path.parent}")
+    print(f"HTML artifact: {'enabled' if include_html else 'disabled'}")
+    print("Progress:")
+    _print_progress("Waiting for the project update lock")
     with project_update_lock(root):
+        _print_progress("Analyzing source files and linking workflows")
         result = ProjectAnalyzer(root, config).analyze(full=full)
-        json_path, markdown_path, configured_html_path = output_paths(root, config)
-        hash_path = model_hash_path(root, config)
         if result.artifacts_unchanged and _artifacts_available(
             json_path,
             markdown_path,
             configured_html_path if include_html else None,
             hash_path,
         ):
+            _print_progress("Reusing unchanged artifacts")
             html_path = configured_html_path if include_html else None
         else:
+            artifact_names = "JSON, Markdown, hash"
+            if include_html:
+                artifact_names += ", and HTML"
+            _print_progress(f"Writing {artifact_names} artifacts")
             json_path, markdown_path, html_path = write_artifacts(
                 root,
                 result.model,
                 include_html=include_html,
                 config=config,
             )
-    print("CodeDebrief update")
+    print("")
     print("Status: OK - artifacts refreshed.")
-    print(f"Project: {root}")
     print(f"Summary: {len(result.model.files)} files, {len(result.model.flows)} flows.")
     print(
         "Cache: "
@@ -485,13 +504,17 @@ def _view(
     profile: str | None = None,
 ) -> int:
     root = root.resolve()
+    print("CodeDebrief view")
+    print(f"Project: {root}")
+    print("Progress:")
+    _print_progress("Loading generated model")
     config = CodeDebriefConfig.load(root, profile=profile)
     _, _, html_path = output_paths(root, config)
     model = load_model(root, config)
+    _print_progress("Rendering viewer HTML")
     atomic_write_text(html_path, render_html(model, source_root=root), encoding="utf-8")
-    print("CodeDebrief view")
+    print("")
     print("Status: OK - viewer artifact ready.")
-    print(f"Project: {root}")
     print(f"HTML: {html_path}")
     if render_only:
         _print_next_steps(["Open the generated HTML file or run `codedebrief view` to serve it."])
@@ -529,6 +552,11 @@ def _validate(
 ) -> int:
     root = root.resolve()
     config = CodeDebriefConfig.load(root, profile=profile)
+    if not json_output:
+        print("CodeDebrief validation")
+        print(f"Project: {root}")
+        print("Progress:")
+        _print_progress("Loading artifact, schema, and sync metadata")
     report = validate_codedebrief(
         root,
         config=config,
@@ -540,6 +568,7 @@ def _validate(
         print(json.dumps(report.to_dict(), indent=2))
     else:
         status = "OK" if report.ok else "FAILED"
+        print("")
         print(f"CodeDebrief validation {status}: {report.artifact}")
         print(
             f"Status: {status} - "
@@ -610,6 +639,14 @@ def _print_next_steps(steps: Sequence[str]) -> None:
     print("Next steps:")
     for step in steps:
         print(f"- {step}")
+
+
+def _print_progress(message: str) -> None:
+    print(f"- {message}...", flush=True)
+
+
+def _format_source_roots(source_roots: Sequence[str]) -> str:
+    return ", ".join(source_roots) if source_roots else "."
 
 
 def _artifacts_available(
