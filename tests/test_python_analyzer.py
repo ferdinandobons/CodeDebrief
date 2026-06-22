@@ -7,6 +7,7 @@ from codedebrief.analysis.python import (
     PythonAnalyzer,
     _dependency_paths_from_modules,
     _import_map,
+    _safe_unparse,
 )
 from codedebrief.config import CodeDebriefConfig
 from codedebrief.model import NodeKind
@@ -87,6 +88,16 @@ def get_profile(user_id: str):
 
     call_node = next(node for node in profile.nodes if node.kind is NodeKind.CALL)
     assert "load_user" in call_node.metadata["calls"]
+
+
+def test_python_unparse_normalizes_comprehension_tuple_targets() -> None:
+    statement = ast.parse("result = [src for (src, dst), count in counts]\n").body[0]
+    assert isinstance(statement, ast.Assign)
+
+    label = _safe_unparse(statement.value)
+
+    assert "for (src, dst), count in" in label
+    assert "for ((src, dst), count) in" not in label
 
 
 def test_python_source_snippets_do_not_resplit_large_files(

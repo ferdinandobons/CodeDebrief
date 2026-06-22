@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import copy
+import re
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, cast
@@ -44,6 +45,7 @@ from codedebrief.util import compact_text, file_sha256, relpath, stable_id
 FASTAPI_METHODS = {"get", "post", "put", "patch", "delete", "options", "head", "websocket"}
 CLI_DECORATORS = {"command", "callback"}
 HANDLER_PREFIXES = ("handle_", "on_", "process_")
+FOR_TUPLE_TARGET_RE = re.compile(r"\bfor \(((?:\([^()]+\)|[^()])+?,(?:\([^()]+\)|[^()])+?)\) in\b")
 
 
 class _SourceText:
@@ -638,9 +640,13 @@ def _safe_unparse(node: ast.AST | None) -> str:
     if node is None:
         return ""
     try:
-        return ast.unparse(node)
+        return _stable_unparse(ast.unparse(node))
     except (ValueError, TypeError):
         return node.__class__.__name__
+
+
+def _stable_unparse(value: str) -> str:
+    return FOR_TUPLE_TARGET_RE.sub(lambda match: f"for {match.group(1)} in", value)
 
 
 def _call_name(node: ast.expr) -> str:

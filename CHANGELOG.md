@@ -6,6 +6,13 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.14.1 - 2026-06-22
+
+### Fixed
+
+- Normalized Python comprehension labels so generated CodeDebrief artifacts stay
+  synchronized across Python 3.10 and newer Python versions.
+
 ## 0.14.0 - 2026-06-22
 
 ### Added
