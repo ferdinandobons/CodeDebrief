@@ -29,7 +29,7 @@ from codedebrief.render.snapshot import (
     render_subgraph_snapshot,
     unsupported_snapshot_format,
 )
-from codedebrief.util import metadata_scope_names
+from codedebrief.util import atomic_write_text, metadata_scope_names
 from codedebrief.validation import validate_codedebrief
 
 # Rough tokens per returned list item, used to honor an agent's token_budget cap.
@@ -2155,14 +2155,15 @@ def _write_snapshot_artifact(
     try:
         snapshot_dir.mkdir(parents=True, exist_ok=True)
         if mermaid:
-            mermaid_path.write_text(mermaid + "\n", encoding="utf-8")
-            mermaid_markdown_path.write_text(
+            atomic_write_text(mermaid_path, mermaid + "\n", encoding="utf-8")
+            atomic_write_text(
+                mermaid_markdown_path,
                 _snapshot_mermaid_markdown(mermaid, stem, canonical_visual),
                 encoding="utf-8",
             )
         if has_svg and isinstance(svg, str):
-            svg_path.write_text(svg, encoding="utf-8")
-            html_path.write_text(_snapshot_artifact_html(svg, stem), encoding="utf-8")
+            atomic_write_text(svg_path, svg, encoding="utf-8")
+            atomic_write_text(html_path, _snapshot_artifact_html(svg, stem), encoding="utf-8")
     except OSError as exc:
         return {
             "written": False,

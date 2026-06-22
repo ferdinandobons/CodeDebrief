@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import tempfile
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, cast
 
@@ -31,11 +34,35 @@ def read_json(path: Path) -> dict[str, Any]:
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    atomic_write_text(
+        path,
         json.dumps(data, indent=2, ensure_ascii=False, sort_keys=False) + "\n",
         encoding="utf-8",
     )
+
+
+def atomic_write_text(path: Path, text: str, *, encoding: str = "utf-8") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding=encoding,
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+            temp_path = Path(handle.name)
+        temp_path.replace(path)
+    except Exception:
+        if temp_path is not None:
+            with suppress(OSError):
+                temp_path.unlink()
+        raise
 
 
 def compact_text(value: str, limit: int = 100) -> str:

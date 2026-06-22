@@ -254,7 +254,7 @@ def test_render_html_emits_quality_and_source_panels(tmp_path: Path) -> None:
     assert ref is not None
     assert ref["path"] in payload["source_files"], "flow source must reference the file store"
     store = payload["source_files"][ref["path"]]
-    assert store["lines"], "expected embedded source lines in the file store"
+    assert store["ranges"][0]["lines"], "expected embedded source lines in the file store"
     # The code-line class panels.js stamps on each rendered snippet line is present in
     # the inlined stylesheet/script (the hook the DOM verification asserts at runtime).
     assert "code-line" in html
@@ -295,7 +295,8 @@ def test_render_html_wires_state_aware_viewer_controls(tmp_path: Path) -> None:
     assert "Analysis health" in html
     assert "model.metadata.quality" in html
     assert "qualityMetric(" in html
-    assert "Call resolution" in html
+    assert "Project call resolution" in html
+    assert "Runtime/dynamic calls" in html
     assert "Skipped files" in html
     assert "Parse warnings" in html
     assert "Language attention" in html

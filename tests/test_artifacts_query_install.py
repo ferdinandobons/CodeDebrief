@@ -219,6 +219,21 @@ def test_validate_codedebrief_reports_ok_for_current_artifact(tmp_path: Path) ->
     assert report.artifact == str(json_path)
 
 
+def test_validate_check_sync_reports_stale_markdown(tmp_path: Path) -> None:
+    (tmp_path / "main.py").write_text(
+        "def route(status):\n    if status == 'ok':\n        return 'ok'\n    return 'fallback'\n",
+        encoding="utf-8",
+    )
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    _, markdown_path, _ = write_artifacts(tmp_path, result.model, include_html=False)
+    markdown_path.write_text("# stale\n", encoding="utf-8")
+
+    report = validate_codedebrief(tmp_path, check_sync=True)
+
+    assert not report.ok
+    assert any("codedebrief.md is stale" in error for error in report.errors)
+
+
 def test_artifact_uses_comprehension_schema_without_review_queue(tmp_path: Path) -> None:
     (tmp_path / "orders.py").write_text(
         "def route(order):\n"
@@ -236,6 +251,7 @@ def test_artifact_uses_comprehension_schema_without_review_queue(tmp_path: Path)
     assert artifact["schema_version"] == "2.0"
     assert "quality" in artifact["metadata"]
     assert "quality" in schema["$defs"]["project_metadata"]["properties"]
+    assert "POTENTIAL_GAP" not in schema["$defs"]["evidence"]["enum"]
 
 
 def test_install_on_a_fresh_dir_is_idempotent(tmp_path: Path) -> None:
@@ -444,6 +460,34 @@ def test_install_mcp_config_writes_project_scoped_files(tmp_path: Path) -> None:
         assert server["args"] == ["mcp", str(tmp_path)]
 
     assert install_mcp_config(tmp_path, "all") == []
+
+
+def test_install_mcp_config_removes_legacy_logicchart_servers(tmp_path: Path) -> None:
+    codex = tmp_path / ".codex" / "config.toml"
+    codex.parent.mkdir(parents=True)
+    codex.write_text(
+        "# logicchart:mcp-config:start\n"
+        "[mcp_servers.logicchart]\n"
+        'command = "logicchart"\n'
+        "# logicchart:mcp-config:end\n",
+        encoding="utf-8",
+    )
+    claude = tmp_path / ".mcp.json"
+    claude.write_text(
+        json.dumps({"mcpServers": {"logicchart": {"command": "logicchart"}}}) + "\n",
+        encoding="utf-8",
+    )
+
+    changed = install_mcp_config(tmp_path, "all")
+
+    assert codex in changed
+    assert claude in changed
+    codex_text = codex.read_text(encoding="utf-8")
+    assert "logicchart" not in codex_text
+    assert "[mcp_servers.codedebrief]" in codex_text
+    claude_payload = json.loads(claude.read_text(encoding="utf-8"))
+    assert "logicchart" not in claude_payload["mcpServers"]
+    assert claude_payload["mcpServers"]["codedebrief"]["command"] == "codedebrief"
 
 
 def test_output_directory_cannot_escape_project(tmp_path: Path) -> None:

@@ -6,7 +6,7 @@ from codedebrief.config import CodeDebriefConfig
 from codedebrief.model import ProjectModel
 from codedebrief.render.html import render_html
 from codedebrief.render.markdown import render_markdown
-from codedebrief.util import read_json, write_json
+from codedebrief.util import atomic_write_text, read_json, write_json
 
 
 def output_paths(root: Path, config: CodeDebriefConfig | None = None) -> tuple[Path, Path, Path]:
@@ -33,9 +33,11 @@ def write_artifacts(
 ) -> tuple[Path, Path, Path | None]:
     json_path, markdown_path, html_path = output_paths(root, config)
     write_json(json_path, model.to_dict())
-    markdown_path.write_text(render_markdown(model), encoding="utf-8")
+    atomic_write_text(markdown_path, render_markdown(model), encoding="utf-8")
     if include_html:
-        html_path.write_text(render_html(model, source_root=root.resolve()), encoding="utf-8")
+        atomic_write_text(
+            html_path, render_html(model, source_root=root.resolve()), encoding="utf-8"
+        )
         return json_path, markdown_path, html_path
     return json_path, markdown_path, None
 

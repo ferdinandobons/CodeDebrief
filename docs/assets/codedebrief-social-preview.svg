@@ -1,65 +1,66 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
   <title id="title">CodeDebrief social preview</title>
-  <desc id="desc">Source-grounded workflow maps for coding agents.</desc>
+  <desc id="desc">Source-grounded workflow diagrams for coding agents.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#080a0f"/>
-      <stop offset="1" stop-color="#121724"/>
+      <stop offset="0" stop-color="#070a10"/>
+      <stop offset="1" stop-color="#101827"/>
     </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#000000" flood-opacity="0.38"/>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="1" stop-color="#0b1019"/>
+    </linearGradient>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="26" flood-color="#000000" flood-opacity="0.42"/>
     </filter>
   </defs>
+
   <rect width="1280" height="640" fill="url(#bg)"/>
-  <g opacity="0.22" stroke="#6f93ff" stroke-width="1">
-    <path d="M0 96H1280M0 192H1280M0 288H1280M0 384H1280M0 480H1280M0 576H1280"/>
-    <path d="M128 0V640M256 0V640M384 0V640M512 0V640M640 0V640M768 0V640M896 0V640M1024 0V640M1152 0V640"/>
-  </g>
-  <g transform="translate(74 74)">
-    <text x="0" y="0" fill="#edf2fb" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="78" font-weight="850">CodeDebrief</text>
-    <text x="4" y="66" fill="#aab4c6" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="31" font-weight="650">Source-grounded workflow maps for coding agents</text>
-    <g transform="translate(0 116)">
-      <rect x="0" y="0" width="188" height="42" rx="21" fill="#202637" stroke="#333b4b"/>
-      <text x="94" y="28" text-anchor="middle" fill="#edf2fb" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="800">MCP-first</text>
-      <rect x="210" y="0" width="168" height="42" rx="21" fill="#202637" stroke="#333b4b"/>
-      <text x="294" y="28" text-anchor="middle" fill="#edf2fb" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="800">Mermaid</text>
-      <rect x="400" y="0" width="190" height="42" rx="21" fill="#202637" stroke="#333b4b"/>
-      <text x="495" y="28" text-anchor="middle" fill="#edf2fb" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="800">Local-first</text>
-      <rect x="612" y="0" width="194" height="42" rx="21" fill="#202637" stroke="#333b4b"/>
-      <text x="709" y="28" text-anchor="middle" fill="#edf2fb" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="800">No API key</text>
+  <circle cx="1120" cy="108" r="260" fill="#6f93ff" opacity="0.08"/>
+  <circle cx="1010" cy="520" r="220" fill="#24d7e6" opacity="0.06"/>
+
+  <g transform="translate(86 84)">
+    <g transform="translate(0 0) scale(1.46)" aria-hidden="true">
+      <circle cx="13" cy="7.5" r="5.5" fill="#6f93ff"/>
+      <line x1="13" y1="17.5" x2="13" y2="21" stroke="#a78bfa" stroke-width="3" stroke-linecap="round"/>
+      <polygon points="13,25 19.5,31 13,37 6.5,31" fill="#f0b33f"/>
+    </g>
+    <text x="58" y="59" fill="#edf2fb" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="86" font-weight="850">CodeDebrief</text>
+    <text x="4" y="146" fill="#c8d1e1" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="30" font-weight="700">Source-grounded workflow diagrams</text>
+    <text x="4" y="188" fill="#c8d1e1" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="30" font-weight="700">for coding agents and codebase exploration.</text>
+
+    <g transform="translate(4 230)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="800">
+      <rect x="0" y="0" width="162" height="42" rx="21" fill="#202637" stroke="#344057"/>
+      <text x="81" y="28" text-anchor="middle" fill="#edf2fb">MCP-first</text>
+      <rect x="184" y="0" width="150" height="42" rx="21" fill="#202637" stroke="#344057"/>
+      <text x="259" y="28" text-anchor="middle" fill="#edf2fb">Mermaid</text>
+      <rect x="356" y="0" width="178" height="42" rx="21" fill="#202637" stroke="#344057"/>
+      <text x="445" y="28" text-anchor="middle" fill="#edf2fb">Local-first</text>
     </g>
   </g>
-  <g transform="translate(116 338)" filter="url(#shadow)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
-    <g fill="#151a24" stroke="#6f93ff" stroke-width="3">
-      <rect x="0" y="48" width="210" height="76" rx="16"/>
-      <rect x="340" y="48" width="230" height="76" rx="16"/>
-      <rect x="718" y="48" width="228" height="76" rx="16"/>
-      <rect x="1032" y="48" width="118" height="76" rx="16"/>
-    </g>
-    <g fill="#2a220f" stroke="#f0b33f" stroke-width="3">
-      <path d="M262 86l72-58 72 58-72 58z"/>
-      <path d="M620 86l72-58 72 58-72 58z"/>
-    </g>
-    <g stroke="#8b94a6" stroke-width="3" fill="none" stroke-linecap="round">
-      <path d="M210 86H262"/>
-      <path d="M406 86H340"/>
-      <path d="M570 86H620"/>
-      <path d="M764 86H718"/>
-      <path d="M946 86H1032"/>
-      <path d="M334 144C334 198 544 198 544 124"/>
-      <path d="M692 144C692 204 896 204 896 124"/>
-    </g>
-    <g fill="#edf2fb" font-size="22" font-weight="850">
-      <text x="105" y="82" text-anchor="middle">entrypoint</text>
-      <text x="105" y="109" text-anchor="middle" fill="#aab4c6" font-size="16">source range</text>
-      <text x="334" y="80" text-anchor="middle">decision?</text>
-      <text x="455" y="82" text-anchor="middle">workflow_slice</text>
-      <text x="455" y="109" text-anchor="middle" fill="#aab4c6" font-size="16">ordered steps</text>
-      <text x="692" y="80" text-anchor="middle">branch?</text>
-      <text x="832" y="82" text-anchor="middle">Mermaid visual</text>
-      <text x="832" y="109" text-anchor="middle" fill="#aab4c6" font-size="16">stable hash</text>
-      <text x="1091" y="82" text-anchor="middle">MCP</text>
-      <text x="1091" y="109" text-anchor="middle" fill="#aab4c6" font-size="16">expand</text>
+
+  <g transform="translate(740 136)" filter="url(#soft-shadow)">
+    <rect x="0" y="0" width="430" height="368" rx="34" fill="url(#panel)" stroke="#253044" stroke-width="2"/>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="820">
+      <rect x="120" y="36" width="190" height="68" rx="18" fill="#151c2b" stroke="#6f93ff" stroke-width="3"/>
+      <text x="215" y="66" text-anchor="middle" fill="#edf2fb" font-size="23">code</text>
+      <text x="215" y="89" text-anchor="middle" fill="#8f9bb0" font-size="15">source files</text>
+
+      <path d="M125 180l90-64 90 64-90 64z" fill="#2a220f" stroke="#f0b33f" stroke-width="3"/>
+      <text x="215" y="176" text-anchor="middle" fill="#edf2fb" font-size="20">workflow</text>
+      <text x="215" y="199" text-anchor="middle" fill="#f1c76b" font-size="15">slice</text>
+
+      <rect x="35" y="280" width="360" height="68" rx="18" fill="#101f24" stroke="#24d7e6" stroke-width="3"/>
+      <text x="215" y="310" text-anchor="middle" fill="#edf2fb" font-size="23">visual explanation</text>
+      <text x="215" y="333" text-anchor="middle" fill="#8f9bb0" font-size="15">deterministic, navigable, cited</text>
+
+      <g stroke="#8f9bb0" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M215 104V116"/>
+        <path d="M215 244V280"/>
+      </g>
     </g>
   </g>
+
+  <text x="90" y="572" fill="#6f7788" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="22" font-weight="650">Ask about a feature. Get the flowchart behind it.</text>
 </svg>

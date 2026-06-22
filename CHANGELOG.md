@@ -6,6 +6,31 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.13.0 - 2026-06-22
+
+### Added
+
+- Added a small GitHub Pages landing page for the repository website link.
+
+### Changed
+
+- Made artifact, Markdown, and config writes atomic so interrupted updates do not leave
+  partial files behind.
+- Improved Python call resolution for source-layout package aliases, same-class receivers,
+  deterministic multi-target calls, and project-call quality metrics.
+- Updated quality reporting to separate runtime/dynamic calls from project calls and reduce
+  false generic-label warnings.
+- Updated viewer Analysis Health wording and source snippet payloads so rendered flow
+  context carries exact source ranges.
+
+### Fixed
+
+- Made `validate --check-sync` verify both JSON and Markdown artifact sync.
+- Added setup and doctor guidance for migrating stale `logicchart` MCP configuration to
+  `codedebrief`.
+- Preserved compatibility for legacy `POTENTIAL_GAP` evidence while keeping review-finding
+  concepts out of the public comprehension model.
+
 ## 0.12.0 - 2026-06-21
 
 ### Added

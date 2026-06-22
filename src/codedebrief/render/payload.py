@@ -37,9 +37,10 @@ def attach_source_snippets(
 
     For every flow, ``flow["source"]`` becomes either ``None`` (no source available) or a
     reference ``{"path", "start_line", "end_line", "elided"?}`` into the returned
-    ``source_files`` map. ``source_files[path] = {"start_line": int, "lines": [str, ...]}``
-    embeds, ONCE per file, the union of the (capped) line ranges every non-test flow needs
-    in that file -- so a file with many flows is embedded a single time, not once per flow.
+    ``source_files`` map. ``source_files[path] = {"ranges": [{"start_line": int,
+    "lines": [str, ...]}, ...]}`` embeds, ONCE per file, the merged capped line ranges
+    every non-test flow needs in that file -- so a file with distant flows does not force
+    unrelated gap lines into the HTML payload.
 
     Bounding (two layers, both general over function/file size):
 
@@ -47,8 +48,8 @@ def attach_source_snippets(
       its first ``MAX_SNIPPET_LINES`` lines; its reference carries ``"elided": True`` and the
       ``end_line`` is the original (uncapped) end so the panel can show how many lines were
       dropped. The file store only ever embeds the capped (head) range.
-    * **File-level de-dup.** Each file's lines are read and stored once, covering the union
-      of the capped ranges its flows need -- never the same lines twice, never whole trees.
+    * **File-level de-dup.** Each file's lines are read once and stored as merged capped
+      ranges -- never the same lines twice, never the unrelated gaps between distant flows.
 
     Self-contained (no fetch), language-agnostic (line slices work for any supported
     language), and deliberately tolerant so it stays general for any codebase: a flow whose
@@ -85,10 +86,10 @@ def attach_source_snippets(
         file_cache[path] = result
         return result
 
-    # First pass: resolve each flow's (clamped, capped) reference and remember the line
-    # range each file must cover. ``needed[path]`` = (min start, max end) over its flows'
-    # clamped+capped ranges, so the file is embedded once across the union.
-    needed: dict[str, tuple[int, int]] = {}
+    # First pass: resolve each flow's (clamped, capped) reference and remember the exact
+    # capped ranges each file must cover. Distant ranges stay separate so the payload does
+    # not embed the unrelated gap between them.
+    needed: dict[str, list[tuple[int, int]]] = {}
     for flow in flows:
         location = flow.get("location") or {}
         path = location.get("path")
@@ -116,21 +117,33 @@ def attach_source_snippets(
             ref["elided"] = True
         flow["source"] = ref
         # The file store only needs the capped (embedded) range for each flow.
-        prev = needed.get(path)
-        if prev is None:
-            needed[path] = (lo, capped_hi)
-        else:
-            needed[path] = (min(prev[0], lo), max(prev[1], capped_hi))
+        needed.setdefault(path, []).append((lo, capped_hi))
 
-    # Second pass: embed each file once, covering the union of the capped ranges. The flow
-    # references slice their own (capped) window out of this on the client.
+    # Second pass: embed each file once, covering merged capped ranges. The flow references
+    # slice their own capped window out of these ranges on the client.
     source_files: dict[str, dict[str, Any]] = {}
-    for path, (lo, hi) in needed.items():
+    for path, ranges in needed.items():
         file_lines = lines_for(path)
         if file_lines is None:
             continue
-        source_files[path] = {"start_line": lo, "lines": file_lines[lo - 1 : hi]}
+        source_files[path] = {
+            "ranges": [
+                {"start_line": lo, "lines": file_lines[lo - 1 : hi]}
+                for lo, hi in _merge_line_ranges(ranges)
+            ]
+        }
     return source_files
+
+
+def _merge_line_ranges(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    merged: list[tuple[int, int]] = []
+    for lo, hi in sorted(ranges):
+        if not merged or lo > merged[-1][1] + 1:
+            merged.append((lo, hi))
+            continue
+        prev_lo, prev_hi = merged[-1]
+        merged[-1] = (prev_lo, max(prev_hi, hi))
+    return merged
 
 
 def _is_test_flow(flow: Flow) -> bool:

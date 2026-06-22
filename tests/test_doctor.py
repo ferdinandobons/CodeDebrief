@@ -49,3 +49,24 @@ def test_doctor_language_capabilities_do_not_import_missing_parser(
         set(report.language_capabilities.supported_languages)
     )
     assert report.language_capabilities.contract.endswith("tests/test_registry.py")
+
+
+def test_doctor_reports_legacy_logicchart_mcp_config(tmp_path: Path) -> None:
+    codex_config = tmp_path / ".codex" / "config.toml"
+    codex_config.parent.mkdir(parents=True)
+    codex_config.write_text(
+        "# logicchart:mcp-config:start\n"
+        "[mcp_servers.logicchart]\n"
+        'command = "logicchart"\n'
+        "# logicchart:mcp-config:end\n",
+        encoding="utf-8",
+    )
+
+    report = doctor_report(tmp_path)
+
+    assert not report.ok
+    assert report.legacy_mcp_configs
+    assert report.legacy_mcp_configs[0].server == "logicchart"
+    rendered = render_doctor(report)
+    assert "Legacy LogicChart MCP configs detected" in rendered
+    assert "codedebrief setup-agent" in rendered

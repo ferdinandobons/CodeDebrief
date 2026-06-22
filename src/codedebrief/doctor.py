@@ -32,6 +32,14 @@ class LanguageCapabilitySummary:
 
 
 @dataclass(frozen=True, slots=True)
+class LegacyMcpConfig:
+    path: str
+    server: str
+    reason: str
+    repair_hint: str
+
+
+@dataclass(frozen=True, slots=True)
 class DoctorReport:
     ok: bool
     executable: str
@@ -40,10 +48,12 @@ class DoctorReport:
     missing_dependencies: list[MissingDependency]
     repair_command: str
     language_capabilities: LanguageCapabilitySummary
+    legacy_mcp_configs: list[LegacyMcpConfig]
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["missing_dependencies"] = [asdict(item) for item in self.missing_dependencies]
+        payload["legacy_mcp_configs"] = [asdict(item) for item in self.legacy_mcp_configs]
         return payload
 
 
@@ -68,14 +78,16 @@ def doctor_report(root: Path) -> DoctorReport:
         for item in RUNTIME_DEPENDENCIES
         if importlib.util.find_spec(item.import_name) is None
     ]
+    legacy_mcp_configs = _legacy_mcp_configs(root.resolve())
     return DoctorReport(
-        ok=not missing,
+        ok=not missing and not legacy_mcp_configs,
         executable=sys.executable,
         package_version=_package_version(),
         package_location=_package_location(),
         missing_dependencies=missing,
         repair_command=_repair_command(root),
         language_capabilities=_language_capability_summary(),
+        legacy_mcp_configs=legacy_mcp_configs,
     )
 
 
@@ -107,6 +119,15 @@ def render_doctor(report: DoctorReport) -> str:
         lines.append(f"  {report.repair_command}")
     else:
         lines.append("All runtime parser dependencies are importable.")
+    if report.legacy_mcp_configs:
+        lines.append("")
+        lines.append("Legacy LogicChart MCP configs detected:")
+        lines.extend(
+            f"- {item.path}: {item.server} ({item.reason})" for item in report.legacy_mcp_configs
+        )
+        lines.append("")
+        lines.append("Repair:")
+        lines.append("  Run `codedebrief setup-agent <target>` for the affected agent target.")
     return "\n".join(lines)
 
 
@@ -173,3 +194,44 @@ def _language_capability_summary() -> LanguageCapabilitySummary:
         limitation_note_count=limitation_note_count,
         contract="metadata.language_capabilities; smoke-tested by tests/test_registry.py",
     )
+
+
+def _legacy_mcp_configs(root: Path) -> list[LegacyMcpConfig]:
+    configs: list[LegacyMcpConfig] = []
+    codex_config = root / ".codex" / "config.toml"
+    if codex_config.exists():
+        try:
+            text = codex_config.read_text(encoding="utf-8")
+        except OSError:
+            text = ""
+        if "logicchart:mcp-config:start" in text or "[mcp_servers.logicchart]" in text:
+            configs.append(
+                LegacyMcpConfig(
+                    path=str(codex_config),
+                    server="logicchart",
+                    reason="old MCP server name points agents at LogicChart artifacts",
+                    repair_hint="codedebrief setup-agent codex",
+                )
+            )
+    for path in (
+        root / ".mcp.json",
+        root / ".gemini" / "settings.json",
+        root / ".cursor" / "mcp.json",
+    ):
+        if not path.exists():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        servers = payload.get("mcpServers") if isinstance(payload, dict) else None
+        if isinstance(servers, dict) and "logicchart" in servers:
+            configs.append(
+                LegacyMcpConfig(
+                    path=str(path),
+                    server="logicchart",
+                    reason="old MCP server name can shadow the CodeDebrief MCP server",
+                    repair_hint="codedebrief setup-agent all",
+                )
+            )
+    return configs

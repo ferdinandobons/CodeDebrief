@@ -28,7 +28,8 @@ user explicitly asks for a compact overview.
 > Status: pre-1.0 alpha. The model is versioned, but schema and MCP payloads may evolve
 > before 1.0.
 >
-> Latest release: [v0.12.0](https://github.com/ferdinandobons/CodeDebrief/releases/tag/v0.12.0)
+> Latest release: [v0.13.0](https://github.com/ferdinandobons/CodeDebrief/releases/tag/v0.13.0)
+> · [Website](https://ferdinandobons.github.io/CodeDebrief/)
 > · [Changelog](CHANGELOG.md)
 
 ## Quick Start
@@ -77,7 +78,7 @@ codedebrief validate --check-sync
 To install a pinned GitHub release instead:
 
 ```bash
-uv tool install "git+https://github.com/ferdinandobons/CodeDebrief.git@v0.12.0"
+uv tool install "git+https://github.com/ferdinandobons/CodeDebrief.git@v0.13.0"
 ```
 
 Or install from a source checkout:
@@ -121,6 +122,12 @@ Documentation explains the system over time. CodeDebrief provides an on-demand v
 of the current source when you need to reason about it. Any agent-written explanation or
 language-friendly label is a presentation layer over the analyzer-generated flowchart, not
 the source of the flowchart itself.
+
+The generated agent instructions treat CodeDebrief artifacts as part of done for
+workflow-relevant changes: after meaningful source, route, config, or agent-instruction
+edits, run `codedebrief update` and `codedebrief validate --check-sync` before finalizing
+or committing so MCP answers, Markdown summaries, and `codedebrief view` use current
+graphs.
 
 ## What You Can Verify
 
@@ -237,7 +244,7 @@ Primary MCP tools:
 | `explain_flow` | Explain one flow with ordered steps, decisions, calls, and source anchors. |
 | `explain_node` | Explain one flowchart node with local edge and source context. |
 | `explain_edge` | Explain one modeled edge with source context. |
-| `validate_artifacts` | Check generated model validity and optional sync. |
+| `validate_artifacts` | Check generated model validity and optional JSON/Markdown sync. |
 | `update_codedebrief` | Refresh JSON, Markdown, and HTML artifacts from local source. |
 
 Use `codedebrief view` for the manual UI. The CLI intentionally stays small:
@@ -252,7 +259,18 @@ Use `codedebrief view` for the manual UI. The CLI intentionally stays small:
 | `codedebrief.html` | Usually no | Local interactive viewer generated from the model. |
 
 Commit `codedebrief.json` and `codedebrief.md` when CodeDebrief is part of the project
-workflow. Regenerate HTML locally when a human needs the viewer.
+workflow. `codedebrief validate --check-sync` verifies that the JSON model matches current
+source and that `codedebrief.md` was rendered from that model. Regenerate HTML locally
+when a human needs the viewer.
+
+`codedebrief doctor` also reports legacy `logicchart` MCP server configs left from older
+installs. Re-run `codedebrief setup-agent <target>` for the affected agent to replace them
+with project-scoped `codedebrief` MCP config.
+
+`codedebrief validate --quality` reports analyzer health. Its call-resolution rate is
+based on project calls only: deterministic runtime, standard-library, DOM/browser, and
+dynamic receiver calls are counted separately as `runtime_or_dynamic` so they do not look
+like unresolved workflow edges.
 
 ## Team Workflow
 
