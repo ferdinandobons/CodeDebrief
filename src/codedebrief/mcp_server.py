@@ -8,7 +8,7 @@ import shlex
 import sys
 from collections import deque
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import pairwise
 from pathlib import Path
 from typing import Any, cast
@@ -62,6 +62,8 @@ def _cap(items: list[dict[str, Any]], token_budget: int) -> list[dict[str, Any]]
 def model_hash(model: ProjectModel) -> str:
     cached = _MODEL_INDEX_CACHE.get(id(model))
     if cached is not None and cached.model is model:
+        if cached.model_hash is None:
+            cached.model_hash = _compute_model_hash(model)
         return cached.model_hash
     return _compute_model_hash(model)
 
@@ -962,6 +964,11 @@ def _workflow_canonical_visual(
     flow_ids: list[str],
     token_budget: int,
 ) -> dict[str, Any]:
+    index = _model_index(model)
+    cache_key = (tuple(flow_ids), token_budget)
+    cached = index.canonical_visual_cache.get(cache_key)
+    if cached is not None:
+        return cached
     flows = [cast(Flow, flow) for flow in _flows_by_ids(model, flow_ids)]
     node_budget = max(12, _slice_item_budget(token_budget))
     lines = ["flowchart TD", '  subgraph workflow_slice["workflow_slice"]', "    direction TB"]
@@ -1034,7 +1041,7 @@ def _workflow_canonical_visual(
 
     lines.append("  end")
     diagram = "\n".join(lines)
-    return {
+    payload = {
         "schema_version": "workflow_slice.canonical_visual.v1",
         "format": "mermaid",
         "diagram": diagram,
@@ -1071,6 +1078,8 @@ def _workflow_canonical_visual(
             "translation."
         ),
     }
+    index.canonical_visual_cache[cache_key] = payload
+    return payload
 
 
 def _workflow_mermaid_node(node: FlowNode, node_id: str) -> str:
@@ -1885,7 +1894,7 @@ class _DomainDecisionRecord:
 @dataclass(slots=True)
 class _RuntimeModelIndex:
     model: ProjectModel
-    model_hash: str
+    model_hash: str | None
     flows_by_id: dict[str, Flow]
     nodes_by_flow: dict[str, dict[str, FlowNode]]
     edges_by_flow: dict[str, dict[str, FlowEdge]]
@@ -1894,6 +1903,12 @@ class _RuntimeModelIndex:
     domain_flow_ids_by_key: dict[str, frozenset[str]]
     domain_keys_by_flow: dict[str, frozenset[str]]
     scope_names: frozenset[str]
+    domain_logic_cache: dict[tuple[str | None, str | None, str | None, int], dict[str, Any]] = (
+        field(default_factory=dict)
+    )
+    canonical_visual_cache: dict[tuple[tuple[str, ...], int], dict[str, Any]] = field(
+        default_factory=dict
+    )
 
 
 _MODEL_INDEX_CACHE: dict[int, _RuntimeModelIndex] = {}
@@ -1907,7 +1922,7 @@ def _model_index(model: ProjectModel) -> _RuntimeModelIndex:
     flows_by_id = {flow.id: flow for flow in model.flows}
     index = _RuntimeModelIndex(
         model=model,
-        model_hash=_compute_model_hash(model),
+        model_hash=None,
         flows_by_id=flows_by_id,
         nodes_by_flow={flow.id: {node.id: node for node in flow.nodes} for flow in model.flows},
         edges_by_flow={flow.id: {edge.id: edge for edge in flow.edges} for flow in model.flows},
@@ -2568,9 +2583,14 @@ def _domain_logic_map(
 ) -> dict[str, Any]:
     normalized_domain = domain.strip() if domain and domain.strip() else None
     normalized_value = value.strip() if value and value.strip() else None
+    index = _model_index(model)
+    cache_key = (normalized_domain, normalized_value, scope, token_budget)
+    cached = index.domain_logic_cache.get(cache_key)
+    if cached is not None:
+        return cached
     concepts: dict[str, dict[str, Any]] = {}
 
-    for record in _model_index(model).domain_decisions:
+    for record in index.domain_decisions:
         if scope is not None and scope not in record.scope_names:
             continue
         keys = list(record.keys)
@@ -2619,7 +2639,7 @@ def _domain_logic_map(
         concept_rows = concept_rows[:concept_limit]
     else:
         omitted = 0
-    return {
+    payload = {
         "tool": "domain_logic",
         "guardrail": (
             "Domain maps are deterministic summaries of decision metadata. They show "
@@ -2646,6 +2666,8 @@ def _domain_logic_map(
             },
         },
     }
+    index.domain_logic_cache[cache_key] = payload
+    return payload
 
 
 def _empty_domain_concept(domain: str) -> dict[str, Any]:

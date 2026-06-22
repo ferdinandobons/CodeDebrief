@@ -111,9 +111,14 @@ class _FlowSearchRecord:
 class _QueryIndex:
     model: ProjectModel
     records: tuple[_FlowSearchRecord, ...]
+    records_by_flow_id: dict[str, _FlowSearchRecord]
     flows_by_id: dict[str, Flow]
     flows_by_symbol: dict[str, list[Flow]]
     flows_by_name: dict[str, list[Flow]]
+    identity_flow_ids_by_token: dict[str, frozenset[str]]
+    node_flow_ids_by_token: dict[str, frozenset[str]]
+    structure_flow_ids_by_token: dict[str, frozenset[str]]
+    metadata_flow_ids_by_token: dict[str, frozenset[str]]
     file_dependency_records: tuple[tuple[tuple[str, ...], frozenset[str]], ...]
 
 
@@ -152,8 +157,9 @@ def query_model(
     # inflate a flow's rank. dict.fromkeys preserves order for stable reason text.
     unique_terms = list(dict.fromkeys(terms))
 
+    index = _query_index(model)
     matches: list[QueryMatch] = []
-    for record in _query_index(model).records:
+    for record in _query_candidate_records(index, unique_terms, has_structured_filter):
         flow = record.flow
         if not _record_in_scope(record, scope):
             continue
@@ -221,18 +227,34 @@ def impact_model(
     dependency_paths: list[str] | None = None,
 ) -> ImpactResult:
     normalized = {_normalize_path(item) for item in changed_files}
-    index = _query_index(model)
-    scoped_records = [record for record in index.records if _record_in_scope(record, scope)]
-    flows = [record.flow for record in scoped_records]
-    direct = [record.flow for record in scoped_records if record.normalized_path in normalized]
-    by_id = index.flows_by_id
-    scoped_ids = {flow.id for flow in flows}
     target_flow_ids = _unique(flow_ids or [])
     target_symbols = _unique(symbols or [])
     target_dependency_paths = _unique(_normalize_path(item) for item in dependency_paths or [])
     unresolved_targets: list[dict[str, str]] = []
     direct_by_id: dict[str, Flow] = {}
     impact_reasons: dict[str, list[str]] = {}
+
+    if (
+        not normalized
+        and not target_flow_ids
+        and not target_symbols
+        and not target_dependency_paths
+    ):
+        return ImpactResult(
+            changed_files=[],
+            directly_impacted=[],
+            transitively_impacted=[],
+            target_flow_ids=target_flow_ids,
+            target_symbols=target_symbols,
+            target_dependency_paths=target_dependency_paths,
+        )
+
+    index = _query_index(model)
+    scoped_records = [record for record in index.records if _record_in_scope(record, scope)]
+    flows = [record.flow for record in scoped_records]
+    direct = [record.flow for record in scoped_records if record.normalized_path in normalized]
+    by_id = index.flows_by_id
+    scoped_ids = {flow.id for flow in flows}
 
     def add_reason(flow: Flow, reason: str) -> None:
         reasons = impact_reasons.setdefault(flow.id, [])
@@ -538,12 +560,18 @@ def _query_index(model: ProjectModel) -> _QueryIndex:
                 decision_filters=_decision_filter_records(flow),
             )
         )
+    records_by_flow_id = {record.flow.id: record for record in records}
     index = _QueryIndex(
         model=model,
         records=tuple(records),
+        records_by_flow_id=records_by_flow_id,
         flows_by_id=flows_by_id,
         flows_by_symbol=flows_by_symbol,
         flows_by_name=flows_by_name,
+        identity_flow_ids_by_token=_token_index(records, "name_tokens"),
+        node_flow_ids_by_token=_token_index(records, "node_tokens"),
+        structure_flow_ids_by_token=_token_index(records, "structure_tokens"),
+        metadata_flow_ids_by_token=_token_index(records, "metadata_tokens"),
         file_dependency_records=tuple(
             (
                 tuple(file_record.flow_ids),
@@ -556,6 +584,38 @@ def _query_index(model: ProjectModel) -> _QueryIndex:
         _QUERY_INDEX_CACHE.pop(next(iter(_QUERY_INDEX_CACHE)))
     _QUERY_INDEX_CACHE[cache_key] = index
     return index
+
+
+def _token_index(
+    records: Iterable[_FlowSearchRecord],
+    attr: str,
+) -> dict[str, frozenset[str]]:
+    flow_ids_by_token: dict[str, set[str]] = {}
+    for record in records:
+        for token in getattr(record, attr):
+            flow_ids_by_token.setdefault(token, set()).add(record.flow.id)
+    return {token: frozenset(flow_ids) for token, flow_ids in flow_ids_by_token.items()}
+
+
+def _query_candidate_records(
+    index: _QueryIndex,
+    unique_terms: list[str],
+    has_structured_filter: bool,
+) -> tuple[_FlowSearchRecord, ...]:
+    if has_structured_filter:
+        return index.records
+    candidate_ids: set[str] = set()
+    maps = (
+        index.identity_flow_ids_by_token,
+        index.node_flow_ids_by_token,
+        index.structure_flow_ids_by_token,
+        index.metadata_flow_ids_by_token,
+    )
+    for term in unique_terms:
+        for variant in _term_variants(term):
+            for flow_ids_by_token in maps:
+                candidate_ids.update(flow_ids_by_token.get(variant, frozenset()))
+    return tuple(record for record in index.records if record.flow.id in candidate_ids)
 
 
 def _record_in_scope(record: _FlowSearchRecord, scope: str | None) -> bool:
