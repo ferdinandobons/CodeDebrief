@@ -81,6 +81,7 @@ After code or workflow-relevant changes:
 4. Commit synchronized changes to:
    - `codedebrief-out/codedebrief.json`
    - `codedebrief-out/codedebrief.md`
+   - `codedebrief-out/codedebrief.hash.json`
 5. Use CodeDebrief MCP `agent_context` to inspect affected entry points and callers when
    explaining or reviewing the change.
 6. Ground the explanation in the returned `workflow_slice`; expand it through MCP only

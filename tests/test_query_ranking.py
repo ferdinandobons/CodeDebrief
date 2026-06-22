@@ -211,6 +211,22 @@ def test_structured_query_filters_can_match_without_terms() -> None:
     ]
 
 
+def test_scoring_filter_candidates_preserve_filter_only_matches_with_terms() -> None:
+    model = _model(
+        [
+            _flow("target", "handle_order", symbol="api.orders:handle_order"),
+            _flow("other", "unrelated", symbol="api.other:handle"),
+        ]
+    )
+    model.flows[0].location = _loc("src/orders.py", 1)
+
+    matches = query_model(model, "nonexistent_term", source_path="orders.py")
+
+    assert [match.flow.id for match in matches] == ["target"]
+    assert matches[0].score == STRUCTURE_WEIGHT
+    assert matches[0].reasons == ["source path matches `orders.py`"]
+
+
 def test_substring_no_longer_matches() -> None:
     """'order' must NOT match inside 'reordering_queue' (token, not substring); it must
     still match a flow whose identity contains 'order' as a whole token."""

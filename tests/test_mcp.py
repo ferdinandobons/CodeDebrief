@@ -848,3 +848,8 @@ def test_mcp_recovery_payload_helpers_are_actionable(tmp_path: Path) -> None:
         None,
     )
     assert update_payload["next_tools"]["validate_artifacts"]["tool"] == "validate_artifacts"
+    assert update_payload["next_artifacts"]["commit"] == [
+        str(tmp_path / "codedebrief-out" / "codedebrief.json"),
+        str(tmp_path / "codedebrief-out" / "codedebrief.md"),
+        str(tmp_path / "codedebrief-out" / "codedebrief.hash.json"),
+    ]

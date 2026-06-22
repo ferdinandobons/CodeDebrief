@@ -99,12 +99,56 @@ class _FlowSearchRecord:
     flow: Flow
     scope_names: frozenset[str]
     normalized_path: str
-    name_tokens: frozenset[str]
-    node_tokens: frozenset[str]
-    structure_tokens: frozenset[str]
-    metadata_tokens: frozenset[str]
     identity_values: frozenset[str]
-    decision_filters: tuple[_DecisionFilterRecord, ...]
+    _name_tokens: frozenset[str] | None = field(default=None, init=False, repr=False)
+    _node_tokens: frozenset[str] | None = field(default=None, init=False, repr=False)
+    _structure_tokens: frozenset[str] | None = field(default=None, init=False, repr=False)
+    _metadata_tokens: frozenset[str] | None = field(default=None, init=False, repr=False)
+    _decision_filters: tuple[_DecisionFilterRecord, ...] | None = field(
+        default=None, init=False, repr=False
+    )
+
+    @property
+    def name_tokens(self) -> frozenset[str]:
+        if self._name_tokens is None:
+            self._name_tokens = frozenset(_tokenize(f"{self.flow.name} {self.flow.symbol}"))
+        return self._name_tokens
+
+    @property
+    def node_tokens(self) -> frozenset[str]:
+        if self._node_tokens is None:
+            self._node_tokens = frozenset(
+                _tokenize(" ".join(node.label for node in self.flow.nodes))
+            )
+        return self._node_tokens
+
+    @property
+    def structure_tokens(self) -> frozenset[str]:
+        if self._structure_tokens is None:
+            self._structure_tokens = frozenset(
+                _tokenize(
+                    " ".join(
+                        [
+                            self.flow.location.path,
+                            self.flow.language,
+                            " ".join(self.scope_names),
+                        ]
+                    )
+                )
+            )
+        return self._structure_tokens
+
+    @property
+    def metadata_tokens(self) -> frozenset[str]:
+        if self._metadata_tokens is None:
+            self._metadata_tokens = frozenset(_flow_metadata_tokens(self.flow))
+        return self._metadata_tokens
+
+    @property
+    def decision_filters(self) -> tuple[_DecisionFilterRecord, ...]:
+        if self._decision_filters is None:
+            self._decision_filters = _decision_filter_records(self.flow)
+        return self._decision_filters
 
 
 @dataclass(slots=True)
@@ -115,11 +159,11 @@ class _QueryIndex:
     flows_by_id: dict[str, Flow]
     flows_by_symbol: dict[str, list[Flow]]
     flows_by_name: dict[str, list[Flow]]
-    identity_flow_ids_by_token: dict[str, frozenset[str]]
-    node_flow_ids_by_token: dict[str, frozenset[str]]
-    structure_flow_ids_by_token: dict[str, frozenset[str]]
-    metadata_flow_ids_by_token: dict[str, frozenset[str]]
     file_dependency_records: tuple[tuple[tuple[str, ...], frozenset[str]], ...]
+    identity_flow_ids_by_token: dict[str, frozenset[str]] | None = None
+    node_flow_ids_by_token: dict[str, frozenset[str]] | None = None
+    structure_flow_ids_by_token: dict[str, frozenset[str]] | None = None
+    metadata_flow_ids_by_token: dict[str, frozenset[str]] | None = None
 
 
 _QUERY_INDEX_CACHE: dict[int, _QueryIndex] = {}
@@ -159,7 +203,14 @@ def query_model(
 
     index = _query_index(model)
     matches: list[QueryMatch] = []
-    for record in _query_candidate_records(index, unique_terms, has_structured_filter):
+    for record in _query_candidate_records(
+        index,
+        unique_terms,
+        source_path=source_path,
+        symbol=symbol,
+        domain=domain,
+        value=value,
+    ):
         flow = record.flow
         if not _record_in_scope(record, scope):
             continue
@@ -176,19 +227,24 @@ def query_model(
             continue
         score = 0
         reasons: list[str] = []
-        for term in unique_terms:
-            if _term_matches(term, record.name_tokens):
-                score += IDENTITY_WEIGHT
-                reasons.append(f"`{term}` matches the flow identity")
-            if _term_matches(term, record.node_tokens):
-                score += NODE_WEIGHT
-                reasons.append(f"`{term}` appears in a decision or action")
-            if _term_matches(term, record.structure_tokens):
-                score += STRUCTURE_WEIGHT
-                reasons.append(f"`{term}` matches flow structure")
-            if _term_matches(term, record.metadata_tokens):
-                score += METADATA_WEIGHT
-                reasons.append(f"`{term}` appears in decision metadata")
+        if unique_terms:
+            name_tokens = record.name_tokens
+            node_tokens = record.node_tokens
+            structure_tokens = record.structure_tokens
+            metadata_tokens = record.metadata_tokens
+            for term in unique_terms:
+                if _term_matches(term, name_tokens):
+                    score += IDENTITY_WEIGHT
+                    reasons.append(f"`{term}` matches the flow identity")
+                if _term_matches(term, node_tokens):
+                    score += NODE_WEIGHT
+                    reasons.append(f"`{term}` appears in a decision or action")
+                if _term_matches(term, structure_tokens):
+                    score += STRUCTURE_WEIGHT
+                    reasons.append(f"`{term}` matches flow structure")
+                if _term_matches(term, metadata_tokens):
+                    score += METADATA_WEIGHT
+                    reasons.append(f"`{term}` appears in decision metadata")
         if filter_reasons:
             score += STRUCTURE_WEIGHT * len(filter_reasons)
             reasons.extend(filter_reasons)
@@ -207,11 +263,12 @@ def query_model(
 
 
 def warm_query_index(model: ProjectModel) -> None:
-    """Build the deterministic query/impact index for a loaded model.
+    """Build the deterministic query/impact lookup shell for a loaded model.
 
     MCP servers call this once after loading artifacts so later query_model and
-    impact_model calls reuse tokenized fields and lookup maps without changing
-    ranking, filtering, or payload semantics.
+    impact_model calls reuse identity maps. Expensive token maps are intentionally
+    lazy: targeted MCP calls with current_file, symbol, domain, or value do not need a
+    full natural-language inverted index.
     """
 
     _query_index(model)
@@ -537,29 +594,13 @@ def _query_index(model: ProjectModel) -> _QueryIndex:
         scope_names = frozenset(metadata_scope_names(flow.metadata))
         flows_by_symbol.setdefault(flow.symbol, []).append(flow)
         flows_by_name.setdefault(flow.name, []).append(flow)
-        records.append(
-            _FlowSearchRecord(
-                flow=flow,
-                scope_names=scope_names,
-                normalized_path=_normalize_path(flow.location.path),
-                name_tokens=frozenset(_tokenize(f"{flow.name} {flow.symbol}")),
-                node_tokens=frozenset(_tokenize(" ".join(node.label for node in flow.nodes))),
-                structure_tokens=frozenset(
-                    _tokenize(
-                        " ".join(
-                            [
-                                flow.location.path,
-                                flow.language,
-                                " ".join(scope_names),
-                            ]
-                        )
-                    )
-                ),
-                metadata_tokens=frozenset(_flow_metadata_tokens(flow)),
-                identity_values=frozenset({flow.symbol, flow.name, flow.id}),
-                decision_filters=_decision_filter_records(flow),
-            )
+        record = _FlowSearchRecord(
+            flow=flow,
+            scope_names=scope_names,
+            normalized_path=_normalize_path(flow.location.path),
+            identity_values=frozenset({flow.symbol, flow.name, flow.id}),
         )
+        records.append(record)
     records_by_flow_id = {record.flow.id: record for record in records}
     index = _QueryIndex(
         model=model,
@@ -568,10 +609,6 @@ def _query_index(model: ProjectModel) -> _QueryIndex:
         flows_by_id=flows_by_id,
         flows_by_symbol=flows_by_symbol,
         flows_by_name=flows_by_name,
-        identity_flow_ids_by_token=_token_index(records, "name_tokens"),
-        node_flow_ids_by_token=_token_index(records, "node_tokens"),
-        structure_flow_ids_by_token=_token_index(records, "structure_tokens"),
-        metadata_flow_ids_by_token=_token_index(records, "metadata_tokens"),
         file_dependency_records=tuple(
             (
                 tuple(file_record.flow_ids),
@@ -586,36 +623,128 @@ def _query_index(model: ProjectModel) -> _QueryIndex:
     return index
 
 
-def _token_index(
-    records: Iterable[_FlowSearchRecord],
-    attr: str,
-) -> dict[str, frozenset[str]]:
-    flow_ids_by_token: dict[str, set[str]] = {}
-    for record in records:
-        for token in getattr(record, attr):
-            flow_ids_by_token.setdefault(token, set()).add(record.flow.id)
+def _add_token_index_entries(
+    flow_ids_by_token: dict[str, set[str]],
+    flow_id: str,
+    tokens: Iterable[str],
+) -> None:
+    for token in tokens:
+        flow_ids_by_token.setdefault(token, set()).add(flow_id)
+
+
+def _freeze_token_index(flow_ids_by_token: dict[str, set[str]]) -> dict[str, frozenset[str]]:
     return {token: frozenset(flow_ids) for token, flow_ids in flow_ids_by_token.items()}
 
 
 def _query_candidate_records(
     index: _QueryIndex,
     unique_terms: list[str],
-    has_structured_filter: bool,
+    *,
+    source_path: str | None,
+    symbol: str | None,
+    domain: str | None,
+    value: str | None,
 ) -> tuple[_FlowSearchRecord, ...]:
-    if has_structured_filter:
-        return index.records
     candidate_ids: set[str] = set()
-    maps = (
+    scoring_candidate_ids = _scoring_filter_candidate_flow_ids(
+        index,
+        source_path=source_path,
+        symbol=symbol,
+        domain=domain,
+        value=value,
+    )
+    if scoring_candidate_ids is not None:
+        candidate_ids.update(scoring_candidate_ids)
+    elif unique_terms:
+        candidate_ids.update(_term_candidate_flow_ids(index, unique_terms))
+    if not candidate_ids:
+        return ()
+    return tuple(record for record in index.records if record.flow.id in candidate_ids)
+
+
+def _term_candidate_flow_ids(index: _QueryIndex, unique_terms: list[str]) -> set[str]:
+    candidate_ids: set[str] = set()
+    maps = _query_token_maps(index)
+    for term in unique_terms:
+        for variant in _term_variants(term):
+            for flow_ids_by_token in maps:
+                candidate_ids.update(flow_ids_by_token.get(variant, frozenset()))
+    return candidate_ids
+
+
+def _query_token_maps(
+    index: _QueryIndex,
+) -> tuple[
+    dict[str, frozenset[str]],
+    dict[str, frozenset[str]],
+    dict[str, frozenset[str]],
+    dict[str, frozenset[str]],
+]:
+    if (
+        index.identity_flow_ids_by_token is None
+        or index.node_flow_ids_by_token is None
+        or index.structure_flow_ids_by_token is None
+        or index.metadata_flow_ids_by_token is None
+    ):
+        identity_flow_ids_by_token: dict[str, set[str]] = {}
+        node_flow_ids_by_token: dict[str, set[str]] = {}
+        structure_flow_ids_by_token: dict[str, set[str]] = {}
+        metadata_flow_ids_by_token: dict[str, set[str]] = {}
+        for record in index.records:
+            flow_id = record.flow.id
+            _add_token_index_entries(identity_flow_ids_by_token, flow_id, record.name_tokens)
+            _add_token_index_entries(node_flow_ids_by_token, flow_id, record.node_tokens)
+            _add_token_index_entries(structure_flow_ids_by_token, flow_id, record.structure_tokens)
+            _add_token_index_entries(metadata_flow_ids_by_token, flow_id, record.metadata_tokens)
+        index.identity_flow_ids_by_token = _freeze_token_index(identity_flow_ids_by_token)
+        index.node_flow_ids_by_token = _freeze_token_index(node_flow_ids_by_token)
+        index.structure_flow_ids_by_token = _freeze_token_index(structure_flow_ids_by_token)
+        index.metadata_flow_ids_by_token = _freeze_token_index(metadata_flow_ids_by_token)
+    assert index.identity_flow_ids_by_token is not None
+    assert index.node_flow_ids_by_token is not None
+    assert index.structure_flow_ids_by_token is not None
+    assert index.metadata_flow_ids_by_token is not None
+    return (
         index.identity_flow_ids_by_token,
         index.node_flow_ids_by_token,
         index.structure_flow_ids_by_token,
         index.metadata_flow_ids_by_token,
     )
-    for term in unique_terms:
-        for variant in _term_variants(term):
-            for flow_ids_by_token in maps:
-                candidate_ids.update(flow_ids_by_token.get(variant, frozenset()))
-    return tuple(record for record in index.records if record.flow.id in candidate_ids)
+
+
+def _scoring_filter_candidate_flow_ids(
+    index: _QueryIndex,
+    *,
+    source_path: str | None,
+    symbol: str | None,
+    domain: str | None,
+    value: str | None,
+) -> set[str] | None:
+    candidate_sets: list[set[str]] = []
+    if source_path is not None:
+        needle = _normalize_path(source_path)
+        candidate_sets.append(
+            {record.flow.id for record in index.records if needle in record.normalized_path}
+        )
+    if symbol is not None:
+        symbol_candidates: set[str] = set()
+        flow = index.flows_by_id.get(symbol)
+        if flow is not None:
+            symbol_candidates.add(flow.id)
+        symbol_candidates.update(flow.id for flow in index.flows_by_symbol.get(symbol, ()))
+        symbol_candidates.update(flow.id for flow in index.flows_by_name.get(symbol, ()))
+        candidate_sets.append(symbol_candidates)
+    if domain is not None or value is not None:
+        candidate_sets.append(
+            {
+                record.flow.id
+                for record in index.records
+                if _record_has_decision_filter(record, domain=domain, value=value)
+            }
+        )
+    if not candidate_sets:
+        return None
+    return set.intersection(*candidate_sets)
 
 
 def _record_in_scope(record: _FlowSearchRecord, scope: str | None) -> bool:

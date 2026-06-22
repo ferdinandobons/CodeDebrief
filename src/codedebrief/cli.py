@@ -13,7 +13,7 @@ from typing import Any, cast
 
 from codedebrief import __version__
 from codedebrief.analysis import ProjectAnalyzer
-from codedebrief.artifacts import load_model, output_paths, write_artifacts
+from codedebrief.artifacts import load_model, model_hash_path, output_paths, write_artifacts
 from codedebrief.config import BUILTIN_PROFILES, CodeDebriefConfig
 from codedebrief.doctor import doctor_report, render_doctor, render_doctor_json
 from codedebrief.install import (
@@ -425,10 +425,12 @@ def _analyze(
     with project_update_lock(root):
         result = ProjectAnalyzer(root, config).analyze(full=full)
         json_path, markdown_path, configured_html_path = output_paths(root, config)
+        hash_path = model_hash_path(root, config)
         if result.artifacts_unchanged and _artifacts_available(
             json_path,
             markdown_path,
             configured_html_path if include_html else None,
+            hash_path,
         ):
             html_path = configured_html_path if include_html else None
         else:
@@ -457,6 +459,7 @@ def _analyze(
     print("Artifacts:")
     print(f"- JSON: {json_path}")
     print(f"- Markdown: {markdown_path}")
+    print(f"- Hash: {hash_path}")
     if html_path:
         print(f"- HTML: {html_path}")
     if show_next_steps:
@@ -611,9 +614,13 @@ def _artifacts_available(
     json_path: Path,
     markdown_path: Path,
     html_path: Path | None,
+    hash_path: Path,
 ) -> bool:
     return (
-        json_path.exists() and markdown_path.exists() and (html_path is None or html_path.exists())
+        json_path.exists()
+        and markdown_path.exists()
+        and hash_path.exists()
+        and (html_path is None or html_path.exists())
     )
 
 

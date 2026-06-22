@@ -6,7 +6,13 @@ from jsonschema import Draft202012Validator
 
 from codedebrief.analysis.project import ProjectAnalyzer
 from codedebrief.analysis.registry import supported_language_ids
-from codedebrief.artifacts import load_model, load_model_with_hash, output_paths, write_artifacts
+from codedebrief.artifacts import (
+    load_model,
+    load_model_with_hash,
+    model_hash_path,
+    output_paths,
+    write_artifacts,
+)
 from codedebrief.config import CodeDebriefConfig
 from codedebrief.install import (
     END,
@@ -91,6 +97,7 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "artifacts as part of done" in content
     assert "run `codedebrief update` before finalizing or\n   committing" in content
     assert "codedebrief validate --check-sync" in content
+    assert "`codedebrief-out/codedebrief.hash.json`" in content
     for snippet in REMOVED_AGENT_COMMAND_SNIPPETS:
         assert snippet not in content
 
@@ -105,6 +112,7 @@ def _assert_codedebrief_skill(content: str) -> None:
     assert "MCP `update_codedebrief`" in content
     assert "`codedebrief update`" in content
     assert "`codedebrief validate --check-sync`" in content
+    assert "`codedebrief-out/codedebrief.hash.json`" in content
     assert "include_visual=true" in content
     assert "`snapshot_slice`" in content
     assert "`include_svg=false`" in content
@@ -179,6 +187,8 @@ def get_user(user_id: str):
     loaded_with_hash, artifact_hash = load_model_with_hash(tmp_path)
     assert [flow.id for flow in loaded_with_hash.flows] == [flow.id for flow in loaded_model.flows]
     assert artifact_hash == model_hash(loaded_with_hash)
+    hash_sidecar = read_json(model_hash_path(tmp_path))
+    assert hash_sidecar["model_hash"] == artifact_hash
     schema = read_json(Path(__file__).parents[1] / "schema" / "codedebrief.schema.json")
     artifact = read_json(json_path)
     Draft202012Validator(schema).validate(artifact)
@@ -201,6 +211,23 @@ def get_user(user_id: str):
     assert contents.count(START) == 1
     assert contents.count(END) == 1
     _assert_current_agent_instructions(contents)
+
+
+def test_load_model_with_hash_ignores_stale_sidecar(tmp_path: Path) -> None:
+    source = tmp_path / "users.py"
+    source.write_text("def get_user():\n    return 'ok'\n", encoding="utf-8")
+    result = ProjectAnalyzer(tmp_path).analyze(full=True)
+    write_artifacts(tmp_path, result.model, include_html=False)
+    hash_path = model_hash_path(tmp_path)
+    sidecar = read_json(hash_path)
+    sidecar["model_hash"] = "stale"
+    sidecar["artifact_size"] = -1
+    hash_path.write_text(json.dumps(sidecar), encoding="utf-8")
+
+    loaded_model, artifact_hash = load_model_with_hash(tmp_path)
+
+    assert artifact_hash == model_hash(loaded_model)
+    assert artifact_hash != "stale"
 
 
 def test_validate_codedebrief_reports_ok_for_current_artifact(tmp_path: Path) -> None:

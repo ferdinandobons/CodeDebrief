@@ -15,7 +15,13 @@ from typing import Any, cast
 from urllib.parse import quote
 
 from codedebrief.analysis import ProjectAnalyzer
-from codedebrief.artifacts import load_model, load_model_with_hash, output_paths, write_artifacts
+from codedebrief.artifacts import (
+    load_model,
+    load_model_with_hash,
+    model_hash_path,
+    output_paths,
+    write_artifacts,
+)
 from codedebrief.config import CodeDebriefConfig
 from codedebrief.model import Flow, FlowEdge, FlowNode, NodeKind, ProjectModel
 from codedebrief.query import (
@@ -500,10 +506,12 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
                 json_path, markdown_path, configured_html_path = output_paths(
                     project_root, active_config
                 )
+                hash_path = model_hash_path(project_root, active_config)
                 if result.artifacts_unchanged and _artifacts_available(
                     json_path,
                     markdown_path,
                     configured_html_path,
+                    hash_path,
                 ):
                     html_path: Path | None = configured_html_path
                 else:
@@ -539,6 +547,7 @@ def run_mcp(root: Path, config: CodeDebriefConfig | None = None) -> None:
                 str(json_path),
                 str(markdown_path),
                 str(html_path) if html_path else "",
+                str(hash_path),
             ],
             **_update_workflow_payload(json_path, markdown_path, html_path),
         }
@@ -557,9 +566,13 @@ def _artifacts_available(
     json_path: Path,
     markdown_path: Path,
     html_path: Path | None,
+    hash_path: Path,
 ) -> bool:
     return (
-        json_path.exists() and markdown_path.exists() and (html_path is None or html_path.exists())
+        json_path.exists()
+        and markdown_path.exists()
+        and hash_path.exists()
+        and (html_path is None or html_path.exists())
     )
 
 
@@ -2853,6 +2866,7 @@ def _update_workflow_payload(
     markdown_path: Path,
     html_path: Path | None,
 ) -> dict[str, Any]:
+    hash_path = json_path.with_name("codedebrief.hash.json")
     return {
         "guardrail": (
             "The model has been regenerated from local source files. Validate sync and "
@@ -2865,7 +2879,7 @@ def _update_workflow_payload(
             },
         },
         "next_artifacts": {
-            "commit": [str(json_path), str(markdown_path)],
+            "commit": [str(json_path), str(markdown_path), str(hash_path)],
             "local_html": str(html_path) if html_path else None,
         },
         "next_cli": [

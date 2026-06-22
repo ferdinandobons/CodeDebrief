@@ -235,11 +235,13 @@ def authorize(user):
 
     assert main(["update", str(tmp_path), "--full"]) == 0
     assert (tmp_path / "codedebrief-out" / "codedebrief.json").exists()
+    assert (tmp_path / "codedebrief-out" / "codedebrief.hash.json").exists()
     output = capsys.readouterr().out
     assert "CodeDebrief update" in output
     assert "Status: OK" in output
     assert "Summary:" in output
     assert "Artifacts:" in output
+    assert "codedebrief.hash.json" in output
     assert "Next steps:" in output
     assert main(["update", str(tmp_path)]) == 0
     assert main(["view", str(tmp_path), "--render-only"]) == 0
@@ -259,14 +261,17 @@ def test_cli_update_does_not_rewrite_unchanged_artifacts(
     capsys.readouterr()
     json_path = tmp_path / "codedebrief-out" / "codedebrief.json"
     markdown_path = tmp_path / "codedebrief-out" / "codedebrief.md"
+    hash_path = tmp_path / "codedebrief-out" / "codedebrief.hash.json"
     old_time = 1_700_000_000_000_000_000
     os.utime(json_path, ns=(old_time, old_time))
     os.utime(markdown_path, ns=(old_time, old_time))
+    os.utime(hash_path, ns=(old_time, old_time))
 
     assert main(["update", str(tmp_path), "--no-html"]) == 0
 
     assert json_path.stat().st_mtime_ns == old_time
     assert markdown_path.stat().st_mtime_ns == old_time
+    assert hash_path.stat().st_mtime_ns == old_time
     assert "Cache: 1 hits, 0 changed, 0 deleted." in capsys.readouterr().out
 
 
@@ -282,15 +287,18 @@ def test_cli_update_rewrites_when_artifact_format_changes(
     capsys.readouterr()
     json_path = tmp_path / "codedebrief-out" / "codedebrief.json"
     markdown_path = tmp_path / "codedebrief-out" / "codedebrief.md"
+    hash_path = tmp_path / "codedebrief-out" / "codedebrief.hash.json"
     old_time = 1_700_000_000_000_000_000
     os.utime(json_path, ns=(old_time, old_time))
     os.utime(markdown_path, ns=(old_time, old_time))
+    os.utime(hash_path, ns=(old_time, old_time))
     monkeypatch.setattr(project_module, "ARTIFACT_FORMAT_VERSION", "test-next")
 
     assert main(["update", str(tmp_path), "--no-html"]) == 0
 
     assert json_path.stat().st_mtime_ns != old_time
     assert markdown_path.stat().st_mtime_ns != old_time
+    assert hash_path.stat().st_mtime_ns != old_time
     assert "Cache: 1 hits, 0 changed, 0 deleted." in capsys.readouterr().out
 
 

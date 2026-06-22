@@ -44,7 +44,7 @@ CACHE_VERSION = "7"
 # Bump when the persisted artifact contract changes without requiring a different
 # file-analysis cache format. This keeps no-op updates fast while still forcing
 # Markdown/HTML/JSON regeneration after renderer or presentation-schema changes.
-ARTIFACT_FORMAT_VERSION = "1"
+ARTIFACT_FORMAT_VERSION = "2"
 
 # One bad file (mid-edit syntax error, non-UTF-8 bytes, a merge-conflict marker,
 # or a missing lazy language grammar in the current Python environment) must never

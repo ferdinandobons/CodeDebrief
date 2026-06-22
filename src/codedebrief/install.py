@@ -66,8 +66,8 @@ configured.
    `codedebrief update`, then run `validate_artifacts` or
    `codedebrief validate --check-sync`; this checks both current-source JSON sync and
    whether `codedebrief-out/codedebrief.md` was rendered from that JSON. Keep
-   `codedebrief-out/codedebrief.json` and `codedebrief-out/codedebrief.md` synchronized
-   when they change.
+   `codedebrief-out/codedebrief.json`, `codedebrief-out/codedebrief.md`, and
+   `codedebrief-out/codedebrief.hash.json` synchronized when they change.
 
 ## Visual Workflow Requests
 
@@ -223,6 +223,7 @@ After code or workflow-relevant changes:
 4. Commit synchronized changes to:
    - `codedebrief-out/codedebrief.json`
    - `codedebrief-out/codedebrief.md`
+   - `codedebrief-out/codedebrief.hash.json`
 5. Use CodeDebrief MCP `agent_context` to inspect affected entry points and callers when
    explaining or reviewing the change.
 6. Ground the explanation in the returned `workflow_slice`; expand it through MCP only

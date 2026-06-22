@@ -70,13 +70,14 @@ For manual exploration:
 codedebrief view
 ```
 
-CodeDebrief writes three deterministic artifacts:
+CodeDebrief writes four deterministic artifacts:
 
 ```text
 codedebrief-out/
-├── codedebrief.html   local interactive full-project viewer
-├── codedebrief.md     reviewable Mermaid flowcharts
-└── codedebrief.json   canonical model for MCP, CI, scripts, and the viewer
+├── codedebrief.html        local interactive full-project viewer
+├── codedebrief.md          reviewable Mermaid flowcharts
+├── codedebrief.json        canonical model for MCP, CI, scripts, and the viewer
+└── codedebrief.hash.json   model hash sidecar for faster MCP cold starts
 ```
 
 For explicit refresh during development:
@@ -414,8 +415,8 @@ codedebrief setup claude --source backend-api frontend/src
 With that configuration:
 
 - CodeDebrief analyzes only `backend-api/` and `frontend/src/`;
-- `codedebrief-out/codedebrief.json`, `codedebrief-out/codedebrief.md`, and the local
-  viewer HTML are still created in the current project root;
+- `codedebrief-out/codedebrief.json`, `codedebrief-out/codedebrief.md`, the hash sidecar,
+  and the local viewer HTML are still created in the current project root;
 - MCP and the manual viewer keep using the root project context, but the modeled workflows
   come only from the selected folders.
 
