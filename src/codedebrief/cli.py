@@ -24,6 +24,7 @@ from codedebrief.install import (
 )
 from codedebrief.quality import render_quality
 from codedebrief.render.html import render_html
+from codedebrief.util import atomic_write_text
 from codedebrief.validation import validate_codedebrief
 
 
@@ -193,7 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument(
         "--min-call-resolution",
         type=float,
-        help="Fail validation when call-resolution rate is below this 0..1 value.",
+        help="Fail validation when project-call resolution rate is below this 0..1 value.",
     )
     validate.add_argument(
         "--max-generic-label-ratio",
@@ -363,7 +364,7 @@ def _ensure_config(root: Path) -> tuple[Path, bool]:
     config_path = root / "codedebrief.toml"
     if config_path.exists():
         return config_path, False
-    config_path.write_text(_starter_config_text(), encoding="utf-8")
+    atomic_write_text(config_path, _starter_config_text(), encoding="utf-8")
     return config_path, True
 
 
@@ -431,8 +432,7 @@ def _view(
     config = CodeDebriefConfig.load(root, profile=profile)
     _, _, html_path = output_paths(root, config)
     model = load_model(root, config)
-    html_path.parent.mkdir(parents=True, exist_ok=True)
-    html_path.write_text(render_html(model, source_root=root), encoding="utf-8")
+    atomic_write_text(html_path, render_html(model, source_root=root), encoding="utf-8")
     print("CodeDebrief view")
     print("Status: OK - viewer artifact ready.")
     print(f"Project: {root}")

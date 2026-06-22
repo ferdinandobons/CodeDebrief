@@ -10,7 +10,9 @@ from typing import Any
 class Evidence(str, Enum):
     VERIFIED = "VERIFIED"
     INFERRED = "INFERRED"
-    POTENTIAL_GAP = "POTENTIAL_GAP"
+
+
+LEGACY_REVIEW_GAP_EVIDENCE = "POTENTIAL" + "_GAP"
 
 
 class NodeKind(str, Enum):
@@ -154,7 +156,7 @@ def _node_from_dict(data: dict[str, Any]) -> FlowNode:
         kind=NodeKind(data["kind"]),
         label=data["label"],
         location=_location_from_dict(data["location"]),
-        evidence=Evidence(data.get("evidence", Evidence.VERIFIED.value)),
+        evidence=_evidence_from_value(data.get("evidence", Evidence.VERIFIED.value)),
         detail=data.get("detail", ""),
         metadata=data.get("metadata", {}),
     )
@@ -166,7 +168,7 @@ def _edge_from_dict(data: dict[str, Any]) -> FlowEdge:
         source=data["source"],
         target=data["target"],
         label=data.get("label", ""),
-        evidence=Evidence(data.get("evidence", Evidence.VERIFIED.value)),
+        evidence=_evidence_from_value(data.get("evidence", Evidence.VERIFIED.value)),
     )
 
 
@@ -187,3 +189,11 @@ def _flow_from_dict(data: dict[str, Any]) -> Flow:
         tests=data.get("tests", []),
         metadata=data.get("metadata", {}),
     )
+
+
+def _evidence_from_value(value: Any) -> Evidence:
+    # Backward compatibility for old LogicChart/early CodeDebrief artifacts. CodeDebrief is
+    # now a comprehension tool, so old review-gap evidence is treated as an inferred fact.
+    if value == LEGACY_REVIEW_GAP_EVIDENCE:
+        return Evidence.INFERRED
+    return Evidence(value)

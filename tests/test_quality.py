@@ -6,6 +6,7 @@ from pathlib import Path
 from codedebrief.analysis.project import ProjectAnalyzer
 from codedebrief.artifacts import write_artifacts
 from codedebrief.cli import main
+from codedebrief.model import FileRecord, Flow, FlowNode, NodeKind, ProjectModel, SourceLocation
 from codedebrief.quality import model_quality, render_quality
 from codedebrief.validation import validate_codedebrief
 
@@ -48,6 +49,150 @@ def test_model_quality_counts_calls_and_labels(tmp_path: Path) -> None:
     assert "Graph density" in rendered
     assert "Language depth:" in rendered
     assert "python:" in rendered
+
+
+def test_runtime_calls_are_excluded_from_project_call_resolution(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text(
+        "def handle(items):\n"
+        "    total = len(items)\n"
+        "    helper = Widget(items)\n"
+        "    return missing(total)\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    quality = model.metadata["quality"]
+
+    assert quality["calls"]["runtime_or_dynamic"] >= 2
+    assert quality["calls"]["project_total"] == 1
+    assert quality["calls"]["unresolved"] == 1
+    assert quality["calls"]["resolved"] == 0
+
+
+def test_project_named_constructor_calls_are_not_excluded_from_resolution() -> None:
+    location = SourceLocation(path="app.py", start_line=1, end_line=1)
+    model = ProjectModel(
+        schema_version="2.0",
+        generated_at="2026-01-01T00:00:00+00:00",
+        root=".",
+        flows=[
+            Flow(
+                id="flow-1",
+                name="run",
+                symbol="app:run",
+                language="python",
+                framework="generic",
+                entry_kind="function",
+                is_entrypoint=True,
+                location=location,
+                nodes=[
+                    FlowNode(
+                        id="node-1",
+                        kind=NodeKind.CALL,
+                        label="Call Widget()",
+                        location=location,
+                        metadata={"calls": ["Widget"], "qualified_calls": ["app:Widget"]},
+                    )
+                ],
+            ),
+            Flow(
+                id="flow-2",
+                name="Widget",
+                symbol="app:Widget",
+                language="python",
+                framework="generic",
+                entry_kind="function",
+                is_entrypoint=False,
+                location=location,
+            ),
+        ],
+    )
+
+    quality = model_quality(model)
+
+    assert quality["calls"]["runtime_or_dynamic"] == 0
+    assert quality["calls"]["project_total"] == 1
+    assert quality["calls"]["unresolved"] == 1
+
+
+def test_named_call_labels_are_not_counted_as_generic() -> None:
+    location = SourceLocation(path="app.py", start_line=1, end_line=1)
+    model = ProjectModel(
+        schema_version="2.0",
+        generated_at="2026-01-01T00:00:00+00:00",
+        root=".",
+        files=[FileRecord(path="app.py", language="python", sha256="x", flow_ids=["flow-1"])],
+        flows=[
+            Flow(
+                id="flow-1",
+                name="run",
+                symbol="app:run",
+                language="python",
+                framework="generic",
+                entry_kind="function",
+                is_entrypoint=True,
+                location=location,
+                nodes=[
+                    FlowNode(
+                        id="node-1",
+                        kind=NodeKind.CALL,
+                        label="Call write_json()",
+                        location=location,
+                    ),
+                    FlowNode(
+                        id="node-2",
+                        kind=NodeKind.ACTION,
+                        label="Process",
+                        location=location,
+                    ),
+                ],
+            )
+        ],
+    )
+
+    quality = model_quality(model)
+
+    assert quality["labels"]["generic_nodes"] == 1
+    assert quality["labels"]["sample"][0]["label"] == "Process"
+
+
+def test_quality_counts_multi_target_call_nodes_as_resolved() -> None:
+    location = SourceLocation(path="app.py", start_line=1, end_line=1)
+    model = ProjectModel(
+        schema_version="2.0",
+        generated_at="2026-01-01T00:00:00+00:00",
+        root=".",
+        flows=[
+            Flow(
+                id="flow-1",
+                name="run",
+                symbol="app:run",
+                language="python",
+                framework="generic",
+                entry_kind="function",
+                is_entrypoint=True,
+                location=location,
+                nodes=[
+                    FlowNode(
+                        id="node-1",
+                        kind=NodeKind.CALL,
+                        label="Call first()",
+                        location=location,
+                        metadata={
+                            "target_flows": ["flow-2", "flow-3"],
+                            "call_candidates": ["flow-2", "flow-3"],
+                            "link_confidence": "high",
+                        },
+                    )
+                ],
+            )
+        ],
+    )
+
+    quality = model_quality(model)
+
+    assert quality["calls"]["resolved"] == 1
+    assert quality["calls"]["ambiguous"] == 0
 
 
 def test_validate_quality_json_and_text_output(tmp_path: Path, capsys) -> None:

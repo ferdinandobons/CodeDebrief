@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 from collections import Counter
 from typing import Any
 
@@ -17,19 +18,87 @@ GENERIC_LABELS = {
 LOW_CONFIDENCE = {"low", "none"}
 HUGE_FLOW_NODE_THRESHOLD = 60
 DENSE_EDGE_RATIO_THRESHOLD = 2.6
+_BUILTIN_CALLS = frozenset(dir(builtins))
+_JAVASCRIPT_GLOBALS = frozenset(
+    {
+        "Array",
+        "Boolean",
+        "Date",
+        "JSON",
+        "Math",
+        "Number",
+        "Object",
+        "Promise",
+        "Set",
+        "String",
+        "console",
+        "document",
+        "localStorage",
+        "requestAnimationFrame",
+        "sessionStorage",
+        "setTimeout",
+        "window",
+    }
+)
+_RUNTIME_LEAF_METHODS = frozenset(
+    {
+        "add",
+        "append",
+        "as_posix",
+        "decode",
+        "encode",
+        "exists",
+        "extend",
+        "get",
+        "hexdigest",
+        "isupper",
+        "items",
+        "join",
+        "keys",
+        "lower",
+        "lstrip",
+        "read_text",
+        "removeprefix",
+        "replace",
+        "resolve",
+        "rsplit",
+        "rstrip",
+        "sort",
+        "split",
+        "splitlines",
+        "strip",
+        "trim",
+        "upper",
+        "values",
+    }
+)
 
 
 def model_quality(model: ProjectModel) -> dict[str, Any]:
     """Deterministic analyzer-quality metrics derived from one persisted model."""
     non_test_flows = [flow for flow in model.flows if not flow.metadata.get("test")]
+    project_modules = _project_modules(model.flows)
+    project_call_names = _project_call_names(model.flows)
     call_nodes = [node for flow in model.flows for node in flow.nodes if node.kind is NodeKind.CALL]
-    resolved = [node for node in call_nodes if node.metadata.get("target_flow")]
-    ambiguous = [node for node in call_nodes if len(node.metadata.get("call_candidates", [])) > 1]
-    unresolved = [
+    resolved = [node for node in call_nodes if _target_flow_ids(node)]
+    ambiguous = [
         node
         for node in call_nodes
-        if not node.metadata.get("target_flow") and not node.metadata.get("call_candidates")
+        if len(node.metadata.get("call_candidates", [])) > 1
+        and str(node.metadata.get("link_confidence", "")).lower() == "low"
     ]
+    unresolved_all = [
+        node
+        for node in call_nodes
+        if not _target_flow_ids(node) and not node.metadata.get("call_candidates")
+    ]
+    runtime_or_dynamic = [
+        node
+        for node in unresolved_all
+        if _runtime_or_dynamic_call(node, project_modules, project_call_names)
+    ]
+    runtime_or_dynamic_ids = {id(node) for node in runtime_or_dynamic}
+    unresolved = [node for node in unresolved_all if id(node) not in runtime_or_dynamic_ids]
     low_confidence = [
         node
         for node in call_nodes
@@ -41,6 +110,7 @@ def model_quality(model: ProjectModel) -> dict[str, Any]:
     source_locations = _source_location_nodes(model.flows)
     skipped_files = _skipped_files(model)
     parse_error_files = _parse_error_files(model.flows)
+    project_call_count = len(call_nodes) - len(runtime_or_dynamic)
     huge_flows = [
         {
             "flow_id": flow.id,
@@ -79,17 +149,20 @@ def model_quality(model: ProjectModel) -> dict[str, Any]:
         },
         "calls": {
             "total": len(call_nodes),
+            "project_total": project_call_count,
             "resolved": len(resolved),
             "unresolved": len(unresolved),
             "ambiguous": len(ambiguous),
             "low_confidence": len(low_confidence),
-            "resolution_rate": _ratio(len(resolved), len(call_nodes)),
+            "runtime_or_dynamic": len(runtime_or_dynamic),
+            "resolution_rate": _ratio(len(resolved), project_call_count),
         },
         "languages": _language_depth(
             model,
             non_test_flows=non_test_flows,
             resolved_calls=resolved,
             unresolved_calls=unresolved,
+            runtime_or_dynamic_calls=runtime_or_dynamic,
             generic_labels=generic_labels,
             skipped_files=skipped_files,
             parse_error_files=parse_error_files,
@@ -129,9 +202,11 @@ def render_quality(quality: dict[str, Any]) -> str:
         f"- Parse warnings: {files.get('parse_errors', {}).get('total', 0)}",
         f"- Flows: {flows['total']} total, {flows['entrypoints']} entrypoints "
         f"({_format_counts(flows['by_language'])})",
-        f"- Calls: {calls['resolved']}/{calls['total']} resolved "
-        f"({calls['resolution_rate']:.0%}); {calls['unresolved']} unresolved, "
-        f"{calls['ambiguous']} ambiguous, {calls['low_confidence']} low-confidence",
+        f"- Calls: {calls['resolved']}/{calls.get('project_total', calls['total'])} "
+        f"project calls resolved ({calls['resolution_rate']:.0%}); "
+        f"{calls['unresolved']} unresolved, {calls['ambiguous']} ambiguous, "
+        f"{calls['low_confidence']} low-confidence, "
+        f"{calls.get('runtime_or_dynamic', 0)} runtime/dynamic excluded",
         f"- Labels: {labels['generic_nodes']} generic nodes ({labels['generic_ratio']:.0%})",
         f"- Source coverage: {source['nodes_with_source']} nodes ({source['coverage']:.0%})",
         f"- Graph density: {graph['edges']} edges / {graph['nodes']} nodes "
@@ -192,6 +267,7 @@ def _language_depth(
     non_test_flows: list[Flow],
     resolved_calls: list[FlowNode],
     unresolved_calls: list[FlowNode],
+    runtime_or_dynamic_calls: list[FlowNode],
     generic_labels: list[dict[str, Any]],
     skipped_files: list[dict[str, str]],
     parse_error_files: list[dict[str, Any]],
@@ -210,9 +286,11 @@ def _language_depth(
     )
     resolved_ids = {id(node) for node in resolved_calls}
     unresolved_ids = {id(node) for node in unresolved_calls}
+    runtime_or_dynamic_ids = {id(node) for node in runtime_or_dynamic_calls}
     call_counts: Counter[str] = Counter()
     resolved_counts: Counter[str] = Counter()
     unresolved_counts: Counter[str] = Counter()
+    runtime_or_dynamic_counts: Counter[str] = Counter()
     source_counts: Counter[str] = Counter()
     for flow in non_test_flows:
         for node in flow.nodes:
@@ -222,6 +300,8 @@ def _language_depth(
                     resolved_counts[flow.language] += 1
                 if id(node) in unresolved_ids:
                     unresolved_counts[flow.language] += 1
+                if id(node) in runtime_or_dynamic_ids:
+                    runtime_or_dynamic_counts[flow.language] += 1
             if node.location.path and node.location.start_line > 0 and node.location.end_line > 0:
                 source_counts[flow.language] += 1
     generic_counts = Counter(_sample_language(item) for item in generic_labels)
@@ -244,6 +324,7 @@ def _language_depth(
         files = file_counts[language]
         flows = flow_counts[language]
         calls = call_counts[language]
+        project_calls = calls - runtime_or_dynamic_counts[language]
         resolved = resolved_counts[language]
         skipped = skipped_counts[language]
         parse_errors = parse_error_counts[language]
@@ -256,9 +337,11 @@ def _language_depth(
             "entrypoints": entrypoint_counts[language],
             "decisions": decision_counts[language],
             "calls": calls,
+            "project_calls": project_calls,
             "resolved_calls": resolved,
             "unresolved_calls": unresolved_counts[language],
-            "call_resolution_rate": _ratio(resolved, calls),
+            "runtime_or_dynamic_calls": runtime_or_dynamic_counts[language],
+            "call_resolution_rate": _ratio(resolved, project_calls),
             "generic_nodes": generic_counts[language],
             "generic_ratio": _ratio(generic_counts[language], nodes),
             "source_coverage": _ratio(source_counts[language], nodes),
@@ -297,8 +380,8 @@ def _sample_language(item: dict[str, Any]) -> str:
 def _format_language_depth(language: str, metrics: dict[str, Any]) -> str:
     return (
         f"  - {language}: {metrics['files']} files, {metrics['flows']} flows, "
-        f"{metrics['decisions']} decisions, {metrics['resolved_calls']}/{metrics['calls']} "
-        "calls resolved"
+        f"{metrics['decisions']} decisions, {metrics['resolved_calls']}/"
+        f"{metrics.get('project_calls', metrics['calls'])} project calls resolved"
     )
 
 
@@ -320,12 +403,106 @@ def _generic_label_nodes(flows: list[Flow]) -> list[dict[str, Any]]:
     return rows
 
 
+def _project_modules(flows: list[Flow]) -> set[str]:
+    modules: set[str] = set()
+    for flow in flows:
+        if ":" not in flow.symbol:
+            continue
+        module = flow.symbol.split(":", 1)[0]
+        modules.add(module)
+        if module.startswith("src."):
+            modules.add(module.removeprefix("src."))
+    return modules
+
+
+def _project_call_names(flows: list[Flow]) -> set[str]:
+    names: set[str] = set()
+    for flow in flows:
+        if flow.name:
+            names.add(flow.name)
+            names.add(flow.name.rsplit(".", 1)[-1])
+        if ":" in flow.symbol:
+            member = flow.symbol.split(":", 1)[1]
+            names.add(member)
+            names.add(member.rsplit(".", 1)[-1])
+    return names
+
+
+def _runtime_or_dynamic_call(
+    node: FlowNode,
+    project_modules: set[str],
+    project_call_names: set[str],
+) -> bool:
+    raw_calls = [str(item) for item in node.metadata.get("calls", [])]
+    if not raw_calls:
+        return False
+    qualified_calls = [str(item) for item in node.metadata.get("qualified_calls", [])]
+    return all(
+        _runtime_or_dynamic_name(raw, project_call_names)
+        or _qualified_call_is_external(_qualified_at(qualified_calls, index), project_modules)
+        for index, raw in enumerate(raw_calls)
+    )
+
+
+def _qualified_at(qualified_calls: list[str], index: int) -> str:
+    return qualified_calls[index] if index < len(qualified_calls) else ""
+
+
+def _runtime_or_dynamic_name(raw: str, project_call_names: set[str]) -> bool:
+    if _known_project_call_name(raw, project_call_names):
+        return False
+    if raw in _BUILTIN_CALLS:
+        return True
+    if raw in _RUNTIME_LEAF_METHODS:
+        return True
+    if raw[:1].isupper():
+        return True
+    head = raw.split(".", 1)[0]
+    if head in _JAVASCRIPT_GLOBALS:
+        return True
+    if "." not in raw:
+        return False
+    return not raw.startswith(("self.", "cls.", "this."))
+
+
+def _known_project_call_name(raw: str, project_call_names: set[str]) -> bool:
+    return raw in project_call_names or raw.split(".", 1)[0] in project_call_names
+
+
+def _qualified_call_is_external(qualified: str, project_modules: set[str]) -> bool:
+    if ":" not in qualified:
+        return False
+    module = qualified.split(":", 1)[0]
+    return not _module_is_project(module, project_modules)
+
+
+def _module_is_project(module: str, project_modules: set[str]) -> bool:
+    aliases = {module, f"src.{module}" if not module.startswith("src.") else module[4:]}
+    for alias in aliases:
+        if alias in project_modules:
+            return True
+        prefix = f"{alias}."
+        if any(project_module.startswith(prefix) for project_module in project_modules):
+            return True
+    return False
+
+
+def _target_flow_ids(node: FlowNode) -> list[str]:
+    target_flow = node.metadata.get("target_flow")
+    if isinstance(target_flow, str) and target_flow:
+        return [target_flow]
+    target_flows = node.metadata.get("target_flows")
+    if not isinstance(target_flows, list):
+        return []
+    return [item for item in target_flows if isinstance(item, str) and item]
+
+
 def _generic_label(node: FlowNode) -> bool:
     label = " ".join(node.label.lower().split())
+    if node.kind is NodeKind.CALL and label.startswith("call "):
+        return label in {"call", "call()", "call ()", "call unknown()", "call none()"}
     if label in GENERIC_LABELS:
         return True
-    if node.kind is NodeKind.CALL and label.startswith("call "):
-        return len(label.split()) <= 2
     return node.kind is NodeKind.ACTION and label in {"do work", "handle", "process"}
 
 

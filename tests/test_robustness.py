@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from codedebrief.analysis.project import ProjectAnalyzer
-from codedebrief.model import ProjectModel
+from codedebrief.model import Evidence, ProjectModel
 from codedebrief.util import read_json
 
 
@@ -217,3 +217,47 @@ def test_missing_lazy_language_dependency_does_not_abort(
 def test_from_dict_rejects_malformed_models_cleanly(payload: dict) -> None:
     with pytest.raises(ValueError, match=r"malformed codedebrief\.json"):
         ProjectModel.from_dict(payload)
+
+
+def test_from_dict_maps_legacy_potential_gap_evidence_to_inferred() -> None:
+    payload = {
+        "schema_version": "2.0",
+        "generated_at": "x",
+        "root": ".",
+        "files": [],
+        "flows": [
+            {
+                "id": "f",
+                "name": "n",
+                "symbol": "s",
+                "language": "python",
+                "framework": "generic",
+                "entry_kind": "function",
+                "is_entrypoint": False,
+                "location": {"path": "a.py", "start_line": 1, "end_line": 1},
+                "nodes": [
+                    {
+                        "id": "n1",
+                        "kind": "action",
+                        "label": "old review signal",
+                        "location": {"path": "a.py", "start_line": 1, "end_line": 1},
+                        "evidence": "POTENTIAL_GAP",
+                    }
+                ],
+                "edges": [
+                    {
+                        "id": "e1",
+                        "source": "n1",
+                        "target": "n1",
+                        "label": "",
+                        "evidence": "POTENTIAL_GAP",
+                    }
+                ],
+            }
+        ],
+    }
+
+    model = ProjectModel.from_dict(payload)
+
+    assert model.flows[0].nodes[0].evidence is Evidence.INFERRED
+    assert model.flows[0].edges[0].evidence is Evidence.INFERRED

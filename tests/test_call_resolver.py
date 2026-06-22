@@ -251,6 +251,51 @@ def test_relative_import_resolves_in_regular_module(tmp_path: Path) -> None:
     assert call.metadata["target_flow"] == target.id
 
 
+def test_python_src_layout_absolute_package_import_resolves(tmp_path: Path) -> None:
+    package = tmp_path / "src" / "acme"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "util.py").write_text("def helper(x):\n    return x\n", encoding="utf-8")
+    (package / "app.py").write_text(
+        "from acme.util import helper\n\ndef run(req):\n    return helper(req)\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    run = next(f for f in model.flows if f.symbol == "src.acme.app:run")
+    target = next(f for f in model.flows if f.symbol == "src.acme.util:helper")
+    call = _call_node(run)
+
+    assert call.metadata["link_confidence"] == "high"
+    assert call.metadata["target_flow"] == target.id
+    assert target.id in run.calls
+
+
+def test_python_multiple_deterministic_calls_on_one_node_link_all_targets(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "helpers.py").write_text(
+        "def first(x):\n    return x\n\ndef second(x):\n    return x\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "app.py").write_text(
+        "from helpers import first, second\n\ndef run(req):\n    return first(req), second(req)\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    run = next(f for f in model.flows if f.name == "run")
+    first = next(f for f in model.flows if f.name == "first")
+    second = next(f for f in model.flows if f.name == "second")
+    call = _call_node(run)
+
+    assert call.metadata["link_confidence"] == "high"
+    assert call.metadata["target_flows"] == sorted([first.id, second.id])
+    assert set(run.calls) == {first.id, second.id}
+    assert run.id in first.called_by
+    assert run.id in second.called_by
+
+
 def test_short_name_fallback_is_medium_confidence(tmp_path: Path) -> None:
     (tmp_path / "a.py").write_text("def run(obj):\n    return obj.helper()\n", encoding="utf-8")
     (tmp_path / "b.py").write_text("def helper(x):\n    return x\n", encoding="utf-8")
@@ -262,6 +307,63 @@ def test_short_name_fallback_is_medium_confidence(tmp_path: Path) -> None:
 
     assert call.metadata["link_confidence"] == "medium"
     assert call.metadata["target_flow"] == target.id
+
+
+def test_python_self_method_call_resolves_to_same_class_before_short_name_fallback(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "svc.py").write_text(
+        "class Service:\n"
+        "    def run(self):\n"
+        "        return self.helper()\n"
+        "\n"
+        "    def helper(self):\n"
+        "        return 1\n"
+        "\n"
+        "class Other:\n"
+        "    def helper(self):\n"
+        "        return 2\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    run = next(f for f in model.flows if f.name == "Service.run")
+    target = next(f for f in model.flows if f.name == "Service.helper")
+    call = _call_node(run)
+
+    assert call.metadata["link_confidence"] == "high"
+    assert call.metadata["target_flow"] == target.id
+    assert run.calls == [target.id]
+
+
+def test_typescript_this_method_call_resolves_to_same_class_before_short_name_fallback(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "svc.ts").write_text(
+        "class Service {\n"
+        "  run() {\n"
+        "    return this.helper();\n"
+        "  }\n"
+        "  helper() {\n"
+        "    return 1;\n"
+        "  }\n"
+        "}\n"
+        "class Other {\n"
+        "  helper() {\n"
+        "    return 2;\n"
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    model = ProjectAnalyzer(tmp_path).analyze(full=True).model
+    run = next(f for f in model.flows if f.name == "Service.run")
+    target = next(f for f in model.flows if f.name == "Service.helper")
+    call = _call_node(run)
+
+    assert call.metadata["link_confidence"] == "high"
+    assert call.metadata["target_flow"] == target.id
+    assert run.calls == [target.id]
 
 
 def test_unresolvable_call_records_no_link(tmp_path: Path) -> None:

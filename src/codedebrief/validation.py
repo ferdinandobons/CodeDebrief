@@ -12,6 +12,7 @@ from codedebrief.artifacts import output_paths
 from codedebrief.config import CodeDebriefConfig
 from codedebrief.model import ProjectModel
 from codedebrief.quality import model_quality
+from codedebrief.render.markdown import render_markdown
 from codedebrief.util import read_json
 
 
@@ -55,7 +56,7 @@ def validate_codedebrief(
     analyzer to compare the current source tree against the committed model.
     """
     active_config = config or CodeDebriefConfig.load(root)
-    json_path, _, _ = output_paths(root, active_config)
+    json_path, markdown_path, _ = output_paths(root, active_config)
     report = ValidationReport(artifact=str(json_path))
 
     try:
@@ -91,6 +92,7 @@ def validate_codedebrief(
                 report.add_error(
                     "codedebrief.json is stale; run `codedebrief update` and commit the artifacts."
                 )
+        _validate_markdown_sync(markdown_path, model, report)
 
     return report
 
@@ -201,6 +203,21 @@ def _without_generated_at(payload: dict[str, Any]) -> dict[str, Any]:
     clone = dict(payload)
     clone.pop("generated_at", None)
     return clone
+
+
+def _validate_markdown_sync(
+    markdown_path: Path, model: ProjectModel, report: ValidationReport
+) -> None:
+    try:
+        current = markdown_path.read_text(encoding="utf-8")
+    except OSError as error:
+        report.add_error(f"Could not read {markdown_path}: {error}")
+        return
+    expected = render_markdown(model)
+    if current != expected:
+        report.add_error(
+            "codedebrief.md is stale; run `codedebrief update` and commit the artifacts."
+        )
 
 
 def _read_bundled_schema() -> dict[str, Any]:

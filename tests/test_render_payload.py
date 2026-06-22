@@ -228,8 +228,17 @@ def _resolve_flow_lines(payload: dict, flow: dict) -> list[str]:
     the shared ``source_files`` store (the file is embedded once, the flow holds a ref)."""
     ref = flow["source"]
     file = payload["source_files"][ref["path"]]
-    offset = ref["start_line"] - file["start_line"]
-    return file["lines"][offset : offset + (ref["end_line"] - ref["start_line"] + 1)]
+    ranges = file.get("ranges")
+    if ranges is None:
+        ranges = [{"start_line": file["start_line"], "lines": file["lines"]}]
+    for range_ in ranges:
+        offset = ref["start_line"] - range_["start_line"]
+        if offset < 0:
+            continue
+        lines = range_["lines"][offset : offset + (ref["end_line"] - ref["start_line"] + 1)]
+        if lines:
+            return lines
+    return []
 
 
 def test_payload_embeds_source_via_file_store(tmp_path: Path) -> None:
@@ -264,7 +273,9 @@ def test_attach_source_snippets_tolerates_missing_file(tmp_path: Path) -> None:
     ]
     source_files = attach_source_snippets(flow_dicts, tmp_path)
     assert flow_dicts[0]["source"] == {"path": "real.py", "start_line": 1, "end_line": 2}
-    assert source_files["real.py"] == {"start_line": 1, "lines": ["def g():", "    return 1"]}
+    assert source_files["real.py"] == {
+        "ranges": [{"start_line": 1, "lines": ["def g():", "    return 1"]}]
+    }
     assert flow_dicts[1]["source"] is None
     assert "ghost.py" not in source_files
 
@@ -297,12 +308,12 @@ def test_attach_source_snippets_caps_long_flow(tmp_path: Path) -> None:
     # The reference keeps the full (uncapped) end so the panel can show "N more lines".
     assert ref["end_line"] == total + 1
     # The file store only embeds the capped head window, never the whole function.
-    assert len(source_files["big.py"]["lines"]) == MAX_SNIPPET_LINES
+    assert len(source_files["big.py"]["ranges"][0]["lines"]) == MAX_SNIPPET_LINES
 
 
 def test_attach_source_snippets_dedupes_file_across_flows(tmp_path: Path) -> None:
-    # Two flows in the same file embed that file's lines ONCE (a single source_files entry
-    # covering the union of their ranges), not once per flow.
+    # Two flows in the same file embed that file once but preserve disjoint ranges, so
+    # unrelated gap lines are not copied into the HTML payload.
     (tmp_path / "two.py").write_text(
         "def a():\n    return 1\n\n\ndef b():\n    return 2\n",
         encoding="utf-8",
@@ -316,10 +327,11 @@ def test_attach_source_snippets_dedupes_file_across_flows(tmp_path: Path) -> Non
     assert list(source_files.keys()) == ["two.py"]
     assert flow_dicts[0]["source"]["path"] == "two.py"
     assert flow_dicts[1]["source"]["path"] == "two.py"
-    # The union range covers line 1 through line 6 (no gap dropped, no duplication).
     entry = source_files["two.py"]
-    assert entry["start_line"] == 1
-    assert len(entry["lines"]) == 6
+    assert entry["ranges"] == [
+        {"start_line": 1, "lines": ["def a():", "    return 1"]},
+        {"start_line": 5, "lines": ["def b():", "    return 2"]},
+    ]
 
 
 def test_build_scope_index_excludes_test_flows() -> None:

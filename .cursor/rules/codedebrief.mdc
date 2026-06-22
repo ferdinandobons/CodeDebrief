@@ -76,7 +76,8 @@ After code or workflow-relevant changes:
    that cannot affect the modeled code logic, such as unrelated copy edits or images.
 2. Use `codedebrief update --full` after analyzer upgrades, parser/dependency changes,
    large refactors, or when cached file models should be ignored.
-3. Run `codedebrief validate --check-sync`.
+3. Run `codedebrief validate --check-sync`; this checks both current-source JSON sync and
+   whether `codedebrief-out/codedebrief.md` was rendered from that JSON.
 4. Commit synchronized changes to:
    - `codedebrief-out/codedebrief.json`
    - `codedebrief-out/codedebrief.md`

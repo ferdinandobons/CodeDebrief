@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -280,10 +281,12 @@ class ProjectAnalyzer:
         for flow in flows:
             qualified = by_qualified.setdefault(flow.language, {})
             named = by_name.setdefault(flow.language, {})
-            qualified.setdefault(flow.symbol, []).append(flow)
+            for symbol in _qualified_symbol_aliases(flow.symbol):
+                qualified.setdefault(symbol, []).append(flow)
             if flow.metadata.get("default_export"):
                 module = flow.symbol.split(":", 1)[0]
-                qualified.setdefault(f"{module}:{DEFAULT_EXPORT_MARKER}", []).append(flow)
+                for symbol in _qualified_symbol_aliases(f"{module}:{DEFAULT_EXPORT_MARKER}"):
+                    qualified.setdefault(symbol, []).append(flow)
             short = flow.symbol.split(":", 1)[-1].split(".")[-1]
             named.setdefault(short, []).append(flow)
 
@@ -300,7 +303,24 @@ class ProjectAnalyzer:
                     continue
                 node.metadata["link_confidence"] = confidence
                 node.metadata["call_candidates"] = sorted(candidates)
-                if len(candidates) == 1:
+                if confidence != CONFIDENCE_LOW:
+                    if len(candidates) > 1:
+                        node.metadata["target_flows"] = sorted(candidates)
+                        node.metadata["target_symbols"] = sorted(
+                            candidate.symbol for candidate in candidates.values()
+                        )
+                    else:
+                        target = next(iter(candidates.values()))
+                        node.metadata["target_flow"] = target.id
+                        node.metadata["target_symbol"] = target.symbol
+                    for target in candidates.values():
+                        if target.id not in calls_seen[flow.id]:
+                            flow.calls.append(target.id)
+                            calls_seen[flow.id].add(target.id)
+                        if flow.id not in called_by_seen[target.id]:
+                            target.called_by.append(flow.id)
+                            called_by_seen[target.id].add(flow.id)
+                elif len(candidates) == 1:
                     target = next(iter(candidates.values()))
                     node.metadata["target_flow"] = target.id
                     node.metadata["target_symbol"] = target.symbol
@@ -321,22 +341,61 @@ class ProjectAnalyzer:
         # `by_qualified` / `by_name` are already scoped to the caller flow's language
         # (see `_link_calls`), so every candidate here shares the caller's language and
         # no cross-language edge can be created.
-        qualified: dict[str, Flow] = {}
-        for name in node.metadata.get("qualified_calls", []):
-            for candidate in by_qualified.get(str(name), []):
-                if candidate.id != flow.id:
-                    qualified[candidate.id] = candidate
-        if qualified:
-            return qualified, (CONFIDENCE_HIGH if len(qualified) == 1 else CONFIDENCE_LOW)
+        receiver_qualified, receiver_ambiguous = ProjectAnalyzer._receiver_qualified_targets(
+            flow, node, by_qualified
+        )
+        if receiver_qualified:
+            return receiver_qualified, (CONFIDENCE_LOW if receiver_ambiguous else CONFIDENCE_HIGH)
 
-        short_name: dict[str, Flow] = {}
-        for raw in node.metadata.get("calls", []):
-            for candidate in by_name.get(str(raw).split(".")[-1], []):
-                if candidate.id != flow.id:
-                    short_name[candidate.id] = candidate
+        qualified, qualified_ambiguous = _unique_targets_per_call(
+            (str(name) for name in node.metadata.get("qualified_calls", [])),
+            by_qualified,
+            flow_id=flow.id,
+        )
+        if qualified:
+            return qualified, (CONFIDENCE_LOW if qualified_ambiguous else CONFIDENCE_HIGH)
+
+        short_name, short_ambiguous = _unique_targets_per_call(
+            (str(raw).split(".")[-1] for raw in node.metadata.get("calls", [])),
+            by_name,
+            flow_id=flow.id,
+        )
         if short_name:
-            return short_name, (CONFIDENCE_MEDIUM if len(short_name) == 1 else CONFIDENCE_LOW)
+            return short_name, (CONFIDENCE_LOW if short_ambiguous else CONFIDENCE_MEDIUM)
         return {}, CONFIDENCE_NONE
+
+    @staticmethod
+    def _receiver_qualified_targets(
+        flow: Flow,
+        node: FlowNode,
+        by_qualified: dict[str, list[Flow]],
+    ) -> tuple[dict[str, Flow], bool]:
+        if ":" not in flow.symbol or "." not in flow.name:
+            return {}, False
+        module, _ = flow.symbol.split(":", 1)
+        owner = flow.name.rsplit(".", 1)[0]
+        targets: dict[str, Flow] = {}
+        ambiguous = False
+        for raw in node.metadata.get("calls", []):
+            raw_text = str(raw)
+            for receiver in ("self.", "cls.", "this."):
+                if not raw_text.startswith(receiver):
+                    continue
+                method = raw_text.removeprefix(receiver).split(".", 1)[0]
+                if not method:
+                    continue
+                symbol = f"{module}:{owner}.{method}"
+                matches = [
+                    candidate
+                    for candidate in by_qualified.get(symbol, [])
+                    if candidate.id != flow.id
+                ]
+                ambiguous = ambiguous or len(matches) > 1
+                if len(matches) == 1:
+                    targets[matches[0].id] = matches[0]
+                elif len(matches) > 1:
+                    targets.update((candidate.id, candidate) for candidate in matches)
+        return targets, ambiguous
 
     def _link_tests(self, flows: list[Flow]) -> None:
         by_id = {flow.id: flow for flow in flows}
@@ -360,6 +419,34 @@ def _index_entry(cache_name: str, digest: str, reason: str | None = None) -> dic
     if reason:
         entry["skip_reason"] = reason
     return entry
+
+
+def _qualified_symbol_aliases(symbol: str) -> tuple[str, ...]:
+    if ":" not in symbol:
+        return (symbol,)
+    module, member = symbol.split(":", 1)
+    aliases = [symbol]
+    if module.startswith("src."):
+        aliases.append(f"{module.removeprefix('src.')}:{member}")
+    return tuple(dict.fromkeys(aliases))
+
+
+def _unique_targets_per_call(
+    names: Iterable[str],
+    target_index: dict[str, list[Flow]],
+    *,
+    flow_id: str,
+) -> tuple[dict[str, Flow], bool]:
+    targets: dict[str, Flow] = {}
+    ambiguous = False
+    for name in names:
+        matches = [candidate for candidate in target_index.get(name, []) if candidate.id != flow_id]
+        if len(matches) == 1:
+            targets[matches[0].id] = matches[0]
+        elif len(matches) > 1:
+            ambiguous = True
+            targets.update((candidate.id, candidate) for candidate in matches)
+    return targets, ambiguous
 
 
 def _skipped_file_records(skipped_files: list[tuple[str, str]]) -> list[dict[str, str]]:

@@ -107,6 +107,7 @@
         const signals = el("div", "quality-signals");
         const unresolved = Number(calls.unresolved || 0);
         const ambiguous = Number(calls.ambiguous || 0);
+        const runtimeOrDynamic = Number(calls.runtime_or_dynamic || 0);
         const generic = Number(labels.generic_nodes || 0);
         const skippedTotal = Number(skipped.total || 0);
         const parseWarnings = Number(parseErrors.total || 0);
@@ -115,11 +116,12 @@
           ? languagesQuality.attention.length
           : 0;
         signals.append(
-          qualitySignal("Call resolution", ratioPercent(calls.resolution_rate), unresolved || ambiguous ? "attention" : ""),
+          qualitySignal("Project call resolution", ratioPercent(calls.resolution_rate), unresolved || ambiguous ? "attention" : ""),
           qualitySignal("Skipped files", skippedTotal, skippedTotal ? "attention" : ""),
           qualitySignal("Parse warnings", parseWarnings, parseWarnings ? "attention" : ""),
-          qualitySignal("Unresolved calls", unresolved, unresolved ? "attention" : ""),
-          qualitySignal("Ambiguous calls", ambiguous, ambiguous ? "attention" : ""),
+          qualitySignal("Unresolved project calls", unresolved, unresolved ? "attention" : ""),
+          qualitySignal("Ambiguous project calls", ambiguous, ambiguous ? "attention" : ""),
+          qualitySignal("Runtime/dynamic calls", runtimeOrDynamic, ""),
           qualitySignal("Generic labels", generic + " · " + ratioPercent(labels.generic_ratio), generic ? "attention" : ""),
           qualitySignal("Language attention", languageAttention, languageAttention ? "attention" : ""),
           qualitySignal("Graph density", graph.edge_to_node_ratio, graph.dense_graph_warning ? "attention" : "")
@@ -207,13 +209,15 @@
         const ref = flow && flow.source;
         if (!ref || !ref.path) return null;
         const file = sourceFiles[ref.path];
-        if (!file || !Array.isArray(file.lines)) return null;
+        if (!file) return null;
         const from = ref.start_line;
         if (from == null) return null;
         const to = ref.end_line != null ? ref.end_line : from;
-        const offset = from - file.start_line;
+        const range = resolveSourceRange(file, from);
+        if (!range) return null;
+        const offset = from - range.start_line;
         if (offset < 0) return null;
-        const lines = file.lines.slice(offset, offset + (to - from + 1));
+        const lines = range.lines.slice(offset, offset + (to - from + 1));
         if (!lines.length) return null;
         return {
           elided: !!ref.elided,
@@ -221,6 +225,20 @@
           start_line: from,
           total: to - from + 1,
         };
+      }
+
+      function resolveSourceRange(file, from) {
+        if (Array.isArray(file.ranges)) {
+          return file.ranges.find(range => {
+            if (!range || !Array.isArray(range.lines) || range.start_line == null) return false;
+            const end = range.start_line + range.lines.length - 1;
+            return from >= range.start_line && from <= end;
+          }) || null;
+        }
+        if (Array.isArray(file.lines) && file.start_line != null) {
+          return { start_line: file.start_line, lines: file.lines };
+        }
+        return null;
       }
 
       function buildLineToNode(flow) {

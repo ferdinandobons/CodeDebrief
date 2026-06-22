@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 
+from codedebrief.util import atomic_write_text
+
 START = "<!-- codedebrief:instructions:start -->"
 END = "<!-- codedebrief:instructions:end -->"
 LOCAL_NOTES_START = "<!-- codedebrief:local-notes:start -->"
@@ -26,6 +28,8 @@ AGENT_SKILL_TARGETS = {
 MCP_CONFIG_TARGETS = ("codex", "claude", "gemini", "cursor")
 CODEX_MCP_START = "# codedebrief:mcp-config:start"
 CODEX_MCP_END = "# codedebrief:mcp-config:end"
+LEGACY_CODEX_MCP_START = "# logicchart:mcp-config:start"
+LEGACY_CODEX_MCP_END = "# logicchart:mcp-config:end"
 
 SKILL_DESCRIPTION = (
     "Use when answering codebase logic, behavior, workflow/flusso, decision, "
@@ -59,8 +63,10 @@ configured.
    meaningful source, route, config, or agent-instruction change, refresh the graph before
    finalizing: run MCP `update_codedebrief` when available, otherwise run
    `codedebrief update`, then run `validate_artifacts` or
-   `codedebrief validate --check-sync`. Keep `codedebrief-out/codedebrief.json` and
-   `codedebrief-out/codedebrief.md` synchronized when they change.
+   `codedebrief validate --check-sync`; this checks both current-source JSON sync and
+   whether `codedebrief-out/codedebrief.md` was rendered from that JSON. Keep
+   `codedebrief-out/codedebrief.json` and `codedebrief-out/codedebrief.md` synchronized
+   when they change.
 
 ## Visual Workflow Requests
 
@@ -211,7 +217,8 @@ After code or workflow-relevant changes:
    that cannot affect the modeled code logic, such as unrelated copy edits or images.
 2. Use `codedebrief update --full` after analyzer upgrades, parser/dependency changes,
    large refactors, or when cached file models should be ignored.
-3. Run `codedebrief validate --check-sync`.
+3. Run `codedebrief validate --check-sync`; this checks both current-source JSON sync and
+   whether `codedebrief-out/codedebrief.md` was rendered from that JSON.
 4. Commit synchronized changes to:
    - `codedebrief-out/codedebrief.json`
    - `codedebrief-out/codedebrief.md`
@@ -267,7 +274,7 @@ def install_agent_instructions(root: Path, platform: str = "all") -> list[Path]:
             )
             updated = frontmatter + updated
         if updated != existing:
-            target.write_text(updated, encoding="utf-8")
+            atomic_write_text(target, updated, encoding="utf-8")
             changed.append(target)
     return changed
 
@@ -288,7 +295,7 @@ def install_agent_skill(root: Path, platform: str = "all") -> list[Path]:
         target.parent.mkdir(parents=True, exist_ok=True)
         existing = target.read_text(encoding="utf-8") if target.exists() else ""
         if existing != SKILL_TEMPLATE:
-            target.write_text(SKILL_TEMPLATE, encoding="utf-8")
+            atomic_write_text(target, SKILL_TEMPLATE, encoding="utf-8")
             changed.append(target)
     return changed
 
@@ -371,7 +378,8 @@ def _extract_legacy_local_notes(managed: str) -> str:
 def _install_codex_mcp_config(root: Path) -> Path | None:
     target = root / ".codex" / "config.toml"
     target.parent.mkdir(parents=True, exist_ok=True)
-    existing = target.read_text(encoding="utf-8") if target.exists() else ""
+    original = target.read_text(encoding="utf-8") if target.exists() else ""
+    existing = _without_managed_block(original, LEGACY_CODEX_MCP_START, LEGACY_CODEX_MCP_END)
     unmanaged = _without_managed_block(existing, CODEX_MCP_START, CODEX_MCP_END)
     if re.search(r"(?m)^\s*\[mcp_servers\.codedebrief\]\s*$", unmanaged):
         raise ValueError(
@@ -391,8 +399,8 @@ def _install_codex_mcp_config(root: Path) -> Path | None:
         ]
     )
     updated = _upsert_managed_block(existing, block, CODEX_MCP_START, CODEX_MCP_END)
-    if updated != existing:
-        target.write_text(updated, encoding="utf-8")
+    if updated != original:
+        atomic_write_text(target, updated, encoding="utf-8")
         return target
     return None
 
@@ -415,6 +423,7 @@ def _install_json_mcp_config(target: Path, root: Path) -> Path | None:
     servers = data.setdefault("mcpServers", {})
     if not isinstance(servers, dict):
         raise ValueError(f"{target} has non-object mcpServers")
+    servers.pop("logicchart", None)
     existing_server = servers.get("codedebrief", {})
     if existing_server is not None and not isinstance(existing_server, dict):
         raise ValueError(f"{target} has non-object mcpServers.codedebrief")
@@ -424,7 +433,7 @@ def _install_json_mcp_config(target: Path, root: Path) -> Path | None:
 
     updated = json.dumps(data, indent=2) + "\n"
     if updated != existing:
-        target.write_text(updated, encoding="utf-8")
+        atomic_write_text(target, updated, encoding="utf-8")
         return target
     return None
 
