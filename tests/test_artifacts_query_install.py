@@ -13,6 +13,7 @@ from codedebrief.install import (
     LOCAL_NOTES_END,
     LOCAL_NOTES_START,
     START,
+    _json_mcp_server_config,
     install_agent_instructions,
     install_agent_skill,
     install_mcp_config,
@@ -84,7 +85,7 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "requested" in content
     assert "codedebrief view ..." in content
     assert "provider keys" in content
-    assert "`codedebrief setup-agent <target>` updates only that target's files" in content
+    assert "`codedebrief setup <target>` updates only that target's files" in content
     assert "After code or workflow-relevant changes" in content
     assert "artifacts as part of done" in content
     assert "run `codedebrief update` before finalizing or\n   committing" in content
@@ -347,7 +348,7 @@ def test_install_preserves_project_local_notes(tmp_path: Path) -> None:
         content.replace(
             f"{LOCAL_NOTES_START}\n"
             "<!-- Add project-specific local notes here. This section is preserved by "
-            "`codedebrief setup-agent`. -->\n"
+            "`codedebrief setup`. -->\n"
             f"{LOCAL_NOTES_END}",
             f"{LOCAL_NOTES_START}\n{local_note}{LOCAL_NOTES_END}",
         ),
@@ -386,7 +387,7 @@ def test_install_all_refreshes_every_agent_target_and_preserves_local_notes(
             content.replace(
                 f"{LOCAL_NOTES_START}\n"
                 "<!-- Add project-specific local notes here. This section is preserved by "
-                "`codedebrief setup-agent`. -->\n"
+                "`codedebrief setup`. -->\n"
                 f"{LOCAL_NOTES_END}",
                 f"{LOCAL_NOTES_START}\n{local_notes[name]}\n{LOCAL_NOTES_END}",
             ),
@@ -460,6 +461,36 @@ def test_install_mcp_config_writes_project_scoped_files(tmp_path: Path) -> None:
         assert server["args"] == ["mcp", str(tmp_path)]
 
     assert install_mcp_config(tmp_path, "all") == []
+
+
+def test_install_mcp_config_keeps_paths_with_spaces_as_json_args(tmp_path: Path) -> None:
+    project = tmp_path / "NTT DATA" / "Bid Agent"
+    project.mkdir(parents=True)
+
+    install_mcp_config(project, "claude")
+
+    payload = json.loads((project / ".mcp.json").read_text(encoding="utf-8"))
+    server = payload["mcpServers"]["codedebrief"]
+    assert server == {"command": "codedebrief", "args": ["mcp", str(project)]}
+
+
+def test_json_mcp_config_uses_wsl_bridge_for_windows_mounts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("WSL_DISTRO_NAME", "Ubuntu")
+
+    server = _json_mcp_server_config(Path("/mnt/c/Users/User/Desktop/WORK/NTT DATA/App"))
+
+    assert server == {
+        "command": "wsl.exe",
+        "args": [
+            "--cd",
+            "/mnt/c/Users/User/Desktop/WORK/NTT DATA/App",
+            "bash",
+            "-lc",
+            "codedebrief mcp .",
+        ],
+    }
 
 
 def test_install_mcp_config_removes_legacy_logicchart_servers(tmp_path: Path) -> None:

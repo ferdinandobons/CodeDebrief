@@ -90,6 +90,21 @@ def get_profile(user_id: str):
     assert "load_user" in call_node.metadata["calls"]
 
 
+def test_python_syntax_warnings_do_not_leak_to_stderr(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "legacy_regex.py"
+    source.write_text(
+        'def pattern():\n    return "\\s"\n',
+        encoding="utf-8",
+    )
+
+    analysis = PythonAnalyzer(tmp_path, CodeDebriefConfig()).analyze(source)
+
+    assert len(analysis.flows) == 1
+    assert capsys.readouterr().err == ""
+
+
 def test_python_unparse_normalizes_comprehension_tuple_targets() -> None:
     statement = ast.parse("result = [src for (src, dst), count in counts]\n").body[0]
     assert isinstance(statement, ast.Assign)

@@ -9,7 +9,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from textwrap import dedent
-from typing import Any
+from typing import Any, cast
 
 from codedebrief import __version__
 from codedebrief.analysis import ProjectAnalyzer
@@ -45,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=dedent(
             """\
             Quick start:
-              codedebrief setup-agent codex
+              codedebrief setup codex
               codedebrief update
               codedebrief view
               codedebrief validate
@@ -59,40 +59,15 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(
         dest="command",
         required=True,
+        metavar="{setup,update,view,validate,doctor,mcp}",
         parser_class=CodeDebriefArgumentParser,
     )
 
-    setup = subparsers.add_parser(
-        "setup-agent",
-        help="Configure CodeDebrief once for a coding agent.",
-        description=(
-            "Install agent instructions, register MCP, create config when needed, "
-            "generate artifacts, run doctor, and validate the setup."
-        ),
-        epilog=dedent(
-            """\
-            Examples:
-              codedebrief setup-agent codex
-              codedebrief setup-agent claude ../my-app
-              codedebrief setup-agent gemini
-              codedebrief setup-agent cursor --full
-
-            After setup, ask your coding agent ordinary questions about code logic. Use
-            codedebrief view when a human wants the manual workflow flowchart UI.
-            """
-        ),
+    _add_setup_parser(
+        subparsers,
+        "setup",
+        help_text="Configure CodeDebrief once for a coding agent.",
     )
-    setup.add_argument("agent", choices=["codex", "claude", "gemini", "cursor"])
-    setup.add_argument(
-        "path",
-        nargs="?",
-        default=".",
-        help="Project folder to configure. Defaults to the current directory.",
-    )
-    setup.add_argument("--full", action="store_true", help="Ignore the incremental cache.")
-    setup.add_argument("--no-html", action="store_true", help="Skip the local HTML artifact.")
-    _add_profile_argument(setup)
-
     update = subparsers.add_parser(
         "update",
         help="Incrementally refresh changed source files.",
@@ -213,6 +188,56 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _add_setup_parser(
+    subparsers: Any,
+    name: str,
+    *,
+    help_text: str,
+) -> argparse.ArgumentParser:
+    setup = subparsers.add_parser(
+        name,
+        help=help_text,
+        description=(
+            "Install agent instructions, register MCP, create config when needed, "
+            "generate artifacts, run doctor, and validate the setup."
+        ),
+        epilog=dedent(
+            """\
+            Examples:
+              codedebrief setup codex
+              codedebrief setup claude
+              codedebrief setup claude --source backend/ frontend/
+              codedebrief setup claude ../my-app --source backend-api frontend/src
+              codedebrief setup cursor --full
+
+            After setup, ask your coding agent ordinary questions about code logic. Use
+            codedebrief view when a human wants the manual workflow flowchart UI.
+            """
+        ),
+    )
+    setup.add_argument("agent", choices=["codex", "claude", "gemini", "cursor"])
+    setup.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project folder to configure. Defaults to the current directory.",
+    )
+    setup.add_argument("--full", action="store_true", help="Ignore the incremental cache.")
+    setup.add_argument("--no-html", action="store_true", help="Skip the local HTML artifact.")
+    setup.add_argument(
+        "--source",
+        nargs="+",
+        dest="source_roots",
+        metavar="PATH",
+        help=(
+            "Analyze only these project-relative folders or files during setup; artifacts "
+            "still write under the configured project root."
+        ),
+    )
+    _add_profile_argument(setup)
+    return cast(argparse.ArgumentParser, setup)
+
+
 def _add_profile_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--profile",
@@ -228,13 +253,14 @@ def _add_profile_argument(parser: argparse.ArgumentParser) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        if args.command == "setup-agent":
+        if args.command == "setup":
             return _setup_agent(
                 Path(args.path),
                 args.agent,
                 full=args.full,
                 include_html=not args.no_html,
                 profile=args.profile,
+                source_roots=args.source_roots,
             )
         if args.command == "update":
             return _analyze(
@@ -287,6 +313,7 @@ def _setup_agent(
     full: bool,
     include_html: bool,
     profile: str | None = None,
+    source_roots: Sequence[str] | None = None,
 ) -> int:
     if not root.exists():
         raise FileNotFoundError(f"path does not exist: {root}")
@@ -297,13 +324,19 @@ def _setup_agent(
         "gemini": "Gemini",
         "cursor": "Cursor",
     }[agent]
-    print(f"CodeDebrief setup-agent for {display}")
+    print(f"CodeDebrief setup for {display}")
     print(f"Project: {root}")
 
-    config_path, created_config = _ensure_config(root)
+    normalized_source_roots = _normalize_source_roots(root, source_roots)
+    config_path, created_config, updated_config = _ensure_config(root, normalized_source_roots)
     print("")
     print("Setup:")
-    print(f"- Config: {'Created' if created_config else 'Already present'} ({config_path})")
+    config_state = (
+        "Created" if created_config else "Updated" if updated_config else "Already present"
+    )
+    print(f"- Config: {config_state} ({config_path})")
+    if normalized_source_roots:
+        print(f"- Source roots: {', '.join(normalized_source_roots)}")
 
     changed = install_agent_instructions(root, agent)
     changed.extend(install_agent_skill(root, agent))
@@ -360,12 +393,21 @@ def _setup_agent(
     return 0
 
 
-def _ensure_config(root: Path) -> tuple[Path, bool]:
+def _ensure_config(
+    root: Path, source_roots: Sequence[str] | None = None
+) -> tuple[Path, bool, bool]:
     config_path = root / "codedebrief.toml"
     if config_path.exists():
-        return config_path, False
-    atomic_write_text(config_path, _starter_config_text(), encoding="utf-8")
-    return config_path, True
+        if source_roots is None:
+            return config_path, False, False
+        original = config_path.read_text(encoding="utf-8")
+        updated = _set_source_roots(original, source_roots)
+        if updated != original:
+            atomic_write_text(config_path, updated, encoding="utf-8")
+            return config_path, False, True
+        return config_path, False, False
+    atomic_write_text(config_path, _starter_config_text(source_roots), encoding="utf-8")
+    return config_path, True, bool(source_roots)
 
 
 def _analyze(
@@ -537,7 +579,7 @@ def _doctor(root: Path, json_output: bool, show_next_steps: bool = True) -> int:
         if report.ok:
             _print_next_steps(
                 [
-                    "Run `codedebrief setup-agent codex` once in a new project.",
+                    "Run `codedebrief setup codex` once in a new project.",
                     "Run `codedebrief update` in an already configured project.",
                 ]
             )
@@ -557,9 +599,68 @@ def _print_next_steps(steps: Sequence[str]) -> None:
         print(f"- {step}")
 
 
-def _starter_config_text() -> str:
+def _normalize_source_roots(root: Path, source_roots: Sequence[str] | None) -> list[str] | None:
+    if not source_roots:
+        return None
+    root_resolved = root.resolve()
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw_source in source_roots:
+        source = raw_source.strip()
+        if not source:
+            raise ValueError("--source values must not be empty")
+        candidate = Path(source)
+        resolved = (candidate if candidate.is_absolute() else root_resolved / candidate).resolve()
+        if not resolved.exists():
+            raise FileNotFoundError(f"source path does not exist: {source}")
+        try:
+            relative = resolved.relative_to(root_resolved)
+        except ValueError as error:
+            raise ValueError(f"source path must stay inside the project root: {source}") from error
+        value = relative.as_posix() or "."
+        if value not in seen:
+            normalized.append(value)
+            seen.add(value)
+    return normalized
+
+
+def _set_source_roots(existing: str, source_roots: Sequence[str]) -> str:
+    source_line = f"source_roots = {_toml_string_array(source_roots)}\n"
+    lines = existing.splitlines(keepends=True)
+    start = next(
+        (index for index, line in enumerate(lines) if line.strip() == "[codedebrief]"),
+        None,
+    )
+    if start is None:
+        prefix = "[codedebrief]\n" + source_line
+        return prefix + ("\n" if existing.strip() else "") + existing
+    end = next(
+        (
+            index
+            for index, line in enumerate(lines[start + 1 :], start + 1)
+            if line.lstrip().startswith("[") and line.strip().endswith("]")
+        ),
+        len(lines),
+    )
+    for index in range(start + 1, end):
+        stripped = lines[index].lstrip()
+        if stripped.startswith("source_roots"):
+            lines[index] = source_line
+            return "".join(lines)
+    lines.insert(start + 1, source_line)
+    return "".join(lines)
+
+
+def _toml_string_array(values: Sequence[str]) -> str:
+    return "[" + ", ".join(json.dumps(value) for value in values) + "]"
+
+
+def _starter_config_text(source_roots: Sequence[str] | None = None) -> str:
+    roots = source_roots or ["."]
     return """[codedebrief]
-source_roots = ["."]
+# Analyze only these project-relative folders or files. Artifacts still write under
+# output_dir relative to the project root where you run CodeDebrief.
+source_roots = __SOURCE_ROOTS__
 exclude = []
 exclude_dirs = []
 # Defaults always prune dependency, VCS, cache, temp, and generated directories such as
@@ -579,7 +680,7 @@ exclude = []
 # backend = ["backend/**", "services/**"]
 # frontend = ["frontend/**", "web/**"]
 # edge = ["edge/**", "workers/**"]
-"""
+""".replace("__SOURCE_ROOTS__", _toml_string_array(roots))
 
 
 if __name__ == "__main__":

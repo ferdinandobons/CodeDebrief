@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from codedebrief.analysis.discovery import discover_source_files
+from codedebrief.artifacts import output_paths
 from codedebrief.config import CodeDebriefConfig
 
 
@@ -104,6 +105,35 @@ def test_config_exclude_dirs_prunes_project_specific_directories(tmp_path: Path)
     }
 
     assert files == {"src/real.py"}
+
+
+def test_source_roots_limit_analysis_but_output_stays_in_project_root(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "codedebrief.toml").write_text(
+        '[codedebrief]\nsource_roots = ["backend", "frontend"]\noutput_dir = "codedebrief-out"\n',
+        encoding="utf-8",
+    )
+    backend = project / "backend"
+    frontend = project / "frontend"
+    sandbox = project / "sandbox"
+    backend.mkdir()
+    frontend.mkdir()
+    sandbox.mkdir()
+    (backend / "api.py").write_text("def api():\n    return 1\n", encoding="utf-8")
+    (frontend / "app.ts").write_text("export function app() { return 1; }\n", encoding="utf-8")
+    (sandbox / "scratch.py").write_text("def scratch():\n    return 1\n", encoding="utf-8")
+
+    config = CodeDebriefConfig.load(project)
+    files = {
+        path.relative_to(project).as_posix() for path in discover_source_files(project, config)
+    }
+    json_path, markdown_path, html_path = output_paths(project, config)
+
+    assert files == {"backend/api.py", "frontend/app.ts"}
+    assert json_path == project / "codedebrief-out" / "codedebrief.json"
+    assert markdown_path == project / "codedebrief-out" / "codedebrief.md"
+    assert html_path == project / "codedebrief-out" / "codedebrief.html"
 
 
 def test_default_exclude_dirs_apply_to_source_roots(tmp_path: Path) -> None:
