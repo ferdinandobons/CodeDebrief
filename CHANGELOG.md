@@ -6,6 +6,8 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+## 0.17.0 - 2026-06-22
+
 ### Added
 
 - Added `codedebrief clear` to remove CodeDebrief config, generated artifacts, installed
