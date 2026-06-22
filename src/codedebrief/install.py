@@ -13,7 +13,7 @@ LOCAL_NOTES_START = "<!-- codedebrief:local-notes:start -->"
 LOCAL_NOTES_END = "<!-- codedebrief:local-notes:end -->"
 LOCAL_NOTES_HINT = (
     "<!-- Add project-specific local notes here. This section is preserved by "
-    "`codedebrief setup-agent`. -->"
+    "`codedebrief setup`. -->"
 )
 AGENT_INSTRUCTION_TARGETS = {
     "codex": Path("AGENTS.md"),
@@ -206,7 +206,7 @@ When helping a user set up or learn CodeDebrief:
 3. Do not ask for LLM provider keys for the primary workflow. Language-friendly labels and
    high-level written flows are presentation layers derived from deterministic workflow
    facts.
-4. `codedebrief setup-agent <target>` updates only that target's files. Run the command
+4. `codedebrief setup <target>` updates only that target's files. Run the command
    separately for each agent surface you want to configure, preserving any target-specific
    frontmatter and local notes.
 

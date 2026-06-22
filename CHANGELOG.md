@@ -6,10 +6,15 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+### Added
+
+- Added `codedebrief setup <agent> --source <path> [...]` so initial setup can index only
+  selected folders before the first artifact generation starts.
+
 ### Fixed
 
 - Suppressed non-fatal Python `SyntaxWarning` messages from analyzed project files during
-  `setup-agent` and `update`; valid files with legacy string escapes are still analyzed.
+  `setup` and `update`; valid files with legacy string escapes are still analyzed.
 - Wrote JSON MCP configs from WSL `/mnt/<drive>/...` projects through `wsl.exe --cd` so
   Windows-native agent clients do not receive raw WSL paths as command targets.
 
@@ -117,9 +122,9 @@ The project follows Semantic Versioning.
   and manual exploration through `codedebrief view`.
 - Moved MCP into the default runtime install so release and source-checkout installs include
   the primary agent surface without requiring an optional extra.
-- Updated `codedebrief setup-agent codex|claude|gemini|cursor` so setup writes only the
+- Updated agent setup so it writes only the
   requested target's instruction, skill, and MCP files.
-- Added Gemini CLI / Antigravity parity for `setup-agent gemini`: it now writes the
+- Added Gemini CLI / Antigravity parity for Gemini setup: it now writes the
   provider-native CodeDebrief skill and project-scoped `.gemini/settings.json` MCP config,
   including the same Mermaid artifact guidance used by Claude when inline rendering is not
   available.
@@ -150,8 +155,7 @@ The project follows Semantic Versioning.
 - Removed the public CLI surface for `query`, `impact`, `explain`, `navigate`, and
   `snapshot`; those deterministic capabilities remain internal/MCP-only.
 - Removed `analyze`, `init`, `install`, `llm`, and `enrich` from the public CLI surface;
-  `update` owns refresh/full analysis and `setup-agent` owns initialization and agent
-  setup.
+  `update` owns refresh/full analysis and setup owns initialization and agent setup.
 - Removed dead internal finding detector modules, diagnostic helpers, gated detector
   configuration, detector-only tests, and obsolete example expected-finding docs.
 - Removed dead provider-managed LLM enrichment code and provider/model configuration.

@@ -69,4 +69,4 @@ def test_doctor_reports_legacy_logicchart_mcp_config(tmp_path: Path) -> None:
     assert report.legacy_mcp_configs[0].server == "logicchart"
     rendered = render_doctor(report)
     assert "Legacy LogicChart MCP configs detected" in rendered
-    assert "codedebrief setup-agent" in rendered
+    assert "codedebrief setup" in rendered

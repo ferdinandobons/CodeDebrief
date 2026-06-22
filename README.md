@@ -38,10 +38,16 @@ CodeDebrief requires Python 3.10 or newer. Install it from PyPI with `uv`:
 
 ```bash
 uv tool install codedebrief
-codedebrief setup-agent claude
+codedebrief setup claude
 ```
 
 Replace `claude` with `codex`, `gemini`, or `cursor` for another supported agent surface.
+To analyze only selected folders while keeping `codedebrief-out` in the current project
+root, pass them during setup:
+
+```bash
+codedebrief setup claude --source backend/ frontend/
+```
 
 After setup, ask ordinary questions:
 
@@ -144,7 +150,7 @@ correctness or runtime behavior.
 
 ## Map First, Then Explain
 
-Once `setup-agent` has configured the project MCP server and agent instructions, supported
+Once `setup` has configured the project MCP server and agent instructions, supported
 agents should start code-logic questions with MCP `agent_context`. The agent receives a
 bounded `workflow_slice` before deciding whether it needs more source, a deeper slice, or a
 path trace.
@@ -160,15 +166,16 @@ Rewrite the diagram labels in plain English.
 
 The agent can explain the flowchart, but the static analyzer creates the underlying map.
 
-## Setup-Agent
+## Setup
 
 Supported targets:
 
 ```bash
-codedebrief setup-agent codex
-codedebrief setup-agent claude ../my-app
-codedebrief setup-agent gemini
-codedebrief setup-agent cursor --full
+codedebrief setup codex
+codedebrief setup claude
+codedebrief setup claude --source backend/ frontend/
+codedebrief setup claude ../my-app --source backend-api frontend/src
+codedebrief setup cursor --full
 ```
 
 The selected target controls which files are written:
@@ -180,15 +187,16 @@ The selected target controls which files are written:
 | `gemini` | `GEMINI.md`, `.gemini/skills/codedebrief/SKILL.md`, `.gemini/settings.json` MCP config |
 | `cursor` | `.cursor/rules/codedebrief.mdc`, project MCP config |
 
-`setup-agent <target>` writes only that target's files. Run it separately for each agent
+`setup <target>` writes only that target's files. Run it separately for each agent
 surface you want to configure.
 
-`setup-agent` creates `codedebrief.toml` when needed, installs the selected agent instruction
+`setup` creates `codedebrief.toml` when needed, installs the selected agent instruction
 file, installs a provider-native CodeDebrief skill where supported, registers project-scoped
 MCP where supported, generates initial artifacts, runs `doctor`, and validates the result.
+Use `--source` to set `source_roots` before that initial artifact generation starts.
 
-On Windows, run `setup-agent` in the same environment that will run the coding agent when
-possible. If you run `setup-agent` from WSL inside a `/mnt/c/...` project, CodeDebrief writes
+On Windows, run `setup` in the same environment that will run the coding agent when
+possible. If you run `setup` from WSL inside a `/mnt/c/...` project, CodeDebrief writes
 JSON MCP configs that launch the server through `wsl.exe` with `--cd <project>` and
 `bash -lc "codedebrief mcp ."`,
 so Windows-native agent clients do not receive a raw WSL path as their command target.
@@ -254,7 +262,7 @@ Primary MCP tools:
 | `update_codedebrief` | Refresh JSON, Markdown, and HTML artifacts from local source. |
 
 Use `codedebrief view` for the manual UI. The CLI intentionally stays small:
-`setup-agent`, `update`, `view`, `validate`, `doctor`, and `mcp`.
+`setup`, `update`, `view`, `validate`, `doctor`, and `mcp`.
 
 ## Generated Artifacts
 
@@ -270,7 +278,7 @@ source and that `codedebrief.md` was rendered from that model. Regenerate HTML l
 when a human needs the viewer.
 
 `codedebrief doctor` also reports legacy `logicchart` MCP server configs left from older
-installs. Re-run `codedebrief setup-agent <target>` for the affected agent to replace them
+installs. Re-run `codedebrief setup <target>` for the affected agent to replace them
 with project-scoped `codedebrief` MCP config.
 
 `codedebrief validate --quality` reports analyzer health. Its call-resolution rate is
@@ -282,7 +290,7 @@ like unresolved workflow edges.
 
 A simple shared workflow is:
 
-1. Run `codedebrief setup-agent <target>` in the project.
+1. Run `codedebrief setup <target>` in the project.
 2. Commit `codedebrief.json` and `codedebrief.md`.
 3. Let teammates pull the same source-grounded model.
 4. After workflow-relevant source, route, config, or agent-instruction changes, run
@@ -388,22 +396,14 @@ including `.git`, `node_modules`, virtualenv folders, `.next`, `.turbo`, `.svelt
 ### Analyze Only Selected Folders
 
 Yes, this is supported. Run CodeDebrief from the directory where you want the project
-configuration and `codedebrief-out` folder to live, then limit analysis with
-`source_roots`.
+configuration and `codedebrief-out` folder to live, then pass the selected folders to
+`--source`.
 
 For example, from the repository root:
 
 ```bash
 cd path/to/my-project
-codedebrief setup-agent claude
-```
-
-Then edit `codedebrief.toml`:
-
-```toml
-[codedebrief]
-source_roots = ["backend-api", "frontend/src"]
-output_dir = "codedebrief-out"
+codedebrief setup claude --source backend-api frontend/src
 ```
 
 With that configuration:
@@ -414,9 +414,10 @@ With that configuration:
 - MCP and the manual viewer keep using the root project context, but the modeled workflows
   come only from the selected folders.
 
-`source_roots` entries are project-relative paths and may point to folders or individual
-source files. If you want separate models for different parts of a monorepo, use different
-project roots or profiles with different `output_dir` values.
+`--source` values are project-relative paths and may point to folders or individual source
+files. CodeDebrief writes them into `codedebrief.toml` as `source_roots` before the initial
+analysis starts. If you want separate models for different parts of a monorepo, use
+different project roots or profiles with different `output_dir` values.
 
 ## Limitations
 

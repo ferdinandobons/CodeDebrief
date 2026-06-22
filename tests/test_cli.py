@@ -67,7 +67,7 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "codedebrief view ..." in content
     assert "codedebrief <command> --help" in content
     assert "provider keys" in content
-    assert "`codedebrief setup-agent <target>` updates only that target's files" in content
+    assert "`codedebrief setup <target>` updates only that target's files" in content
     assert "After code or workflow-relevant changes" in content
     assert "artifacts as part of done" in content
     assert "run `codedebrief update` before finalizing or\n   committing" in content
@@ -131,10 +131,11 @@ def test_top_level_help_prioritizes_flag_light_quickstart() -> None:
     help_text = build_parser().format_help()
 
     assert "Quick start:" in help_text
-    assert "codedebrief setup-agent codex" in help_text
+    assert "codedebrief setup codex" in help_text
     assert "codedebrief update\n  codedebrief view" in help_text
     assert "codedebrief doctor" in help_text
-    assert "{setup-agent,update,view,validate,doctor,mcp}" in help_text
+    assert "{setup,update,view,validate,doctor,mcp}" in help_text
+    assert "setup-agent" not in help_text
     for removed in (
         "analyze",
         "install",
@@ -153,14 +154,14 @@ def test_top_level_help_prioritizes_flag_light_quickstart() -> None:
 
 def test_command_help_documents_simple_examples(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc_info:
-        build_parser().parse_args(["setup-agent", "--help"])
+        build_parser().parse_args(["setup", "--help"])
 
     assert exc_info.value.code == 0
     setup_help = capsys.readouterr().out
     assert "Examples:" in setup_help
-    assert "codedebrief setup-agent codex" in setup_help
-    assert "codedebrief setup-agent claude ../my-app" in setup_help
-    assert "codedebrief setup-agent gemini" in setup_help
+    assert "codedebrief setup codex" in setup_help
+    assert "codedebrief setup claude --source backend/ frontend/" in setup_help
+    assert "codedebrief setup claude ../my-app --source backend-api frontend/src" in setup_help
     assert "ask your coding agent ordinary questions" in setup_help
 
 
@@ -249,6 +250,7 @@ def authorize(user):
 @pytest.mark.parametrize(
     "command",
     [
+        "setup-agent",
         "analyze",
         "install",
         "init",
@@ -338,7 +340,7 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
         Path(".gemini/skills/codedebrief/SKILL.md"),
     ]
 
-    assert main(["setup-agent", agent, str(tmp_path), "--no-html"]) == 0
+    assert main(["setup", agent, str(tmp_path), "--no-html"]) == 0
     assert (tmp_path / "codedebrief.toml").exists()
     assert (tmp_path / instruction_path).exists()
     for path in instruction_paths:
@@ -371,8 +373,37 @@ def test_cli_setup_agent_can_write_config_instructions_mcp_and_artifacts(
     assert "CodeDebrief validation OK" in output
     assert f"CodeDebrief agent setup complete for {display}" in output
 
-    assert main(["setup-agent", agent, str(tmp_path), "--no-html"]) == 0
+    assert main(["setup", agent, str(tmp_path), "--no-html"]) == 0
     assert "already up to date" in capsys.readouterr().out
+
+
+def test_cli_setup_source_roots_limit_initial_analysis(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    backend = tmp_path / "backend"
+    frontend = tmp_path / "frontend"
+    scratch = tmp_path / "scratch"
+    backend.mkdir()
+    frontend.mkdir()
+    scratch.mkdir()
+    (backend / "api.py").write_text("def api():\n    return 1\n", encoding="utf-8")
+    (frontend / "app.ts").write_text("export function app() { return 1; }\n", encoding="utf-8")
+    (scratch / "ignored.py").write_text("def ignored():\n    return 1\n", encoding="utf-8")
+
+    assert (
+        main(["setup", "claude", str(tmp_path), "--source", "backend", "frontend", "--no-html"])
+        == 0
+    )
+
+    config_text = (tmp_path / "codedebrief.toml").read_text(encoding="utf-8")
+    artifact = json.loads((tmp_path / "codedebrief-out" / "codedebrief.json").read_text())
+    analyzed_paths = {item["path"] for item in artifact["files"]}
+    output = capsys.readouterr().out
+
+    assert 'source_roots = ["backend", "frontend"]' in config_text
+    assert analyzed_paths == {"backend/api.py", "frontend/app.ts"}
+    assert "- Source roots: backend, frontend" in output
+    assert "Summary: 2 files" in output
 
 
 def test_cli_doctor_reports_active_install(capsys: pytest.CaptureFixture[str]) -> None:

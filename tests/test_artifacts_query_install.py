@@ -85,7 +85,7 @@ def _assert_current_agent_instructions(content: str) -> None:
     assert "requested" in content
     assert "codedebrief view ..." in content
     assert "provider keys" in content
-    assert "`codedebrief setup-agent <target>` updates only that target's files" in content
+    assert "`codedebrief setup <target>` updates only that target's files" in content
     assert "After code or workflow-relevant changes" in content
     assert "artifacts as part of done" in content
     assert "run `codedebrief update` before finalizing or\n   committing" in content
@@ -348,7 +348,7 @@ def test_install_preserves_project_local_notes(tmp_path: Path) -> None:
         content.replace(
             f"{LOCAL_NOTES_START}\n"
             "<!-- Add project-specific local notes here. This section is preserved by "
-            "`codedebrief setup-agent`. -->\n"
+            "`codedebrief setup`. -->\n"
             f"{LOCAL_NOTES_END}",
             f"{LOCAL_NOTES_START}\n{local_note}{LOCAL_NOTES_END}",
         ),
@@ -387,7 +387,7 @@ def test_install_all_refreshes_every_agent_target_and_preserves_local_notes(
             content.replace(
                 f"{LOCAL_NOTES_START}\n"
                 "<!-- Add project-specific local notes here. This section is preserved by "
-                "`codedebrief setup-agent`. -->\n"
+                "`codedebrief setup`. -->\n"
                 f"{LOCAL_NOTES_END}",
                 f"{LOCAL_NOTES_START}\n{local_notes[name]}\n{LOCAL_NOTES_END}",
             ),

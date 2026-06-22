@@ -21,7 +21,7 @@ body:
       label: How can we reproduce it?
       description: List the smallest commands, files, or project shape that trigger the issue.
       placeholder: |
-        1. Run `codedebrief setup-agent codex`
+        1. Run `codedebrief setup codex`
         2. Run `codedebrief update`
         3. Open `codedebrief view`
     validations:

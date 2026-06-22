@@ -127,7 +127,7 @@ def render_doctor(report: DoctorReport) -> str:
         )
         lines.append("")
         lines.append("Repair:")
-        lines.append("  Run `codedebrief setup-agent <target>` for the affected agent target.")
+        lines.append("  Run `codedebrief setup <target>` for the affected agent target.")
     return "\n".join(lines)
 
 
@@ -210,7 +210,7 @@ def _legacy_mcp_configs(root: Path) -> list[LegacyMcpConfig]:
                     path=str(codex_config),
                     server="logicchart",
                     reason="old MCP server name points agents at LogicChart artifacts",
-                    repair_hint="codedebrief setup-agent codex",
+                    repair_hint="codedebrief setup codex",
                 )
             )
     for path in (
@@ -231,7 +231,7 @@ def _legacy_mcp_configs(root: Path) -> list[LegacyMcpConfig]:
                     path=str(path),
                     server="logicchart",
                     reason="old MCP server name can shadow the CodeDebrief MCP server",
-                    repair_hint="codedebrief setup-agent all",
+                    repair_hint="codedebrief setup <target>",
                 )
             )
     return configs
