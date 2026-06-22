@@ -164,6 +164,7 @@ def test_command_help_documents_simple_examples(capsys: pytest.CaptureFixture[st
     assert "codedebrief setup codex" in setup_help
     assert "codedebrief setup claude --source backend/ frontend/" in setup_help
     assert "codedebrief setup claude ../my-app --source backend-api frontend/src" in setup_help
+    assert "codedebrief setup claude ../pipeline-map --source ../repo-a ../repo-b" in setup_help
     assert "ask your coding agent ordinary questions" in setup_help
 
 
@@ -458,6 +459,44 @@ def test_cli_setup_source_roots_limit_initial_analysis(
     assert 'source_roots = ["backend", "frontend"]' in config_text
     assert analyzed_paths == {"backend/api.py", "frontend/app.ts"}
     assert "- Source roots: backend, frontend" in output
+    assert "Summary: 2 files" in output
+
+
+def test_cli_setup_accepts_sibling_repo_source_roots(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workspace = tmp_path / "pipeline-map"
+    service_a = tmp_path / "service-a"
+    service_b = tmp_path / "service-b"
+    workspace.mkdir()
+    service_a.mkdir()
+    service_b.mkdir()
+    (service_a / "extract.py").write_text("def extract():\n    return 1\n", encoding="utf-8")
+    (service_b / "load.ts").write_text("export function load() { return 1; }\n", encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "setup",
+                "claude",
+                str(workspace),
+                "--source",
+                "../service-a",
+                "../service-b",
+                "--no-html",
+            ]
+        )
+        == 0
+    )
+
+    config_text = (workspace / "codedebrief.toml").read_text(encoding="utf-8")
+    artifact = json.loads((workspace / "codedebrief-out" / "codedebrief.json").read_text())
+    analyzed_paths = {item["path"] for item in artifact["files"]}
+    output = capsys.readouterr().out
+
+    assert 'source_roots = ["../service-a", "../service-b"]' in config_text
+    assert analyzed_paths == {"../service-a/extract.py", "../service-b/load.ts"}
+    assert "- Source roots: ../service-a, ../service-b" in output
     assert "Summary: 2 files" in output
 
 

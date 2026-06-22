@@ -189,8 +189,8 @@ class CodeDebriefConfig:
                 for name, patterns in self.scopes.items()
                 if any(_scope_match(normalized, pattern) for pattern in patterns)
             )
-        head, sep, _ = normalized.partition("/")
-        return [head] if sep else []
+        parts = [part for part in normalized.split("/") if part and part not in {".", ".."}]
+        return [parts[0]] if len(parts) > 1 else []
 
 
 def _apply_profile(config: CodeDebriefConfig, profile: str) -> CodeDebriefConfig:

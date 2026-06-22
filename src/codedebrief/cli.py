@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import webbrowser
 from collections.abc import Sequence
@@ -208,6 +209,7 @@ def _add_setup_parser(
               codedebrief setup claude
               codedebrief setup claude --source backend/ frontend/
               codedebrief setup claude ../my-app --source backend-api frontend/src
+              codedebrief setup claude ../pipeline-map --source ../repo-a ../repo-b
               codedebrief setup cursor --full
 
             After setup, ask your coding agent ordinary questions about code logic. Use
@@ -230,8 +232,8 @@ def _add_setup_parser(
         dest="source_roots",
         metavar="PATH",
         help=(
-            "Analyze only these project-relative folders or files during setup; artifacts "
-            "still write under the configured project root."
+            "Analyze only these folders or files during setup, including sibling repos; "
+            "artifacts still write under the configured project root."
         ),
     )
     _add_profile_argument(setup)
@@ -638,15 +640,21 @@ def _normalize_source_roots(root: Path, source_roots: Sequence[str] | None) -> l
         resolved = (candidate if candidate.is_absolute() else root_resolved / candidate).resolve()
         if not resolved.exists():
             raise FileNotFoundError(f"source path does not exist: {source}")
-        try:
-            relative = resolved.relative_to(root_resolved)
-        except ValueError as error:
-            raise ValueError(f"source path must stay inside the project root: {source}") from error
-        value = relative.as_posix() or "."
+        value = _source_root_config_value(root_resolved, resolved)
         if value not in seen:
             normalized.append(value)
             seen.add(value)
     return normalized
+
+
+def _source_root_config_value(root_resolved: Path, resolved: Path) -> str:
+    try:
+        value = os.path.relpath(resolved, root_resolved).replace(os.sep, "/")
+    except ValueError:
+        # Windows cannot relativize across drives. Keep the source usable rather than
+        # rejecting a valid multi-root workspace.
+        value = resolved.as_posix()
+    return "." if value == "." else value
 
 
 def _set_source_roots(existing: str, source_roots: Sequence[str]) -> str:
@@ -683,8 +691,9 @@ def _toml_string_array(values: Sequence[str]) -> str:
 def _starter_config_text(source_roots: Sequence[str] | None = None) -> str:
     roots = source_roots or ["."]
     return """[codedebrief]
-# Analyze only these project-relative folders or files. Artifacts still write under
-# output_dir relative to the project root where you run CodeDebrief.
+# Analyze only these folders or files. Paths are relative to the project root where you
+# run CodeDebrief unless absolute; sibling repos such as "../api" are supported.
+# Artifacts still write under output_dir relative to this project root.
 source_roots = __SOURCE_ROOTS__
 exclude = []
 exclude_dirs = []

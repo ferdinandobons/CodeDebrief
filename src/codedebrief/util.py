@@ -215,4 +215,10 @@ def metadata_scope_names(metadata: dict[str, Any]) -> list[str]:
 
 
 def relpath(path: Path, root: Path) -> str:
-    return path.resolve().relative_to(root.resolve()).as_posix()
+    resolved = path.resolve()
+    try:
+        return os.path.relpath(resolved, root.resolve()).replace(os.sep, "/")
+    except ValueError:
+        # Windows cannot relativize paths across drives. Absolute POSIX-style paths keep
+        # explicit multi-root analysis usable instead of failing artifact generation.
+        return resolved.as_posix()

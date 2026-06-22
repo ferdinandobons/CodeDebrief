@@ -6,6 +6,12 @@ The project follows Semantic Versioning.
 
 ## Unreleased
 
+### Added
+
+- Allowed `source_roots` and `codedebrief setup --source` to point at sibling repositories,
+  so one workspace can model workflows that span multiple local repos while keeping
+  CodeDebrief config and artifacts in a dedicated root folder.
+
 ## 0.15.0 - 2026-06-22
 
 ### Added

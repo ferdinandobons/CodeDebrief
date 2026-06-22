@@ -49,6 +49,15 @@ root, pass them during setup:
 codedebrief setup claude --source backend/ frontend/
 ```
 
+For a multi-repo workspace, create or choose one folder to hold CodeDebrief config and
+artifacts, then point `--source` at the repos:
+
+```bash
+mkdir pipeline-map
+cd pipeline-map
+codedebrief setup claude --source ../ingest-service ../transform-service ../warehouse-ui
+```
+
 Scope size matters. Pointing CodeDebrief at the whole repository or at many large folders
 can materially increase `setup`, `update`, and MCP response times because there are more
 files to hash, parse, link, and search. Prefer the smallest source roots that still contain
@@ -181,6 +190,7 @@ codedebrief setup codex
 codedebrief setup claude
 codedebrief setup claude --source backend/ frontend/
 codedebrief setup claude ../my-app --source backend-api frontend/src
+codedebrief setup claude ../pipeline-map --source ../repo-a ../repo-b
 codedebrief setup cursor --full
 ```
 
@@ -375,8 +385,9 @@ CodeDebrief works without config. Add `codedebrief.toml` only when defaults are 
 
 ```toml
 [codedebrief]
-# Analyze only these project-relative folders or files. Artifacts still write under
-# output_dir relative to the project root where you run CodeDebrief.
+# Analyze only these folders or files. Paths are relative to the project root where you
+# run CodeDebrief unless absolute; sibling repos such as "../api" are supported.
+# Artifacts still write under output_dir relative to this project root.
 source_roots = ["."]
 exclude = []
 exclude_dirs = []
@@ -399,11 +410,11 @@ Defaults prune common VCS, dependency, cache, temporary, generated, and output d
 including `.git`, `node_modules`, virtualenv folders, `.next`, `.turbo`, `.svelte-kit`,
 `dist`, `build`, `out`, `target`, `coverage`, `vendor`, `Pods`, and `codedebrief-out`.
 
-### Analyze Only Selected Folders
+### Analyze Selected Folders Or Repos
 
-Yes, this is supported. Run CodeDebrief from the directory where you want the project
-configuration and `codedebrief-out` folder to live, then pass the selected folders to
-`--source`.
+Yes, this is supported. Run CodeDebrief from the directory where you want the workspace
+configuration and `codedebrief-out` folder to live, then pass the selected folders or repos
+to `--source`.
 
 For example, from the repository root:
 
@@ -420,10 +431,23 @@ With that configuration:
 - MCP and the manual viewer keep using the root project context, but the modeled workflows
   come only from the selected folders.
 
-`--source` values are project-relative paths and may point to folders or individual source
-files. CodeDebrief writes them into `codedebrief.toml` as `source_roots` before the initial
-analysis starts. If you want separate models for different parts of a monorepo, use
-different project roots or profiles with different `output_dir` values.
+For sibling repos, use a dedicated workspace folder:
+
+```bash
+mkdir pipeline-map
+cd pipeline-map
+codedebrief setup claude --source ../repo-ingest ../repo-transform ../repo-app
+```
+
+With that configuration, CodeDebrief writes `codedebrief.toml` and `codedebrief-out/` under
+`pipeline-map/`, while model paths stay relative to that workspace, for example
+`../repo-ingest/src/pipeline.py`. Inferred scopes use the repo folder name (`repo-ingest`,
+`repo-transform`, `repo-app`) unless you define `[codedebrief.scopes]` manually.
+
+`--source` values may point to folders or individual source files. CodeDebrief writes them
+into `codedebrief.toml` as `source_roots` before the initial analysis starts. If you want
+separate models for different parts of a monorepo or multi-repo workspace, use different
+workspace roots or profiles with different `output_dir` values.
 
 ## Limitations
 

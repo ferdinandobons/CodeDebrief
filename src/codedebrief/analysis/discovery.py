@@ -6,6 +6,7 @@ from pathlib import Path
 
 from codedebrief.analysis.registry import supported_suffixes
 from codedebrief.config import CodeDebriefConfig
+from codedebrief.util import relpath
 
 # Running CodeDebrief package dir: discovery.py is <pkg>/analysis/discovery.py,
 # so two parents up is <pkg> (".../codedebrief").
@@ -18,7 +19,8 @@ def discover_source_files(root: Path, config: CodeDebriefConfig) -> list[Path]:
     suffixes = supported_suffixes()
     files: set[Path] = set()
     for source_root in config.source_roots:
-        base = (root_resolved / source_root).resolve()
+        raw_base = Path(source_root)
+        base = (raw_base if raw_base.is_absolute() else root_resolved / raw_base).resolve()
         if not base.exists():
             continue
         for candidate in _candidate_paths(root_resolved, base, config, excluded_roots):
@@ -30,10 +32,10 @@ def discover_source_files(root: Path, config: CodeDebriefConfig) -> list[Path]:
             resolved = candidate.resolve()
             if any(resolved.is_relative_to(item) for item in excluded_roots):
                 continue
-            # A symlink (or junction) whose target resolves outside the analyzed root has
-            # no project-relative path, so relpath would raise. Skip it rather than abort
-            # discovery - it isn't part of this project's tree.
-            if not resolved.is_relative_to(root_resolved):
+            # A symlink (or junction) whose target resolves outside the explicit source
+            # root is not part of the selected source tree. Skip it rather than crawling
+            # arbitrary filesystem locations.
+            if not resolved.is_relative_to(base):
                 continue
             relative = _resolved_relpath(resolved, root_resolved)
             if not config.is_excluded(relative) and not config.is_excluded_dir(relative):
@@ -53,7 +55,7 @@ def _candidate_paths(
     for current, dirnames, filenames in os.walk(base):
         current_path = Path(current)
         current_resolved = current_path.resolve()
-        if not current_resolved.is_relative_to(root_resolved):
+        if not current_resolved.is_relative_to(base):
             dirnames[:] = []
             continue
         if any(current_resolved.is_relative_to(item) for item in excluded_roots):
@@ -69,7 +71,7 @@ def _candidate_paths(
         for dirname in dirnames:
             directory = current_path / dirname
             resolved = directory.resolve()
-            if not resolved.is_relative_to(root_resolved):
+            if not resolved.is_relative_to(base):
                 continue
             if any(resolved.is_relative_to(item) for item in excluded_roots):
                 continue
@@ -83,7 +85,7 @@ def _candidate_paths(
 
 
 def _resolved_relpath(path: Path, root_resolved: Path) -> str:
-    return path.relative_to(root_resolved).as_posix()
+    return relpath(path, root_resolved)
 
 
 def _self_exclude_roots(root: Path) -> list[Path]:

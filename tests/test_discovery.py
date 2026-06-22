@@ -9,8 +9,10 @@ from pathlib import Path
 import pytest
 
 from codedebrief.analysis.discovery import discover_source_files
+from codedebrief.analysis.project import ProjectAnalyzer
 from codedebrief.artifacts import output_paths
 from codedebrief.config import CodeDebriefConfig
+from codedebrief.util import relpath
 
 
 @pytest.mark.skipif(
@@ -134,6 +136,34 @@ def test_source_roots_limit_analysis_but_output_stays_in_project_root(tmp_path: 
     assert json_path == project / "codedebrief-out" / "codedebrief.json"
     assert markdown_path == project / "codedebrief-out" / "codedebrief.md"
     assert html_path == project / "codedebrief-out" / "codedebrief.html"
+
+
+def test_source_roots_can_point_to_sibling_repositories(tmp_path: Path) -> None:
+    workspace = tmp_path / "pipeline-map"
+    service_a = tmp_path / "service-a"
+    service_b = tmp_path / "service-b"
+    scratch = tmp_path / "scratch"
+    workspace.mkdir()
+    service_a.mkdir()
+    service_b.mkdir()
+    scratch.mkdir()
+    (workspace / "codedebrief.toml").write_text(
+        '[codedebrief]\nsource_roots = ["../service-a", "../service-b"]\n',
+        encoding="utf-8",
+    )
+    (service_a / "extract.py").write_text("def extract():\n    return 1\n", encoding="utf-8")
+    (service_b / "load.ts").write_text("export function load() { return 1; }\n", encoding="utf-8")
+    (scratch / "ignored.py").write_text("def ignored():\n    return 1\n", encoding="utf-8")
+
+    config = CodeDebriefConfig.load(workspace)
+    files = {relpath(path, workspace) for path in discover_source_files(workspace, config)}
+    result = ProjectAnalyzer(workspace, config).analyze(full=True)
+    analyzed_paths = {file_record.path for file_record in result.model.files}
+    scopes = result.model.metadata["scopes"]
+
+    assert files == {"../service-a/extract.py", "../service-b/load.ts"}
+    assert analyzed_paths == files
+    assert scopes == {"service-a": 1, "service-b": 1}
 
 
 def test_default_exclude_dirs_apply_to_source_roots(tmp_path: Path) -> None:
